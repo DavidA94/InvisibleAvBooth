@@ -140,3 +140,6 @@ vite.config.ts.timestamp-*
 
 # IDE
 .vscode/
+
+# Backend runtime data — never commit these
+data/bootstrap.txt
