@@ -12,7 +12,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 // directory the process is started from.
 const PACKAGE_ROOT = join(__dirname, "..", "..");
 const DATA_DIR = join(PACKAGE_ROOT, "data");
-const DB_PATH = join(DATA_DIR, "app.database");
+const DB_PATH = join(DATA_DIR, "app.db");
 const KJV_SQL_PATH = join(PACKAGE_ROOT, "..", "..", "bibledb_kjv.sql");
 
 let _db: Database.Database | null = null;

@@ -144,6 +144,7 @@ vite.config.ts.timestamp-*
 # Backend runtime data — never commit these
 logs/
 **/app.db
+**/app.database
 data/bootstrap.txt
 
 # Playwright test artifacts
