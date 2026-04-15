@@ -34,19 +34,19 @@ Tests are part of each story's definition of done. Unit tests (including propert
 - [x] 8. Create backend database layer — src/db/database.ts (SQLite via better-sqlite3, creates data/ dir, loads bibledb_kjv.sql into kjv table on first run) and src/db/schema.ts (CREATE TABLE for users, device_connections, dashboards, widget_configurations)
   - _Requirements: 13, 14, 5d_
 
-- [ ] 9. Write unit tests for database layer — DB initialisation creates all tables, KJV data loads on first run and is skipped on subsequent runs, schema columns match spec (real in-memory SQLite, no mocks needed)
+- [x] 9. Write unit tests for database layer — DB initialisation creates all tables, KJV data loads on first run and is skipped on subsequent runs, schema columns match spec (real in-memory SQLite, no mocks needed)
   - _Requirements: 13, 14, 5d_
 
 - [x] 10. Create backend EventBus — src/eventBus.ts (typed wrapper around Node.js EventEmitter, full EventMap: session:manifest:updated, obs:state:changed, obs:error, obs:error:resolved, device:capabilities:updated)
   - _Requirements: 2, 4_
 
-- [ ] 11. Write unit tests for EventBus — typed emit/on/off for each EventMap event, listener receives correct payload, off removes listener, multiple listeners on same event, no cross-event leakage
+- [x] 11. Write unit tests for EventBus — typed emit/on/off for each EventMap event, listener receives correct payload, off removes listener, multiple listeners on same event, no cross-event leakage
   - _Requirements: 2, 4_
 
 - [x] 12. Create backend logger — src/logger.ts (winston, JSON file transport to logs/app.log via winston-daily-rotate-file at 20MB cap, human-readable console transport, creates logs/ dir, respects LOG_LEVEL)
   - _Requirements: 24_
 
-- [ ] 13. Write unit tests for logger — logger exports debug/info/warn/error methods, LOG_LEVEL env var controls minimum level, JSON transport and console transport are both configured, logs/ directory is created if absent (mock file system side effects)
+- [x] 13. Write unit tests for logger — logger exports debug/info/warn/error methods, LOG_LEVEL env var controls minimum level, JSON transport and console transport are both configured, logs/ directory is created if absent (mock file system side effects)
   - _Requirements: 24_
 
 ---
