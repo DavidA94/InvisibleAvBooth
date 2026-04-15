@@ -115,10 +115,10 @@ Tests are part of each story's definition of done. Unit tests (including propert
 
 ## Session Manifest
 
-- [ ] 28. Create backend SessionManifestService — src/services/sessionManifestService.ts (in-memory SessionManifest, get/update/clear, emits session:manifest:updated on EventBus, subscribes to obs:state:changed to block clear while live, interpolates template with BIBLE_BOOKS for {Scripture})
+- [x] 28. Create backend SessionManifestService — src/services/sessionManifestService.ts (in-memory SessionManifest, get/update/clear, emits session:manifest:updated on EventBus, subscribes to obs:state:changed to block clear while live, interpolates template with BIBLE_BOOKS for {Scripture})
   - _Requirements: 2, 9, 15, 19_
 
-- [ ] 29. Write unit tests for SessionManifestService — get/update/clear, EventBus emissions, clear blocked while live, template interpolation for all tokens and placeholders including {Scripture} range formatting; property-based tests (fast-check) for arbitrary manifest field combinations and template strings (mock EventBus)
+- [x] 29. Write unit tests for SessionManifestService — get/update/clear, EventBus emissions, clear blocked while live, template interpolation for all tokens and placeholders including {Scripture} range formatting; property-based tests (fast-check) for arbitrary manifest field combinations and template strings (mock EventBus)
   - _Requirements: 2, 9, 15_
 
 ---
