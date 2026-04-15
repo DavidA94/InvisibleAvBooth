@@ -72,10 +72,10 @@ Tests are part of each story's definition of done. Unit tests (including propert
 
 ## Device Management
 
-- [ ] 19. Create backend admin device management routes — src/routes/adminDeviceRoutes.ts (GET/POST /admin/devices, GET/PUT/DELETE /admin/devices/:id, ADMIN role, AES-256-GCM encrypt/decrypt via DEVICE_SECRET_KEY, never return password)
+- [x] 19. Create backend admin device management routes — src/routes/adminDeviceRoutes.ts (GET/POST /admin/devices, GET/PUT/DELETE /admin/devices/:id, ADMIN role, AES-256-GCM encrypt/decrypt via DEVICE_SECRET_KEY, never return password)
   - _Requirements: 14_
 
-- [ ] 20. Write integration tests for device management — ADMIN CRUD /admin/devices; encryption round-trip; password never returned in GET/PUT responses; 403 for non-ADMIN (real SQLite, real crypto)
+- [x] 20. Write integration tests for device management — ADMIN CRUD /admin/devices; encryption round-trip; password never returned in GET/PUT responses; 403 for non-ADMIN (real SQLite, real crypto)
   - _Requirements: 14_
 
 ---
