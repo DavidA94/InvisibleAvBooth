@@ -47,14 +47,14 @@ function toPublic(row: DeviceRow): PublicDevice {
   };
 }
 
-export function createAdminDeviceRouter(db: Database, authService: AuthService): Router {
+export function createAdminDeviceRouter(database: Database, authService: AuthService): Router {
   const router = Router();
   const auth = authenticate(authService);
   const adminOnly = requireRole(authService, "ADMIN");
 
   // GET /admin/devices
   router.get("/", auth, adminOnly, (_req: Request, res: Response): void => {
-    const rows = db.prepare("SELECT * FROM device_connections ORDER BY createdAt").all() as DeviceRow[];
+    const rows = database.prepare("SELECT * FROM device_connections ORDER BY createdAt").all() as DeviceRow[];
     res.json(rows.map(toPublic));
   });
 
@@ -90,19 +90,21 @@ export function createAdminDeviceRouter(db: Database, authService: AuthService):
     const createdAt = new Date().toISOString();
     const encryptedPassword = password ? encrypt(password) : null;
 
-    db.prepare(
-      "INSERT INTO device_connections (id, deviceType, label, host, port, encryptedPassword, metadata, features, enabled, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-    ).run(id, deviceType, label, host, port, encryptedPassword, JSON.stringify(metadata), JSON.stringify(features), enabled ? 1 : 0, createdAt);
+    database
+      .prepare(
+        "INSERT INTO device_connections (id, deviceType, label, host, port, encryptedPassword, metadata, features, enabled, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      )
+      .run(id, deviceType, label, host, port, encryptedPassword, JSON.stringify(metadata), JSON.stringify(features), enabled ? 1 : 0, createdAt);
 
     logger.info("Device connection created", { userId: req.jwtPayload!.sub, context: { deviceId: id } });
 
-    const row = db.prepare("SELECT * FROM device_connections WHERE id = ?").get(id) as DeviceRow;
+    const row = database.prepare("SELECT * FROM device_connections WHERE id = ?").get(id) as DeviceRow;
     res.status(201).json(toPublic(row));
   });
 
   // GET /admin/devices/:id
   router.get("/:id", auth, adminOnly, (req: Request, res: Response): void => {
-    const row = db.prepare("SELECT * FROM device_connections WHERE id = ?").get(req.params["id"]) as DeviceRow | undefined;
+    const row = database.prepare("SELECT * FROM device_connections WHERE id = ?").get(req.params["id"]) as DeviceRow | undefined;
     if (!row) {
       res.status(404).json({ error: "Device not found" });
       return;
@@ -112,7 +114,7 @@ export function createAdminDeviceRouter(db: Database, authService: AuthService):
 
   // PUT /admin/devices/:id
   router.put("/:id", auth, adminOnly, (req: Request, res: Response): void => {
-    const row = db.prepare("SELECT * FROM device_connections WHERE id = ?").get(req.params["id"]) as DeviceRow | undefined;
+    const row = database.prepare("SELECT * FROM device_connections WHERE id = ?").get(req.params["id"]) as DeviceRow | undefined;
     if (!row) {
       res.status(404).json({ error: "Device not found" });
       return;
@@ -131,33 +133,35 @@ export function createAdminDeviceRouter(db: Database, authService: AuthService):
 
     const encryptedPassword = password ? encrypt(password) : row.encryptedPassword;
 
-    db.prepare("UPDATE device_connections SET deviceType=?, label=?, host=?, port=?, encryptedPassword=?, metadata=?, features=?, enabled=? WHERE id=?").run(
-      deviceType ?? row.deviceType,
-      label ?? row.label,
-      host ?? row.host,
-      port ?? row.port,
-      encryptedPassword,
-      JSON.stringify(metadata ?? (JSON.parse(row.metadata) as Record<string, string>)),
-      JSON.stringify(features ?? (JSON.parse(row.features) as Record<string, boolean>)),
-      // eslint-disable-next-line eqeqeq -- use != so it catches null or undefined, but not false
-      enabled != null ? (enabled ? 1 : 0) : row.enabled,
-      row.id,
-    );
+    database
+      .prepare("UPDATE device_connections SET deviceType=?, label=?, host=?, port=?, encryptedPassword=?, metadata=?, features=?, enabled=? WHERE id=?")
+      .run(
+        deviceType ?? row.deviceType,
+        label ?? row.label,
+        host ?? row.host,
+        port ?? row.port,
+        encryptedPassword,
+        JSON.stringify(metadata ?? (JSON.parse(row.metadata) as Record<string, string>)),
+        JSON.stringify(features ?? (JSON.parse(row.features) as Record<string, boolean>)),
+        // eslint-disable-next-line eqeqeq -- use != so it catches null or undefined, but not false
+        enabled != null ? (enabled ? 1 : 0) : row.enabled,
+        row.id,
+      );
 
     logger.info("Device connection updated", { userId: req.jwtPayload!.sub, context: { deviceId: row.id } });
 
-    const updated = db.prepare("SELECT * FROM device_connections WHERE id = ?").get(row.id) as DeviceRow;
+    const updated = database.prepare("SELECT * FROM device_connections WHERE id = ?").get(row.id) as DeviceRow;
     res.json(toPublic(updated));
   });
 
   // DELETE /admin/devices/:id
   router.delete("/:id", auth, adminOnly, (req: Request, res: Response): void => {
-    const row = db.prepare("SELECT id FROM device_connections WHERE id = ?").get(req.params["id"]);
+    const row = database.prepare("SELECT id FROM device_connections WHERE id = ?").get(req.params["id"]);
     if (!row) {
       res.status(404).json({ error: "Device not found" });
       return;
     }
-    db.prepare("DELETE FROM device_connections WHERE id = ?").run(req.params["id"]);
+    database.prepare("DELETE FROM device_connections WHERE id = ?").run(req.params["id"]);
     logger.info("Device connection deleted", { userId: req.jwtPayload!.sub, context: { deviceId: req.params["id"] } });
     res.status(204).send();
   });

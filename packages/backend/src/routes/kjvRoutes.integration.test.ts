@@ -14,13 +14,13 @@ let cookie = "";
 
 beforeAll(async () => {
   resetDb();
-  const db = getDb(); // loads real KJV data
-  const authService = new AuthService(db);
+  const database = getDb(); // loads real KJV data
+  const authService = new AuthService(database);
   const app = express();
   app.use(express.json());
   app.use(cookieParser());
   app.use("/auth", createAuthRouter(authService));
-  app.use("/api/kjv", createKjvRouter(db, authService));
+  app.use("/api/kjv", createKjvRouter(database, authService));
 
   // Create a user and log in once for all tests
   await authService.createUser(

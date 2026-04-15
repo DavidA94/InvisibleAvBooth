@@ -11,15 +11,15 @@ import jwt from "jsonwebtoken";
 // The AuthService uses BCRYPT_ROUNDS=12 internally; we can't override that
 // without dependency injection, so unit tests that call bcrypt are slightly slow.
 
-function makeDb() {
-  const db = new Database(":memory:");
-  db.pragma("foreign_keys = ON");
-  applySchema(db);
-  return db;
+function makeDatabase() {
+  const database = new Database(":memory:");
+  database.pragma("foreign_keys = ON");
+  applySchema(database);
+  return database;
 }
 
-function makeService(db: Database.Database) {
-  return new AuthService(db);
+function makeService(database: Database.Database) {
+  return new AuthService(database);
 }
 
 const adminActor: JwtPayload = {
@@ -40,68 +40,68 @@ const volunteerActor: JwtPayload = {
 
 describe("AuthService.bootstrapIfEmpty", () => {
   it("creates an admin user when no users exist", () => {
-    const db = makeDb();
-    const svc = makeService(db);
-    svc.bootstrapIfEmpty();
-    const count = (db.prepare("SELECT COUNT(*) as cnt FROM users").get() as { cnt: number }).cnt;
+    const database = makeDatabase();
+    const service = makeService(database);
+    service.bootstrapIfEmpty();
+    const count = (database.prepare("SELECT COUNT(*) as cnt FROM users").get() as { cnt: number }).cnt;
     expect(count).toBe(1);
   });
 
   it("sets requiresPasswordChange on the bootstrap user", () => {
-    const db = makeDb();
-    const svc = makeService(db);
-    svc.bootstrapIfEmpty();
-    const row = db.prepare("SELECT requiresPasswordChange FROM users WHERE username = 'admin'").get() as { requiresPasswordChange: number };
+    const database = makeDatabase();
+    const service = makeService(database);
+    service.bootstrapIfEmpty();
+    const row = database.prepare("SELECT requiresPasswordChange FROM users WHERE username = 'admin'").get() as { requiresPasswordChange: number };
     expect(row.requiresPasswordChange).toBe(1);
   });
 
   it("does not create a user if one already exists", () => {
-    const db = makeDb();
-    const svc = makeService(db);
-    svc.bootstrapIfEmpty();
-    svc.bootstrapIfEmpty(); // second call
-    const count = (db.prepare("SELECT COUNT(*) as cnt FROM users").get() as { cnt: number }).cnt;
+    const database = makeDatabase();
+    const service = makeService(database);
+    service.bootstrapIfEmpty();
+    service.bootstrapIfEmpty(); // second call
+    const count = (database.prepare("SELECT COUNT(*) as cnt FROM users").get() as { cnt: number }).cnt;
     expect(count).toBe(1);
   });
 });
 
 describe("AuthService.login", () => {
   it("returns a token on valid credentials", async () => {
-    const db = makeDb();
-    const svc = makeService(db);
-    await svc.createUser({ username: "alice", password: "pass123", role: "AvVolunteer" }, adminActor);
-    const result = await svc.login("alice", "pass123");
+    const database = makeDatabase();
+    const service = makeService(database);
+    await service.createUser({ username: "alice", password: "pass123", role: "AvVolunteer" }, adminActor);
+    const result = await service.login("alice", "pass123");
     expect(result.success).toBe(true);
     if (result.success) expect(result.value.token).toBeTruthy();
   });
 
   it("fails on wrong password", async () => {
-    const db = makeDb();
-    const svc = makeService(db);
-    await svc.createUser({ username: "alice", password: "pass123", role: "AvVolunteer" }, adminActor);
-    const result = await svc.login("alice", "wrong");
+    const database = makeDatabase();
+    const service = makeService(database);
+    await service.createUser({ username: "alice", password: "pass123", role: "AvVolunteer" }, adminActor);
+    const result = await service.login("alice", "wrong");
     expect(result.success).toBe(false);
     if (!result.success) expect(result.error.code).toBe("INVALID_CREDENTIALS");
   });
 
   it("fails on unknown username", async () => {
-    const db = makeDb();
-    const svc = makeService(db);
-    const result = await svc.login("nobody", "pass");
+    const database = makeDatabase();
+    const service = makeService(database);
+    const result = await service.login("nobody", "pass");
     expect(result.success).toBe(false);
     if (!result.success) expect(result.error.code).toBe("INVALID_CREDENTIALS");
   });
 
   it("includes requiresPasswordChange in token when flag is set", async () => {
-    const db = makeDb();
-    const svc = makeService(db);
-    svc.bootstrapIfEmpty();
+    const database = makeDatabase();
+    const service = makeService(database);
+    service.bootstrapIfEmpty();
     // Get the bootstrap password from the DB — we can't read bootstrap.txt in tests
     // so we reset the password directly and log in
-    const row = db.prepare("SELECT id FROM users WHERE username = 'admin'").get() as { id: string };
-    await svc.changePassword(row.id, "newpass", { ...adminActor, sub: row.id });
+    const row = database.prepare("SELECT id FROM users WHERE username = 'admin'").get() as { id: string };
+    await service.changePassword(row.id, "newpass", { ...adminActor, sub: row.id });
     // After changePassword, requiresPasswordChange is cleared — verify via login
-    const result = await svc.login("admin", "newpass");
+    const result = await service.login("admin", "newpass");
     expect(result.success).toBe(true);
     if (result.success) {
       const decoded = jwt.decode(result.value.token) as JwtPayload;
@@ -110,11 +110,11 @@ describe("AuthService.login", () => {
   });
 
   it("sets longer expiry with rememberMe", async () => {
-    const db = makeDb();
-    const svc = makeService(db);
-    await svc.createUser({ username: "alice", password: "pass", role: "AvVolunteer" }, adminActor);
-    const short = await svc.login("alice", "pass", false);
-    const long = await svc.login("alice", "pass", true);
+    const database = makeDatabase();
+    const service = makeService(database);
+    await service.createUser({ username: "alice", password: "pass", role: "AvVolunteer" }, adminActor);
+    const short = await service.login("alice", "pass", false);
+    const long = await service.login("alice", "pass", true);
     expect(short.success && long.success).toBe(true);
     if (short.success && long.success) {
       const s = jwt.decode(short.value.token) as JwtPayload;
@@ -126,21 +126,21 @@ describe("AuthService.login", () => {
 
 describe("AuthService.verifyToken", () => {
   it("returns payload for a valid token", async () => {
-    const db = makeDb();
-    const svc = makeService(db);
-    await svc.createUser({ username: "alice", password: "pass", role: "AvVolunteer" }, adminActor);
-    const loginResult = await svc.login("alice", "pass");
+    const database = makeDatabase();
+    const service = makeService(database);
+    await service.createUser({ username: "alice", password: "pass", role: "AvVolunteer" }, adminActor);
+    const loginResult = await service.login("alice", "pass");
     expect(loginResult.success).toBe(true);
     if (!loginResult.success) return;
-    const result = svc.verifyToken(loginResult.value.token);
+    const result = service.verifyToken(loginResult.value.token);
     expect(result.success).toBe(true);
     if (result.success) expect(result.value.username).toBe("alice");
   });
 
   it("fails for a tampered token", () => {
-    const db = makeDb();
-    const svc = makeService(db);
-    const result = svc.verifyToken("not.a.token");
+    const database = makeDatabase();
+    const service = makeService(database);
+    const result = service.verifyToken("not.a.token");
     expect(result.success).toBe(false);
     if (!result.success) expect(result.error.code).toBe("INVALID_TOKEN");
   });
@@ -148,34 +148,34 @@ describe("AuthService.verifyToken", () => {
 
 describe("AuthService.requireRole", () => {
   it("allows ADMIN to access ADMIN-required resource", () => {
-    const svc = makeService(makeDb());
-    expect(svc.requireRole(adminActor, "ADMIN").success).toBe(true);
+    const service = makeService(makeDatabase());
+    expect(service.requireRole(adminActor, "ADMIN").success).toBe(true);
   });
 
   it("allows ADMIN to access AvVolunteer-required resource", () => {
-    const svc = makeService(makeDb());
-    expect(svc.requireRole(adminActor, "AvVolunteer").success).toBe(true);
+    const service = makeService(makeDatabase());
+    expect(service.requireRole(adminActor, "AvVolunteer").success).toBe(true);
   });
 
   it("denies AvVolunteer from ADMIN-required resource", () => {
-    const svc = makeService(makeDb());
-    const result = svc.requireRole(volunteerActor, "ADMIN");
+    const service = makeService(makeDatabase());
+    const result = service.requireRole(volunteerActor, "ADMIN");
     expect(result.success).toBe(false);
     if (!result.success) expect(result.error.code).toBe("INSUFFICIENT_ROLE");
   });
 
   it("allows AvPowerUser to access AvVolunteer-required resource", () => {
-    const svc = makeService(makeDb());
+    const service = makeService(makeDatabase());
     const powerUser: JwtPayload = { ...adminActor, role: "AvPowerUser" };
-    expect(svc.requireRole(powerUser, "AvVolunteer").success).toBe(true);
+    expect(service.requireRole(powerUser, "AvVolunteer").success).toBe(true);
   });
 });
 
 describe("AuthService.createUser", () => {
   it("creates a user and returns it without password", async () => {
-    const db = makeDb();
-    const svc = makeService(db);
-    const result = await svc.createUser({ username: "bob", password: "secret", role: "AvVolunteer" }, adminActor);
+    const database = makeDatabase();
+    const service = makeService(database);
+    const result = await service.createUser({ username: "bob", password: "secret", role: "AvVolunteer" }, adminActor);
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.value.username).toBe("bob");
@@ -184,17 +184,17 @@ describe("AuthService.createUser", () => {
   });
 
   it("rejects duplicate username", async () => {
-    const db = makeDb();
-    const svc = makeService(db);
-    await svc.createUser({ username: "bob", password: "secret", role: "AvVolunteer" }, adminActor);
-    const result = await svc.createUser({ username: "bob", password: "other", role: "ADMIN" }, adminActor);
+    const database = makeDatabase();
+    const service = makeService(database);
+    await service.createUser({ username: "bob", password: "secret", role: "AvVolunteer" }, adminActor);
+    const result = await service.createUser({ username: "bob", password: "other", role: "ADMIN" }, adminActor);
     expect(result.success).toBe(false);
     if (!result.success) expect(result.error.code).toBe("USERNAME_TAKEN");
   });
 
   it("rejects non-ADMIN actor", async () => {
-    const svc = makeService(makeDb());
-    const result = await svc.createUser({ username: "x", password: "y", role: "AvVolunteer" }, volunteerActor);
+    const service = makeService(makeDatabase());
+    const result = await service.createUser({ username: "x", password: "y", role: "AvVolunteer" }, volunteerActor);
     expect(result.success).toBe(false);
     if (!result.success) expect(result.error.code).toBe("INSUFFICIENT_ROLE");
   });
@@ -202,31 +202,31 @@ describe("AuthService.createUser", () => {
 
 describe("AuthService.updateUser", () => {
   it("updates username", async () => {
-    const db = makeDb();
-    const svc = makeService(db);
-    const created = await svc.createUser({ username: "bob", password: "pass", role: "AvVolunteer" }, adminActor);
+    const database = makeDatabase();
+    const service = makeService(database);
+    const created = await service.createUser({ username: "bob", password: "pass", role: "AvVolunteer" }, adminActor);
     expect(created.success).toBe(true);
     if (!created.success) return;
-    const result = await svc.updateUser(created.value.id, { username: "bobby" }, adminActor);
+    const result = await service.updateUser(created.value.id, { username: "bobby" }, adminActor);
     expect(result.success).toBe(true);
     if (result.success) expect(result.value.username).toBe("bobby");
   });
 
   it("returns USER_NOT_FOUND for unknown id", async () => {
-    const svc = makeService(makeDb());
-    const result = await svc.updateUser("nonexistent", { username: "x" }, adminActor);
+    const service = makeService(makeDatabase());
+    const result = await service.updateUser("nonexistent", { username: "x" }, adminActor);
     expect(result.success).toBe(false);
     if (!result.success) expect(result.error.code).toBe("USER_NOT_FOUND");
   });
 
   it("rejects duplicate username on update", async () => {
-    const db = makeDb();
-    const svc = makeService(db);
-    await svc.createUser({ username: "alice", password: "p", role: "AvVolunteer" }, adminActor);
-    const bob = await svc.createUser({ username: "bob", password: "p", role: "AvVolunteer" }, adminActor);
+    const database = makeDatabase();
+    const service = makeService(database);
+    await service.createUser({ username: "alice", password: "p", role: "AvVolunteer" }, adminActor);
+    const bob = await service.createUser({ username: "bob", password: "p", role: "AvVolunteer" }, adminActor);
     expect(bob.success).toBe(true);
     if (!bob.success) return;
-    const result = await svc.updateUser(bob.value.id, { username: "alice" }, adminActor);
+    const result = await service.updateUser(bob.value.id, { username: "alice" }, adminActor);
     expect(result.success).toBe(false);
     if (!result.success) expect(result.error.code).toBe("USERNAME_TAKEN");
   });
@@ -234,27 +234,27 @@ describe("AuthService.updateUser", () => {
 
 describe("AuthService.deleteUser", () => {
   it("deletes a user", async () => {
-    const db = makeDb();
-    const svc = makeService(db);
-    const created = await svc.createUser({ username: "bob", password: "pass", role: "AvVolunteer" }, adminActor);
+    const database = makeDatabase();
+    const service = makeService(database);
+    const created = await service.createUser({ username: "bob", password: "pass", role: "AvVolunteer" }, adminActor);
     expect(created.success).toBe(true);
     if (!created.success) return;
-    const result = svc.deleteUser(created.value.id, adminActor);
+    const result = service.deleteUser(created.value.id, adminActor);
     expect(result.success).toBe(true);
-    const count = (db.prepare("SELECT COUNT(*) as cnt FROM users WHERE id = ?").get(created.value.id) as { cnt: number }).cnt;
+    const count = (database.prepare("SELECT COUNT(*) as cnt FROM users WHERE id = ?").get(created.value.id) as { cnt: number }).cnt;
     expect(count).toBe(0);
   });
 
   it("blocks self-delete", () => {
-    const svc = makeService(makeDb());
-    const result = svc.deleteUser(adminActor.sub, adminActor);
+    const service = makeService(makeDatabase());
+    const result = service.deleteUser(adminActor.sub, adminActor);
     expect(result.success).toBe(false);
     if (!result.success) expect(result.error.code).toBe("SELF_DELETE");
   });
 
   it("returns USER_NOT_FOUND for unknown id", () => {
-    const svc = makeService(makeDb());
-    const result = svc.deleteUser("nonexistent", adminActor);
+    const service = makeService(makeDatabase());
+    const result = service.deleteUser("nonexistent", adminActor);
     expect(result.success).toBe(false);
     if (!result.success) expect(result.error.code).toBe("USER_NOT_FOUND");
   });
@@ -262,10 +262,10 @@ describe("AuthService.deleteUser", () => {
 
 describe("AuthService.listUsers", () => {
   it("returns all users without password hashes", async () => {
-    const db = makeDb();
-    const svc = makeService(db);
-    await svc.createUser({ username: "alice", password: "p", role: "AvVolunteer" }, adminActor);
-    const result = svc.listUsers(adminActor);
+    const database = makeDatabase();
+    const service = makeService(database);
+    await service.createUser({ username: "alice", password: "p", role: "AvVolunteer" }, adminActor);
+    const result = service.listUsers(adminActor);
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.value).toHaveLength(1);
@@ -274,30 +274,30 @@ describe("AuthService.listUsers", () => {
   });
 
   it("rejects non-ADMIN", () => {
-    const svc = makeService(makeDb());
-    const result = svc.listUsers(volunteerActor);
+    const service = makeService(makeDatabase());
+    const result = service.listUsers(volunteerActor);
     expect(result.success).toBe(false);
   });
 });
 
 describe("AuthService.changePassword", () => {
   it("clears requiresPasswordChange flag", async () => {
-    const db = makeDb();
-    const svc = makeService(db);
-    svc.bootstrapIfEmpty();
-    const row = db.prepare("SELECT id FROM users WHERE username = 'admin'").get() as { id: string };
-    const result = await svc.changePassword(row.id, "newpass", { ...adminActor, sub: row.id });
+    const database = makeDatabase();
+    const service = makeService(database);
+    service.bootstrapIfEmpty();
+    const row = database.prepare("SELECT id FROM users WHERE username = 'admin'").get() as { id: string };
+    const result = await service.changePassword(row.id, "newpass", { ...adminActor, sub: row.id });
     expect(result.success).toBe(true);
-    const updated = db.prepare("SELECT requiresPasswordChange FROM users WHERE id = ?").get(row.id) as { requiresPasswordChange: number };
+    const updated = database.prepare("SELECT requiresPasswordChange FROM users WHERE id = ?").get(row.id) as { requiresPasswordChange: number };
     expect(updated.requiresPasswordChange).toBe(0);
   });
 
   it("issues a new JWT without requiresPasswordChange", async () => {
-    const db = makeDb();
-    const svc = makeService(db);
-    svc.bootstrapIfEmpty();
-    const row = db.prepare("SELECT id FROM users WHERE username = 'admin'").get() as { id: string };
-    const result = await svc.changePassword(row.id, "newpass", { ...adminActor, sub: row.id });
+    const database = makeDatabase();
+    const service = makeService(database);
+    service.bootstrapIfEmpty();
+    const row = database.prepare("SELECT id FROM users WHERE username = 'admin'").get() as { id: string };
+    const result = await service.changePassword(row.id, "newpass", { ...adminActor, sub: row.id });
     expect(result.success).toBe(true);
     if (result.success) {
       const decoded = jwt.decode(result.value.token) as JwtPayload;
@@ -306,30 +306,30 @@ describe("AuthService.changePassword", () => {
   });
 
   it("returns USER_NOT_FOUND for unknown id", async () => {
-    const svc = makeService(makeDb());
-    const result = await svc.changePassword("nonexistent", "pass", adminActor);
+    const service = makeService(makeDatabase());
+    const result = await service.changePassword("nonexistent", "pass", adminActor);
     expect(result.success).toBe(false);
     if (!result.success) expect(result.error.code).toBe("USER_NOT_FOUND");
   });
 
   it("allows user to change their own password", async () => {
-    const db = makeDb();
-    const svc = makeService(db);
-    const created = await svc.createUser({ username: "alice", password: "old", role: "AvVolunteer" }, adminActor);
+    const database = makeDatabase();
+    const service = makeService(database);
+    const created = await service.createUser({ username: "alice", password: "old", role: "AvVolunteer" }, adminActor);
     expect(created.success).toBe(true);
     if (!created.success) return;
     const aliceActor: JwtPayload = { ...volunteerActor, sub: created.value.id };
-    const result = await svc.changePassword(created.value.id, "new", aliceActor);
+    const result = await service.changePassword(created.value.id, "new", aliceActor);
     expect(result.success).toBe(true);
   });
 
   it("blocks non-ADMIN from changing another user's password", async () => {
-    const db = makeDb();
-    const svc = makeService(db);
-    const created = await svc.createUser({ username: "alice", password: "old", role: "AvVolunteer" }, adminActor);
+    const database = makeDatabase();
+    const service = makeService(database);
+    const created = await service.createUser({ username: "alice", password: "old", role: "AvVolunteer" }, adminActor);
     expect(created.success).toBe(true);
     if (!created.success) return;
-    const result = await svc.changePassword(created.value.id, "new", volunteerActor);
+    const result = await service.changePassword(created.value.id, "new", volunteerActor);
     expect(result.success).toBe(false);
     if (!result.success) expect(result.error.code).toBe("INSUFFICIENT_ROLE");
   });
@@ -338,12 +338,12 @@ describe("AuthService.changePassword", () => {
     // The bootstrap.txt deletion is covered by the integration path:
     // bootstrapIfEmpty writes the file, changePassword deletes it.
     // We verify the happy path doesn't throw even when the file doesn't exist.
-    const db = makeDb();
-    const svc = makeService(db);
-    const created = await svc.createUser({ username: "alice", password: "old", role: "AvVolunteer" }, adminActor);
+    const database = makeDatabase();
+    const service = makeService(database);
+    const created = await service.createUser({ username: "alice", password: "old", role: "AvVolunteer" }, adminActor);
     expect(created.success).toBe(true);
     if (!created.success) return;
     const aliceActor: JwtPayload = { ...volunteerActor, sub: created.value.id };
-    await expect(svc.changePassword(created.value.id, "new", aliceActor)).resolves.toMatchObject({ success: true });
+    await expect(service.changePassword(created.value.id, "new", aliceActor)).resolves.toMatchObject({ success: true });
   });
 });

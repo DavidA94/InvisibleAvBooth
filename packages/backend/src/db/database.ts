@@ -7,12 +7,12 @@ import { logger } from "../logger.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-// Resolve paths relative to the backend package root (two levels up from src/db/).
+// Resolve paths relative to the backend package root (two levels up from src/database/).
 // This ensures data/ and the sql file are always found regardless of the working
 // directory the process is started from.
 const PACKAGE_ROOT = join(__dirname, "..", "..");
 const DATA_DIR = join(PACKAGE_ROOT, "data");
-const DB_PATH = join(DATA_DIR, "app.db");
+const DB_PATH = join(DATA_DIR, "app.database");
 const KJV_SQL_PATH = join(PACKAGE_ROOT, "..", "..", "bibledb_kjv.sql");
 
 let _db: Database.Database | null = null;
@@ -51,12 +51,12 @@ export function resetDb(): void {
 }
 
 // Load the KJV bible data on first run. Exported for testing.
-export function seedKjv(db: Database.Database, sqlPath: string): void {
-  const tableExists = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='kjv'").get();
+export function seedKjv(database: Database.Database, sqlPath: string): void {
+  const tableExists = database.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='kjv'").get();
 
   if (tableExists) return;
 
-  db.exec(`
+  database.exec(`
     CREATE TABLE IF NOT EXISTS kjv (
       BOOKID    INTEGER,
       CHAPTERNO INTEGER,
@@ -80,9 +80,9 @@ export function seedKjv(db: Database.Database, sqlPath: string): void {
   // requires them but they can never actually be reached.
   const rowPattern = /\((\d+),\s*(\d+),\s*(\d+),\s*'((?:[^']|'')*)'\)/g;
 
-  const insert = db.prepare("INSERT INTO kjv (BOOKID, CHAPTERNO, VERSENO, VERSETEXT) VALUES (?, ?, ?, ?)");
+  const insert = database.prepare("INSERT INTO kjv (BOOKID, CHAPTERNO, VERSENO, VERSETEXT) VALUES (?, ?, ?, ?)");
 
-  const insertMany = db.transaction((rows: [number, number, number, string][]) => {
+  const insertMany = database.transaction((rows: [number, number, number, string][]) => {
     for (const [bookId, chapter, verse, text] of rows) {
       insert.run(bookId, chapter, verse, text.replace(/''/g, "'"));
     }

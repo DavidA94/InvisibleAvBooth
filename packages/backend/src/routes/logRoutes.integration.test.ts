@@ -12,9 +12,9 @@ import { logger } from "../logger.js";
 const seedActor = { sub: "seed", username: "seed", role: "ADMIN" as const, iat: 0, exp: 9999999999 };
 
 function buildApp() {
-  const db = new Database(":memory:");
-  applySchema(db);
-  const authService = new AuthService(db);
+  const database = new Database(":memory:");
+  applySchema(database);
+  const authService = new AuthService(database);
   const app = express();
   app.use(express.json());
   app.use(cookieParser());

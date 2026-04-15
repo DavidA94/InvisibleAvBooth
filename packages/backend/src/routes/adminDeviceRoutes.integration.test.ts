@@ -19,16 +19,16 @@ beforeAll(() => {
 const seedActor = { sub: "seed", username: "seed", role: "ADMIN" as const, iat: 0, exp: 9999999999 };
 
 function buildApp() {
-  const db = new Database(":memory:");
-  db.pragma("foreign_keys = ON");
-  applySchema(db);
-  const authService = new AuthService(db);
+  const database = new Database(":memory:");
+  database.pragma("foreign_keys = ON");
+  applySchema(database);
+  const authService = new AuthService(database);
   const app = express();
   app.use(express.json());
   app.use(cookieParser());
   app.use("/auth", createAuthRouter(authService));
-  app.use("/admin/devices", createAdminDeviceRouter(db, authService));
-  return { app, db, authService };
+  app.use("/admin/devices", createAdminDeviceRouter(database, authService));
+  return { app, database, authService };
 }
 
 async function loginAsAdmin(app: express.Express, authService: AuthService) {
@@ -156,7 +156,7 @@ describe("DELETE /admin/devices/:id", () => {
 
 describe("encryption", () => {
   it("password is encrypted at rest and never returned in responses", async () => {
-    const { app, db, authService } = buildApp();
+    const { app, database, authService } = buildApp();
     const cookie = await loginAsAdmin(app, authService);
     const created = await request(app)
       .post("/admin/devices")
@@ -165,7 +165,7 @@ describe("encryption", () => {
     const id = created.body.id as string;
 
     // Verify the stored value is encrypted (not plaintext)
-    const row = db.prepare("SELECT encryptedPassword FROM device_connections WHERE id = ?").get(id) as { encryptedPassword: string };
+    const row = database.prepare("SELECT encryptedPassword FROM device_connections WHERE id = ?").get(id) as { encryptedPassword: string };
     expect(row.encryptedPassword).not.toBe("mysecret");
 
     // Verify decryption round-trip
@@ -178,7 +178,7 @@ describe("encryption", () => {
   });
 
   it("password is preserved when updating other fields", async () => {
-    const { app, db, authService } = buildApp();
+    const { app, database, authService } = buildApp();
     const cookie = await loginAsAdmin(app, authService);
     const created = await request(app)
       .post("/admin/devices")
@@ -189,7 +189,7 @@ describe("encryption", () => {
     // Update label only — no new password
     await request(app).put(`/admin/devices/${id}`).set("Cookie", cookie).send({ label: "New Label" });
 
-    const row = db.prepare("SELECT encryptedPassword FROM device_connections WHERE id = ?").get(id) as { encryptedPassword: string };
+    const row = database.prepare("SELECT encryptedPassword FROM device_connections WHERE id = ?").get(id) as { encryptedPassword: string };
     expect(decrypt(row.encryptedPassword)).toBe("original");
   });
 

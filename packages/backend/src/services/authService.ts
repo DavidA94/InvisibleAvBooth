@@ -83,12 +83,12 @@ interface UserRow {
 }
 
 export class AuthService {
-  constructor(private readonly db: Database) {}
+  constructor(private readonly database: Database) {}
 
   // Bootstrap: if no users exist, create a default admin with a random password.
   // Writes credentials to stdout and data/bootstrap.txt.
   bootstrapIfEmpty(): void {
-    const count = (this.db.prepare("SELECT COUNT(*) as cnt FROM users").get() as { cnt: number }).cnt;
+    const count = (this.database.prepare("SELECT COUNT(*) as cnt FROM users").get() as { cnt: number }).cnt;
     if (count > 0) return;
 
     const password = randomBytes(12).toString("base64url").slice(0, 16);
@@ -96,7 +96,7 @@ export class AuthService {
     const id = randomBytes(16).toString("hex");
     const createdAt = new Date().toISOString();
 
-    this.db
+    this.database
       .prepare("INSERT INTO users (id, username, passwordHash, role, requiresPasswordChange, createdAt) VALUES (?, ?, ?, ?, ?, ?)")
       .run(id, "admin", passwordHash, "ADMIN", 1, createdAt);
 
@@ -113,7 +113,7 @@ export class AuthService {
   }
 
   async login(username: string, password: string, rememberMe = false): Promise<Result<{ token: string; user: AuthResult }, AuthError>> {
-    const row = this.db.prepare("SELECT * FROM users WHERE username = ?").get(username) as UserRow | undefined;
+    const row = this.database.prepare("SELECT * FROM users WHERE username = ?").get(username) as UserRow | undefined;
 
     if (!row) {
       return { success: false, error: new AuthError("INVALID_CREDENTIALS", "Invalid username or password") };
@@ -165,7 +165,7 @@ export class AuthService {
     const roleCheck = this.requireRole(actor, "ADMIN");
     if (!roleCheck.success) return roleCheck;
 
-    const existing = this.db.prepare("SELECT id FROM users WHERE username = ?").get(data.username);
+    const existing = this.database.prepare("SELECT id FROM users WHERE username = ?").get(data.username);
     if (existing) {
       return { success: false, error: new AuthError("USERNAME_TAKEN", "Username already exists") };
     }
@@ -174,7 +174,7 @@ export class AuthService {
     const id = randomBytes(16).toString("hex");
     const createdAt = new Date().toISOString();
 
-    this.db
+    this.database
       .prepare("INSERT INTO users (id, username, passwordHash, role, requiresPasswordChange, createdAt) VALUES (?, ?, ?, ?, ?, ?)")
       .run(id, data.username, passwordHash, data.role, 0, createdAt);
 
@@ -187,13 +187,13 @@ export class AuthService {
     const roleCheck = this.requireRole(actor, "ADMIN");
     if (!roleCheck.success) return roleCheck;
 
-    const row = this.db.prepare("SELECT * FROM users WHERE id = ?").get(id) as UserRow | undefined;
+    const row = this.database.prepare("SELECT * FROM users WHERE id = ?").get(id) as UserRow | undefined;
     if (!row) {
       return { success: false, error: new AuthError("USER_NOT_FOUND", "User not found") };
     }
 
     if (data.username && data.username !== row.username) {
-      const existing = this.db.prepare("SELECT id FROM users WHERE username = ?").get(data.username);
+      const existing = this.database.prepare("SELECT id FROM users WHERE username = ?").get(data.username);
       if (existing) {
         return { success: false, error: new AuthError("USERNAME_TAKEN", "Username already exists") };
       }
@@ -203,7 +203,7 @@ export class AuthService {
     const newRole = data.role ?? row.role;
     const newHash = data.password ? await bcrypt.hash(data.password, BCRYPT_ROUNDS) : row.passwordHash;
 
-    this.db.prepare("UPDATE users SET username = ?, passwordHash = ?, role = ? WHERE id = ?").run(newUsername, newHash, newRole, id);
+    this.database.prepare("UPDATE users SET username = ?, passwordHash = ?, role = ? WHERE id = ?").run(newUsername, newHash, newRole, id);
 
     logger.info("User updated", { userId: actor.sub, context: { targetUserId: id } });
 
@@ -221,12 +221,12 @@ export class AuthService {
       return { success: false, error: new AuthError("SELF_DELETE", "Cannot delete your own account") };
     }
 
-    const row = this.db.prepare("SELECT id FROM users WHERE id = ?").get(id);
+    const row = this.database.prepare("SELECT id FROM users WHERE id = ?").get(id);
     if (!row) {
       return { success: false, error: new AuthError("USER_NOT_FOUND", "User not found") };
     }
 
-    this.db.prepare("DELETE FROM users WHERE id = ?").run(id);
+    this.database.prepare("DELETE FROM users WHERE id = ?").run(id);
     logger.info("User deleted", { userId: actor.sub, context: { targetUserId: id } });
 
     return { success: true, value: undefined };
@@ -236,7 +236,7 @@ export class AuthService {
     const roleCheck = this.requireRole(actor, "ADMIN");
     if (!roleCheck.success) return roleCheck;
 
-    const rows = this.db.prepare("SELECT id, username, role, requiresPasswordChange, createdAt FROM users").all() as UserRow[];
+    const rows = this.database.prepare("SELECT id, username, role, requiresPasswordChange, createdAt FROM users").all() as UserRow[];
     return {
       success: true,
       value: rows.map((r) => ({
@@ -256,13 +256,13 @@ export class AuthService {
       if (!roleCheck.success) return roleCheck;
     }
 
-    const row = this.db.prepare("SELECT * FROM users WHERE id = ?").get(id) as UserRow | undefined;
+    const row = this.database.prepare("SELECT * FROM users WHERE id = ?").get(id) as UserRow | undefined;
     if (!row) {
       return { success: false, error: new AuthError("USER_NOT_FOUND", "User not found") };
     }
 
     const newHash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
-    this.db.prepare("UPDATE users SET passwordHash = ?, requiresPasswordChange = 0 WHERE id = ?").run(newHash, id);
+    this.database.prepare("UPDATE users SET passwordHash = ?, requiresPasswordChange = 0 WHERE id = ?").run(newHash, id);
 
     // Delete bootstrap.txt if it exists — the bootstrap password is now invalid.
     if (existsSync(BOOTSTRAP_FILE)) {

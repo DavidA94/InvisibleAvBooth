@@ -25,7 +25,7 @@ interface WidgetRow {
   createdAt: string;
 }
 
-export function createDashboardRouter(db: Database, authService: AuthService): Router {
+export function createDashboardRouter(database: Database, authService: AuthService): Router {
   const router = Router();
   const auth = authenticate(authService);
 
@@ -33,7 +33,7 @@ export function createDashboardRouter(db: Database, authService: AuthService): R
   // ADMIN sees all dashboards; other roles see only dashboards where their role is in allowedRoles.
   router.get("/", auth, (req: Request, res: Response): void => {
     const { role } = req.jwtPayload!;
-    const rows = db.prepare("SELECT * FROM dashboards ORDER BY createdAt").all() as DashboardRow[];
+    const rows = database.prepare("SELECT * FROM dashboards ORDER BY createdAt").all() as DashboardRow[];
 
     const accessible = rows.filter((r) => {
       if (role === "ADMIN") return true;
@@ -53,7 +53,7 @@ export function createDashboardRouter(db: Database, authService: AuthService): R
 
   // GET /api/dashboards/:id/layout — returns the GridManifest for a dashboard.
   router.get("/:id/layout", auth, (req: Request, res: Response): void => {
-    const dashboard = db.prepare("SELECT * FROM dashboards WHERE id = ?").get(req.params["id"]) as DashboardRow | undefined;
+    const dashboard = database.prepare("SELECT * FROM dashboards WHERE id = ?").get(req.params["id"]) as DashboardRow | undefined;
     if (!dashboard) {
       res.status(404).json({ error: "Dashboard not found" });
       return;
@@ -69,7 +69,7 @@ export function createDashboardRouter(db: Database, authService: AuthService): R
       }
     }
 
-    const widgets = db.prepare("SELECT * FROM widget_configurations WHERE dashboardId = ? ORDER BY row, col").all(req.params["id"]) as WidgetRow[];
+    const widgets = database.prepare("SELECT * FROM widget_configurations WHERE dashboardId = ? ORDER BY row, col").all(req.params["id"]) as WidgetRow[];
 
     res.json({
       version: 1,

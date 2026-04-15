@@ -42,9 +42,9 @@ function makeMockManifestService() {
 const seedActor = { sub: "seed", username: "seed", role: "ADMIN" as const, iat: 0, exp: 9999999999 };
 
 async function buildGateway() {
-  const db = new Database(":memory:");
-  applySchema(db);
-  const authService = new AuthService(db);
+  const database = new Database(":memory:");
+  applySchema(database);
+  const authService = new AuthService(database);
   await authService.createUser({ username: "admin", password: "pass", role: "ADMIN" }, seedActor);
 
   const loginResult = await authService.login("admin", "pass");

@@ -52,7 +52,7 @@ export class ObsService {
   private readonly manifestHandler: (payload: { interpolatedStreamTitle: string }) => void;
 
   constructor(
-    private readonly db: Database,
+    private readonly database: Database,
     private readonly retry: RetryConfig = DEFAULT_RETRY,
     obsClient?: OBSWebSocket,
   ) {
@@ -235,7 +235,7 @@ export class ObsService {
   }
 
   private loadConfig(): DeviceRow | null {
-    return (this.db.prepare("SELECT * FROM device_connections WHERE deviceType = 'obs' AND enabled = 1 LIMIT 1").get() as DeviceRow | undefined) ?? null;
+    return (this.database.prepare("SELECT * FROM device_connections WHERE deviceType = 'obs' AND enabled = 1 LIMIT 1").get() as DeviceRow | undefined) ?? null;
   }
 
   private updateState(patch: Partial<Omit<ObsState, "commandedState">>): void {
@@ -284,8 +284,8 @@ export class ObsService {
 // Singleton factory — used by index.ts. Tests inject their own instance.
 let _obsService: ObsService | null = null;
 
-export function getObsService(db: Database): ObsService {
-  if (!_obsService) _obsService = new ObsService(db);
+export function getObsService(database: Database): ObsService {
+  if (!_obsService) _obsService = new ObsService(database);
   return _obsService;
 }
 

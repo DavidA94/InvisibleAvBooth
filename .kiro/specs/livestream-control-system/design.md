@@ -1045,10 +1045,10 @@ interface GridManifest {
 interface GridCell {
   widgetId: string; // e.g., "obs", "camera-ptz", "audio-mixer"
   title: string; // display name shown in WidgetContainer title bar, e.g., "OBS"
-  col: number; // 0-indexed column
-  row: number; // 0-indexed row
-  colSpan: number; // footprint width in grid columns
-  rowSpan: number; // footprint height in grid rows
+  col: number; // 0-indexed column — CSS Grid domain term, intentional shorthand
+  row: number; // 0-indexed row — CSS Grid domain term, intentional shorthand
+  colSpan: number; // footprint width in grid columns — CSS Grid domain term (cf. HTML colspan)
+  rowSpan: number; // footprint height in grid rows — CSS Grid domain term (cf. HTML rowspan)
   roleMinimum: Role; // minimum role required to see this cell within the dashboard
 }
 ```

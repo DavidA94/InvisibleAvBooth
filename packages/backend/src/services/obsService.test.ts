@@ -38,15 +38,17 @@ type MockObs = ReturnType<typeof makeMockObs>;
 
 // ── Test DB setup ─────────────────────────────────────────────────────────────
 
-function makeDb(withDevice = true) {
-  const db = new Database(":memory:");
-  applySchema(db);
+function makeDatabase(withDevice = true) {
+  const database = new Database(":memory:");
+  applySchema(database);
   if (withDevice) {
-    db.prepare(
-      "INSERT INTO device_connections (id, deviceType, label, host, port, encryptedPassword, metadata, features, enabled, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-    ).run("obs-1", "obs", "Main OBS", "localhost", 4455, null, "{}", "{}", 1, new Date().toISOString());
+    database
+      .prepare(
+        "INSERT INTO device_connections (id, deviceType, label, host, port, encryptedPassword, metadata, features, enabled, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      )
+      .run("obs-1", "obs", "Main OBS", "localhost", 4455, null, "{}", "{}", 1, new Date().toISOString());
   }
-  return db;
+  return database;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -54,10 +56,14 @@ function makeDb(withDevice = true) {
 const services: ObsService[] = [];
 const cleanups: Array<() => void> = [];
 
-function makeSvc(db: BetterSqlite3.Database, mockObs: MockObs, retry = { initialDelayMs: 10, maxDelayMs: 100, maxAttempts: 3, backoffFactor: 1, jitterMs: 0 }) {
-  const svc = new ObsService(db, retry, mockObs as never);
-  services.push(svc);
-  return svc;
+function makeSvc(
+  database: BetterSqlite3.Database,
+  mockObs: MockObs,
+  retry = { initialDelayMs: 10, maxDelayMs: 100, maxAttempts: 3, backoffFactor: 1, jitterMs: 0 },
+) {
+  const service = new ObsService(database, retry, mockObs as never);
+  services.push(service);
+  return service;
 }
 
 beforeEach(() => {
@@ -77,26 +83,26 @@ afterEach(() => {
 describe("ObsService.connect", () => {
   it("returns success and sets connected state", async () => {
     const mockObs = makeMockObs();
-    const svc = makeSvc(makeDb(), mockObs);
-    const result = await svc.connect();
+    const service = makeSvc(makeDatabase(), mockObs);
+    const result = await service.connect();
     expect(result.success).toBe(true);
-    expect(svc.getState().connected).toBe(true);
+    expect(service.getState().connected).toBe(true);
   });
 
   it("emits obs:state:changed on connect", async () => {
     const mockObs = makeMockObs();
-    const svc = makeSvc(makeDb(), mockObs);
+    const service = makeSvc(makeDatabase(), mockObs);
     const handler = vi.fn();
     eventBus.subscribe("obs:state:changed", handler);
     cleanups.push(() => eventBus.unsubscribe("obs:state:changed", handler));
-    await svc.connect();
+    await service.connect();
     expect(handler).toHaveBeenCalledWith(expect.objectContaining({ state: expect.objectContaining({ connected: true }) }));
   });
 
   it("returns OBS_NOT_CONFIGURED when no enabled device exists", async () => {
     const mockObs = makeMockObs();
-    const svc = makeSvc(makeDb(false), mockObs);
-    const result = await svc.connect();
+    const service = makeSvc(makeDatabase(false), mockObs);
+    const result = await service.connect();
     expect(result.success).toBe(false);
     if (!result.success) expect(result.error.code).toBe("OBS_NOT_CONFIGURED");
   });
@@ -104,8 +110,8 @@ describe("ObsService.connect", () => {
   it("returns OBS_UNREACHABLE when connection fails", async () => {
     const mockObs = makeMockObs();
     mockObs.connect.mockRejectedValueOnce(new Error("refused"));
-    const svc = makeSvc(makeDb(), mockObs);
-    const result = await svc.connect();
+    const service = makeSvc(makeDatabase(), mockObs);
+    const result = await service.connect();
     expect(result.success).toBe(false);
     if (!result.success) expect(result.error.code).toBe("OBS_UNREACHABLE");
   });
@@ -116,10 +122,10 @@ describe("ObsService.connect", () => {
 describe("ObsService.disconnect", () => {
   it("sets connected to false", async () => {
     const mockObs = makeMockObs();
-    const svc = makeSvc(makeDb(), mockObs);
-    await svc.connect();
-    await svc.disconnect();
-    expect(svc.getState().connected).toBe(false);
+    const service = makeSvc(makeDatabase(), mockObs);
+    await service.connect();
+    await service.disconnect();
+    expect(service.getState().connected).toBe(false);
   });
 });
 
@@ -128,9 +134,9 @@ describe("ObsService.disconnect", () => {
 describe("ObsService.startStream — safe-start", () => {
   it("calls SetStreamServiceSettings before StartStream", async () => {
     const mockObs = makeMockObs();
-    const svc = makeSvc(makeDb(), mockObs);
-    await svc.connect();
-    await svc.startStream();
+    const service = makeSvc(makeDatabase(), mockObs);
+    await service.connect();
+    await service.startStream();
     const calls = mockObs.call.mock.calls.map((c) => c[0]);
     const metaIdx = calls.indexOf("SetStreamServiceSettings");
     const startIdx = calls.indexOf("StartStream");
@@ -146,9 +152,9 @@ describe("ObsService.startStream — safe-start", () => {
       if (method === "SetStreamServiceSettings") return Promise.reject(new Error("meta failed"));
       return Promise.resolve({});
     });
-    const svc = makeSvc(makeDb(), mockObs);
-    await svc.connect();
-    const result = await svc.startStream();
+    const service = makeSvc(makeDatabase(), mockObs);
+    await service.connect();
+    const result = await service.startStream();
     expect(result.success).toBe(false);
     if (!result.success) expect(result.error.code).toBe("METADATA_UPDATE_FAILED");
     const calls = mockObs.call.mock.calls.map((c) => c[0]);
@@ -157,16 +163,16 @@ describe("ObsService.startStream — safe-start", () => {
 
   it("sets commandedState.streaming on success", async () => {
     const mockObs = makeMockObs();
-    const svc = makeSvc(makeDb(), mockObs);
-    await svc.connect();
-    await svc.startStream();
-    expect(svc.getState().commandedState.streaming).toBe(true);
+    const service = makeSvc(makeDatabase(), mockObs);
+    await service.connect();
+    await service.startStream();
+    expect(service.getState().commandedState.streaming).toBe(true);
   });
 
   it("returns OBS_UNREACHABLE when not connected", async () => {
     const mockObs = makeMockObs();
-    const svc = makeSvc(makeDb(), mockObs);
-    const result = await svc.startStream();
+    const service = makeSvc(makeDatabase(), mockObs);
+    const result = await service.startStream();
     expect(result.success).toBe(false);
     if (!result.success) expect(result.error.code).toBe("OBS_UNREACHABLE");
   });
@@ -177,28 +183,28 @@ describe("ObsService.startStream — safe-start", () => {
 describe("ObsService command methods", () => {
   it("stopStream sets commandedState.streaming to false", async () => {
     const mockObs = makeMockObs();
-    const svc = makeSvc(makeDb(), mockObs);
-    await svc.connect();
-    await svc.startStream();
-    await svc.stopStream();
-    expect(svc.getState().commandedState.streaming).toBe(false);
+    const service = makeSvc(makeDatabase(), mockObs);
+    await service.connect();
+    await service.startStream();
+    await service.stopStream();
+    expect(service.getState().commandedState.streaming).toBe(false);
   });
 
   it("startRecording sets commandedState.recording to true", async () => {
     const mockObs = makeMockObs();
-    const svc = makeSvc(makeDb(), mockObs);
-    await svc.connect();
-    await svc.startRecording();
-    expect(svc.getState().commandedState.recording).toBe(true);
+    const service = makeSvc(makeDatabase(), mockObs);
+    await service.connect();
+    await service.startRecording();
+    expect(service.getState().commandedState.recording).toBe(true);
   });
 
   it("stopRecording sets commandedState.recording to false", async () => {
     const mockObs = makeMockObs();
-    const svc = makeSvc(makeDb(), mockObs);
-    await svc.connect();
-    await svc.startRecording();
-    await svc.stopRecording();
-    expect(svc.getState().commandedState.recording).toBe(false);
+    const service = makeSvc(makeDatabase(), mockObs);
+    await service.connect();
+    await service.startRecording();
+    await service.stopRecording();
+    expect(service.getState().commandedState.recording).toBe(false);
   });
 
   it("emits STREAM_STOP_FAILED on stopStream failure", async () => {
@@ -209,12 +215,12 @@ describe("ObsService command methods", () => {
       if (method === "StopStream") return Promise.reject(new Error("failed"));
       return Promise.resolve({});
     });
-    const svc = makeSvc(makeDb(), mockObs);
-    await svc.connect();
+    const service = makeSvc(makeDatabase(), mockObs);
+    await service.connect();
     const handler = vi.fn();
     eventBus.subscribe("obs:error", handler);
     cleanups.push(() => eventBus.unsubscribe("obs:error", handler));
-    await svc.stopStream();
+    await service.stopStream();
     expect(handler).toHaveBeenCalledWith(expect.objectContaining({ error: expect.objectContaining({ code: "STREAM_STOP_FAILED" }) }));
   });
 });
@@ -224,8 +230,8 @@ describe("ObsService command methods", () => {
 describe("ObsService reconnect", () => {
   it("emits obs:error with OBS_UNREACHABLE on ConnectionClosed", async () => {
     const mockObs = makeMockObs();
-    const svc = makeSvc(makeDb(), mockObs);
-    await svc.connect();
+    const service = makeSvc(makeDatabase(), mockObs);
+    await service.connect();
     const handler = vi.fn();
     eventBus.subscribe("obs:error", handler);
     cleanups.push(() => eventBus.unsubscribe("obs:error", handler));
@@ -239,14 +245,14 @@ describe("ObsService reconnect", () => {
       .mockResolvedValueOnce(undefined) // initial connect succeeds
       .mockRejectedValue(new Error("refused")); // all retries fail
 
-    const svc = makeSvc(makeDb(), mockObs, {
+    const service = makeSvc(makeDatabase(), mockObs, {
       initialDelayMs: 1,
       maxDelayMs: 10,
       maxAttempts: 2,
       backoffFactor: 1,
       jitterMs: 0,
     });
-    await svc.connect();
+    await service.connect();
 
     const handler = vi.fn();
     eventBus.subscribe("obs:error", handler);

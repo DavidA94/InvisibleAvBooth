@@ -9,10 +9,10 @@ import { createAuthRouter } from "./authRoutes.js";
 import { createAdminUserRouter } from "./adminUserRoutes.js";
 
 function buildApp() {
-  const db = new Database(":memory:");
-  db.pragma("foreign_keys = ON");
-  applySchema(db);
-  const authService = new AuthService(db);
+  const database = new Database(":memory:");
+  database.pragma("foreign_keys = ON");
+  applySchema(database);
+  const authService = new AuthService(database);
   const app = express();
   app.use(express.json());
   app.use(cookieParser());

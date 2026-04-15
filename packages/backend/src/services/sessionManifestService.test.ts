@@ -31,9 +31,9 @@ const cleanups: Array<() => void> = [];
 const services: SessionManifestService[] = [];
 
 function makeSvc(template?: string) {
-  const svc = new SessionManifestService(template);
-  services.push(svc);
-  return svc;
+  const service = new SessionManifestService(template);
+  services.push(service);
+  return service;
 }
 
 beforeEach(() => {
@@ -53,26 +53,26 @@ afterEach(() => {
 
 describe("SessionManifestService.get", () => {
   it("returns empty manifest initially", () => {
-    const svc = makeSvc();
-    expect(svc.get()).toEqual({});
+    const service = makeSvc();
+    expect(service.get()).toEqual({});
   });
 });
 
 describe("SessionManifestService.update", () => {
   it("merges patch into manifest", () => {
-    const svc = makeSvc();
-    svc.update({ speaker: "John" }, actor);
-    svc.update({ title: "Grace" }, actor);
-    expect(svc.get()).toMatchObject({ speaker: "John", title: "Grace" });
+    const service = makeSvc();
+    service.update({ speaker: "John" }, actor);
+    service.update({ title: "Grace" }, actor);
+    expect(service.get()).toMatchObject({ speaker: "John", title: "Grace" });
   });
 
   it("emits session:manifest:updated on EventBus", () => {
-    const svc = makeSvc();
+    const service = makeSvc();
     const handler = vi.fn();
     eventBus.subscribe("session:manifest:updated", handler);
     cleanups.push(() => eventBus.unsubscribe("session:manifest:updated", handler));
 
-    svc.update({ speaker: "John" }, actor);
+    service.update({ speaker: "John" }, actor);
 
     expect(handler).toHaveBeenCalledOnce();
     expect(handler.mock.calls[0]?.[0]).toMatchObject({
@@ -82,8 +82,8 @@ describe("SessionManifestService.update", () => {
   });
 
   it("returns the updated manifest", () => {
-    const svc = makeSvc();
-    const result = svc.update({ speaker: "John" }, actor);
+    const service = makeSvc();
+    const result = service.update({ speaker: "John" }, actor);
     expect(result.success).toBe(true);
     if (result.success) expect(result.value.speaker).toBe("John");
   });
@@ -91,44 +91,44 @@ describe("SessionManifestService.update", () => {
 
 describe("SessionManifestService.clear", () => {
   it("resets manifest to empty", () => {
-    const svc = makeSvc();
-    svc.update({ speaker: "John" }, actor);
-    svc.clear(actor);
-    expect(svc.get()).toEqual({});
+    const service = makeSvc();
+    service.update({ speaker: "John" }, actor);
+    service.clear(actor);
+    expect(service.get()).toEqual({});
   });
 
   it("emits session:manifest:updated with empty manifest", () => {
-    const svc = makeSvc();
-    svc.update({ speaker: "John" }, actor);
+    const service = makeSvc();
+    service.update({ speaker: "John" }, actor);
     const handler = vi.fn();
     eventBus.subscribe("session:manifest:updated", handler);
     cleanups.push(() => eventBus.unsubscribe("session:manifest:updated", handler));
 
-    svc.clear(actor);
+    service.clear(actor);
 
     expect(handler).toHaveBeenCalledWith(expect.objectContaining({ manifest: {} }));
   });
 
   it("is blocked while streaming", () => {
-    const svc = makeSvc();
+    const service = makeSvc();
     eventBus.emit("obs:state:changed", { state: liveObsState });
-    const result = svc.clear(actor);
+    const result = service.clear(actor);
     expect(result.success).toBe(false);
     if (!result.success) expect(result.error.code).toBe("CLEAR_BLOCKED_WHILE_LIVE");
   });
 
   it("is blocked while recording", () => {
-    const svc = makeSvc();
+    const service = makeSvc();
     eventBus.emit("obs:state:changed", { state: recordingObsState });
-    const result = svc.clear(actor);
+    const result = service.clear(actor);
     expect(result.success).toBe(false);
   });
 
   it("is allowed after streaming stops", () => {
-    const svc = makeSvc();
+    const service = makeSvc();
     eventBus.emit("obs:state:changed", { state: liveObsState });
     eventBus.emit("obs:state:changed", { state: idleObsState });
-    expect(svc.clear(actor).success).toBe(true);
+    expect(service.clear(actor).success).toBe(true);
   });
 });
 
@@ -136,40 +136,40 @@ describe("SessionManifestService.clear", () => {
 
 describe("SessionManifestService.interpolate", () => {
   it("replaces {Speaker}, {Title}, {Date}", () => {
-    const svc = makeSvc();
-    const result = svc.interpolate({ speaker: "John", title: "Grace" }, DEFAULT_STREAM_TITLE_TEMPLATE);
+    const service = makeSvc();
+    const result = service.interpolate({ speaker: "John", title: "Grace" }, DEFAULT_STREAM_TITLE_TEMPLATE);
     expect(result).toContain("John");
     expect(result).toContain("Grace");
     expect(result).toMatch(/\d{4}-\d{2}-\d{2}/); // today's date
   });
 
   it("uses placeholders for missing fields", () => {
-    const svc = makeSvc();
-    const result = svc.interpolate({}, DEFAULT_STREAM_TITLE_TEMPLATE);
+    const service = makeSvc();
+    const result = service.interpolate({}, DEFAULT_STREAM_TITLE_TEMPLATE);
     expect(result).toContain("[No Speaker]");
     expect(result).toContain("[No Title]");
   });
 
   it("formats single verse scripture", () => {
-    const svc = makeSvc();
-    const result = svc.interpolate({ scripture: { bookId: 43, chapter: 3, verse: 16 } }, "{Scripture}");
+    const service = makeSvc();
+    const result = service.interpolate({ scripture: { bookId: 43, chapter: 3, verse: 16 } }, "{Scripture}");
     expect(result).toBe("John 3:16");
   });
 
   it("formats verse range scripture", () => {
-    const svc = makeSvc();
-    const result = svc.interpolate({ scripture: { bookId: 43, chapter: 3, verse: 16, verseEnd: 17 } }, "{Scripture}");
+    const service = makeSvc();
+    const result = service.interpolate({ scripture: { bookId: 43, chapter: 3, verse: 16, verseEnd: 17 } }, "{Scripture}");
     expect(result).toBe("John 3:16-17");
   });
 
   it("uses [No Scripture] when scripture is absent", () => {
-    const svc = makeSvc();
-    expect(svc.interpolate({}, "{Scripture}")).toBe("[No Scripture]");
+    const service = makeSvc();
+    expect(service.interpolate({}, "{Scripture}")).toBe("[No Scripture]");
   });
 
   it("{Date} is always today — never [No Date]", () => {
-    const svc = makeSvc();
-    const result = svc.interpolate({}, "{Date}");
+    const service = makeSvc();
+    const result = service.interpolate({}, "{Date}");
     expect(result).not.toContain("[No Date]");
     expect(result).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
@@ -181,7 +181,7 @@ describe("SessionManifestService.interpolate", () => {
 
 describe("Property: interpolate never returns undefined or throws", () => {
   it("handles arbitrary manifest field combinations", () => {
-    const svc = makeSvc();
+    const service = makeSvc();
     fc.assert(
       fc.property(
         fc.record({
@@ -191,7 +191,7 @@ describe("Property: interpolate never returns undefined or throws", () => {
         (raw) => {
           // Strip undefined values to satisfy exactOptionalPropertyTypes
           const manifest = Object.fromEntries(Object.entries(raw).filter(([, v]) => v !== undefined)) as { speaker?: string; title?: string };
-          const result = svc.interpolate(manifest, DEFAULT_STREAM_TITLE_TEMPLATE);
+          const result = service.interpolate(manifest, DEFAULT_STREAM_TITLE_TEMPLATE);
           expect(typeof result).toBe("string");
           expect(result.length).toBeGreaterThan(0);
         },
@@ -200,7 +200,7 @@ describe("Property: interpolate never returns undefined or throws", () => {
   });
 
   it("handles arbitrary template strings — always produces a string", () => {
-    const svc = makeSvc();
+    const service = makeSvc();
     fc.assert(
       fc.property(
         fc.string(),
@@ -210,7 +210,7 @@ describe("Property: interpolate never returns undefined or throws", () => {
         }),
         (template, raw) => {
           const manifest = Object.fromEntries(Object.entries(raw).filter(([, v]) => v !== undefined)) as { speaker?: string; title?: string };
-          const result = svc.interpolate(manifest, template);
+          const result = service.interpolate(manifest, template);
           expect(typeof result).toBe("string");
         },
       ),
@@ -218,8 +218,8 @@ describe("Property: interpolate never returns undefined or throws", () => {
   });
 
   it("missing fields always produce visible placeholders, never empty tokens", () => {
-    const svc = makeSvc();
-    const result = svc.interpolate({}, "{Speaker} {Title} {Scripture}");
+    const service = makeSvc();
+    const result = service.interpolate({}, "{Speaker} {Title} {Scripture}");
     expect(result).not.toContain("{}");
     expect(result).not.toMatch(/\{\w+\}/); // no unreplaced tokens
     expect(result).toContain("[No Speaker]");

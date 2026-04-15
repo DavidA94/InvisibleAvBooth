@@ -27,12 +27,12 @@ if (!/^[0-9a-f]{64}$/.test(secretKey)) {
 
 const PORT = parseInt(process.env["PORT"] ?? "3000", 10);
 
-const db = getDb();
-const authService = new AuthService(db);
+const database = getDb();
+const authService = new AuthService(database);
 authService.bootstrapIfEmpty();
 
 const manifestService = new SessionManifestService();
-const obsService = new ObsService(db);
+const obsService = new ObsService(database);
 
 const app = express();
 app.use(express.json());
@@ -40,18 +40,18 @@ app.use(cookieParser());
 
 app.use("/auth", createAuthRouter(authService));
 app.use("/admin/users", createAdminUserRouter(authService));
-app.use("/admin/devices", createAdminDeviceRouter(db, authService));
-app.use("/admin/dashboards", createAdminDashboardRouter(db, authService));
-app.use("/api/dashboards", createDashboardRouter(db, authService));
+app.use("/admin/devices", createAdminDeviceRouter(database, authService));
+app.use("/admin/dashboards", createAdminDashboardRouter(database, authService));
+app.use("/api/dashboards", createDashboardRouter(database, authService));
 app.use("/api/session", createSessionRouter(authService));
 app.use("/api/logs", createLogRouter(authService));
-app.use("/api/kjv", createKjvRouter(db, authService));
+app.use("/api/kjv", createKjvRouter(database, authService));
 
 const httpServer = createServer(app);
 new SocketGateway(httpServer, authService, obsService, manifestService);
 
 // Warn if no dashboards exist — operator needs to run the seed script.
-const dashboardCount = (db.prepare("SELECT COUNT(*) as cnt FROM dashboards").get() as { cnt: number }).cnt;
+const dashboardCount = (database.prepare("SELECT COUNT(*) as cnt FROM dashboards").get() as { cnt: number }).cnt;
 if (dashboardCount === 0) {
   logger.warn("No dashboards found. Run: npx tsx scripts/seed-dashboard.ts");
 }

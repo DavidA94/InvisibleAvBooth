@@ -6,7 +6,7 @@ import { authenticate } from "../middleware/auth.js";
 
 type ReasonCode = "BOOK_NOT_FOUND" | "CHAPTER_NOT_FOUND" | "VERSE_NOT_FOUND" | "VERSE_END_NOT_FOUND";
 
-export function createKjvRouter(db: Database, authService: AuthService): Router {
+export function createKjvRouter(database: Database, authService: AuthService): Router {
   const router = Router();
   const auth = authenticate(authService);
 
@@ -23,21 +23,21 @@ export function createKjvRouter(db: Database, authService: AuthService): Router 
     };
 
     // Check book exists (bookId 1–66)
-    const bookExists = db.prepare("SELECT 1 FROM kjv WHERE BOOKID = ? LIMIT 1").get(bookId);
+    const bookExists = database.prepare("SELECT 1 FROM kjv WHERE BOOKID = ? LIMIT 1").get(bookId);
     if (!bookExists) {
       invalid("BOOK_NOT_FOUND");
       return;
     }
 
     // Check chapter exists for this book
-    const chapterExists = db.prepare("SELECT 1 FROM kjv WHERE BOOKID = ? AND CHAPTERNO = ? LIMIT 1").get(bookId, chapter);
+    const chapterExists = database.prepare("SELECT 1 FROM kjv WHERE BOOKID = ? AND CHAPTERNO = ? LIMIT 1").get(bookId, chapter);
     if (!chapterExists) {
       invalid("CHAPTER_NOT_FOUND");
       return;
     }
 
     // Check verse exists for this book/chapter
-    const verseExists = db.prepare("SELECT 1 FROM kjv WHERE BOOKID = ? AND CHAPTERNO = ? AND VERSENO = ? LIMIT 1").get(bookId, chapter, verse);
+    const verseExists = database.prepare("SELECT 1 FROM kjv WHERE BOOKID = ? AND CHAPTERNO = ? AND VERSENO = ? LIMIT 1").get(bookId, chapter, verse);
     if (!verseExists) {
       invalid("VERSE_NOT_FOUND");
       return;
@@ -45,7 +45,7 @@ export function createKjvRouter(db: Database, authService: AuthService): Router 
 
     // Check verseEnd if provided
     if ((verseEnd ?? 0) > 0) {
-      const verseEndExists = db.prepare("SELECT 1 FROM kjv WHERE BOOKID = ? AND CHAPTERNO = ? AND VERSENO = ? LIMIT 1").get(bookId, chapter, verseEnd);
+      const verseEndExists = database.prepare("SELECT 1 FROM kjv WHERE BOOKID = ? AND CHAPTERNO = ? AND VERSENO = ? LIMIT 1").get(bookId, chapter, verseEnd);
       if (!verseEndExists) {
         invalid("VERSE_END_NOT_FOUND");
         return;

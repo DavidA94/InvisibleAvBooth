@@ -49,19 +49,21 @@ let httpServer: ReturnType<typeof createServer>;
 beforeAll(async () => {
   process.env["DEVICE_SECRET_KEY"] = "a".repeat(64);
 
-  const db = new Database(":memory:");
-  applySchema(db);
-  db.prepare(
-    "INSERT INTO device_connections (id, deviceType, label, host, port, encryptedPassword, metadata, features, enabled, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-  ).run("obs-1", "obs", "Main OBS", "localhost", 4455, null, "{}", "{}", 1, new Date().toISOString());
+  const database = new Database(":memory:");
+  applySchema(database);
+  database
+    .prepare(
+      "INSERT INTO device_connections (id, deviceType, label, host, port, encryptedPassword, metadata, features, enabled, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    )
+    .run("obs-1", "obs", "Main OBS", "localhost", 4455, null, "{}", "{}", 1, new Date().toISOString());
 
-  const authService = new AuthService(db);
+  const authService = new AuthService(database);
   await authService.createUser({ username: "admin", password: "pass", role: "ADMIN" }, seedActor);
   const loginResult = await authService.login("admin", "pass");
   token = loginResult.success ? loginResult.value.token : "";
 
   mockObs = makeMockObs();
-  obsService = new ObsService(db, { initialDelayMs: 10, maxDelayMs: 100, maxAttempts: 2, backoffFactor: 1, jitterMs: 0 }, mockObs as never);
+  obsService = new ObsService(database, { initialDelayMs: 10, maxDelayMs: 100, maxAttempts: 2, backoffFactor: 1, jitterMs: 0 }, mockObs as never);
   manifestService = new SessionManifestService();
 
   httpServer = createServer();

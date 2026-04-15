@@ -13,18 +13,18 @@ import { createSessionRouter } from "./sessionRoutes.js";
 const seedActor = { sub: "seed", username: "seed", role: "ADMIN" as const, iat: 0, exp: 9999999999 };
 
 function buildApp() {
-  const db = new Database(":memory:");
-  db.pragma("foreign_keys = ON");
-  applySchema(db);
-  const authService = new AuthService(db);
+  const database = new Database(":memory:");
+  database.pragma("foreign_keys = ON");
+  applySchema(database);
+  const authService = new AuthService(database);
   const app = express();
   app.use(express.json());
   app.use(cookieParser());
   app.use("/auth", createAuthRouter(authService));
-  app.use("/admin/dashboards", createAdminDashboardRouter(db, authService));
-  app.use("/api/dashboards", createDashboardRouter(db, authService));
+  app.use("/admin/dashboards", createAdminDashboardRouter(database, authService));
+  app.use("/api/dashboards", createDashboardRouter(database, authService));
   app.use("/api/session", createSessionRouter(authService));
-  return { app, db, authService };
+  return { app, database, authService };
 }
 
 async function loginAs(app: express.Express, authService: AuthService, username: string, password: string, role: "ADMIN" | "AvPowerUser" | "AvVolunteer") {
