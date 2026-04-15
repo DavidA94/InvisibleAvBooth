@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { getDb, resetDb } from "./database.js";
+import { getDb, resetDb, seedKjv } from "./database.js";
 import { applySchema } from "./schema.js";
 import Database from "better-sqlite3";
 
@@ -118,6 +118,20 @@ describe("resetDb", () => {
     resetDb();
     const b = getDb(":memory:");
     expect(a).not.toBe(b);
+  });
+});
+
+describe("seedKjv — idempotency", () => {
+  it("does not throw when called twice on the same DB (tableExists early return)", () => {
+    const db = new Database(":memory:");
+    // First call: creates kjv table (empty, since path is nonexistent)
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    seedKjv(db, "/nonexistent/bibledb_kjv.sql");
+    // Second call: kjv table already exists — hits the early return branch
+    expect(() => seedKjv(db, "/nonexistent/bibledb_kjv.sql")).not.toThrow();
+    expect(warnSpy).toHaveBeenCalledTimes(1); // only warned once, not twice
+    warnSpy.mockRestore();
+    db.close();
   });
 });
 

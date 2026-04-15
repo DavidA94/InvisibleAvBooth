@@ -29,12 +29,7 @@ export function authenticate(authService: AuthService) {
 
 export function requireRole(authService: AuthService, minimum: Role) {
   return (req: Request, res: Response, next: NextFunction): void => {
-    /* c8 ignore next 4 -- authenticate() always runs first and sets jwtPayload */
-    if (!req.jwtPayload) {
-      res.status(401).json({ error: "Unauthorized" });
-      return;
-    }
-    const result = authService.requireRole(req.jwtPayload, minimum);
+    const result = authService.requireRole(req.jwtPayload!, minimum);
     if (!result.success) {
       res.status(403).json({ error: "Forbidden" });
       return;

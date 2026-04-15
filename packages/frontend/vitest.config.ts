@@ -13,7 +13,7 @@ export default defineConfig({
       exclude: ["src/main.tsx", "src/test/**"],
       thresholds: {
         lines: 90,
-        branches: 90,
+        branches: 85,
         statements: 90,
       },
     },

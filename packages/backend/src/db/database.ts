@@ -21,11 +21,10 @@ let _db: Database.Database | null = null;
 export function getDb(dbPath?: string, kjvSqlPath?: string): Database.Database {
   if (_db) return _db;
 
-  /* c8 ignore next -- DB_PATH fallback only used in production, tests always pass :memory: */
   const resolvedPath = dbPath ?? DB_PATH;
 
   // Create data/ directory only when using the real file-backed path.
-  /* c8 ignore next 3 */
+  /* c8 ignore next 3 -- only fires when data/ doesn't exist; tested by the OS, not our logic */
   if (!dbPath && !existsSync(DATA_DIR)) {
     mkdirSync(DATA_DIR, { recursive: true });
   }
@@ -50,20 +49,12 @@ export function resetDb(): void {
   }
 }
 
-// Load the KJV bible data on first run. The SQL file is a MySQL dump that uses
-// MySQL-specific syntax (backtick identifiers, ENGINE=MyISAM, /*!...*/ comments,
-// multi-row INSERT VALUES). We parse it manually rather than executing it directly
-// because SQLite does not understand MySQL dialect.
-//
-// Strategy: extract all row tuples from the INSERT statements and bulk-insert them
-// using a prepared statement. This is done inside a transaction for performance —
-// 31,000+ rows inserted one-by-one without a transaction would be extremely slow.
-function seedKjv(db: Database.Database, sqlPath: string): void {
+// Load the KJV bible data on first run. Exported for testing.
+export function seedKjv(db: Database.Database, sqlPath: string): void {
   const tableExists = db
     .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='kjv'")
     .get();
 
-  /* c8 ignore next -- idempotency guard: table already exists on subsequent calls */
   if (tableExists) return;
 
   db.exec(`
@@ -85,9 +76,9 @@ function seedKjv(db: Database.Database, sqlPath: string): void {
   const sql = readFileSync(sqlPath, "latin1");
 
   // Extract all row tuples: (bookId, chapterNo, verseNo, 'verseText')
-  // The regex matches each row tuple in the multi-row INSERT VALUES list.
-  // We use a non-greedy match for the verse text to handle embedded single quotes
-  // that are escaped as '' in the SQL dump.
+  // The regex guarantees all capture groups are defined when it matches —
+  // the ?? fallbacks are removed since TypeScript's noUncheckedIndexedAccess
+  // requires them but they can never actually be reached.
   const rowPattern = /\((\d+),\s*(\d+),\s*(\d+),\s*'((?:[^']|'')*)'\)/g;
 
   const insert = db.prepare(
@@ -104,12 +95,13 @@ function seedKjv(db: Database.Database, sqlPath: string): void {
   let match: RegExpExecArray | null;
 
   while ((match = rowPattern.exec(sql)) !== null) {
-    /* c8 ignore next 4 -- regex capture groups are always defined when the pattern matches */
-    const bookId = parseInt(match[1] ?? "0", 10);
-    const chapter = parseInt(match[2] ?? "0", 10);
-    const verse = parseInt(match[3] ?? "0", 10);
-    const text = match[4] ?? "";
-    rows.push([bookId, chapter, verse, text]);
+    // match[1..4] are always defined — the regex only matches when all four groups capture
+    rows.push([
+      parseInt(match[1]!, 10),
+      parseInt(match[2]!, 10),
+      parseInt(match[3]!, 10),
+      match[4]!.replace(/''/g, "'"),
+    ]);
   }
 
   insertMany(rows);

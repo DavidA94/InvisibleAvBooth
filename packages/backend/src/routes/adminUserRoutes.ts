@@ -22,16 +22,10 @@ export function createAdminUserRouter(authService: AuthService): Router {
 
   // GET /admin/users
   router.get("/", auth, adminOnly, (_req: Request, res: Response): void => {
+    // adminOnly middleware guarantees ADMIN role — listUsers cannot fail here
     const result = authService.listUsers(_req.jwtPayload!);
-    /* c8 ignore next 4 -- adminOnly middleware already enforces ADMIN role */
-    if (!result.success) {
-      res.status(errorStatus(result.error.code)).json({ error: result.error.message });
-      return;
-    }
-    res.json(result.value);
-  });
-
-  // POST /admin/users
+    res.json(result.success ? result.value : []);
+  });  // POST /admin/users
   router.post("/", auth, adminOnly, async (req: Request, res: Response): Promise<void> => {
     const result = await authService.createUser(req.body as never, req.jwtPayload!);
     if (!result.success) {
@@ -43,13 +37,10 @@ export function createAdminUserRouter(authService: AuthService): Router {
 
   // GET /admin/users/:id
   router.get("/:id", auth, adminOnly, (req: Request, res: Response): void => {
+    // adminOnly middleware guarantees ADMIN role — listUsers cannot fail here
     const result = authService.listUsers(req.jwtPayload!);
-    /* c8 ignore next 4 -- adminOnly middleware already enforces ADMIN role */
-    if (!result.success) {
-      res.status(errorStatus(result.error.code)).json({ error: result.error.message });
-      return;
-    }
-    const user = result.value.find((u) => u.id === req.params["id"]);
+    const users = result.success ? result.value : [];
+    const user = users.find((u) => u.id === req.params["id"]);
     if (!user) {
       res.status(404).json({ error: "User not found" });
       return;

@@ -36,7 +36,10 @@ describe("logger", () => {
   });
 
   it("does not throw when logging with extra context fields", () => {
-    // Exercises the printf branch where Object.keys(rest).length > 0
     expect(() => logger.info("test message", { userId: "u1", context: { action: "test" } })).not.toThrow();
+  });
+
+  it("does not throw when logging without extra context fields", () => {
+    expect(() => logger.info("plain message")).not.toThrow();
   });
 });
