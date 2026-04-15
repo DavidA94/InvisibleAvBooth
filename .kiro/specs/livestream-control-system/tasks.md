@@ -144,16 +144,16 @@ Tests are part of each story's definition of done. Unit tests (including propert
 
 ## Backend Finishing
 
-- [ ] 35. Create backend seed script — scripts/seed-dashboard.ts (inserts default dashboard and OBS widget_configurations row, idempotent)
+- [x] 35. Create backend seed script — scripts/seed-dashboard.ts (inserts default dashboard and OBS widget_configurations row, idempotent)
   - _Requirements: 5d_
 
-- [ ] 36. Write unit tests for seed script — idempotent run inserts exactly one dashboard and one widget row; second run produces no duplicates; missing dashboard is created (real in-memory SQLite)
+- [x] 36. Write unit tests for seed script — idempotent run inserts exactly one dashboard and one widget row; second run produces no duplicates; missing dashboard is created (real in-memory SQLite)
   - _Requirements: 5d_
 
-- [ ] 37. Create backend entry point — src/index.ts (validates DEVICE_SECRET_KEY, initialises DB, runs bootstrap, starts ObsService, creates Express app with middleware, mounts REST router, attaches SocketGateway, starts HTTP server, logs startup warning if no dashboards exist)
+- [x] 37. Create backend entry point — src/index.ts (validates DEVICE_SECRET_KEY, initialises DB, runs bootstrap, starts ObsService, creates Express app with middleware, mounts REST router, attaches SocketGateway, starts HTTP server, logs startup warning if no dashboards exist)
   - _Requirements: 14, 21_
 
-- [ ] 38. Create docs/setup.md — DEVICE_SECRET_KEY generation, first startup, seed script, first login/password change, all admin routes
+- [x] 38. Create docs/setup.md — DEVICE_SECRET_KEY generation, first startup, seed script, first login/password change, all admin routes
   - _Requirements: 21_
 
 ---
