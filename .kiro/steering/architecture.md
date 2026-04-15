@@ -15,17 +15,21 @@ inclusion: always
 ---
 
 ## 1. Scope
+
 The system provides **modular control of livestream operations** for a church environment.
 
 ### Initial Release Responsibilities
+
 - **OBS Control:** Start/stop recording, start/stop streaming.
 
 ### Future Releases (out of scope for initial release)
+
 - **Camera Control:** Manual PTZ control, presets for framing, tap-to-center behavior.
 - **Audio Control:** Mixer volume, mute/unmute, and monitoring.
 - **Text Overlays:** Lower-thirds, speaker names, Bible verses, lyrics, etc.
 
 ### Notes
+
 - Presets may affect multiple devices simultaneously; presets are applied as starting points, not tracked as ongoing system states.
 - Auto-camera switching and multi-user dashboards are out of scope for the initial release but should be supported in future extensible design.
 - Devices are configured statically; automatic device discovery is not required.
@@ -35,20 +39,23 @@ The system provides **modular control of livestream operations** for a church en
 ## 2. Core Concepts & Responsibilities
 
 ### Modular Plugin Architecture
-- Each device or device group is controlled by its own plugin/widget.  
-- Widgets communicate with the backend, which handles device APIs and state management.  
+
+- Each device or device group is controlled by its own plugin/widget.
+- Widgets communicate with the backend, which handles device APIs and state management.
 - Widgets can control multiple devices, but should not override one another; multiple effects from a preset or manual adjustment are permitted.
 
 ### Event Bus / Subscription Model
+
 - The backend exposes an internal event bus. Services and HAL components that need to react to state changes (e.g., Session_Manifest updates, device state changes) **subscribe** to the relevant events themselves.
 - No service or module shall be hard-coded as a recipient of another module's output. Adding a new service must never require modifying an existing service or the event emitter.
 - This applies to all internal backend pub/sub: Session_Manifest changes, device state changes, error events, and capability updates are all emitted on the bus; interested services subscribe independently.
 
 ### Backend as Authority
-- All commands flow through the backend for authentication, error handling, and state management.  
+
+- All commands flow through the backend for authentication, error handling, and state management.
 - For devices that **cannot be polled**, the backend maintains authoritative state to ensure continuity across clients (e.g., if a tablet changes).
-- Each hardware or software integration must have a single backend abstraction layer responsible for all communication with that device or system.  
-- No widget, preset, or feature may communicate with a device directly; all interactions must go through the appropriate backend abstraction.  
+- Each hardware or software integration must have a single backend abstraction layer responsible for all communication with that device or system.
+- No widget, preset, or feature may communicate with a device directly; all interactions must go through the appropriate backend abstraction.
 - This abstraction layer is responsible for:
   - Device communication
   - State reconciliation (polling vs. commanded state)
@@ -56,14 +63,16 @@ The system provides **modular control of livestream operations** for a church en
 - This constraint ensures consistency, prevents duplicated logic, and avoids conflicting commands to the same device.
 
 ### Widget-Centric State Visibility
-- Each widget displays the real-time status of the device(s) it controls.  
+
+- Each widget displays the real-time status of the device(s) it controls.
 - Manual adjustments immediately reflect on the widget; presets are applied but not tracked as ongoing system states.
 
 ---
 
 ## 3. Interfaces & Boundaries
-- **Frontend ↔ Backend:** JSON-based commands and status updates; backend mediates all device communication.  
-- **Backend ↔ Devices:** Handles all network/API calls to devices and reconciling reported states.  
+
+- **Frontend ↔ Backend:** JSON-based commands and status updates; backend mediates all device communication.
+- **Backend ↔ Devices:** Handles all network/API calls to devices and reconciling reported states.
 - **Widget Responsibilities:**
   - Display device state and updates.
   - Communicate errors or alerts to the frontend via the `WidgetErrorOverlay` component (full scrim with action card) for unavailable states, and via the notification system for recoverable errors.
@@ -75,26 +84,30 @@ The system provides **modular control of livestream operations** for a church en
 ## 4. Failure Modes & Handling
 
 ### Notification Channels
-1. **Toast Notifications:** Short-lived messages (~5s).  
-2. **Warning/Error Banners:** Persistent messages that can display multiple errors (“Error 1 of X”), dismissable by the user.  
+
+1. **Toast Notifications:** Short-lived messages (~5s).
+2. **Warning/Error Banners:** Persistent messages that can display multiple errors (“Error 1 of X”), dismissable by the user.
 3. **Catastrophic Errors:** Modals, which can be auto-cleared when the backend emits a resolution event (e.g., OBS reconnects). The widget does not clear modals directly — it responds to backend-emitted resolution events.
 
 ### Error Sources
-- Device offline  
-- Command failure  
+
+- Device offline
+- Command failure
 - OBS failure
 
 ### Recovery
-- Widgets should poll device states where possible.  
-- Backend maintains persistent state for non-pollable devices to ensure consistency.  
+
+- Widgets should poll device states where possible.
+- Backend maintains persistent state for non-pollable devices to ensure consistency.
 - Users are informed when errors resolve automatically.
 
 ---
 
 ## 5. Performance & Feedback
-- Adjustments should propagate **as soon as possible** to widgets.  
-- **Optimistic UI updates** are acceptable where feasible, but backend reconciliation ensures accuracy.  
-- Boolean operations (start/stop recording or streaming) should show pending state until confirmation from the backend.  
+
+- Adjustments should propagate **as soon as possible** to widgets.
+- **Optimistic UI updates** are acceptable where feasible, but backend reconciliation ensures accuracy.
+- Boolean operations (start/stop recording or streaming) should show pending state until confirmation from the backend.
 - Polling ensures device connectivity and reflects any changes in real time.
 
 ---
@@ -112,8 +125,9 @@ See `logging.md` for the full logging philosophy and conventions.
 ---
 
 ## 8. Extensibility Considerations
-- New device types or protocols can be added via additional widgets/plugins without requiring UI redesign.  
-- System design should not preclude multi-dashboard or multi-user operation in the future.  
+
+- New device types or protocols can be added via additional widgets/plugins without requiring UI redesign.
+- System design should not preclude multi-dashboard or multi-user operation in the future.
 - Persistent backend state allows client continuity across tablets or devices when polling is unavailable.
 
 ---
@@ -122,35 +136,36 @@ See `logging.md` for the full logging philosophy and conventions.
 
 The system uses a dark-background, high-contrast theme optimized for touch use in a dimly lit church environment.
 
-| Token | Value | Usage |
-|---|---|---|
-| `color-primary` | `#C0392B` | Primary accent — buttons, active states, brand |
-| `color-primary-hover` | `#A93226` | Hover/pressed state for primary elements |
-| `color-bg` | `#1A1A1A` | Page/app background |
-| `color-surface` | `#2C2C2C` | Widget/card backgrounds |
-| `color-surface-raised` | `#3A3A3A` | Elevated surfaces, dropdowns |
-| `color-text` | `#F5F5F5` | Primary text |
-| `color-text-muted` | `#A0A0A0` | Secondary/disabled text |
-| `color-danger` | `#FF4444` | Error states, destructive actions (distinct from primary red) |
-| `color-success` | `#27AE60` | Live/active/confirmed states (e.g., "Stream is Live") |
-| `color-warning` | `#F39C12` | Warning banners, caution states |
-| `color-border` | `#444444` | Subtle borders and dividers |
+| Token                  | Value     | Usage                                                         |
+| ---------------------- | --------- | ------------------------------------------------------------- |
+| `color-primary`        | `#C0392B` | Primary accent — buttons, active states, brand                |
+| `color-primary-hover`  | `#A93226` | Hover/pressed state for primary elements                      |
+| `color-bg`             | `#1A1A1A` | Page/app background                                           |
+| `color-surface`        | `#2C2C2C` | Widget/card backgrounds                                       |
+| `color-surface-raised` | `#3A3A3A` | Elevated surfaces, dropdowns                                  |
+| `color-text`           | `#F5F5F5` | Primary text                                                  |
+| `color-text-muted`     | `#A0A0A0` | Secondary/disabled text                                       |
+| `color-danger`         | `#FF4444` | Error states, destructive actions (distinct from primary red) |
+| `color-success`        | `#27AE60` | Live/active/confirmed states (e.g., "Stream is Live")         |
+| `color-warning`        | `#F39C12` | Warning banners, caution states                               |
+| `color-border`         | `#444444` | Subtle borders and dividers                                   |
 
 ### Verified Contrast Ratios (WCAG 2.1)
 
-| Pair | Ratio | Result |
-|---|---|---|
-| `color-text` on `color-bg` | ~16.5:1 | ✅ AAA |
-| `color-text` on `color-surface` | ~11.6:1 | ✅ AAA |
-| `color-text` on `color-primary` (button labels) | ~4.7:1 | ✅ AA |
-| `color-text` on `color-primary-hover` | ~5.5:1 | ✅ AA |
-| `color-text` on `color-success` (status badge) | ~3.8:1 | ✅ AA Large only — use bold/large text only on success backgrounds |
-| `color-text-muted` on `color-bg` | ~5.3:1 | ✅ AA |
-| `color-text-muted` on `color-surface` | ~3.7:1 | ⚠️ Disabled/secondary text only — WCAG exempt for inactive UI |
-| `color-danger` on `color-bg` | ~5.0:1 | ✅ AA |
-| `color-warning` on `color-bg` | ~8.6:1 | ✅ AAA |
+| Pair                                            | Ratio   | Result                                                             |
+| ----------------------------------------------- | ------- | ------------------------------------------------------------------ |
+| `color-text` on `color-bg`                      | ~16.5:1 | ✅ AAA                                                             |
+| `color-text` on `color-surface`                 | ~11.6:1 | ✅ AAA                                                             |
+| `color-text` on `color-primary` (button labels) | ~4.7:1  | ✅ AA                                                              |
+| `color-text` on `color-primary-hover`           | ~5.5:1  | ✅ AA                                                              |
+| `color-text` on `color-success` (status badge)  | ~3.8:1  | ✅ AA Large only — use bold/large text only on success backgrounds |
+| `color-text-muted` on `color-bg`                | ~5.3:1  | ✅ AA                                                              |
+| `color-text-muted` on `color-surface`           | ~3.7:1  | ⚠️ Disabled/secondary text only — WCAG exempt for inactive UI      |
+| `color-danger` on `color-bg`                    | ~5.0:1  | ✅ AA                                                              |
+| `color-warning` on `color-bg`                   | ~8.6:1  | ✅ AAA                                                             |
 
 ### Rationale
+
 - Dark background reduces glare on tablet screens in dim environments and makes colored status indicators pop.
 - Deep red primary (`#C0392B`) is distinct from the brighter danger red (`#FF4444`), so accent and error states are never confused.
 - Green success state is essential — "stream is live" must be unambiguous at a glance. Only use large/bold text on `color-success` backgrounds; if small text is ever needed on green, darken to `#219A52`.
@@ -164,12 +179,12 @@ The dashboard is designed for tablet-first use. All sizing uses `rem` units so t
 
 ### Target Viewport Range
 
-| Breakpoint | Viewport | Behavior |
-|---|---|---|
-| Minimum supported | 1024×768px | Base design target — all layouts verified at this size |
+| Breakpoint        | Viewport              | Behavior                                                                   |
+| ----------------- | --------------------- | -------------------------------------------------------------------------- |
+| Minimum supported | 1024×768px            | Base design target — all layouts verified at this size                     |
 | Comfortable range | 1024×768 – 1280×800px | More breathing room; additional status indicator labels may become visible |
-| Large displays | > 1280×800px | UI scales up proportionally — everything gets bigger |
-| Small displays | < 1024×768px | UI scales down proportionally — layout remains usable |
+| Large displays    | > 1280×800px          | UI scales up proportionally — everything gets bigger                       |
+| Small displays    | < 1024×768px          | UI scales down proportionally — layout remains usable                      |
 
 Phone-sized viewports are explicitly out of scope for this release and will be addressed in a future iteration.
 
@@ -201,12 +216,12 @@ html {
 
 All spacing is defined in `rem` and applied consistently across the UI. These tokens are defined as CSS custom properties in `src/theme/variables.css`:
 
-| Token | Value | Usage |
-|---|---|---|
-| `--space-screen-edge` | `1rem` | Dashboard outer padding (all four sides) |
-| `--space-grid-gap` | `0.75rem` | Gap between widgets in the dashboard grid |
-| `--space-widget-inner` | `0.75rem` | WidgetContainer inner padding (all sides, uniformly enforced) |
-| `--space-control-gap` | `0.75rem` | Gap between interactive controls (buttons, inputs) within a widget |
+| Token                  | Value     | Usage                                                              |
+| ---------------------- | --------- | ------------------------------------------------------------------ |
+| `--space-screen-edge`  | `1rem`    | Dashboard outer padding (all four sides)                           |
+| `--space-grid-gap`     | `0.75rem` | Gap between widgets in the dashboard grid                          |
+| `--space-widget-inner` | `0.75rem` | WidgetContainer inner padding (all sides, uniformly enforced)      |
+| `--space-control-gap`  | `0.75rem` | Gap between interactive controls (buttons, inputs) within a widget |
 
 Using a single value (`0.75rem`) for grid gap, widget inner padding, and control gap is intentional — it creates visual rhythm where the space between widgets equals the space inside them, and the space between buttons matches both. This makes the layout feel consistent without requiring per-widget spacing decisions.
 
@@ -214,11 +229,11 @@ Using a single value (`0.75rem`) for grid gap, widget inner padding, and control
 
 All interactive elements must meet WCAG 2.5.5 touch target guidelines:
 
-| Target type | Minimum size | Recommended size |
-|---|---|---|
-| Primary action buttons | 2.75rem × 2.75rem (44×44px at base) | 3rem × 3rem |
-| Secondary / icon buttons | 2.5rem × 2.5rem (40×40px at base) | 2.75rem × 2.75rem |
-| Informational / display-only rows | No minimum | — |
+| Target type                       | Minimum size                        | Recommended size  |
+| --------------------------------- | ----------------------------------- | ----------------- |
+| Primary action buttons            | 2.75rem × 2.75rem (44×44px at base) | 3rem × 3rem       |
+| Secondary / icon buttons          | 2.5rem × 2.5rem (40×40px at base)   | 2.75rem × 2.75rem |
+| Informational / display-only rows | No minimum                          | —                 |
 
 Pixel values in this table are illustrative only (equivalent at 1024px base viewport). All implementation must use rem values.
 

@@ -283,7 +283,6 @@ Invisible A/V Booth is a web-based, touch-first control interface for managing c
 10. WHEN a user with `requiresPasswordChange: true` logs in, THE Backend SHALL include `requiresPasswordChange: true` in the JWT; THE Frontend SHALL redirect the user to a mandatory password change screen at `/change-password` before allowing access to the dashboard.
 11. AFTER the admin changes their password on first login, THE Backend SHALL clear the `requiresPasswordChange` flag and issue a new JWT without it.
 
-
 ---
 
 ### Requirement 14: Device Connection Management

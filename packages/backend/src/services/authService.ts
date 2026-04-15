@@ -1,7 +1,7 @@
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { randomBytes } from "crypto";
-import { writeFileSync, unlinkSync, existsSync } from "fs";
+import { mkdirSync, writeFileSync, unlinkSync, existsSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import type { Database } from "better-sqlite3";
@@ -60,14 +60,7 @@ export interface UpdateUserRequest {
 
 export type Result<T, E> = { success: true; value: T } | { success: false; error: E };
 
-export type AuthErrorCode =
-  | "INVALID_CREDENTIALS"
-  | "USER_NOT_FOUND"
-  | "USERNAME_TAKEN"
-  | "FORBIDDEN"
-  | "SELF_DELETE"
-  | "INVALID_TOKEN"
-  | "INSUFFICIENT_ROLE";
+export type AuthErrorCode = "INVALID_CREDENTIALS" | "USER_NOT_FOUND" | "USERNAME_TAKEN" | "FORBIDDEN" | "SELF_DELETE" | "INVALID_TOKEN" | "INSUFFICIENT_ROLE";
 
 export class AuthError extends Error {
   constructor(
@@ -104,9 +97,7 @@ export class AuthService {
     const createdAt = new Date().toISOString();
 
     this.db
-      .prepare(
-        "INSERT INTO users (id, username, passwordHash, role, requiresPasswordChange, createdAt) VALUES (?, ?, ?, ?, ?, ?)",
-      )
+      .prepare("INSERT INTO users (id, username, passwordHash, role, requiresPasswordChange, createdAt) VALUES (?, ?, ?, ?, ?, ?)")
       .run(id, "admin", passwordHash, "ADMIN", 1, createdAt);
 
     const message = `Bootstrap admin created.\nUsername: admin\nPassword: ${password}\n`;
@@ -114,18 +105,14 @@ export class AuthService {
 
     /* c8 ignore next 3 */
     if (!existsSync(join(PACKAGE_ROOT, "data"))) {
-      require("fs").mkdirSync(join(PACKAGE_ROOT, "data"), { recursive: true });
+      mkdirSync(join(PACKAGE_ROOT, "data"), { recursive: true });
     }
     writeFileSync(BOOTSTRAP_FILE, message, "utf8");
 
     logger.warn("Bootstrap admin created — change password immediately", { userId: id });
   }
 
-  async login(
-    username: string,
-    password: string,
-    rememberMe = false,
-  ): Promise<Result<{ token: string; user: AuthResult }, AuthError>> {
+  async login(username: string, password: string, rememberMe = false): Promise<Result<{ token: string; user: AuthResult }, AuthError>> {
     const row = this.db.prepare("SELECT * FROM users WHERE username = ?").get(username) as UserRow | undefined;
 
     if (!row) {
@@ -188,9 +175,7 @@ export class AuthService {
     const createdAt = new Date().toISOString();
 
     this.db
-      .prepare(
-        "INSERT INTO users (id, username, passwordHash, role, requiresPasswordChange, createdAt) VALUES (?, ?, ?, ?, ?, ?)",
-      )
+      .prepare("INSERT INTO users (id, username, passwordHash, role, requiresPasswordChange, createdAt) VALUES (?, ?, ?, ?, ?, ?)")
       .run(id, data.username, passwordHash, data.role, 0, createdAt);
 
     logger.info("User created", { userId: actor.sub, context: { newUserId: id } });
@@ -218,9 +203,7 @@ export class AuthService {
     const newRole = data.role ?? row.role;
     const newHash = data.password ? await bcrypt.hash(data.password, BCRYPT_ROUNDS) : row.passwordHash;
 
-    this.db
-      .prepare("UPDATE users SET username = ?, passwordHash = ?, role = ? WHERE id = ?")
-      .run(newUsername, newHash, newRole, id);
+    this.db.prepare("UPDATE users SET username = ?, passwordHash = ?, role = ? WHERE id = ?").run(newUsername, newHash, newRole, id);
 
     logger.info("User updated", { userId: actor.sub, context: { targetUserId: id } });
 

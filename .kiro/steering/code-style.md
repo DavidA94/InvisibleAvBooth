@@ -34,17 +34,17 @@ This document defines coding standards for Invisible A/V Booth. All code — hum
 
 ### General Rules
 
-| Construct | Convention | Example |
-|---|---|---|
-| Classes, interfaces, types, enums | PascalCase | `AudioMixer`, `DevicePlugin` |
-| Constants (module-level, truly immutable) | SCREAMING_SNAKE_CASE | `MAX_RETRY_COUNT`, `DEFAULT_PORT` |
-| Variables, function arguments, local `let`/`const` | camelCase | `channelVolume`, `isStreaming` |
-| Functions and methods | camelCase | `fetchDeviceState()`, `handleMute()` |
-| React components | PascalCase | `AudioWidget`, `CameraPresetButton` |
-| React hooks | camelCase, prefixed with `use` | `useDeviceState`, `usePreset` |
-| Enum members | SCREAMING_SNAKE_CASE | `DeviceStatus.OFFLINE` |
-| File names (components) | PascalCase | `AudioWidget.tsx` |
-| File names (non-component) | camelCase | `deviceState.ts`, `obsClient.ts` |
+| Construct                                          | Convention                     | Example                              |
+| -------------------------------------------------- | ------------------------------ | ------------------------------------ |
+| Classes, interfaces, types, enums                  | PascalCase                     | `AudioMixer`, `DevicePlugin`         |
+| Constants (module-level, truly immutable)          | SCREAMING_SNAKE_CASE           | `MAX_RETRY_COUNT`, `DEFAULT_PORT`    |
+| Variables, function arguments, local `let`/`const` | camelCase                      | `channelVolume`, `isStreaming`       |
+| Functions and methods                              | camelCase                      | `fetchDeviceState()`, `handleMute()` |
+| React components                                   | PascalCase                     | `AudioWidget`, `CameraPresetButton`  |
+| React hooks                                        | camelCase, prefixed with `use` | `useDeviceState`, `usePreset`        |
+| Enum members                                       | SCREAMING_SNAKE_CASE           | `DeviceStatus.OFFLINE`               |
+| File names (components)                            | PascalCase                     | `AudioWidget.tsx`                    |
+| File names (non-component)                         | camelCase                      | `deviceState.ts`, `obsClient.ts`     |
 
 ### Acronym Casing
 
@@ -65,12 +65,14 @@ When in doubt, prefer readability over strict rules. `ObsClient` is clearer than
 Type everything that isn't immediately obvious. If a reader would have to think for even a moment about what a value is, annotate it.
 
 **Always annotate:**
+
 - Exported function return types
 - Function parameters
 - Class properties
 - Anything returned from an API or external source
 
 **Inference is fine for:**
+
 - Simple variable assignments: `const count = 0`
 - Obvious return types on short private functions: `const double = (n: number) => n * 2`
 
@@ -128,15 +130,15 @@ export function AudioWidget({ channelId, onMute }: AudioWidgetProps) {
 
 ---
 
-## data-* Attributes
+## data-\* Attributes
 
 Two distinct attributes are used — they serve different purposes and should not be conflated.
 
-| Attribute | Purpose | Example |
-|---|---|---|
-| `data-testid` | Element selection in tests | `data-testid="audio-channel"` |
-| `data-state` | Reflects the current behavioral state of a component | `data-state="muted"` |
-| `data-status` | Reflects device or connection status | `data-status="offline"` |
+| Attribute     | Purpose                                              | Example                       |
+| ------------- | ---------------------------------------------------- | ----------------------------- |
+| `data-testid` | Element selection in tests                           | `data-testid="audio-channel"` |
+| `data-state`  | Reflects the current behavioral state of a component | `data-state="muted"`          |
+| `data-status` | Reflects device or connection status                 | `data-status="offline"`       |
 
 ### Rules
 

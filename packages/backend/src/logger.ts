@@ -19,10 +19,7 @@ const LOG_LEVEL = (process.env["LOG_LEVEL"] ?? "info").toLowerCase();
 
 // Every log entry includes timestamp, level, source, and message.
 // userId and context are optional structured fields added by call sites.
-const jsonFormat = winston.format.combine(
-  winston.format.timestamp(),
-  winston.format.json(),
-);
+const jsonFormat = winston.format.combine(winston.format.timestamp(), winston.format.json());
 
 // Human-readable format for the console transport.
 const consoleFormat = winston.format.combine(
@@ -52,8 +49,5 @@ const fileTransport = new DailyRotateFile({
 export const logger = winston.createLogger({
   level: LOG_LEVEL,
   defaultMeta: { source: "backend" },
-  transports: [
-    fileTransport,
-    new winston.transports.Console({ format: consoleFormat }),
-  ],
+  transports: [fileTransport, new winston.transports.Console({ format: consoleFormat })],
 });

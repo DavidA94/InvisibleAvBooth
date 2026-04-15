@@ -11,10 +11,7 @@ beforeEach(() => {
   cleanups.length = 0;
 });
 
-function subscribe<K extends Parameters<typeof eventBus.subscribe>[0]>(
-  event: K,
-  handler: Parameters<typeof eventBus.subscribe<K>>[1],
-): void {
+function subscribe<K extends Parameters<typeof eventBus.subscribe>[0]>(event: K, handler: Parameters<typeof eventBus.subscribe<K>>[1]): void {
   eventBus.subscribe(event, handler);
   cleanups.push(() => eventBus.unsubscribe(event, handler));
 }
@@ -114,9 +111,7 @@ describe("eventBus — device:capabilities:updated", () => {
       deviceId: "obs-1",
       capabilities: { deviceId: "obs-1", deviceType: "obs", features: { streaming: true } },
     });
-    expect(handler).toHaveBeenCalledWith(
-      expect.objectContaining({ deviceId: "obs-1" }),
-    );
+    expect(handler).toHaveBeenCalledWith(expect.objectContaining({ deviceId: "obs-1" }));
   });
 });
 

@@ -41,12 +41,14 @@ export function createDashboardRouter(db: Database, authService: AuthService): R
       return allowed.includes(role);
     });
 
-    res.json(accessible.map((r) => ({
-      id: r.id,
-      name: r.name,
-      description: r.description,
-      allowedRoles: JSON.parse(r.allowedRoles) as Role[],
-    })));
+    res.json(
+      accessible.map((r) => ({
+        id: r.id,
+        name: r.name,
+        description: r.description,
+        allowedRoles: JSON.parse(r.allowedRoles) as Role[],
+      })),
+    );
   });
 
   // GET /api/dashboards/:id/layout — returns the GridManifest for a dashboard.
@@ -67,9 +69,7 @@ export function createDashboardRouter(db: Database, authService: AuthService): R
       }
     }
 
-    const widgets = db
-      .prepare("SELECT * FROM widget_configurations WHERE dashboardId = ? ORDER BY row, col")
-      .all(req.params["id"]) as WidgetRow[];
+    const widgets = db.prepare("SELECT * FROM widget_configurations WHERE dashboardId = ? ORDER BY row, col").all(req.params["id"]) as WidgetRow[];
 
     res.json({
       version: 1,

@@ -16,12 +16,12 @@ Tests are part of every story's definition of done — not a separate phase. Uni
 
 ## Stack
 
-| Layer | Tool | Scope |
-|---|---|---|
-| Unit & component | Vitest + React Testing Library | Logic, hooks, components — both packages |
-| Property-based | Vitest + fast-check | Correctness properties (a form of unit test, not a separate layer) |
-| Backend integration | Vitest | Full path from REST/Socket.io API boundary → real SQLite + mocked hardware |
-| Frontend E2E | Playwright | Full user flows in the browser, mocked backend (HTTP + WebSocket) |
+| Layer               | Tool                           | Scope                                                                      |
+| ------------------- | ------------------------------ | -------------------------------------------------------------------------- |
+| Unit & component    | Vitest + React Testing Library | Logic, hooks, components — both packages                                   |
+| Property-based      | Vitest + fast-check            | Correctness properties (a form of unit test, not a separate layer)         |
+| Backend integration | Vitest                         | Full path from REST/Socket.io API boundary → real SQLite + mocked hardware |
+| Frontend E2E        | Playwright                     | Full user flows in the browser, mocked backend (HTTP + WebSocket)          |
 
 **Why two integration layers**: Backend integration tests (Vitest) verify that routes, services, and the database work together correctly — no browser involved. Frontend E2E tests (Playwright) verify that the UI drives the correct HTTP and WebSocket calls and responds correctly to server events — no real backend involved. These are complementary, not redundant.
 
@@ -147,7 +147,7 @@ Payload and route files are organized by domain. Only `obs.ts`, `session.ts`, an
 
 ---
 
-## data-* Attribute Conventions
+## data-\* Attribute Conventions
 
 See `code-style.md` for the full attribute reference. In tests:
 

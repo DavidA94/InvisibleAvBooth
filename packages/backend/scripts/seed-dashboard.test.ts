@@ -11,9 +11,13 @@ function seed(db: Database.Database): void {
 
   const existing = db.prepare("SELECT id FROM dashboards WHERE id = ?").get(DASHBOARD_ID);
   if (!existing) {
-    db.prepare(
-      "INSERT INTO dashboards (id, name, description, allowedRoles, createdAt) VALUES (?, ?, ?, ?, ?)",
-    ).run(DASHBOARD_ID, "Main Dashboard", "Standard volunteer control surface", JSON.stringify(["AvVolunteer", "AvPowerUser", "ADMIN"]), new Date().toISOString());
+    db.prepare("INSERT INTO dashboards (id, name, description, allowedRoles, createdAt) VALUES (?, ?, ?, ?, ?)").run(
+      DASHBOARD_ID,
+      "Main Dashboard",
+      "Standard volunteer control surface",
+      JSON.stringify(["AvVolunteer", "AvPowerUser", "ADMIN"]),
+      new Date().toISOString(),
+    );
   }
 
   const existingWidget = db.prepare("SELECT id FROM widget_configurations WHERE dashboardId = ? AND widgetId = ?").get(DASHBOARD_ID, WIDGET_ID);
@@ -63,7 +67,12 @@ describe("seed-dashboard", () => {
   it("OBS widget has correct footprint", () => {
     const db = makeDb();
     seed(db);
-    const row = db.prepare("SELECT col, row, colSpan, rowSpan FROM widget_configurations WHERE widgetId = 'obs'").get() as { col: number; row: number; colSpan: number; rowSpan: number };
+    const row = db.prepare("SELECT col, row, colSpan, rowSpan FROM widget_configurations WHERE widgetId = 'obs'").get() as {
+      col: number;
+      row: number;
+      colSpan: number;
+      rowSpan: number;
+    };
     expect(row).toMatchObject({ col: 0, row: 0, colSpan: 2, rowSpan: 2 });
   });
 });

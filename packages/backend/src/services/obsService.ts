@@ -3,7 +3,6 @@ import type { Database } from "better-sqlite3";
 import { eventBus } from "../eventBus.js";
 import { ObsError } from "../eventBus.js";
 import type { ObsState } from "../eventBus.js";
-import { SessionManifestService, DEFAULT_STREAM_TITLE_TEMPLATE } from "./sessionManifestService.js";
 import { decrypt } from "../crypto.js";
 import { logger } from "../logger.js";
 
@@ -92,10 +91,7 @@ export class ObsService {
       this.retryExhausted = false;
 
       // Query current state from OBS on connect
-      const [streamStatus, recordStatus] = await Promise.all([
-        this.obs.call("GetStreamStatus"),
-        this.obs.call("GetRecordStatus"),
-      ]);
+      const [streamStatus, recordStatus] = await Promise.all([this.obs.call("GetStreamStatus"), this.obs.call("GetRecordStatus")]);
 
       this.updateState({
         connected: true,
@@ -239,11 +235,7 @@ export class ObsService {
   }
 
   private loadConfig(): DeviceRow | null {
-    return (
-      (this.db
-        .prepare("SELECT * FROM device_connections WHERE deviceType = 'obs' AND enabled = 1 LIMIT 1")
-        .get() as DeviceRow | undefined) ?? null
-    );
+    return (this.db.prepare("SELECT * FROM device_connections WHERE deviceType = 'obs' AND enabled = 1 LIMIT 1").get() as DeviceRow | undefined) ?? null;
   }
 
   private updateState(patch: Partial<Omit<ObsState, "commandedState">>): void {
@@ -278,8 +270,7 @@ export class ObsService {
     }
 
     const delay = Math.min(
-      this.retry.initialDelayMs * Math.pow(this.retry.backoffFactor, this.retryAttempt) +
-        Math.random() * this.retry.jitterMs,
+      this.retry.initialDelayMs * Math.pow(this.retry.backoffFactor, this.retryAttempt) + Math.random() * this.retry.jitterMs,
       this.retry.maxDelayMs,
     );
 

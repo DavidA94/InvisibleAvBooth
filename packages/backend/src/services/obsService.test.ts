@@ -4,7 +4,6 @@ import type BetterSqlite3 from "better-sqlite3";
 import { applySchema } from "../db/schema.js";
 import { ObsService, ObsError } from "./obsService.js";
 import { eventBus } from "../eventBus.js";
-import type { ObsState } from "../eventBus.js";
 
 // ── Mock OBSWebSocket client ──────────────────────────────────────────────────
 // We mock at the constructor boundary — ObsService accepts an optional obsClient
@@ -231,9 +230,7 @@ describe("ObsService reconnect", () => {
     eventBus.subscribe("obs:error", handler);
     cleanups.push(() => eventBus.unsubscribe("obs:error", handler));
     mockObs.emit("ConnectionClosed");
-    expect(handler).toHaveBeenCalledWith(
-      expect.objectContaining({ error: expect.objectContaining({ code: "OBS_UNREACHABLE" }), retryExhausted: false }),
-    );
+    expect(handler).toHaveBeenCalledWith(expect.objectContaining({ error: expect.objectContaining({ code: "OBS_UNREACHABLE" }), retryExhausted: false }));
   });
 
   it("exhausts retries and emits retryExhausted: true", async () => {
@@ -260,9 +257,7 @@ describe("ObsService reconnect", () => {
     // Wait for retries to exhaust
     await new Promise((r) => setTimeout(r, 100));
 
-    const exhaustedCall = handler.mock.calls.find(
-      (c) => (c[0] as { retryExhausted?: boolean }).retryExhausted === true,
-    );
+    const exhaustedCall = handler.mock.calls.find((c) => (c[0] as { retryExhausted?: boolean }).retryExhausted === true);
     expect(exhaustedCall).toBeDefined();
   });
 });

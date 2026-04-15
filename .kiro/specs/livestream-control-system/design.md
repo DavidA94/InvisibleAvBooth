@@ -5,6 +5,7 @@
 Invisible A/V Booth is a touch-first, volunteer-safe web application for managing church livestream operations. The backend is the single authority for all device state, commands, and session metadata. The frontend renders a responsive widget grid that communicates exclusively through the backend's REST and WebSocket interfaces.
 
 This initial release delivers:
+
 - Authentication and RBAC (ADMIN / AvPowerUser / AvVolunteer)
 - Responsive dashboard grid with database-driven layout (GridManifest served from backend)
 - Active session metadata management (SessionManifest)
@@ -85,11 +86,11 @@ graph TD
 
 ### Communication Boundaries
 
-| Boundary | Protocol | Notes |
-|---|---|---|
-| Frontend ↔ Backend (commands/state) | Socket.io | Real-time bidirectional |
-| Frontend ↔ Backend (auth/config) | REST (HTTPS) | Stateless, JWT-authenticated |
-| Backend ↔ OBS | obs-websocket (WebSocket) | Managed exclusively by ObsService |
+| Boundary                            | Protocol                  | Notes                             |
+| ----------------------------------- | ------------------------- | --------------------------------- |
+| Frontend ↔ Backend (commands/state) | Socket.io                 | Real-time bidirectional           |
+| Frontend ↔ Backend (auth/config)    | REST (HTTPS)              | Stateless, JWT-authenticated      |
+| Backend ↔ OBS                       | obs-websocket (WebSocket) | Managed exclusively by ObsService |
 
 ### Key Architectural Decisions
 
@@ -155,30 +156,30 @@ interface User {
 
 interface CreateUserRequest {
   username: string;
-  password: string;   // plaintext — hashed before storage
+  password: string; // plaintext — hashed before storage
   role: Role;
 }
 
 interface UpdateUserRequest {
   username?: string;
-  password?: string;  // plaintext — hashed before storage
+  password?: string; // plaintext — hashed before storage
   role?: Role;
 }
 
 interface AuthResult {
   user: Omit<User, "createdAt">;
-  requiresPasswordChange?: boolean;  // frontend uses this to redirect to /change-password
+  requiresPasswordChange?: boolean; // frontend uses this to redirect to /change-password
 }
 
 type Role = "ADMIN" | "AvPowerUser" | "AvVolunteer";
 
 interface JwtPayload {
-  sub: string;       // user id
+  sub: string; // user id
   username: string;
   role: Role;
   iat: number;
   exp: number;
-  requiresPasswordChange?: boolean;  // set to true on first login after bootstrap; cleared after password change
+  requiresPasswordChange?: boolean; // set to true on first login after bootstrap; cleared after password change
 }
 ```
 
@@ -218,7 +219,7 @@ interface ObsService {
   connect(): Promise<Result<void, ObsError>>;
   disconnect(): Promise<Result<void, ObsError>>;
   getState(): ObsState;
-  startStream(): Promise<Result<ObsState, ObsError>>;   // safe-start: update metadata → confirm → start stream
+  startStream(): Promise<Result<ObsState, ObsError>>; // safe-start: update metadata → confirm → start stream
   stopStream(): Promise<Result<ObsState, ObsError>>;
   startRecording(): Promise<Result<ObsState, ObsError>>;
   stopRecording(): Promise<Result<ObsState, ObsError>>;
@@ -226,9 +227,7 @@ interface ObsService {
 }
 
 // Discriminated union result type — callers always handle both cases explicitly
-type Result<T, E> =
-  | { success: true; value: T }
-  | { success: false; error: E };
+type Result<T, E> = { success: true; value: T } | { success: false; error: E };
 ```
 
 Returning `Result<T, ObsError>` instead of `Promise<void>` ensures callers receive typed success data or a typed error. Unexpected/unrecoverable errors (e.g., programming bugs, out-of-memory) may still throw as untyped exceptions. Callers must handle this with `unknown` narrowing:
@@ -299,14 +298,14 @@ type ServerToClientEvents = {
   "obs:error": (error: ObsErrorEvent) => void;
   "obs:error:resolved": (payload: { errorCode: string }) => void;
   "device:capabilities": (payload: { deviceId: string; capabilities: CapabilitiesObject }) => void;
-  "notification": (notification: Notification) => void;
+  notification: (notification: Notification) => void;
 };
 
 // Socket.io event names (client → server)
 type ClientToServerEvents = {
   "obs:command": (command: ObsCommand, ack: (result: CommandResult) => void) => void;
   "session:manifest:update": (patch: Partial<SessionManifest>, ack: (result: CommandResult) => void) => void;
-  "obs:reconnect": (ack: (result: CommandResult) => void) => void;  // available to all authenticated roles
+  "obs:reconnect": (ack: (result: CommandResult) => void) => void; // available to all authenticated roles
 };
 ```
 
@@ -317,10 +316,12 @@ type ClientToServerEvents = {
 Every widget renders a `WidgetContainer` as its outermost element. The widget is responsible for passing its own title and connection state — the widget knows which connections it depends on and maintains that state internally. `WidgetContainer` is purely presentational.
 
 The container has two regions:
+
 1. A **title bar** at the top: widget title on the left, connection status indicators on the right.
 2. A **content area** below: the widget's own UI (`children`).
 
 **Connection status indicators** reflect the health of one or more named connections associated with the widget (e.g., OBS). Each indicator is a colored dot:
+
 - Green solid dot (`color-success`, no animation) — healthy connection. Solid and static so a full dashboard of healthy widgets is calm and non-distracting.
 - Red blinking dot (`color-danger`, CSS animation `pulse`) — unhealthy connection. The blink draws attention to the problem that needs action, and provides a motion cue that aids red/green colorblind users.
 
@@ -349,13 +350,13 @@ Tapping the indicators section always opens an Ionic popover listing each connec
 
 ```typescript
 interface ConnectionStatus {
-  label: string;       // e.g., "OBS"
+  label: string; // e.g., "OBS"
   healthy: boolean;
 }
 
 interface WidgetContainerProps {
-  title: string;                    // widget's display name, e.g., "OBS"
-  connections: ConnectionStatus[];  // sourced and maintained by the widget itself
+  title: string; // widget's display name, e.g., "OBS"
+  connections: ConnectionStatus[]; // sourced and maintained by the widget itself
   children: React.ReactNode;
 }
 ```
@@ -392,11 +393,11 @@ The modal supports an optional title, an optional body (either a text string or 
 ```typescript
 interface ConfirmationModalProps {
   isOpen: boolean;
-  title?: string;                   // optional heading, e.g., "Begin Stream"
-  body?: string | React.ReactNode;  // optional body — text string or JSX slot
-  confirmLabel: string;             // e.g., "Start Stream" or "Stop Streaming"
-  cancelLabel: string;              // e.g., "Cancel" or "Continue Streaming"
-  confirmVariant?: "danger" | "primary";  // default: "danger"
+  title?: string; // optional heading, e.g., "Begin Stream"
+  body?: string | React.ReactNode; // optional body — text string or JSX slot
+  confirmLabel: string; // e.g., "Start Stream" or "Stop Streaming"
+  cancelLabel: string; // e.g., "Cancel" or "Continue Streaming"
+  confirmVariant?: "danger" | "primary"; // default: "danger"
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -410,16 +411,16 @@ Usage for Start Stream (non-destructive confirmation with styled title slot):
   title="Begin Stream"
   body={
     <div>
-      <p style={{ color: "var(--color-text-muted)", fontSize: "0.875rem", marginBottom: "0.375rem" }}>
-        Stream title
-      </p>
-      <div style={{
-        background: "var(--color-surface-raised)",
-        borderRadius: "0.375rem",
-        padding: "0.625rem 0.75rem",
-        fontWeight: "bold",
-        color: "var(--color-text)",
-      }}>
+      <p style={{ color: "var(--color-text-muted)", fontSize: "0.875rem", marginBottom: "0.375rem" }}>Stream title</p>
+      <div
+        style={{
+          background: "var(--color-surface-raised)",
+          borderRadius: "0.375rem",
+          padding: "0.625rem 0.75rem",
+          fontWeight: "bold",
+          color: "var(--color-text)",
+        }}
+      >
         {interpolatedStreamTitle}
       </div>
     </div>
@@ -514,34 +515,42 @@ If no dashboards are accessible:
 The following flows define all paths from authentication to a loaded dashboard. localStorage keys: `dashboardId` (string), `dashboardLayout:{id}` (serialized GridManifest).
 
 **Flow 1 — First login, multiple dashboards accessible:**
+
 1. Login → `/dashboards` selection screen
 2. User selects a dashboard → store `dashboardId` in localStorage → show "Loading Dashboard" spinner
 3. Fetch `GET /api/dashboards/:id/layout` → cache result as `dashboardLayout:{id}` → render dashboard
 
 **Flow 2 — Login, no accessible dashboards:**
+
 1. Login → `/dashboards` → "No Dashboards" screen
 
 **Flow 3 — Already authenticated, no cached dashboard ID:**
+
 1. Resume at Flow 1 step 1 (show selection screen)
 
 **Flow 4 — Already authenticated, cached ID exists but no cached layout (or cached layout is unparseable):**
+
 1. Show "Loading Dashboard" spinner → fetch fresh layout → cache and render
 2. If fetch fails → show selection screen with Toast "Could not load dashboard"
 
 **Flow 5 — Already authenticated, cached ID is invalid (dashboard deleted or access revoked):**
+
 1. API returns 404 or 403 for the cached ID → clear `dashboardId` from localStorage → show Toast "Invalid Dashboard" → show selection screen
 
 **Flow 6 — Already authenticated, valid cached ID and valid cached layout:**
+
 1. Render immediately from cached layout
 2. Fetch fresh layout in background
 3. If structural change detected (widget positions changed) → show "Refreshing Dashboard" spinner → apply new layout → update cache
 4. If only non-structural changes (title, roleMinimum) → apply silently, no spinner
 
 **Flow 7 — Already authenticated, no cached ID, exactly one accessible dashboard:**
+
 1. Fetch `GET /api/dashboards` → exactly one result → auto-select → store `dashboardId` → continue as Flow 4
 2. Note: this auto-select only applies on initial authentication. Tapping the `GlobalTitleBar` label always shows the selection screen (Flow 8).
 
 **Flow 8 — User taps dashboard navigation label in GlobalTitleBar (from any screen):**
+
 1. Always navigate to the Dashboard Selection Screen
 2. Show all accessible dashboards — even if only one exists
 3. User selects a dashboard → store `dashboardId` in localStorage → continue as Flow 4
@@ -585,12 +594,14 @@ When OBS is disconnected (`!obsState.connected`), a `WidgetErrorOverlay` covers 
 If no enabled OBS device connection exists in the `device_connections` table when the backend starts, `ObsService` emits an `obs:error` with code `OBS_NOT_CONFIGURED`. The OBS widget renders a `WidgetErrorOverlay` with message `'OBS Not Configured'` and `actionLabel` `'Go to Settings → Devices'` — `onAction` navigates to `/admin/devices` if the current user has ADMIN role, otherwise it is a no-op with `actionLabel` `'Contact Admin'`. `isPending` is always false. The overlay is not dismissable. This gives an ADMIN who is also operating the dashboard a direct path to fix the configuration without needing to know the route.
 
 **Disabled Start Stream behavior**: The 'Start Stream' button is disabled when the SessionManifest does not have at least one of `speaker` or `title` populated. The `date` field is always present (auto-populated by the backend). A sub-label on the disabled button reads `'Enter metadata'`. When the user taps the disabled button:
-- If the *only* reason it is disabled is missing metadata (i.e., OBS is connected and no other blocker exists), the tap opens `SessionManifestModal` directly. This removes the need to locate the pencil icon under time pressure.
+
+- If the _only_ reason it is disabled is missing metadata (i.e., OBS is connected and no other blocker exists), the tap opens `SessionManifestModal` directly. This removes the need to locate the pencil icon under time pressure.
 - If OBS is disconnected (or any other blocker is active), the tap shows a brief Toast explaining why: e.g., `"OBS is not connected"`. This prevents a silent no-op that would leave the volunteer confused about why nothing happened.
 
 The pencil icon remains visible in `ObsStatusBar` at all times — it is the primary affordance for editing details when the button is already enabled, and its presence reinforces that the modal is where metadata lives.
 
 **Start Stream confirmation**: Starting a live stream is a significant, visible action — the wrong stream title will be broadcast to all viewers. When the user taps 'Start Stream' and the button is enabled, the widget opens a `ConfirmationModal` using the JSX body slot to display the stream title prominently:
+
 - `title`: `"Begin Stream"`
 - `body`: JSX slot — a muted `"Stream title"` label above a bold, `color-surface-raised` block containing `interpolatedStreamTitle`
 - `confirmLabel`: `"Start Stream"`
@@ -602,6 +613,7 @@ The title block is the visual focal point — the volunteer's eye lands on it im
 **Mid-stream title updates**: OBS accepts `SetStreamServiceSettings` commands while streaming is active, so the backend can technically update the stream title mid-stream. However, most downstream platforms (YouTube Live, Facebook Live) do not propagate title changes to viewers once a broadcast has started — the title is locked at stream start on the platform side. For this reason, no mid-stream title update affordance is provided. The confirmation modal before going live is the only correction opportunity. This is a known limitation of the streaming platform ecosystem, not a system design gap.
 
 **Stop Stream confirmation**: Stopping a live stream is destructive and irreversible. When the user taps 'Stop Stream' while `obsState.streaming === true`, the widget opens a `ConfirmationModal` with:
+
 - `title`: `"Are you sure you want to stop the stream?"`
 - `confirmLabel`: `"Stop Streaming"`
 - `cancelLabel`: `"Continue Streaming"`
@@ -610,6 +622,7 @@ The title block is the visual focal point — the volunteer's eye lands on it im
 The `stopStream` command is only issued if the user confirms.
 
 **Stop Recording confirmation**: Stopping a recording creates a gap that cannot be recovered — the content recorded while the system is stopped is lost permanently. When the user taps 'Stop Recording' while `obsState.recording === true`, the widget opens a `ConfirmationModal` with:
+
 - `title`: `"Are you sure you want to stop recording?"`
 - `confirmLabel`: `"Stop Recording"`
 - `cancelLabel`: `"Keep Recording"`
@@ -652,20 +665,22 @@ All sizing uses `rem` units. The pixel values shown below are illustrative only 
 
 The widget content area (inside `WidgetContainer`, after the title bar and inner padding) is laid out as a vertical flex column. Row heights are fixed except `ObsControls`, which fills remaining space with `flex: 1`.
 
-| Row | Height (rem) | Illustrative px at base | Notes |
-|---|---|---|---|
-| `WidgetContainer` title bar | `2.5rem` | ≈40px | Includes connection indicators; enforced by `WidgetContainer` |
-| `ObsStatusBar` | `2.25rem` | ≈36px | Display only, no primary touch targets |
-| `ObsMetadataPreview` | `3rem` | ≈48px | Accommodates `2.5rem` pencil button with `0.25rem` padding each side |
-| `ObsControls` | `flex: 1` | fills remaining | Buttons expand to fill available height |
+| Row                         | Height (rem) | Illustrative px at base | Notes                                                                |
+| --------------------------- | ------------ | ----------------------- | -------------------------------------------------------------------- |
+| `WidgetContainer` title bar | `2.5rem`     | ≈40px                   | Includes connection indicators; enforced by `WidgetContainer`        |
+| `ObsStatusBar`              | `2.25rem`    | ≈36px                   | Display only, no primary touch targets                               |
+| `ObsMetadataPreview`        | `3rem`       | ≈48px                   | Accommodates `2.5rem` pencil button with `0.25rem` padding each side |
+| `ObsControls`               | `flex: 1`    | fills remaining         | Buttons expand to fill available height                              |
 
 **Landscape layout example** (1024×768px base, illustrative only):
+
 - Widget cell height: ≈474px (2 rows × 237px)
 - Minus title bar (2.5rem ≈ 40px) and top/bottom inner padding (2 × 0.75rem ≈ 24px): ≈410px content height
 - Fixed rows (2.25rem + 3rem ≈ 84px): leaves ≈326px for `ObsControls`
 - Each button: ≈171px wide × ≈326px tall — well above WCAG minimums
 
 **Portrait layout example** (768×1024px base, illustrative only):
+
 - Grid: 3 columns × 5 rows. OBS widget occupies 2 columns × 2 rows.
 - Widget cell width: (768 − 2×1rem − 2×0.75rem) / 3 × 2 ≈ 474px
 - Widget cell height: (1024 − 2×1rem − 4×0.75rem) / 5 × 2 ≈ 380px
@@ -697,12 +712,12 @@ Scrim: `rgba(0, 0, 0, 0.70)` covering the wrapped region. Overlay card: 80% widt
 
 ```typescript
 interface WidgetErrorOverlayProps {
-  isVisible: boolean;         // overlay is only shown when true
-  message: string;            // e.g., "Streaming Unavailable"
-  actionLabel: string;        // e.g., "Tap to Retry Connecting"
-  onAction?: () => void;      // called when the user taps the overlay; if absent, the overlay card is non-interactive (no tap target)
-  isPending: boolean;         // shows spinner, disables tap target
-  children: React.ReactNode;  // the DOM region to wrap (rendered underneath the scrim)
+  isVisible: boolean; // overlay is only shown when true
+  message: string; // e.g., "Streaming Unavailable"
+  actionLabel: string; // e.g., "Tap to Retry Connecting"
+  onAction?: () => void; // called when the user taps the overlay; if absent, the overlay card is non-interactive (no tap target)
+  isPending: boolean; // shows spinner, disables tap target
+  children: React.ReactNode; // the DOM region to wrap (rendered underneath the scrim)
 }
 ```
 
@@ -740,6 +755,7 @@ All text inputs use Ionic's `clearInput` property, which renders an X button on 
 **Scripture validation**: Before the form can be saved, the frontend validates that the entered `bookId` + `chapter` + `verse` combination exists in the KJV database. If the combination does not exist (e.g., Jude chapter 2, which doesn't exist), the form displays an inline validation error on the verse field and the Save button is disabled until the reference is corrected. The end verse, if provided, is also validated to exist in the same book and chapter. Validation is performed client-side by querying the KJV database via a backend REST endpoint (e.g., `GET /api/kjv/validate?bookId=&chapter=&verse=`) — the frontend does not embed the full KJV dataset. Validation fires on blur of each field, not on every keystroke.
 
 **End verse normalisation**: The frontend silently corrects invalid end verse relationships before saving — no error is shown, the field values just update so the volunteer sees the correction happen:
+
 - If `verseEnd === verse`: `verseEnd` is cleared — the reference is treated as a single verse (e.g., John 3:16–16 → John 3:16).
 - If `verseEnd < verse`: the two values are swapped (e.g., John 3:22–21 → John 3:21–22). The swap happens on blur of the end verse field so the volunteer sees the fields update immediately.
 
@@ -779,7 +795,7 @@ function useObsState(): {
   state: ObsState;
   isPending: boolean;
   sendCommand: (command: ObsCommand) => Promise<CommandResult>;
-}
+};
 ```
 
 Applies optimistic updates immediately on `sendCommand`, then reconciles when the backend emits `obs:state`. A thin wrapper over the Zustand `obsSlice` selectors — see Frontend State Management for the store structure. Multiple components can call `useObsState()` and each only re-renders when the specific fields they select change.
@@ -799,8 +815,8 @@ interface AuthUser {
 
 function useAuth(): {
   user: AuthUser;
-  isRole: (minimum: Role) => boolean;  // true if user's role satisfies the minimum in the hierarchy (ADMIN > AvPowerUser > AvVolunteer)
-}
+  isRole: (minimum: Role) => boolean; // true if user's role satisfies the minimum in the hierarchy (ADMIN > AvPowerUser > AvVolunteer)
+};
 ```
 
 `useAuth` reads from the Zustand `authSlice` (see Frontend State Management). Components never need to decode the JWT themselves — the decoded user object is always available via this hook.
@@ -814,7 +830,7 @@ const { isRole } = useAuth();
   actionLabel={isRole("ADMIN") ? "Go to Settings → Devices" : "Contact Admin"}
   onAction={isRole("ADMIN") ? () => navigate("/admin/devices") : undefined}
   // ...
-/>
+/>;
 ```
 
 `useAuth` must only be called inside components rendered within the authenticated route tree. Calling it outside that context (e.g., on the login page) is a programming error and will throw.
@@ -844,6 +860,7 @@ const useStore = create<AppStore>()((...args) => ({
 ### Slices
 
 **`authSlice`** — set once at login, cleared on logout. Static for the session lifetime.
+
 ```typescript
 interface AuthSlice {
   user: AuthUser | null;
@@ -853,6 +870,7 @@ interface AuthSlice {
 ```
 
 **`obsSlice`** — updated by the Socket.io `obs:state` event listener registered in `SocketProvider`. Optimistic updates applied immediately on `sendCommand`, reconciled on the next `obs:state` broadcast.
+
 ```typescript
 interface ObsSlice {
   obsState: ObsState;
@@ -863,6 +881,7 @@ interface ObsSlice {
 ```
 
 **`sessionManifestSlice`** — updated by the `session:manifest:updated` Socket.io event. Available to any widget that needs session metadata (e.g., a future lyrics widget, a lower-thirds widget).
+
 ```typescript
 interface SessionManifestSlice {
   manifest: SessionManifest;
@@ -872,6 +891,7 @@ interface SessionManifestSlice {
 ```
 
 **`notificationSlice`** — append-only queue of active notifications. Updated by the `notification` Socket.io event and by resolution events.
+
 ```typescript
 interface NotificationSlice {
   notifications: Notification[];
@@ -914,11 +934,9 @@ function useAuth() {
 
 ```typescript
 socket.on("obs:state", (state) => useStore.getState().setObsState(state));
-socket.on("session:manifest:updated", ({ manifest, interpolatedStreamTitle }) =>
-  useStore.getState().setManifest(manifest, interpolatedStreamTitle));
+socket.on("session:manifest:updated", ({ manifest, interpolatedStreamTitle }) => useStore.getState().setManifest(manifest, interpolatedStreamTitle));
 socket.on("notification", (n) => useStore.getState().addNotification(n));
-socket.on("obs:error:resolved", ({ errorCode }) =>
-  useStore.getState().removeNotification(errorCode));
+socket.on("obs:error:resolved", ({ errorCode }) => useStore.getState().removeNotification(errorCode));
 ```
 
 `SocketProvider` is the only place that touches the socket directly. All other components interact with device state through store hooks.
@@ -941,6 +959,7 @@ No `AuthProvider`. No context nesting. `ProtectedRoutes` reads auth state from t
 ### Adding a New Device
 
 Adding a new HAL (e.g., audio mixer) requires:
+
 1. A new slice (`audioSlice`) with its state shape and actions
 2. Composing it into the root store
 3. Registering its Socket.io event listener in `SocketProvider`
@@ -956,9 +975,7 @@ No changes to existing slices, no changes to existing widgets.
 
 ```typescript
 // Returned in Socket.io acknowledgment callbacks
-type CommandResult =
-  | { success: true }
-  | { success: false; errorCode: string; message: string };
+type CommandResult = { success: true } | { success: false; errorCode: string; message: string };
 
 // Typed error for AuthService failures
 class AuthError extends Error {
@@ -989,25 +1006,22 @@ class ValidationError extends Error {
   }
 }
 
-type ValidationErrorCode =
-  | "FIELD_REQUIRED"
-  | "INVALID_FORMAT"
-  | "CLEAR_WHILE_LIVE";
+type ValidationErrorCode = "FIELD_REQUIRED" | "INVALID_FORMAT" | "CLEAR_WHILE_LIVE";
 ```
 
 ### SessionManifest
 
 ```typescript
 interface ScriptureReference {
-  bookId: number;      // 1–66, where Genesis = 1 and Revelation = 66; maps to display name via BIBLE_BOOKS constant
-  chapter: number;     // e.g., 3
-  verse: number;       // e.g., 16
-  verseEnd?: number;   // e.g., 17 — present for ranges like John 3:16-17
+  bookId: number; // 1–66, where Genesis = 1 and Revelation = 66; maps to display name via BIBLE_BOOKS constant
+  chapter: number; // e.g., 3
+  verse: number; // e.g., 16
+  verseEnd?: number; // e.g., 17 — present for ranges like John 3:16-17
 }
 
 interface SessionManifest {
-  speaker?: string;              // Speaker Name
-  title?: string;                // Sermon Title
+  speaker?: string; // Speaker Name
+  title?: string; // Sermon Title
   scripture?: ScriptureReference; // Structured scripture reference; bookId is stored internally, display name resolved via BIBLE_BOOKS
   // Absent fields and empty strings are treated identically by the interpolation engine —
   // both trigger placeholder substitution (e.g., [No Speaker]). The manifest is initialized
@@ -1029,17 +1043,18 @@ interface GridManifest {
 }
 
 interface GridCell {
-  widgetId: string;           // e.g., "obs", "camera-ptz", "audio-mixer"
-  title: string;              // display name shown in WidgetContainer title bar, e.g., "OBS"
-  col: number;                // 0-indexed column
-  row: number;                // 0-indexed row
-  colSpan: number;            // footprint width in grid columns
-  rowSpan: number;            // footprint height in grid rows
-  roleMinimum: Role;          // minimum role required to see this cell within the dashboard
+  widgetId: string; // e.g., "obs", "camera-ptz", "audio-mixer"
+  title: string; // display name shown in WidgetContainer title bar, e.g., "OBS"
+  col: number; // 0-indexed column
+  row: number; // 0-indexed row
+  colSpan: number; // footprint width in grid columns
+  rowSpan: number; // footprint height in grid rows
+  roleMinimum: Role; // minimum role required to see this cell within the dashboard
 }
 ```
 
 **Validation on load**: When the Dashboard receives the manifest from `GET /api/dashboards/:id/layout`, it validates:
+
 1. The request succeeded (non-error HTTP response)
 2. `manifest.version === 1` — version mismatch means the schema has changed; fall back to the cached manifest for this dashboard ID, or show the selection screen if no cache exists
 3. All `widgetId` values are known to the frontend's widget registry — unknown IDs indicate a deprecated or missing widget
@@ -1084,7 +1099,7 @@ interface ObsState {
   connected: boolean;
   streaming: boolean;
   recording: boolean;
-  streamTimecode?: string;    // "HH:MM:SS" while live, absent otherwise
+  streamTimecode?: string; // "HH:MM:SS" while live, absent otherwise
   recordingTimecode?: string;
   commandedState: {
     streaming: boolean;
@@ -1118,37 +1133,39 @@ interface Notification {
   level: NotificationLevel;
   severity: NotificationSeverity;
   message: string;
-  errorCode?: string;           // present for banner/modal — used to match resolution events
-  autoResolve?: boolean;        // if true, backend will emit a resolution event
+  errorCode?: string; // present for banner/modal — used to match resolution events
+  autoResolve?: boolean; // if true, backend will emit a resolution event
 }
 ```
 
 `severity` drives visual treatment:
+
 - `info` — neutral icon on toasts; blue/neutral tint on banners
 - `warning` — warning icon on toasts; amber tint on banners/modals
 - `error` — error icon on toasts; red tint on banners/modals (uses `color-danger`)
 
 ### Error Notification Mapping
 
-| Condition | Level | Severity | Auto-resolves? |
-|---|---|---|---|
-| OBS disconnected while streaming (retrying) | Modal | error | Yes — when OBS reconnects |
-| OBS disconnected while recording (retrying) | Modal | error | Yes — when OBS reconnects |
-| OBS disconnected while streaming AND recording (retrying) | Modal | error | Yes — when OBS reconnects |
-| OBS disconnected (idle — neither streaming nor recording, retrying) | Banner | error | Yes — when OBS reconnects |
-| OBS reconnection exhausted (any state) | Modal | error | No — requires "Retry Connection" tap |
-| Stream start command failed | Banner | error | Yes — clears when user retries (success or failure); failure re-emits a fresh banner |
-| Stream stop command failed | Banner | error | Yes — clears when user retries |
-| Recording start command failed | Banner | error | Yes — clears when user retries |
-| Recording stop command failed | Banner | error | Yes — clears when user retries |
-| SessionManifest update failed | Toast | warning | N/A |
-| JWT expired / 401 | Modal | error | No — requires re-login |
-| 403 Forbidden | Toast | warning | N/A |
-| OBS error resolved | Toast | info | N/A |
-| Stream did not resume after reconnect (commandedState.streaming was true, obsState.streaming is false post-reconnect) | Banner | warning | Yes — when obsState.streaming becomes true |
-| Tablet network lost (Socket.io disconnect) | Banner | warning | Yes — when Socket.io reconnects |
+| Condition                                                                                                             | Level  | Severity | Auto-resolves?                                                                       |
+| --------------------------------------------------------------------------------------------------------------------- | ------ | -------- | ------------------------------------------------------------------------------------ |
+| OBS disconnected while streaming (retrying)                                                                           | Modal  | error    | Yes — when OBS reconnects                                                            |
+| OBS disconnected while recording (retrying)                                                                           | Modal  | error    | Yes — when OBS reconnects                                                            |
+| OBS disconnected while streaming AND recording (retrying)                                                             | Modal  | error    | Yes — when OBS reconnects                                                            |
+| OBS disconnected (idle — neither streaming nor recording, retrying)                                                   | Banner | error    | Yes — when OBS reconnects                                                            |
+| OBS reconnection exhausted (any state)                                                                                | Modal  | error    | No — requires "Retry Connection" tap                                                 |
+| Stream start command failed                                                                                           | Banner | error    | Yes — clears when user retries (success or failure); failure re-emits a fresh banner |
+| Stream stop command failed                                                                                            | Banner | error    | Yes — clears when user retries                                                       |
+| Recording start command failed                                                                                        | Banner | error    | Yes — clears when user retries                                                       |
+| Recording stop command failed                                                                                         | Banner | error    | Yes — clears when user retries                                                       |
+| SessionManifest update failed                                                                                         | Toast  | warning  | N/A                                                                                  |
+| JWT expired / 401                                                                                                     | Modal  | error    | No — requires re-login                                                               |
+| 403 Forbidden                                                                                                         | Toast  | warning  | N/A                                                                                  |
+| OBS error resolved                                                                                                    | Toast  | info     | N/A                                                                                  |
+| Stream did not resume after reconnect (commandedState.streaming was true, obsState.streaming is false post-reconnect) | Banner | warning  | Yes — when obsState.streaming becomes true                                           |
+| Tablet network lost (Socket.io disconnect)                                                                            | Banner | warning  | Yes — when Socket.io reconnects                                                      |
 
 **OBS disconnect message content**: The Modal message must clearly state which operations were active at the time of disconnect and communicate uncertainty about their current status — the tablet lost its connection to the backend, but OBS and the stream may still be running. The volunteer should check physical indicators (stream platform, recording light) rather than assume the worst:
+
 - Streaming only: `"OBS disconnected — stream status unknown. Reconnecting…"`
 - Recording only: `"OBS disconnected — recording status unknown. Reconnecting…"`
 - Both: `"OBS disconnected — stream and recording status unknown. Reconnecting…"`
@@ -1170,6 +1187,7 @@ The following steps must be completed in order before the system is usable. Each
 
 **Step 1 — Set `DEVICE_SECRET_KEY`**
 The backend refuses to start if `DEVICE_SECRET_KEY` is not set. Error message:
+
 ```
 [ERROR] DEVICE_SECRET_KEY is not set. Generate one with:
   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
@@ -1178,6 +1196,7 @@ Set it as an environment variable before starting the backend.
 
 **Step 2 — Start the backend (first time)**
 On first startup, if the `users` table is empty, the backend:
+
 1. Generates a cryptographically random 16-character password using Node's `crypto.randomBytes()`
 2. Creates a default ADMIN account with username `admin` and the generated password (bcrypt-hashed before storage)
 3. Writes the credentials to **stdout** and to `data/bootstrap.txt`
@@ -1185,13 +1204,17 @@ On first startup, if the `users` table is empty, the backend:
 
 **Step 3 — Run the seed script**
 The `dashboards` and `widget_configurations` tables are NOT auto-seeded on startup. Run:
+
 ```
 npx ts-node scripts/seed-dashboard.ts
 ```
+
 If this step is skipped, the backend logs a warning at startup:
+
 ```
 [WARN] No dashboards found in the database. Run scripts/seed-dashboard.ts to seed the initial dashboard.
 ```
+
 The system will start, but authenticated users will see the "No Dashboards" screen. The seed script is idempotent — running it multiple times will not create duplicate dashboards if the seed ID already exists.
 
 **Step 4 — Log in and change the admin password**
@@ -1201,11 +1224,11 @@ All steps are documented in `docs/setup.md`, which also lists all admin-accessib
 
 ### Admin Routes Reference
 
-| Route | Access | Purpose |
-|---|---|---|
-| `/admin/users` | ADMIN only | Create, edit, delete user accounts and assign roles |
-| `/admin/devices` | ADMIN only | Add, edit, delete device connections (OBS host, port, password) |
-| `/change-password` | Any user with `requiresPasswordChange: true` | Mandatory password change on first login |
+| Route              | Access                                       | Purpose                                                         |
+| ------------------ | -------------------------------------------- | --------------------------------------------------------------- |
+| `/admin/users`     | ADMIN only                                   | Create, edit, delete user accounts and assign roles             |
+| `/admin/devices`   | ADMIN only                                   | Add, edit, delete device connections (OBS host, port, password) |
+| `/change-password` | Any user with `requiresPasswordChange: true` | Mandatory password change on first login                        |
 
 These routes are not linked from the main dashboard UI. Navigate to them directly by URL.
 
@@ -1221,12 +1244,12 @@ These routes are not linked from the main dashboard UI. Navigate to them directl
 
 The `SessionManifest` persists in memory for the lifetime of the backend process.
 
-| State | Manifest behavior |
-|---|---|
-| Streaming OR recording active | Manifest cannot be cleared (Clear All button disabled) |
-| Both stopped | Manifest remains available; operator can edit or clear |
-| Backend restart | Manifest resets to empty |
-| Frontend page refresh | Frontend fetches current manifest from backend on reconnect — does NOT clear it |
+| State                         | Manifest behavior                                                               |
+| ----------------------------- | ------------------------------------------------------------------------------- |
+| Streaming OR recording active | Manifest cannot be cleared (Clear All button disabled)                          |
+| Both stopped                  | Manifest remains available; operator can edit or clear                          |
+| Backend restart               | Manifest resets to empty                                                        |
+| Frontend page refresh         | Frontend fetches current manifest from backend on reconnect — does NOT clear it |
 
 The "Clear All" button in `SessionManifestModal` is disabled while `obsState.streaming || obsState.recording` is true. This prevents accidentally wiping metadata during a live session.
 
@@ -1242,11 +1265,11 @@ Device connection parameters (host, port, password) are stored in the SQLite dat
 interface DeviceConnection {
   id: string;
   deviceType: "obs" | "camera-ptz" | "audio-mixer" | "text-overlay";
-  label: string;               // human-readable name, e.g., "Main OBS"
+  label: string; // human-readable name, e.g., "Main OBS"
   host: string;
   port: number;
-  encryptedPassword?: string;  // AES-256-GCM encrypted, stored as base64
-  metadata: Record<string, string>;  // device-type-specific configuration (e.g., streamTitleTemplate for OBS)
+  encryptedPassword?: string; // AES-256-GCM encrypted, stored as base64
+  metadata: Record<string, string>; // device-type-specific configuration (e.g., streamTitleTemplate for OBS)
   features: Record<string, boolean>; // device-type-specific feature flags; may be empty if the HAL derives capabilities dynamically
   enabled: boolean;
 }
@@ -1282,51 +1305,51 @@ All application data lives in a single SQLite file (`data/app.db`). The KJV bibl
 ```typescript
 // users table
 interface UserRecord {
-  id: string;           // UUID, primary key
-  username: string;     // unique, not null
+  id: string; // UUID, primary key
+  username: string; // unique, not null
   passwordHash: string; // bcrypt hash, not null
-  role: Role;           // "ADMIN" | "AvPowerUser" | "AvVolunteer", not null
+  role: Role; // "ADMIN" | "AvPowerUser" | "AvVolunteer", not null
   requiresPasswordChange: number; // SQLite boolean: 0 or 1
-  createdAt: string;    // ISO 8601 timestamp
+  createdAt: string; // ISO 8601 timestamp
 }
 
 // device_connections table
 interface DeviceConnectionRecord {
-  id: string;                // UUID, primary key
-  deviceType: string;        // "obs" | "camera-ptz" | "audio-mixer" | "text-overlay"
-  label: string;             // human-readable name, not null
-  host: string;              // not null
-  port: number;              // not null
+  id: string; // UUID, primary key
+  deviceType: string; // "obs" | "camera-ptz" | "audio-mixer" | "text-overlay"
+  label: string; // human-readable name, not null
+  host: string; // not null
+  port: number; // not null
   encryptedPassword?: string; // AES-256-GCM base64, nullable
-  metadata: string;          // JSON-encoded Record<string, string> — decoded by DAO before passing to HAL factory
-  features: string;          // JSON-encoded Record<string, boolean> — decoded by DAO before passing to HAL factory; may be "{}" if HAL derives capabilities dynamically
-  enabled: number;           // SQLite boolean: 0 or 1
-  createdAt: string;         // ISO 8601 timestamp
+  metadata: string; // JSON-encoded Record<string, string> — decoded by DAO before passing to HAL factory
+  features: string; // JSON-encoded Record<string, boolean> — decoded by DAO before passing to HAL factory; may be "{}" if HAL derives capabilities dynamically
+  enabled: number; // SQLite boolean: 0 or 1
+  createdAt: string; // ISO 8601 timestamp
 }
 
 // dashboards table — each dashboard has a name, description, and allowed roles
 // ADMIN always has access to all dashboards regardless of allowedRoles
 interface DashboardRecord {
-  id: string;           // UUID, primary key
-  name: string;         // display name shown on the selection screen, e.g., "Volunteer View"
-  description: string;  // short description shown on the selection screen
+  id: string; // UUID, primary key
+  name: string; // display name shown on the selection screen, e.g., "Volunteer View"
+  description: string; // short description shown on the selection screen
   allowedRoles: string; // JSON array of Role values, e.g., '["AvVolunteer","AvPowerUser"]'
-  createdAt: string;    // ISO 8601 timestamp
+  createdAt: string; // ISO 8601 timestamp
 }
 
 // widget_configurations table — stores the layout for a specific dashboard
 // widgetId is unique per dashboard (enforced by unique constraint on dashboardId + widgetId)
 interface WidgetConfigurationRecord {
-  id: string;           // UUID, primary key
-  dashboardId: string;  // foreign key → dashboards.id
-  widgetId: string;     // e.g., "obs" — unique per dashboard
-  title: string;        // display name shown in WidgetContainer title bar, e.g., "OBS"
-  col: number;          // 0-indexed column
-  row: number;          // 0-indexed row
-  colSpan: number;      // footprint width in grid columns
-  rowSpan: number;      // footprint height in grid rows
-  roleMinimum: string;  // minimum role to see this cell: "ADMIN" | "AvPowerUser" | "AvVolunteer"
-  createdAt: string;    // ISO 8601 timestamp
+  id: string; // UUID, primary key
+  dashboardId: string; // foreign key → dashboards.id
+  widgetId: string; // e.g., "obs" — unique per dashboard
+  title: string; // display name shown in WidgetContainer title bar, e.g., "OBS"
+  col: number; // 0-indexed column
+  row: number; // 0-indexed row
+  colSpan: number; // footprint width in grid columns
+  rowSpan: number; // footprint height in grid rows
+  roleMinimum: string; // minimum role to see this cell: "ADMIN" | "AvPowerUser" | "AvVolunteer"
+  createdAt: string; // ISO 8601 timestamp
 }
 ```
 
@@ -1371,30 +1394,30 @@ The OBS widget occupies col 0, row 0, spanning 2 columns × 2 rows with title "O
 
 ## Navigation
 
-| Route | Accessible to | Description |
-|---|---|---|
-| `/login` | Unauthenticated | Login page with username, password, and "Remember me" |
-| `/change-password` | Authenticated (requiresPasswordChange) | Mandatory password change on first login |
-| `/dashboards` | All authenticated | Dashboard Selection Screen |
-| `/dashboard` | All authenticated (dashboard ID in localStorage) | Active dashboard — the widget grid |
-| `/admin/users` | ADMIN only | User management page |
-| `/admin/devices` | ADMIN only | Device connection management page |
+| Route              | Accessible to                                    | Description                                           |
+| ------------------ | ------------------------------------------------ | ----------------------------------------------------- |
+| `/login`           | Unauthenticated                                  | Login page with username, password, and "Remember me" |
+| `/change-password` | Authenticated (requiresPasswordChange)           | Mandatory password change on first login              |
+| `/dashboards`      | All authenticated                                | Dashboard Selection Screen                            |
+| `/dashboard`       | All authenticated (dashboard ID in localStorage) | Active dashboard — the widget grid                    |
+| `/admin/users`     | ADMIN only                                       | User management page                                  |
+| `/admin/devices`   | ADMIN only                                       | Device connection management page                     |
 
 REST endpoints:
 
-| Endpoint | Role | Description |
-|---|---|---|
-| `POST /auth/login` | Unauthenticated | Authenticate with username + password; sets JWT cookie |
-| `POST /auth/logout` | All authenticated | Clears JWT cookie |
-| `GET /api/dashboards` | All authenticated | Returns dashboards accessible to the user's role (name, description, id) |
-| `GET /api/dashboards/:id/layout` | All authenticated | Returns `GridManifest` for the specified dashboard |
-| `GET /api/session/manifest` | All authenticated | Returns the current in-memory SessionManifest |
-| `GET /api/kjv/validate` | All authenticated | Validates a scripture reference against the KJV database |
-| `GET/POST/PUT/DELETE /admin/users` | ADMIN only | User account CRUD |
-| `GET/POST/PUT/DELETE /admin/devices` | ADMIN only | Device connection CRUD |
-| `GET/POST/PUT/DELETE /admin/dashboards` | ADMIN only | Dashboard CRUD |
-| `GET/POST/PUT/DELETE /admin/dashboards/:id/widgets` | ADMIN only | Widget configuration CRUD for a dashboard |
-| `POST /api/logs` | All authenticated | Accepts a batch of frontend log entries; written to `logs/app.log` by the backend logger |
+| Endpoint                                            | Role              | Description                                                                              |
+| --------------------------------------------------- | ----------------- | ---------------------------------------------------------------------------------------- |
+| `POST /auth/login`                                  | Unauthenticated   | Authenticate with username + password; sets JWT cookie                                   |
+| `POST /auth/logout`                                 | All authenticated | Clears JWT cookie                                                                        |
+| `GET /api/dashboards`                               | All authenticated | Returns dashboards accessible to the user's role (name, description, id)                 |
+| `GET /api/dashboards/:id/layout`                    | All authenticated | Returns `GridManifest` for the specified dashboard                                       |
+| `GET /api/session/manifest`                         | All authenticated | Returns the current in-memory SessionManifest                                            |
+| `GET /api/kjv/validate`                             | All authenticated | Validates a scripture reference against the KJV database                                 |
+| `GET/POST/PUT/DELETE /admin/users`                  | ADMIN only        | User account CRUD                                                                        |
+| `GET/POST/PUT/DELETE /admin/devices`                | ADMIN only        | Device connection CRUD                                                                   |
+| `GET/POST/PUT/DELETE /admin/dashboards`             | ADMIN only        | Dashboard CRUD                                                                           |
+| `GET/POST/PUT/DELETE /admin/dashboards/:id/widgets` | ADMIN only        | Widget configuration CRUD for a dashboard                                                |
+| `POST /api/logs`                                    | All authenticated | Accepts a batch of frontend log entries; written to `logs/app.log` by the backend logger |
 
 ### `GET /api/kjv/validate` Contract
 
@@ -1402,30 +1425,32 @@ Validates that a given book/chapter/verse combination exists in the KJV database
 
 **Query parameters:**
 
-| Parameter | Type | Required | Description |
-|---|---|---|---|
-| `bookId` | number (1–66) | Yes | Numeric book ID |
-| `chapter` | number | Yes | Chapter number |
-| `verse` | number | Yes | Verse number |
-| `verseEnd` | number | No | End verse for ranges; validated independently |
+| Parameter  | Type          | Required | Description                                   |
+| ---------- | ------------- | -------- | --------------------------------------------- |
+| `bookId`   | number (1–66) | Yes      | Numeric book ID                               |
+| `chapter`  | number        | Yes      | Chapter number                                |
+| `verse`    | number        | Yes      | Verse number                                  |
+| `verseEnd` | number        | No       | End verse for ranges; validated independently |
 
 **Response — valid reference:**
+
 ```json
 { "valid": true }
 ```
 
 **Response — invalid reference:**
+
 ```json
 { "valid": false, "reason": "VERSE_NOT_FOUND" }
 ```
 
 **Reason codes:**
 
-| Code | Meaning |
-|---|---|
-| `BOOK_NOT_FOUND` | `bookId` is not in range 1–66 |
-| `CHAPTER_NOT_FOUND` | Chapter does not exist for this book |
-| `VERSE_NOT_FOUND` | Verse does not exist for this book/chapter |
+| Code                  | Meaning                                         |
+| --------------------- | ----------------------------------------------- |
+| `BOOK_NOT_FOUND`      | `bookId` is not in range 1–66                   |
+| `CHAPTER_NOT_FOUND`   | Chapter does not exist for this book            |
+| `VERSE_NOT_FOUND`     | Verse does not exist for this book/chapter      |
 | `VERSE_END_NOT_FOUND` | `verseEnd` does not exist for this book/chapter |
 
 The KJV database (`bibledb_kjv.sql`) is loaded into the same SQLite instance as the rest of the application data. The `RestRouter` queries it directly — no separate service layer is needed for a simple existence check.
@@ -1468,12 +1493,12 @@ Every entry written to the file transport is a JSON object:
 
 ```typescript
 interface LogEntry {
-  timestamp: string;       // ISO 8601, host-local timezone
+  timestamp: string; // ISO 8601, host-local timezone
   level: "debug" | "info" | "warn" | "error";
   source: "backend" | "frontend";
   message: string;
-  userId?: string;         // present on any entry triggered by a user action
-  context?: Record<string, unknown>;  // optional structured data (command type, device ID, error code, etc.)
+  userId?: string; // present on any entry triggered by a user action
+  context?: Record<string, unknown>; // optional structured data (command type, device ID, error code, etc.)
 }
 ```
 
@@ -1498,12 +1523,12 @@ Internally, the frontend logger batches entries and forwards them to `POST /api/
 
 `DEBUG` is off by default. Set `LOG_LEVEL=debug` to enable it. The default floor is `INFO`.
 
-| Level | Use |
-|---|---|
-| `DEBUG` | Detailed internal state — development only |
-| `INFO` | Significant events in normal operation |
-| `WARN` | Unexpected but recoverable — retry attempts, fallbacks |
-| `ERROR` | Failures requiring attention |
+| Level   | Use                                                    |
+| ------- | ------------------------------------------------------ |
+| `DEBUG` | Detailed internal state — development only             |
+| `INFO`  | Significant events in normal operation                 |
+| `WARN`  | Unexpected but recoverable — retry attempts, fallbacks |
+| `ERROR` | Failures requiring attention                           |
 
 ### Atomicity
 
@@ -1515,11 +1540,11 @@ Log race conditions (entries from frontend and backend appearing slightly out of
 
 ## Correctness Properties
 
-*A property is a characteristic or behavior that should hold true across all valid executions of a system — essentially, a formal statement about what the system should do. Properties serve as the bridge between human-readable specifications and machine-verifiable correctness guarantees.*
+_A property is a characteristic or behavior that should hold true across all valid executions of a system — essentially, a formal statement about what the system should do. Properties serve as the bridge between human-readable specifications and machine-verifiable correctness guarantees._
 
 ### Property 1: SessionManifest update propagates to all subscribers
 
-*For any* valid partial update to the SessionManifest, after the update is applied, every EventBus subscriber registered for `session:manifest:updated` SHALL receive the updated manifest with all fields reflecting the patch.
+_For any_ valid partial update to the SessionManifest, after the update is applied, every EventBus subscriber registered for `session:manifest:updated` SHALL receive the updated manifest with all fields reflecting the patch.
 
 **Validates: Requirements 2.2, 2.3, 9.2**
 
@@ -1527,7 +1552,7 @@ Log race conditions (entries from frontend and backend appearing slightly out of
 
 ### Property 2: Template interpolation is complete and placeholder-safe
 
-*For any* SessionManifest (with any combination of populated and empty fields) and any template string containing any combination of `{Date}`, `{Speaker}`, `{Title}`, and `{Scripture}` tokens, the interpolated output SHALL contain no raw unresolved tokens — each token is replaced by the corresponding field value, or by a visible placeholder (e.g., `[No Title]`) if the field is empty.
+_For any_ SessionManifest (with any combination of populated and empty fields) and any template string containing any combination of `{Date}`, `{Speaker}`, `{Title}`, and `{Scripture}` tokens, the interpolated output SHALL contain no raw unresolved tokens — each token is replaced by the corresponding field value, or by a visible placeholder (e.g., `[No Title]`) if the field is empty.
 
 **Validates: Requirements 9.2, 9.5**
 
@@ -1535,7 +1560,7 @@ Log race conditions (entries from frontend and backend appearing slightly out of
 
 ### Property 3: Capabilities gate controls
 
-*For any* CapabilitiesObject and any widget rendering controls for that device, every control whose corresponding feature key is `false` or absent SHALL be disabled or hidden, and every control whose feature key is `true` SHALL be enabled.
+_For any_ CapabilitiesObject and any widget rendering controls for that device, every control whose corresponding feature key is `false` or absent SHALL be disabled or hidden, and every control whose feature key is `true` SHALL be enabled.
 
 **Validates: Requirements 3.3**
 
@@ -1543,7 +1568,7 @@ Log race conditions (entries from frontend and backend appearing slightly out of
 
 ### Property 4: Optimistic update reverts on backend error
 
-*For any* ObsCommand issued by a widget that receives an error response from the backend, the widget's display state SHALL revert to the pre-command state and SHALL NOT remain in the optimistically-updated state.
+_For any_ ObsCommand issued by a widget that receives an error response from the backend, the widget's display state SHALL revert to the pre-command state and SHALL NOT remain in the optimistically-updated state.
 
 **Validates: Requirements 11.3**
 
@@ -1551,7 +1576,7 @@ Log race conditions (entries from frontend and backend appearing slightly out of
 
 ### Property 5: RBAC role hierarchy enforcement
 
-*For any* request carrying a JWT with role R, if the requested resource requires a minimum role M and R does not satisfy M in the hierarchy (ADMIN > AvPowerUser > AvVolunteer), the backend SHALL return 403 Forbidden and SHALL NOT execute the command or return the resource.
+_For any_ request carrying a JWT with role R, if the requested resource requires a minimum role M and R does not satisfy M in the hierarchy (ADMIN > AvPowerUser > AvVolunteer), the backend SHALL return 403 Forbidden and SHALL NOT execute the command or return the resource.
 
 **Validates: Requirements 7.1, 7.2, 7.3, 7.4, 7.5**
 
@@ -1559,7 +1584,7 @@ Log race conditions (entries from frontend and backend appearing slightly out of
 
 ### Property 6: GridManifest structural change detection
 
-*For any* two `GridManifest` values (cached and fresh), the structural change detection algorithm SHALL return `true` if and only if any cell differs in `widgetId`, `col`, `row`, `colSpan`, or `rowSpan`; it SHALL return `false` if only `title` or `roleMinimum` values differ.
+_For any_ two `GridManifest` values (cached and fresh), the structural change detection algorithm SHALL return `true` if and only if any cell differs in `widgetId`, `col`, `row`, `colSpan`, or `rowSpan`; it SHALL return `false` if only `title` or `roleMinimum` values differ.
 
 **Validates: Requirements 5b.5**
 
@@ -1567,7 +1592,7 @@ Log race conditions (entries from frontend and backend appearing slightly out of
 
 ### Property 7: Pending state shown for any in-flight boolean command
 
-*For any* boolean OBS command (startStream, stopStream, startRecording, stopRecording), from the moment the command is issued until the backend confirmation is received, the widget SHALL display a pending state indicator and the triggering control SHALL be disabled.
+_For any_ boolean OBS command (startStream, stopStream, startRecording, stopRecording), from the moment the command is issued until the backend confirmation is received, the widget SHALL display a pending state indicator and the triggering control SHALL be disabled.
 
 **Validates: Requirements 8.5, 11.4**
 
@@ -1575,7 +1600,7 @@ Log race conditions (entries from frontend and backend appearing slightly out of
 
 ### Property 8: commandedState tracks the last issued command
 
-*For any* sequence of OBS commands, after each command completes (success or failure), `commandedState` SHALL reflect the last successfully confirmed command — it SHALL NOT reflect a command that failed or was never confirmed.
+_For any_ sequence of OBS commands, after each command completes (success or failure), `commandedState` SHALL reflect the last successfully confirmed command — it SHALL NOT reflect a command that failed or was never confirmed.
 
 **Validates: Requirements 4.6, 11.5**
 
@@ -1583,7 +1608,7 @@ Log race conditions (entries from frontend and backend appearing slightly out of
 
 ### Property 9: Safe-start sequence ordering
 
-*For any* Start Stream command, the backend SHALL always attempt to update OBS stream metadata before issuing the stream start command, and SHALL NOT issue the stream start command if the metadata update step fails.
+_For any_ Start Stream command, the backend SHALL always attempt to update OBS stream metadata before issuing the stream start command, and SHALL NOT issue the stream start command if the metadata update step fails.
 
 **Validates: Requirements 8.2, 8.7**
 
@@ -1591,7 +1616,7 @@ Log race conditions (entries from frontend and backend appearing slightly out of
 
 ### Property 10: Non-catastrophic errors never trigger a Modal
 
-*For any* error condition that is not classified as catastrophic (i.e., any error other than OBS disconnect during a live stream), the notification level emitted by the backend SHALL be `toast` or `banner`, never `modal`.
+_For any_ error condition that is not classified as catastrophic (i.e., any error other than OBS disconnect during a live stream), the notification level emitted by the backend SHALL be `toast` or `banner`, never `modal`.
 
 **Validates: Requirements 10.6**
 
@@ -1599,7 +1624,7 @@ Log race conditions (entries from frontend and backend appearing slightly out of
 
 ### Property 11: Password change clears requiresPasswordChange flag
 
-*For any* user account with `requiresPasswordChange: true`, after a successful password change, the newly issued JWT SHALL NOT contain `requiresPasswordChange: true` — the flag is cleared and the user can access the dashboard.
+_For any_ user account with `requiresPasswordChange: true`, after a successful password change, the newly issued JWT SHALL NOT contain `requiresPasswordChange: true` — the flag is cleared and the user can access the dashboard.
 
 **Validates: Requirements 13.11**
 
@@ -1607,7 +1632,7 @@ Log race conditions (entries from frontend and backend appearing slightly out of
 
 ### Property 12: Device passwords are never returned in API responses
 
-*For any* device connection stored in the database, any GET response from the device connections REST endpoint SHALL NOT contain the `encryptedPassword` field or any plaintext password value.
+_For any_ device connection stored in the database, any GET response from the device connections REST endpoint SHALL NOT contain the `encryptedPassword` field or any plaintext password value.
 
 **Validates: Requirements 14.5**
 
@@ -1615,7 +1640,7 @@ Log race conditions (entries from frontend and backend appearing slightly out of
 
 ### Property 13: Device password encryption round-trip
 
-*For any* plaintext password string, encrypting it with AES-256-GCM and then decrypting it SHALL produce the original plaintext, and the stored (encrypted) value SHALL NOT equal the plaintext.
+_For any_ plaintext password string, encrypting it with AES-256-GCM and then decrypting it SHALL produce the original plaintext, and the stored (encrypted) value SHALL NOT equal the plaintext.
 
 **Validates: Requirements 14.2**
 
@@ -1623,7 +1648,7 @@ Log race conditions (entries from frontend and backend appearing slightly out of
 
 ### Property 14: Manifest clear is rejected while live
 
-*For any* SessionManifest state, if either `obsState.streaming` or `obsState.recording` is true, a call to `SessionManifestService.clear()` SHALL return an error result and the manifest SHALL remain unchanged.
+_For any_ SessionManifest state, if either `obsState.streaming` or `obsState.recording` is true, a call to `SessionManifestService.clear()` SHALL return an error result and the manifest SHALL remain unchanged.
 
 **Validates: Requirements 15.3**
 
@@ -1631,7 +1656,7 @@ Log race conditions (entries from frontend and backend appearing slightly out of
 
 ### Property 15: Start Stream disabled without required manifest fields
 
-*For any* SessionManifest where both `speaker` and `title` are absent (undefined or empty), the Start Stream button SHALL be disabled and SHALL NOT issue a stream start command.
+_For any_ SessionManifest where both `speaker` and `title` are absent (undefined or empty), the Start Stream button SHALL be disabled and SHALL NOT issue a stream start command.
 
 **Validates: Requirements 8.11**
 
@@ -1639,7 +1664,7 @@ Log race conditions (entries from frontend and backend appearing slightly out of
 
 ### Property 16: Date always uses today in template interpolation
 
-*For any* interpolation call, the interpolated output SHALL always use today's date (ISO 8601) for the `{Date}` token — a `[No Date]` placeholder SHALL never appear, and the date SHALL NOT be sourced from `SessionManifest`.
+_For any_ interpolation call, the interpolated output SHALL always use today's date (ISO 8601) for the `{Date}` token — a `[No Date]` placeholder SHALL never appear, and the date SHALL NOT be sourced from `SessionManifest`.
 
 **Validates: Requirements 9.6**
 
@@ -1647,7 +1672,7 @@ Log race conditions (entries from frontend and backend appearing slightly out of
 
 ### Property 17: GridManifest uniqueness is enforced at creation, not load time
 
-*For any* `GridManifest` loaded from the API or localStorage, the Dashboard SHALL render all cells regardless of whether any `widgetId` values are duplicated. Uniqueness is enforced by the backend database constraint at creation time — the frontend does not reject or filter manifests based on `widgetId` uniqueness.
+_For any_ `GridManifest` loaded from the API or localStorage, the Dashboard SHALL render all cells regardless of whether any `widgetId` values are duplicated. Uniqueness is enforced by the backend database constraint at creation time — the frontend does not reject or filter manifests based on `widgetId` uniqueness.
 
 **Validates: Requirements 5b.9**
 
@@ -1655,7 +1680,7 @@ Log race conditions (entries from frontend and backend appearing slightly out of
 
 ### Property 18: ConfirmationModal confirm/cancel isolation
 
-*For any* `ConfirmationModal` instance, tapping the cancel action SHALL call `onCancel` and SHALL NOT call `onConfirm`; tapping the confirm action SHALL call `onConfirm` and SHALL NOT call `onCancel`. This holds regardless of `confirmVariant`, `title`, or `body` props.
+_For any_ `ConfirmationModal` instance, tapping the cancel action SHALL call `onCancel` and SHALL NOT call `onConfirm`; tapping the confirm action SHALL call `onConfirm` and SHALL NOT call `onCancel`. This holds regardless of `confirmVariant`, `title`, or `body` props.
 
 **Validates: Requirements 8.9, 8.10, 8.11, 17.3, 17.4**
 
@@ -1663,7 +1688,7 @@ Log race conditions (entries from frontend and backend appearing slightly out of
 
 ### Property 19: streamTitleTemplate fallback
 
-*For any* OBS device connection record where `metadata.streamTitleTemplate` is absent or empty, `ObsService` SHALL use the default template `"{Date} – {Speaker} – {Title}"` for interpolation and SHALL NOT produce an error or empty string.
+_For any_ OBS device connection record where `metadata.streamTitleTemplate` is absent or empty, `ObsService` SHALL use the default template `"{Date} – {Speaker} – {Title}"` for interpolation and SHALL NOT produce an error or empty string.
 
 **Validates: Requirements 9.1 (updated)**
 
@@ -1671,7 +1696,7 @@ Log race conditions (entries from frontend and backend appearing slightly out of
 
 ### Property 20: Scripture interpolation format
 
-*For any* valid `ScriptureReference` with a known `bookId`, the interpolated `{Scripture}` token SHALL produce a string in the format `<BookName> <Chapter>:<Verse>` for single verses and `<BookName> <Chapter>:<Verse>-<EndVerse>` for ranges, where `<BookName>` is the display name resolved from `bookId` via `BIBLE_BOOKS`. If `scripture` is absent from the SessionManifest, the token SHALL be replaced with `[No Scripture]` and SHALL NOT produce an empty string or a raw token.
+_For any_ valid `ScriptureReference` with a known `bookId`, the interpolated `{Scripture}` token SHALL produce a string in the format `<BookName> <Chapter>:<Verse>` for single verses and `<BookName> <Chapter>:<Verse>-<EndVerse>` for ranges, where `<BookName>` is the display name resolved from `bookId` via `BIBLE_BOOKS`. If `scripture` is absent from the SessionManifest, the token SHALL be replaced with `[No Scripture]` and SHALL NOT produce an empty string or a raw token.
 
 **Validates: Requirements 9.5, 19.7**
 
@@ -1679,7 +1704,7 @@ Log race conditions (entries from frontend and backend appearing slightly out of
 
 ### Property 21: Stream-did-not-resume Banner on post-reconnect state mismatch
 
-*For any* OBS reconnect event where `commandedState.streaming` was `true` at the time of disconnect and `obsState.streaming` is `false` after reconciliation, the SocketGateway SHALL emit a Banner-level notification with the message `"Stream did not resume after reconnect. Tap Start Stream to go live again."` The Banner SHALL auto-clear when `obsState.streaming` subsequently becomes `true`.
+_For any_ OBS reconnect event where `commandedState.streaming` was `true` at the time of disconnect and `obsState.streaming` is `false` after reconciliation, the SocketGateway SHALL emit a Banner-level notification with the message `"Stream did not resume after reconnect. Tap Start Stream to go live again."` The Banner SHALL auto-clear when `obsState.streaming` subsequently becomes `true`.
 
 **Validates: Requirements 8.8**
 
@@ -1691,11 +1716,11 @@ The backend uses exponential backoff with jitter for all device reconnection att
 
 ```typescript
 interface RetryConfig {
-  initialDelayMs: number;    // delay before first retry (default: 1000)
-  maxDelayMs: number;        // cap on backoff delay (default: 30000)
-  maxAttempts: number;       // maximum retry attempts before giving up (default: 10)
-  backoffFactor: number;     // multiplier per attempt (default: 2)
-  jitterMs: number;          // random jitter added to each delay to avoid thundering herd (default: 500)
+  initialDelayMs: number; // delay before first retry (default: 1000)
+  maxDelayMs: number; // cap on backoff delay (default: 30000)
+  maxAttempts: number; // maximum retry attempts before giving up (default: 10)
+  backoffFactor: number; // multiplier per attempt (default: 2)
+  jitterMs: number; // random jitter added to each delay to avoid thundering herd (default: 500)
 }
 
 // Delay for attempt N (0-indexed): min(initialDelayMs * backoffFactor^N + random(0, jitterMs), maxDelayMs)
@@ -1716,6 +1741,7 @@ Default config for ObsService reconnection:
 ### Retry Exhaustion
 
 When `maxAttempts` is exhausted, ObsService:
+
 1. Emits `obs:error` on the EventBus with code `OBS_UNREACHABLE` and `retryExhausted: true`
 2. Stops all further automatic reconnection attempts
 
@@ -1724,6 +1750,7 @@ The SocketGateway broadcasts a Modal notification to all clients indicating that
 ### Manual Retry
 
 The frontend Modal shown on retry exhaustion includes a "Retry Connection" button. The "Retry Connection" button is only shown after `retryExhausted: true` is received — it is not shown while retries are still in progress. When tapped:
+
 1. The client emits an `obs:reconnect` Socket.io event to the backend
 2. The backend resets the retry counter and starts a fresh reconnection sequence with the same `RetryConfig`
 3. The Modal transitions to a "Reconnecting…" pending state while retries are in progress
@@ -1766,20 +1793,20 @@ Ionic's theming system uses CSS custom properties. The project's color tokens ma
   font-size: clamp(12px, 1.5625vw, 24px);
 
   /* Color tokens */
-  --ion-color-primary: #C0392B;
-  --ion-color-primary-shade: #A93226;
-  --ion-color-primary-tint: #CC4A3D;
+  --ion-color-primary: #c0392b;
+  --ion-color-primary-shade: #a93226;
+  --ion-color-primary-tint: #cc4a3d;
 
-  --ion-background-color: #1A1A1A;
-  --ion-card-background: #2C2C2C;
+  --ion-background-color: #1a1a1a;
+  --ion-card-background: #2c2c2c;
 
-  --ion-text-color: #F5F5F5;
-  --ion-color-medium: #A0A0A0;
+  --ion-text-color: #f5f5f5;
+  --ion-color-medium: #a0a0a0;
   --ion-border-color: #444444;
 
-  --ion-color-success: #27AE60;
-  --ion-color-warning: #F39C12;
-  --ion-color-danger: #FF4444;
+  --ion-color-success: #27ae60;
+  --ion-color-warning: #f39c12;
+  --ion-color-danger: #ff4444;
 
   /* Spacing tokens — all in rem so they scale with the root font size.
      Using a single value (0.75rem) for grid gap, widget inner padding, and
@@ -1811,8 +1838,8 @@ class ObsError extends Error {
 }
 
 type ObsErrorCode =
-  | "OBS_UNREACHABLE"       // connection lost — retries apply; context field present in ObsErrorEvent
-  | "OBS_NOT_CONFIGURED"    // no enabled device_connections row at startup — config problem, not a connection failure; no retry button shown
+  | "OBS_UNREACHABLE" // connection lost — retries apply; context field present in ObsErrorEvent
+  | "OBS_NOT_CONFIGURED" // no enabled device_connections row at startup — config problem, not a connection failure; no retry button shown
   | "STREAM_START_FAILED"
   | "STREAM_STOP_FAILED"
   | "RECORDING_START_FAILED"
@@ -1832,6 +1859,7 @@ In both cases, `commandedState.streaming` remains `false` and the widget reverts
 ### OBS Disconnect During Live Stream or Recording
 
 When obs-websocket fires a disconnect event and `commandedState.streaming === true` or `commandedState.recording === true` (or both):
+
 1. Backend emits `obs:error` with code `OBS_UNREACHABLE`, `autoResolve: true`, and a `context: { streaming: boolean; recording: boolean }` field reflecting which operations were active at disconnect
 2. SocketGateway broadcasts a Modal notification to all clients with a message that names the affected operations and communicates uncertainty — the tablet may have lost its connection while OBS remains healthy (see Error Notification Mapping)
 3. When OBS reconnects, `ObsService` queries the current stream/recording state from obs-websocket and emits an `obs:state` update reflecting actual OBS state
@@ -1862,6 +1890,7 @@ Socket.io handles this automatically: it detects the dropped connection and begi
 3. **Displays stale state**: The last known device state remains visible but is marked as potentially stale — the connection status dot in `WidgetContainer` turns red (unhealthy) since the backend connection is lost.
 
 When Socket.io successfully reconnects:
+
 1. The SocketGateway re-validates the JWT on the reconnect handshake (see JWT Expiry section above).
 2. If the JWT is still valid, the backend emits the current state for all devices to the reconnected client — the frontend reconciles to the fresh state.
 3. The frontend dismisses the "Connection lost" Banner and shows a Toast: `"Reconnected"`.
@@ -1912,29 +1941,29 @@ The project uses [fast-check](https://github.com/dubzzz/fast-check) for property
 
 Tag format for each test: `// Feature: livestream-control-system, Property N: <property text>`
 
-| Property | Test target | What varies |
-|---|---|---|
-| P1: Manifest propagation | `SessionManifestService` | Arbitrary partial patches (any subset of fields, any string/null values) |
-| P2: Template interpolation completeness + placeholders | `interpolateTemplate()` | Arbitrary template strings, manifests with any combination of null/non-null fields |
-| P3: Capabilities gate controls | `ObsWidget` render | Arbitrary CapabilitiesObject feature maps |
-| P4: Optimistic revert on error | `useObsState` hook | Any ObsCommand type, any error response |
-| P5: RBAC enforcement | `AuthService.requireRole()` | All role × resource permission combinations |
-| P6: GridManifest round-trip | localStorage serialize/deserialize | Arbitrary valid GridManifest structures |
-| P7: Pending state for in-flight commands | `ObsWidget` / `useObsState` / `SessionManifestModal` | Any of the four boolean OBS command types; also Save in SessionManifestModal |
-| P8: commandedState tracks last confirmed command | `ObsService` | Arbitrary sequences of commands with success/failure outcomes |
-| P9: Safe-start sequence ordering | `ObsService.startStream()` | Arbitrary SessionManifest states, metadata update success/failure |
-| P10: Non-catastrophic errors never trigger Modal | `SocketGateway` notification mapping | All non-catastrophic error codes |
-| P11: Password change clears requiresPasswordChange | `AuthService.changePassword()` | Any valid new password string |
-| P12: Device passwords never in API responses | REST device connection handler | Any DeviceConnection with any password value |
-| P13: Device password encryption round-trip | `crypto` encrypt/decrypt utility | Arbitrary plaintext password strings |
-| P14: Manifest clear rejected while live | `SessionManifestService.clear()` | Any manifest state × streaming/recording active |
-| P15: Start Stream disabled without required fields | `ObsWidget` / `useObsState` | Any SessionManifest with absent speaker and title |
-| P16: Date auto-population in interpolation | `interpolateTemplate()` | Any manifest with absent date field |
-| P17: GridManifest renders duplicate widgetIds without rejection | `Dashboard` render | Any GridManifest with duplicate widgetId values |
-| P18: ConfirmationModal confirm/cancel isolation | `ConfirmationModal` | Any combination of confirm/cancel taps |
-| P19: metadataTemplate fallback | `ObsService` | Any DeviceConnection with null/absent metadataTemplate |
-| P20: Scripture interpolation format | `interpolateTemplate()` | Any valid ScriptureReference (single verse and range), absent scripture field |
-| P21: Stream-did-not-resume Banner on post-reconnect mismatch | `SocketGateway` post-reconnect handler | Any reconnect event where `commandedState.streaming` was `true` and `obsState.streaming` is `false` after reconciliation |
+| Property                                                        | Test target                                          | What varies                                                                                                              |
+| --------------------------------------------------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| P1: Manifest propagation                                        | `SessionManifestService`                             | Arbitrary partial patches (any subset of fields, any string/null values)                                                 |
+| P2: Template interpolation completeness + placeholders          | `interpolateTemplate()`                              | Arbitrary template strings, manifests with any combination of null/non-null fields                                       |
+| P3: Capabilities gate controls                                  | `ObsWidget` render                                   | Arbitrary CapabilitiesObject feature maps                                                                                |
+| P4: Optimistic revert on error                                  | `useObsState` hook                                   | Any ObsCommand type, any error response                                                                                  |
+| P5: RBAC enforcement                                            | `AuthService.requireRole()`                          | All role × resource permission combinations                                                                              |
+| P6: GridManifest round-trip                                     | localStorage serialize/deserialize                   | Arbitrary valid GridManifest structures                                                                                  |
+| P7: Pending state for in-flight commands                        | `ObsWidget` / `useObsState` / `SessionManifestModal` | Any of the four boolean OBS command types; also Save in SessionManifestModal                                             |
+| P8: commandedState tracks last confirmed command                | `ObsService`                                         | Arbitrary sequences of commands with success/failure outcomes                                                            |
+| P9: Safe-start sequence ordering                                | `ObsService.startStream()`                           | Arbitrary SessionManifest states, metadata update success/failure                                                        |
+| P10: Non-catastrophic errors never trigger Modal                | `SocketGateway` notification mapping                 | All non-catastrophic error codes                                                                                         |
+| P11: Password change clears requiresPasswordChange              | `AuthService.changePassword()`                       | Any valid new password string                                                                                            |
+| P12: Device passwords never in API responses                    | REST device connection handler                       | Any DeviceConnection with any password value                                                                             |
+| P13: Device password encryption round-trip                      | `crypto` encrypt/decrypt utility                     | Arbitrary plaintext password strings                                                                                     |
+| P14: Manifest clear rejected while live                         | `SessionManifestService.clear()`                     | Any manifest state × streaming/recording active                                                                          |
+| P15: Start Stream disabled without required fields              | `ObsWidget` / `useObsState`                          | Any SessionManifest with absent speaker and title                                                                        |
+| P16: Date auto-population in interpolation                      | `interpolateTemplate()`                              | Any manifest with absent date field                                                                                      |
+| P17: GridManifest renders duplicate widgetIds without rejection | `Dashboard` render                                   | Any GridManifest with duplicate widgetId values                                                                          |
+| P18: ConfirmationModal confirm/cancel isolation                 | `ConfirmationModal`                                  | Any combination of confirm/cancel taps                                                                                   |
+| P19: metadataTemplate fallback                                  | `ObsService`                                         | Any DeviceConnection with null/absent metadataTemplate                                                                   |
+| P20: Scripture interpolation format                             | `interpolateTemplate()`                              | Any valid ScriptureReference (single verse and range), absent scripture field                                            |
+| P21: Stream-did-not-resume Banner on post-reconnect mismatch    | `SocketGateway` post-reconnect handler               | Any reconnect event where `commandedState.streaming` was `true` and `obsState.streaming` is `false` after reconciliation |
 
 ### Integration Tests (Playwright)
 

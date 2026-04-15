@@ -20,7 +20,7 @@ import { logger } from "./logger.js";
 const secretKey = process.env["DEVICE_SECRET_KEY"] ?? "";
 if (!/^[0-9a-f]{64}$/.test(secretKey)) {
   logger.error(
-    'DEVICE_SECRET_KEY must be a 64-character hex string (32 bytes). Generate one with: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"',
+    "DEVICE_SECRET_KEY must be a 64-character hex string (32 bytes). Generate one with: node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\"",
   );
   process.exit(1);
 }

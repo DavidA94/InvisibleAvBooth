@@ -26,12 +26,12 @@ const seedActor = { sub: "seed", username: "seed", role: "ADMIN" as const, iat: 
 async function loginAsAdmin(app: express.Express, authService: AuthService) {
   await authService.createUser({ username: "admin", password: "adminpass", role: "ADMIN" }, seedActor);
   const res = await request(app).post("/auth/login").send({ username: "admin", password: "adminpass" });
-  const cookie = ((res.headers["set-cookie"] as unknown) as string[])[0] ?? "";
+  const cookie = (res.headers["set-cookie"] as unknown as string[])[0] ?? "";
   return { cookie };
 }
 
 function getCookie(res: request.Response): string {
-  return ((res.headers["set-cookie"] as unknown) as string[])[0] ?? "";
+  return (res.headers["set-cookie"] as unknown as string[])[0] ?? "";
 }
 
 // ── POST /auth/login ──────────────────────────────────────────────────────────
@@ -157,7 +157,10 @@ describe("PUT /admin/users/:id", () => {
     const { app, authService } = buildApp();
     const { cookie } = await loginAsAdmin(app, authService);
     const createRes = await request(app).post("/admin/users").set("Cookie", cookie).send({ username: "bob", password: "p", role: "AvVolunteer" });
-    const res = await request(app).put(`/admin/users/${createRes.body.id as string}`).set("Cookie", cookie).send({ username: "bobby" });
+    const res = await request(app)
+      .put(`/admin/users/${createRes.body.id as string}`)
+      .set("Cookie", cookie)
+      .send({ username: "bobby" });
     expect(res.status).toBe(200);
     expect(res.body.username).toBe("bobby");
   });
@@ -176,7 +179,13 @@ describe("DELETE /admin/users/:id", () => {
     const { app, authService } = buildApp();
     const { cookie } = await loginAsAdmin(app, authService);
     const createRes = await request(app).post("/admin/users").set("Cookie", cookie).send({ username: "todelete", password: "p", role: "AvVolunteer" });
-    expect((await request(app).delete(`/admin/users/${createRes.body.id as string}`).set("Cookie", cookie)).status).toBe(204);
+    expect(
+      (
+        await request(app)
+          .delete(`/admin/users/${createRes.body.id as string}`)
+          .set("Cookie", cookie)
+      ).status,
+    ).toBe(204);
   });
 
   it("returns 403 when trying to self-delete", async () => {
@@ -221,7 +230,9 @@ describe("POST /admin/users/:id/change-password", () => {
     const createRes = await request(app).post("/admin/users").set("Cookie", cookie).send({ username: "vol", password: "pass", role: "AvVolunteer" });
     const volLogin = await request(app).post("/auth/login").send({ username: "vol", password: "pass" });
     const volCookie = getCookie(volLogin);
-    const adminId = ((await request(app).get("/admin/users").set("Cookie", cookie)).body as Array<{ id: string; username: string }>).find((u) => u.username === "admin")!.id;
+    const adminId = ((await request(app).get("/admin/users").set("Cookie", cookie)).body as Array<{ id: string; username: string }>).find(
+      (u) => u.username === "admin",
+    )!.id;
     expect((await request(app).post(`/admin/users/${adminId}/change-password`).set("Cookie", volCookie).send({ newPassword: "hack" })).status).toBe(403);
     void createRes;
   });

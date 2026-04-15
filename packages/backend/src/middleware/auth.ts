@@ -2,11 +2,9 @@ import type { Request, Response, NextFunction } from "express";
 import type { AuthService, JwtPayload, Role } from "../services/authService.js";
 
 // Extend Express Request to carry the verified JWT payload.
-declare global {
-  namespace Express {
-    interface Request {
-      jwtPayload?: JwtPayload;
-    }
+declare module "express-serve-static-core" {
+  interface Request {
+    jwtPayload?: JwtPayload;
   }
 }
 

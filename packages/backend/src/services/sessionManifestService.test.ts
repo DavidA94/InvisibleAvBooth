@@ -8,15 +8,21 @@ import type { JwtPayload } from "./authService.js";
 const actor: JwtPayload = { sub: "u1", username: "admin", role: "ADMIN", iat: 0, exp: 9999999999 };
 
 const liveObsState: ObsState = {
-  connected: true, streaming: true, recording: false,
+  connected: true,
+  streaming: true,
+  recording: false,
   commandedState: { streaming: true, recording: false },
 };
 const recordingObsState: ObsState = {
-  connected: true, streaming: false, recording: true,
+  connected: true,
+  streaming: false,
+  recording: true,
   commandedState: { streaming: false, recording: true },
 };
 const idleObsState: ObsState = {
-  connected: true, streaming: false, recording: false,
+  connected: true,
+  streaming: false,
+  recording: false,
   commandedState: { streaming: false, recording: false },
 };
 
@@ -146,19 +152,13 @@ describe("SessionManifestService.interpolate", () => {
 
   it("formats single verse scripture", () => {
     const svc = makeSvc();
-    const result = svc.interpolate(
-      { scripture: { bookId: 43, chapter: 3, verse: 16 } },
-      "{Scripture}",
-    );
+    const result = svc.interpolate({ scripture: { bookId: 43, chapter: 3, verse: 16 } }, "{Scripture}");
     expect(result).toBe("John 3:16");
   });
 
   it("formats verse range scripture", () => {
     const svc = makeSvc();
-    const result = svc.interpolate(
-      { scripture: { bookId: 43, chapter: 3, verse: 16, verseEnd: 17 } },
-      "{Scripture}",
-    );
+    const result = svc.interpolate({ scripture: { bookId: 43, chapter: 3, verse: 16, verseEnd: 17 } }, "{Scripture}");
     expect(result).toBe("John 3:16-17");
   });
 
@@ -190,9 +190,7 @@ describe("Property: interpolate never returns undefined or throws", () => {
         }),
         (raw) => {
           // Strip undefined values to satisfy exactOptionalPropertyTypes
-          const manifest = Object.fromEntries(
-            Object.entries(raw).filter(([, v]) => v !== undefined),
-          ) as { speaker?: string; title?: string };
+          const manifest = Object.fromEntries(Object.entries(raw).filter(([, v]) => v !== undefined)) as { speaker?: string; title?: string };
           const result = svc.interpolate(manifest, DEFAULT_STREAM_TITLE_TEMPLATE);
           expect(typeof result).toBe("string");
           expect(result.length).toBeGreaterThan(0);
@@ -211,9 +209,7 @@ describe("Property: interpolate never returns undefined or throws", () => {
           title: fc.option(fc.string({ minLength: 1 }), { nil: undefined }),
         }),
         (template, raw) => {
-          const manifest = Object.fromEntries(
-            Object.entries(raw).filter(([, v]) => v !== undefined),
-          ) as { speaker?: string; title?: string };
+          const manifest = Object.fromEntries(Object.entries(raw).filter(([, v]) => v !== undefined)) as { speaker?: string; title?: string };
           const result = svc.interpolate(manifest, template);
           expect(typeof result).toBe("string");
         },

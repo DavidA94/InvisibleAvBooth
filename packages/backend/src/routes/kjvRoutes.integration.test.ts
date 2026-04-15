@@ -28,7 +28,7 @@ beforeAll(async () => {
     { sub: "seed", username: "seed", role: "ADMIN", iat: 0, exp: 9999999999 },
   );
   const res = await request(app).post("/auth/login").send({ username: "admin", password: "pass" });
-  cookie = ((res.headers["set-cookie"] as unknown) as string[])[0] ?? "";
+  cookie = (res.headers["set-cookie"] as unknown as string[])[0] ?? "";
 
   // Store app on module scope for tests
   (globalThis as Record<string, unknown>)["__kjvApp"] = app;

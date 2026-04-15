@@ -20,8 +20,20 @@ interface DeviceRow {
   createdAt: string;
 }
 
+interface PublicDevice {
+  id: string;
+  deviceType: string;
+  label: string;
+  host: string;
+  port: number;
+  metadata: Record<string, string>;
+  features: Record<string, boolean>;
+  enabled: boolean;
+  createdAt: string;
+}
+
 // Strip the encrypted password before returning to the client — passwords are write-only.
-function toPublic(row: DeviceRow) {
+function toPublic(row: DeviceRow): PublicDevice {
   return {
     id: row.id,
     deviceType: row.deviceType,
@@ -48,7 +60,16 @@ export function createAdminDeviceRouter(db: Database, authService: AuthService):
 
   // POST /admin/devices
   router.post("/", auth, adminOnly, (req: Request, res: Response): void => {
-    const { deviceType, label, host, port, password, metadata = {}, features = {}, enabled = true } = req.body as {
+    const {
+      deviceType,
+      label,
+      host,
+      port,
+      password,
+      metadata = {},
+      features = {},
+      enabled = true,
+    } = req.body as {
       deviceType?: string;
       label?: string;
       host?: string;
@@ -59,6 +80,7 @@ export function createAdminDeviceRouter(db: Database, authService: AuthService):
       enabled?: boolean;
     };
 
+    // eslint-disable-next-line eqeqeq -- Use == to catch null or undefined, but not zero
     if (!deviceType || !label || !host || port == null) {
       res.status(400).json({ error: "deviceType, label, host, and port are required" });
       return;
@@ -109,9 +131,7 @@ export function createAdminDeviceRouter(db: Database, authService: AuthService):
 
     const encryptedPassword = password ? encrypt(password) : row.encryptedPassword;
 
-    db.prepare(
-      "UPDATE device_connections SET deviceType=?, label=?, host=?, port=?, encryptedPassword=?, metadata=?, features=?, enabled=? WHERE id=?",
-    ).run(
+    db.prepare("UPDATE device_connections SET deviceType=?, label=?, host=?, port=?, encryptedPassword=?, metadata=?, features=?, enabled=? WHERE id=?").run(
       deviceType ?? row.deviceType,
       label ?? row.label,
       host ?? row.host,
@@ -119,6 +139,7 @@ export function createAdminDeviceRouter(db: Database, authService: AuthService):
       encryptedPassword,
       JSON.stringify(metadata ?? (JSON.parse(row.metadata) as Record<string, string>)),
       JSON.stringify(features ?? (JSON.parse(row.features) as Record<string, boolean>)),
+      // eslint-disable-next-line eqeqeq -- use != so it catches null or undefined, but not false
       enabled != null ? (enabled ? 1 : 0) : row.enabled,
       row.id,
     );

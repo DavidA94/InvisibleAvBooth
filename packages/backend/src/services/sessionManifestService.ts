@@ -92,5 +92,5 @@ export class SessionManifestService {
 function formatScripture(ref: ScriptureReference): string {
   const bookName = BIBLE_BOOKS[ref.bookId] ?? `Book ${ref.bookId}`;
   const base = `${bookName} ${ref.chapter}:${ref.verse}`;
-  return ref.verseEnd != null ? `${base}-${ref.verseEnd}` : base;
+  return ref.verseEnd ? `${base}-${ref.verseEnd}` : base;
 }

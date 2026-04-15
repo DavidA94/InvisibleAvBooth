@@ -26,10 +26,12 @@ function buildApp() {
 async function loginAsAdmin(app: express.Express, authService: AuthService) {
   await authService.createUser({ username: "admin", password: "pass", role: "ADMIN" }, seedActor);
   const res = await request(app).post("/auth/login").send({ username: "admin", password: "pass" });
-  return ((res.headers["set-cookie"] as unknown) as string[])[0] ?? "";
+  return (res.headers["set-cookie"] as unknown as string[])[0] ?? "";
 }
 
-afterEach(() => { vi.restoreAllMocks(); });
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 describe("POST /api/logs", () => {
   it("writes entries to logger with source: frontend", async () => {
@@ -66,7 +68,13 @@ describe("POST /api/logs", () => {
 
   it("returns 401 without auth", async () => {
     const { app } = buildApp();
-    expect((await request(app).post("/api/logs").send([{ level: "info", message: "x" }])).status).toBe(401);
+    expect(
+      (
+        await request(app)
+          .post("/api/logs")
+          .send([{ level: "info", message: "x" }])
+      ).status,
+    ).toBe(401);
   });
 
   it("returns 400 when body is not an array", async () => {

@@ -1,6 +1,5 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { createServer } from "http";
-import { Server as SocketServer } from "socket.io";
 import { io as ioClient } from "socket.io-client";
 import type { Socket as ClientSocket } from "socket.io-client";
 import Database from "better-sqlite3";
@@ -13,7 +12,9 @@ import type { ObsState } from "../eventBus.js";
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 
 const idleState: ObsState = {
-  connected: false, streaming: false, recording: false,
+  connected: false,
+  streaming: false,
+  recording: false,
   commandedState: { streaming: false, recording: false },
 };
 
@@ -86,7 +87,10 @@ describe("SocketGateway — JWT validation", () => {
 
     await new Promise<void>((resolve) => {
       const client = ioClient(`http://localhost:${port}`);
-      client.on("connect_error", () => { client.close(); resolve(); });
+      client.on("connect_error", () => {
+        client.close();
+        resolve();
+      });
     });
   });
 
@@ -96,7 +100,10 @@ describe("SocketGateway — JWT validation", () => {
 
     await new Promise<void>((resolve) => {
       const client = ioClient(`http://localhost:${port}`, { auth: { token: "bad.token" } });
-      client.on("connect_error", () => { client.close(); resolve(); });
+      client.on("connect_error", () => {
+        client.close();
+        resolve();
+      });
     });
   });
 

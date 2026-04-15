@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { getDb, resetDb, seedKjv } from "./database.js";
 import { applySchema } from "./schema.js";
 import Database from "better-sqlite3";
+import { logger } from "../logger.js";
 
 beforeEach(() => {
   resetDb();
@@ -46,9 +47,7 @@ describe("applySchema", () => {
       .all()
       .map((r: unknown) => (r as { name: string }).name);
 
-    expect(cols).toEqual(
-      expect.arrayContaining(["id", "username", "passwordHash", "role", "requiresPasswordChange", "createdAt"]),
-    );
+    expect(cols).toEqual(expect.arrayContaining(["id", "username", "passwordHash", "role", "requiresPasswordChange", "createdAt"]));
     db.close();
   });
 
@@ -92,9 +91,7 @@ describe("getDb", () => {
   it("creates the kjv table", () => {
     const db = getDb(":memory:");
 
-    const tables = db
-      .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='kjv'")
-      .all();
+    const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='kjv'").all();
 
     expect(tables).toHaveLength(1);
   });
@@ -104,9 +101,7 @@ describe("getDb", () => {
     resetDb();
     const db = getDb(":memory:");
 
-    const tables = db
-      .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='kjv'")
-      .all();
+    const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='kjv'").all();
 
     expect(tables).toHaveLength(1);
   });
@@ -125,7 +120,7 @@ describe("seedKjv — idempotency", () => {
   it("does not throw when called twice on the same DB (tableExists early return)", () => {
     const db = new Database(":memory:");
     // First call: creates kjv table (empty, since path is nonexistent)
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const warnSpy = vi.spyOn(logger, "warn").mockImplementation(() => logger);
     seedKjv(db, "/nonexistent/bibledb_kjv.sql");
     // Second call: kjv table already exists — hits the early return branch
     expect(() => seedKjv(db, "/nonexistent/bibledb_kjv.sql")).not.toThrow();
@@ -137,15 +132,13 @@ describe("seedKjv — idempotency", () => {
 
 describe("seedKjv — missing SQL file", () => {
   it("warns and leaves kjv table empty when sql path does not exist", () => {
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const warnSpy = vi.spyOn(logger, "warn").mockImplementation(() => logger);
 
     const db = getDb(":memory:", "/nonexistent/bibledb_kjv.sql");
 
     expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("bibledb_kjv.sql not found"));
 
-    const tables = db
-      .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='kjv'")
-      .all();
+    const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='kjv'").all();
     expect(tables).toHaveLength(1);
 
     const rows = db.prepare("SELECT COUNT(*) as cnt FROM kjv").get() as { cnt: number };

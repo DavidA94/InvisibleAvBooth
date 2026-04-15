@@ -199,10 +199,10 @@ Tests are part of each story's definition of done. Unit tests (including propert
 - [ ] 51. Write unit tests for useResizeObserver — returns observed width, updates on resize, disconnects observer on unmount (mock ResizeObserver)
   - _Requirements: 16, 18_
 
-- [ ] 52. Create frontend ProtectedRoutes — src/components/ProtectedRoutes.tsx (redirects to /login if no auth user, to /change-password if requiresPasswordChange, non-ADMIN away from /admin/* routes)
+- [ ] 52. Create frontend ProtectedRoutes — src/components/ProtectedRoutes.tsx (redirects to /login if no auth user, to /change-password if requiresPasswordChange, non-ADMIN away from /admin/\* routes)
   - _Requirements: 6, 7_
 
-- [ ] 53. Write unit tests for ProtectedRoutes — unauthenticated user redirects to /login, requiresPasswordChange redirects to /change-password, non-ADMIN redirects away from /admin/* routes, authenticated ADMIN passes through (mock useAuth)
+- [ ] 53. Write unit tests for ProtectedRoutes — unauthenticated user redirects to /login, requiresPasswordChange redirects to /change-password, non-ADMIN redirects away from /admin/\* routes, authenticated ADMIN passes through (mock useAuth)
   - _Requirements: 6, 7_
 
 ---

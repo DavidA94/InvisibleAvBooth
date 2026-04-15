@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, readFileSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import { applySchema } from "./schema.js";
+import { logger } from "../logger.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -51,9 +52,7 @@ export function resetDb(): void {
 
 // Load the KJV bible data on first run. Exported for testing.
 export function seedKjv(db: Database.Database, sqlPath: string): void {
-  const tableExists = db
-    .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='kjv'")
-    .get();
+  const tableExists = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='kjv'").get();
 
   if (tableExists) return;
 
@@ -69,7 +68,7 @@ export function seedKjv(db: Database.Database, sqlPath: string): void {
   if (!existsSync(sqlPath)) {
     // Log a warning but do not crash — the KJV table will be empty.
     // Scripture validation will fail gracefully until the file is present.
-    console.warn(`[WARN] bibledb_kjv.sql not found at ${sqlPath}. KJV scripture validation will be unavailable.`);
+    logger.warn(`bibledb_kjv.sql not found at ${sqlPath}. KJV scripture validation will be unavailable.`);
     return;
   }
 
@@ -81,9 +80,7 @@ export function seedKjv(db: Database.Database, sqlPath: string): void {
   // requires them but they can never actually be reached.
   const rowPattern = /\((\d+),\s*(\d+),\s*(\d+),\s*'((?:[^']|'')*)'\)/g;
 
-  const insert = db.prepare(
-    "INSERT INTO kjv (BOOKID, CHAPTERNO, VERSENO, VERSETEXT) VALUES (?, ?, ?, ?)",
-  );
+  const insert = db.prepare("INSERT INTO kjv (BOOKID, CHAPTERNO, VERSENO, VERSETEXT) VALUES (?, ?, ?, ?)");
 
   const insertMany = db.transaction((rows: [number, number, number, string][]) => {
     for (const [bookId, chapter, verse, text] of rows) {
@@ -96,12 +93,7 @@ export function seedKjv(db: Database.Database, sqlPath: string): void {
 
   while ((match = rowPattern.exec(sql)) !== null) {
     // match[1..4] are always defined — the regex only matches when all four groups capture
-    rows.push([
-      parseInt(match[1]!, 10),
-      parseInt(match[2]!, 10),
-      parseInt(match[3]!, 10),
-      match[4]!.replace(/''/g, "'"),
-    ]);
+    rows.push([parseInt(match[1]!, 10), parseInt(match[2]!, 10), parseInt(match[3]!, 10), match[4]!.replace(/''/g, "'")]);
   }
 
   insertMany(rows);

@@ -108,17 +108,11 @@ class EventBusImpl {
     this.emitter.emit(event, payload);
   }
 
-  subscribe<K extends keyof EventMap>(
-    event: K,
-    handler: (payload: EventMap[K]) => void,
-  ): void {
+  subscribe<K extends keyof EventMap>(event: K, handler: (payload: EventMap[K]) => void): void {
     this.emitter.on(event, handler);
   }
 
-  unsubscribe<K extends keyof EventMap>(
-    event: K,
-    handler: (payload: EventMap[K]) => void,
-  ): void {
+  unsubscribe<K extends keyof EventMap>(event: K, handler: (payload: EventMap[K]) => void): void {
     this.emitter.off(event, handler);
   }
 }

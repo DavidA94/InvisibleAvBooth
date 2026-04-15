@@ -34,7 +34,7 @@ function buildApp() {
 async function loginAsAdmin(app: express.Express, authService: AuthService) {
   await authService.createUser({ username: "admin", password: "adminpass", role: "ADMIN" }, seedActor);
   const res = await request(app).post("/auth/login").send({ username: "admin", password: "adminpass" });
-  return ((res.headers["set-cookie"] as unknown) as string[])[0] ?? "";
+  return (res.headers["set-cookie"] as unknown as string[])[0] ?? "";
 }
 
 const baseDevice = { deviceType: "obs", label: "Main OBS", host: "localhost", port: 4455 };
@@ -45,7 +45,10 @@ describe("POST /admin/devices", () => {
   it("creates a device and returns it without password", async () => {
     const { app, authService } = buildApp();
     const cookie = await loginAsAdmin(app, authService);
-    const res = await request(app).post("/admin/devices").set("Cookie", cookie).send({ ...baseDevice, password: "secret" });
+    const res = await request(app)
+      .post("/admin/devices")
+      .set("Cookie", cookie)
+      .send({ ...baseDevice, password: "secret" });
     expect(res.status).toBe(201);
     expect(res.body.label).toBe("Main OBS");
     expect(res.body).not.toHaveProperty("encryptedPassword");
@@ -71,7 +74,10 @@ describe("GET /admin/devices", () => {
   it("returns device list without passwords", async () => {
     const { app, authService } = buildApp();
     const cookie = await loginAsAdmin(app, authService);
-    await request(app).post("/admin/devices").set("Cookie", cookie).send({ ...baseDevice, password: "secret" });
+    await request(app)
+      .post("/admin/devices")
+      .set("Cookie", cookie)
+      .send({ ...baseDevice, password: "secret" });
     const res = await request(app).get("/admin/devices").set("Cookie", cookie);
     expect(res.status).toBe(200);
     expect(Array.isArray(res.body)).toBe(true);
@@ -86,7 +92,9 @@ describe("GET /admin/devices/:id", () => {
     const { app, authService } = buildApp();
     const cookie = await loginAsAdmin(app, authService);
     const created = await request(app).post("/admin/devices").set("Cookie", cookie).send(baseDevice);
-    const res = await request(app).get(`/admin/devices/${created.body.id as string}`).set("Cookie", cookie);
+    const res = await request(app)
+      .get(`/admin/devices/${created.body.id as string}`)
+      .set("Cookie", cookie);
     expect(res.status).toBe(200);
     expect(res.body.id).toBe(created.body.id);
   });
@@ -105,7 +113,10 @@ describe("PUT /admin/devices/:id", () => {
     const { app, authService } = buildApp();
     const cookie = await loginAsAdmin(app, authService);
     const created = await request(app).post("/admin/devices").set("Cookie", cookie).send(baseDevice);
-    const res = await request(app).put(`/admin/devices/${created.body.id as string}`).set("Cookie", cookie).send({ label: "Updated OBS" });
+    const res = await request(app)
+      .put(`/admin/devices/${created.body.id as string}`)
+      .set("Cookie", cookie)
+      .send({ label: "Updated OBS" });
     expect(res.status).toBe(200);
     expect(res.body.label).toBe("Updated OBS");
     expect(res.body).not.toHaveProperty("encryptedPassword");
@@ -125,7 +136,13 @@ describe("DELETE /admin/devices/:id", () => {
     const { app, authService } = buildApp();
     const cookie = await loginAsAdmin(app, authService);
     const created = await request(app).post("/admin/devices").set("Cookie", cookie).send(baseDevice);
-    expect((await request(app).delete(`/admin/devices/${created.body.id as string}`).set("Cookie", cookie)).status).toBe(204);
+    expect(
+      (
+        await request(app)
+          .delete(`/admin/devices/${created.body.id as string}`)
+          .set("Cookie", cookie)
+      ).status,
+    ).toBe(204);
   });
 
   it("returns 404 for unknown id", async () => {
@@ -141,7 +158,10 @@ describe("encryption", () => {
   it("password is encrypted at rest and never returned in responses", async () => {
     const { app, db, authService } = buildApp();
     const cookie = await loginAsAdmin(app, authService);
-    const created = await request(app).post("/admin/devices").set("Cookie", cookie).send({ ...baseDevice, password: "mysecret" });
+    const created = await request(app)
+      .post("/admin/devices")
+      .set("Cookie", cookie)
+      .send({ ...baseDevice, password: "mysecret" });
     const id = created.body.id as string;
 
     // Verify the stored value is encrypted (not plaintext)
@@ -160,7 +180,10 @@ describe("encryption", () => {
   it("password is preserved when updating other fields", async () => {
     const { app, db, authService } = buildApp();
     const cookie = await loginAsAdmin(app, authService);
-    const created = await request(app).post("/admin/devices").set("Cookie", cookie).send({ ...baseDevice, password: "original" });
+    const created = await request(app)
+      .post("/admin/devices")
+      .set("Cookie", cookie)
+      .send({ ...baseDevice, password: "original" });
     const id = created.body.id as string;
 
     // Update label only — no new password

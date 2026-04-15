@@ -41,6 +41,7 @@ npx tsx src/index.ts
 ```
 
 On first startup with no users in the database, the backend:
+
 1. Creates a default `admin` account with a randomly generated password
 2. Prints the credentials to stdout
 3. Writes them to `data/bootstrap.txt`
@@ -74,29 +75,29 @@ The script is idempotent — safe to run multiple times.
 
 All admin routes require an authenticated ADMIN JWT cookie.
 
-| Route | Method | Description |
-|---|---|---|
-| `/admin/users` | GET | List all users |
-| `/admin/users` | POST | Create a user |
-| `/admin/users/:id` | GET | Get a user |
-| `/admin/users/:id` | PUT | Update a user |
-| `/admin/users/:id` | DELETE | Delete a user |
-| `/admin/users/:id/change-password` | POST | Change a user's password |
-| `/admin/devices` | GET | List device connections |
-| `/admin/devices` | POST | Add a device connection |
-| `/admin/devices/:id` | GET | Get a device connection |
-| `/admin/devices/:id` | PUT | Update a device connection |
-| `/admin/devices/:id` | DELETE | Delete a device connection |
-| `/admin/dashboards` | GET | List dashboards |
-| `/admin/dashboards` | POST | Create a dashboard |
-| `/admin/dashboards/:id` | GET | Get a dashboard |
-| `/admin/dashboards/:id` | PUT | Update a dashboard |
-| `/admin/dashboards/:id` | DELETE | Delete a dashboard |
-| `/admin/dashboards/:id/widgets` | GET | List widgets for a dashboard |
-| `/admin/dashboards/:id/widgets` | POST | Add a widget to a dashboard |
-| `/admin/dashboards/:id/widgets/:widgetId` | GET | Get a widget |
-| `/admin/dashboards/:id/widgets/:widgetId` | PUT | Update a widget |
-| `/admin/dashboards/:id/widgets/:widgetId` | DELETE | Delete a widget |
+| Route                                     | Method | Description                  |
+| ----------------------------------------- | ------ | ---------------------------- |
+| `/admin/users`                            | GET    | List all users               |
+| `/admin/users`                            | POST   | Create a user                |
+| `/admin/users/:id`                        | GET    | Get a user                   |
+| `/admin/users/:id`                        | PUT    | Update a user                |
+| `/admin/users/:id`                        | DELETE | Delete a user                |
+| `/admin/users/:id/change-password`        | POST   | Change a user's password     |
+| `/admin/devices`                          | GET    | List device connections      |
+| `/admin/devices`                          | POST   | Add a device connection      |
+| `/admin/devices/:id`                      | GET    | Get a device connection      |
+| `/admin/devices/:id`                      | PUT    | Update a device connection   |
+| `/admin/devices/:id`                      | DELETE | Delete a device connection   |
+| `/admin/dashboards`                       | GET    | List dashboards              |
+| `/admin/dashboards`                       | POST   | Create a dashboard           |
+| `/admin/dashboards/:id`                   | GET    | Get a dashboard              |
+| `/admin/dashboards/:id`                   | PUT    | Update a dashboard           |
+| `/admin/dashboards/:id`                   | DELETE | Delete a dashboard           |
+| `/admin/dashboards/:id/widgets`           | GET    | List widgets for a dashboard |
+| `/admin/dashboards/:id/widgets`           | POST   | Add a widget to a dashboard  |
+| `/admin/dashboards/:id/widgets/:widgetId` | GET    | Get a widget                 |
+| `/admin/dashboards/:id/widgets/:widgetId` | PUT    | Update a widget              |
+| `/admin/dashboards/:id/widgets/:widgetId` | DELETE | Delete a widget              |
 
 ---
 

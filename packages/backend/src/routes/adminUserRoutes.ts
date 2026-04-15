@@ -25,7 +25,7 @@ export function createAdminUserRouter(authService: AuthService): Router {
     // adminOnly middleware guarantees ADMIN role — listUsers cannot fail here
     const result = authService.listUsers(_req.jwtPayload!);
     res.json(result.success ? result.value : []);
-  });  // POST /admin/users
+  }); // POST /admin/users
   router.post("/", auth, adminOnly, async (req: Request, res: Response): Promise<void> => {
     const result = await authService.createUser(req.body as never, req.jwtPayload!);
     if (!result.success) {

@@ -1,7 +1,6 @@
 import { Server as SocketServer } from "socket.io";
 import type { Server as HttpServer } from "http";
 import { eventBus } from "../eventBus.js";
-import type { ObsState, ObsErrorEvent } from "../eventBus.js";
 import type { ObsService } from "../services/obsService.js";
 import type { SessionManifestService } from "../services/sessionManifestService.js";
 import type { AuthService } from "../services/authService.js";
@@ -56,7 +55,8 @@ export class SocketGateway {
   private setupConnectionHandler(): void {
     this.io.use((socket, next) => {
       // Validate JWT on every connection and reconnect handshake.
-      const token = (socket.handshake.auth as { token?: string }).token ??
+      const token =
+        (socket.handshake.auth as { token?: string }).token ??
         (socket.handshake.headers.cookie ?? "")
           .split(";")
           .find((c) => c.trim().startsWith("token="))
@@ -89,10 +89,7 @@ export class SocketGateway {
       socket.emit("obs:state", this.obsService.getState());
       socket.emit("session:manifest:updated", {
         manifest: this.manifestService.get(),
-        interpolatedStreamTitle: this.manifestService.interpolate(
-          this.manifestService.get(),
-          "{Date} – {Speaker} – {Title}",
-        ),
+        interpolatedStreamTitle: this.manifestService.interpolate(this.manifestService.get(), "{Date} – {Speaker} – {Title}"),
       });
 
       // obs:command — route to ObsService
@@ -102,10 +99,18 @@ export class SocketGateway {
         let result;
         try {
           switch (command.type) {
-            case "startStream":    result = await this.obsService.startStream(); break;
-            case "stopStream":     result = await this.obsService.stopStream(); break;
-            case "startRecording": result = await this.obsService.startRecording(); break;
-            case "stopRecording":  result = await this.obsService.stopRecording(); break;
+            case "startStream":
+              result = await this.obsService.startStream();
+              break;
+            case "stopStream":
+              result = await this.obsService.stopStream();
+              break;
+            case "startRecording":
+              result = await this.obsService.startRecording();
+              break;
+            case "stopRecording":
+              result = await this.obsService.stopRecording();
+              break;
             default:
               ack({ success: false, error: "Unknown command" });
               return;
