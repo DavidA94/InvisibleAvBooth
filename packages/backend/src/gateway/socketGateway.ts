@@ -1,6 +1,7 @@
 import { Server as SocketServer } from "socket.io";
 import type { Server as HttpServer } from "http";
 import { eventBus } from "../eventBus.js";
+import type { SessionManifest } from "../eventBus.js";
 import type { ObsService } from "../services/obsService.js";
 import type { SessionManifestService } from "../services/sessionManifestService.js";
 import type { AuthService } from "../services/authService.js";
@@ -125,7 +126,7 @@ export class SocketGateway {
       // session:manifest:update
       socket.on("session:manifest:update", (patch: Record<string, unknown>, ack: (result: CommandResult) => void) => {
         const jwtPayload = payload as Parameters<typeof this.manifestService.update>[1];
-        const result = this.manifestService.update(patch as never, jwtPayload);
+        const result = this.manifestService.update(patch as Partial<SessionManifest>, jwtPayload);
         ack(result.success ? { success: true } : { success: false, error: "Update failed" });
       });
 

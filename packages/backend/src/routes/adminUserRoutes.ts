@@ -1,7 +1,9 @@
 import { Router } from "express";
 import type { Request, Response } from "express";
-import type { AuthService, AuthErrorCode } from "../services/authService.js";
+import type { AuthService, AuthErrorCode, CreateUserRequest, UpdateUserRequest } from "../services/authService.js";
 import { authenticate, requireRole } from "../middleware/auth.js";
+
+const IS_PRODUCTION = process.env["NODE_ENV"] === "production";
 
 const STATUS: Partial<Record<AuthErrorCode, number>> = {
   USER_NOT_FOUND: 404,
@@ -27,7 +29,7 @@ export function createAdminUserRouter(authService: AuthService): Router {
     res.json(result.success ? result.value : []);
   }); // POST /admin/users
   router.post("/", auth, adminOnly, async (req: Request, res: Response): Promise<void> => {
-    const result = await authService.createUser(req.body as never, req.jwtPayload!);
+    const result = await authService.createUser(req.body as CreateUserRequest, req.jwtPayload!);
     if (!result.success) {
       res.status(errorStatus(result.error.code)).json({ error: result.error.message });
       return;
@@ -50,7 +52,7 @@ export function createAdminUserRouter(authService: AuthService): Router {
 
   // PUT /admin/users/:id
   router.put("/:id", auth, adminOnly, async (req: Request, res: Response): Promise<void> => {
-    const result = await authService.updateUser(req.params["id"]!, req.body as never, req.jwtPayload!);
+    const result = await authService.updateUser(req.params["id"]!, req.body as UpdateUserRequest, req.jwtPayload!);
     if (!result.success) {
       res.status(errorStatus(result.error.code)).json({ error: result.error.message });
       return;
@@ -82,7 +84,6 @@ export function createAdminUserRouter(authService: AuthService): Router {
       return;
     }
 
-    const IS_PRODUCTION = process.env["NODE_ENV"] === "production";
     res.cookie("token", result.value.token, {
       httpOnly: true,
       secure: IS_PRODUCTION,
