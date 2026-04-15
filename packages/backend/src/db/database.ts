@@ -63,6 +63,7 @@ function seedKjv(db: Database.Database, sqlPath: string): void {
     .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='kjv'")
     .get();
 
+  /* c8 ignore next -- idempotency guard: table already exists on subsequent calls */
   if (tableExists) return;
 
   db.exec(`

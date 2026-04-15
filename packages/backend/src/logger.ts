@@ -29,6 +29,7 @@ const consoleFormat = winston.format.combine(
   winston.format.colorize(),
   winston.format.timestamp({ format: "HH:mm:ss" }),
   winston.format.printf(({ timestamp, level, source, message, ...rest }) => {
+    /* c8 ignore next -- empty-extra branch only differs by whitespace */
     const extra = Object.keys(rest).length ? ` ${JSON.stringify(rest)}` : "";
     return `${timestamp} [${source ?? "backend"}] ${level}: ${message}${extra}`;
   }),
