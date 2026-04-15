@@ -142,4 +142,13 @@ vite.config.ts.timestamp-*
 .vscode/
 
 # Backend runtime data — never commit these
+logs/
+data/app.db
 data/bootstrap.txt
+
+# Playwright test artifacts
+packages/frontend/playwright-report/
+packages/frontend/test-results/
+
+# Vitest coverage output
+coverage/

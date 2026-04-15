@@ -163,7 +163,7 @@ Invisible A/V Booth is a web-based, touch-first control interface for managing c
 3. THE default JWT expiry SHALL be 8 hours; WHEN a user selects "Remember me" on the login form, THE JWT expiry SHALL be set to 30 days.
 4. THE Backend SHALL validate the JWT cookie on every REST request and WebSocket connection.
 5. IF a JWT is invalid or expired, THEN THE Backend SHALL reject the request with a 401 Unauthorized response.
-6. THE System SHALL support local hosting with self-signed HTTPS or HTTP fallback.
+6. THE System SHALL support local hosting with self-signed HTTPS or HTTP fallback. In development (non-production environments), the JWT cookie SHALL be issued without the Secure flag so that HTTP localhost works without a self-signed certificate.
 7. THE AuthService SHALL store passwords using a cryptographic hashing algorithm (bcrypt or equivalent).
 8. THE Backend SHALL provide a `POST /auth/logout` endpoint that clears the JWT cookie; upon logout, THE Frontend SHALL redirect to `/login`.
 

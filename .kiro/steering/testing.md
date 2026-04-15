@@ -8,13 +8,22 @@ This document defines how testing is approached across Invisible A/V Booth. It c
 
 ---
 
+## Definition of Done
+
+Tests are part of every story's definition of done — not a separate phase. Unit tests follow the unit or component they cover. Integration tests close each backend story. A feature task is not complete until its associated test task passes.
+
+---
+
 ## Stack
 
 | Layer | Tool | Scope |
 |---|---|---|
-| Unit & component | Vitest + React Testing Library | Logic, hooks, components |
-| Property-based | Vitest + fast-check | Correctness properties defined in design docs |
-| E2E / integration | Playwright | Full user flows, mocked backend (HTTP + WebSocket) |
+| Unit & component | Vitest + React Testing Library | Logic, hooks, components — both packages |
+| Property-based | Vitest + fast-check | Correctness properties (a form of unit test, not a separate layer) |
+| Backend integration | Vitest | Full path from REST/Socket.io API boundary → real SQLite + mocked hardware |
+| Frontend E2E | Playwright | Full user flows in the browser, mocked backend (HTTP + WebSocket) |
+
+**Why two integration layers**: Backend integration tests (Vitest) verify that routes, services, and the database work together correctly — no browser involved. Frontend E2E tests (Playwright) verify that the UI drives the correct HTTP and WebSocket calls and responds correctly to server events — no real backend involved. These are complementary, not redundant.
 
 ---
 
@@ -34,15 +43,54 @@ Each package manages its own `vitest.config.ts`. Test files live alongside the c
 - Use `@testing-library/user-event` for all interactions (not `fireEvent`)
 - Prefer `screen` queries over destructured render results
 
-### Backend Tests
+### Backend Unit Tests
 
 - Use Vitest with `environment: "node"`
 - Mock external device clients at the abstraction layer boundary — never mock internal logic
 - Test state reconciliation, error handling, and command routing
 
+### Property-Based Tests
+
+- Use `fast-check` within Vitest — same test file as the unit under test
+- Apply where the design doc specifies correctness properties (e.g., template interpolation in `SessionManifestService`)
+- Property-based tests are unit tests; they do not require a separate file or test run
+
 ---
 
-## E2E Tests (Playwright)
+## Backend Integration Tests (Vitest)
+
+Backend integration tests exercise the full path from the API boundary (REST endpoint or Socket.io event) through services and down to the database or mocked hardware. No browser is involved.
+
+### Boundaries
+
+- **Real**: SQLite database (in-memory or temp file), EventBus, all service logic
+- **Mocked**: External hardware clients (obs-websocket), bcrypt timing (use synchronous mock to keep tests fast), file system side effects where needed
+
+### Structure
+
+Integration test files live alongside the route or gateway they test:
+
+```
+packages/backend/
+  src/
+    routes/
+      authRoutes.ts
+      authRoutes.integration.test.ts   ← or authRoutes.test.ts if no unit test exists for the same file
+    gateway/
+      socketGateway.ts
+      socketGateway.integration.test.ts
+```
+
+### Conventions
+
+- Each backend story closes with an integration test that covers the happy path and key failure cases end-to-end
+- Use a fresh in-memory SQLite database per test file (or per test if state isolation requires it)
+- Mock obs-websocket at the client constructor boundary — never mock internal OBS service logic
+- Integration tests for Socket.io use a real Socket.io server bound to a random port; connect a real Socket.io client in the test
+
+---
+
+## Frontend E2E Tests (Playwright)
 
 Playwright handles both HTTP (REST) and WebSocket (Socket.io) mocking natively — no stub server needed.
 
@@ -113,3 +161,4 @@ See `code-style.md` for the full attribute reference. In tests:
 - Tests must be deterministic — no reliance on timing, random values, or external network calls
 - Each test is independent — no shared mutable state between tests
 - Prefer testing one behavior per test
+- No live hardware is available during development; all hardware clients are mocked at their abstraction boundary
