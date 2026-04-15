@@ -95,10 +95,10 @@ Tests are part of each story's definition of done. Unit tests (including propert
 
 ## KJV Validation
 
-- [ ] 24. Create backend KJV validation route — src/routes/kjvRoutes.ts (GET /api/kjv/validate?bookId=&chapter=&verse=&verseEnd=, returns {valid, reason?})
+- [x] 24. Create backend KJV validation route — src/routes/kjvRoutes.ts (GET /api/kjv/validate?bookId=&chapter=&verse=&verseEnd=, returns {valid, reason?})
   - _Requirements: 19_
 
-- [ ] 25. Write integration tests for KJV validation — valid references, BOOK_NOT_FOUND, CHAPTER_NOT_FOUND, VERSE_NOT_FOUND, VERSE_END_NOT_FOUND (real SQLite kjv table, no mock needed)
+- [x] 25. Write integration tests for KJV validation — valid references, BOOK_NOT_FOUND, CHAPTER_NOT_FOUND, VERSE_NOT_FOUND, VERSE_END_NOT_FOUND (real SQLite kjv table, no mock needed)
   - _Requirements: 19_
 
 ---
