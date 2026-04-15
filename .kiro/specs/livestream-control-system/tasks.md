@@ -82,13 +82,13 @@ Tests are part of each story's definition of done. Unit tests (including propert
 
 ## Dashboard Management
 
-- [ ] 21. Create backend admin dashboard and widget configuration routes — src/routes/adminDashboardRoutes.ts (GET/POST /admin/dashboards, GET/PUT/DELETE /admin/dashboards/:id, GET/POST /admin/dashboards/:id/widgets, GET/PUT/DELETE /admin/dashboards/:id/widgets/:widgetId, ADMIN role)
+- [x] 21. Create backend admin dashboard and widget configuration routes — src/routes/adminDashboardRoutes.ts (GET/POST /admin/dashboards, GET/PUT/DELETE /admin/dashboards/:id, GET/POST /admin/dashboards/:id/widgets, GET/PUT/DELETE /admin/dashboards/:id/widgets/:widgetId, ADMIN role)
   - _Requirements: 5d_
 
-- [ ] 22. Create backend dashboard layout and session REST routes — src/routes/dashboardRoutes.ts (GET /api/dashboards filtered by role, GET /api/dashboards/:id/layout returning GridManifest) and src/routes/sessionRoutes.ts (GET /api/session/manifest)
+- [x] 22. Create backend dashboard layout and session REST routes — src/routes/dashboardRoutes.ts (GET /api/dashboards filtered by role, GET /api/dashboards/:id/layout returning GridManifest) and src/routes/sessionRoutes.ts (GET /api/session/manifest)
   - _Requirements: 5, 5b_
 
-- [ ] 23. Write integration tests for dashboard management — ADMIN CRUD /admin/dashboards and widgets; GET /api/dashboards role filtering (ADMIN sees all, AvVolunteer sees only matching allowedRoles); GET /api/dashboards/:id/layout returns correct GridManifest (real SQLite)
+- [x] 23. Write integration tests for dashboard management — ADMIN CRUD /admin/dashboards and widgets; GET /api/dashboards role filtering (ADMIN sees all, AvVolunteer sees only matching allowedRoles); GET /api/dashboards/:id/layout returns correct GridManifest (real SQLite)
   - _Requirements: 5, 5b, 5d_
 
 ---
