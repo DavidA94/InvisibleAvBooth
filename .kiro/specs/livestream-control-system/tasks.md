@@ -105,10 +105,10 @@ Tests are part of each story's definition of done. Unit tests (including propert
 
 ## Log Ingestion
 
-- [ ] 26. Create backend log ingestion route — src/routes/logRoutes.ts (POST /api/logs, authenticated, accepts array of LogEntry, writes via backend logger tagged source: frontend)
+- [x] 26. Create backend log ingestion route — src/routes/logRoutes.ts (POST /api/logs, authenticated, accepts array of LogEntry, writes via backend logger tagged source: frontend)
   - _Requirements: 24_
 
-- [ ] 27. Write integration test for log ingestion — POST /api/logs writes entries to logger with source: frontend; 401 without JWT
+- [x] 27. Write integration test for log ingestion — POST /api/logs writes entries to logger with source: frontend; 401 without JWT
   - _Requirements: 24_
 
 ---
