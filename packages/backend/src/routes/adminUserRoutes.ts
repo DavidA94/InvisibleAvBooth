@@ -23,75 +23,75 @@ export function createAdminUserRouter(authService: AuthService): Router {
   const adminOnly = requireRole(authService, "ADMIN");
 
   // GET /admin/users
-  router.get("/", auth, adminOnly, (_req: Request, res: Response): void => {
+  router.get("/", auth, adminOnly, (_request: Request, response: Response): void => {
     // adminOnly middleware guarantees ADMIN role — listUsers cannot fail here
-    const result = authService.listUsers(_req.jwtPayload!);
-    res.json(result.success ? result.value : []);
+    const result = authService.listUsers(_request.jwtPayload!);
+    response.json(result.success ? result.value : []);
   }); // POST /admin/users
-  router.post("/", auth, adminOnly, async (req: Request, res: Response): Promise<void> => {
-    const result = await authService.createUser(req.body as CreateUserRequest, req.jwtPayload!);
+  router.post("/", auth, adminOnly, async (request: Request, response: Response): Promise<void> => {
+    const result = await authService.createUser(request.body as CreateUserRequest, request.jwtPayload!);
     if (!result.success) {
-      res.status(errorStatus(result.error.code)).json({ error: result.error.message });
+      response.status(errorStatus(result.error.code)).json({ error: result.error.message });
       return;
     }
-    res.status(201).json(result.value);
+    response.status(201).json(result.value);
   });
 
   // GET /admin/users/:id
-  router.get("/:id", auth, adminOnly, (req: Request, res: Response): void => {
+  router.get("/:id", auth, adminOnly, (request: Request, response: Response): void => {
     // adminOnly middleware guarantees ADMIN role — listUsers cannot fail here
-    const result = authService.listUsers(req.jwtPayload!);
+    const result = authService.listUsers(request.jwtPayload!);
     const users = result.success ? result.value : [];
-    const user = users.find((u) => u.id === req.params["id"]);
+    const user = users.find((u) => u.id === request.params["id"]);
     if (!user) {
-      res.status(404).json({ error: "User not found" });
+      response.status(404).json({ error: "User not found" });
       return;
     }
-    res.json(user);
+    response.json(user);
   });
 
   // PUT /admin/users/:id
-  router.put("/:id", auth, adminOnly, async (req: Request, res: Response): Promise<void> => {
-    const result = await authService.updateUser(req.params["id"]!, req.body as UpdateUserRequest, req.jwtPayload!);
+  router.put("/:id", auth, adminOnly, async (request: Request, response: Response): Promise<void> => {
+    const result = await authService.updateUser(request.params["id"]!, request.body as UpdateUserRequest, request.jwtPayload!);
     if (!result.success) {
-      res.status(errorStatus(result.error.code)).json({ error: result.error.message });
+      response.status(errorStatus(result.error.code)).json({ error: result.error.message });
       return;
     }
-    res.json(result.value);
+    response.json(result.value);
   });
 
   // DELETE /admin/users/:id
-  router.delete("/:id", auth, adminOnly, (req: Request, res: Response): void => {
-    const result = authService.deleteUser(req.params["id"]!, req.jwtPayload!);
+  router.delete("/:id", auth, adminOnly, (request: Request, response: Response): void => {
+    const result = authService.deleteUser(request.params["id"]!, request.jwtPayload!);
     if (!result.success) {
-      res.status(errorStatus(result.error.code)).json({ error: result.error.message });
+      response.status(errorStatus(result.error.code)).json({ error: result.error.message });
       return;
     }
-    res.status(204).send();
+    response.status(204).send();
   });
 
   // POST /admin/users/:id/change-password
-  router.post("/:id/change-password", auth, async (req: Request, res: Response): Promise<void> => {
-    const { newPassword } = req.body as { newPassword?: string };
+  router.post("/:id/change-password", auth, async (request: Request, response: Response): Promise<void> => {
+    const { newPassword } = request.body as { newPassword?: string };
     if (!newPassword) {
-      res.status(400).json({ error: "newPassword is required" });
+      response.status(400).json({ error: "newPassword is required" });
       return;
     }
 
-    const result = await authService.changePassword(req.params["id"]!, newPassword, req.jwtPayload!);
+    const result = await authService.changePassword(request.params["id"]!, newPassword, request.jwtPayload!);
     if (!result.success) {
-      res.status(errorStatus(result.error.code)).json({ error: result.error.message });
+      response.status(errorStatus(result.error.code)).json({ error: result.error.message });
       return;
     }
 
-    res.cookie("token", result.value.token, {
+    response.cookie("token", result.value.token, {
       httpOnly: true,
       secure: IS_PRODUCTION,
       sameSite: "lax",
       maxAge: 8 * 60 * 60 * 1000,
     });
 
-    res.json({ ok: true });
+    response.json({ ok: true });
   });
 
   return router;

@@ -31,8 +31,8 @@ export function createDashboardRouter(database: Database, authService: AuthServi
 
   // GET /api/dashboards — returns dashboards accessible to the authenticated user's role.
   // ADMIN sees all dashboards; other roles see only dashboards where their role is in allowedRoles.
-  router.get("/", auth, (req: Request, res: Response): void => {
-    const { role } = req.jwtPayload!;
+  router.get("/", auth, (request: Request, response: Response): void => {
+    const { role } = request.jwtPayload!;
     const rows = database.prepare("SELECT * FROM dashboards ORDER BY createdAt").all() as DashboardRow[];
 
     const accessible = rows.filter((r) => {
@@ -41,7 +41,7 @@ export function createDashboardRouter(database: Database, authService: AuthServi
       return allowed.includes(role);
     });
 
-    res.json(
+    response.json(
       accessible.map((r) => ({
         id: r.id,
         name: r.name,
@@ -52,26 +52,26 @@ export function createDashboardRouter(database: Database, authService: AuthServi
   });
 
   // GET /api/dashboards/:id/layout — returns the GridManifest for a dashboard.
-  router.get("/:id/layout", auth, (req: Request, res: Response): void => {
-    const dashboard = database.prepare("SELECT * FROM dashboards WHERE id = ?").get(req.params["id"]) as DashboardRow | undefined;
+  router.get("/:id/layout", auth, (request: Request, response: Response): void => {
+    const dashboard = database.prepare("SELECT * FROM dashboards WHERE id = ?").get(request.params["id"]) as DashboardRow | undefined;
     if (!dashboard) {
-      res.status(404).json({ error: "Dashboard not found" });
+      response.status(404).json({ error: "Dashboard not found" });
       return;
     }
 
     // Enforce role access — ADMIN always passes, others check allowedRoles.
-    const { role } = req.jwtPayload!;
+    const { role } = request.jwtPayload!;
     if (role !== "ADMIN") {
       const allowed = JSON.parse(dashboard.allowedRoles) as Role[];
       if (!allowed.includes(role)) {
-        res.status(403).json({ error: "Forbidden" });
+        response.status(403).json({ error: "Forbidden" });
         return;
       }
     }
 
-    const widgets = database.prepare("SELECT * FROM widget_configurations WHERE dashboardId = ? ORDER BY row, col").all(req.params["id"]) as WidgetRow[];
+    const widgets = database.prepare("SELECT * FROM widget_configurations WHERE dashboardId = ? ORDER BY row, col").all(request.params["id"]) as WidgetRow[];
 
-    res.json({
+    response.json({
       version: 1,
       cells: widgets.map((w) => ({
         widgetId: w.widgetId,

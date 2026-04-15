@@ -37,24 +37,24 @@ export function createAdminDashboardRouter(database: Database, authService: Auth
   const adminOnly = requireRole(authService, "ADMIN");
 
   // GET /admin/dashboards
-  router.get("/", auth, adminOnly, (_req: Request, res: Response): void => {
+  router.get("/", auth, adminOnly, (_request: Request, response: Response): void => {
     const rows = database.prepare("SELECT * FROM dashboards ORDER BY createdAt").all() as DashboardRow[];
-    res.json(rows.map(parseDashboard));
+    response.json(rows.map(parseDashboard));
   });
 
   // POST /admin/dashboards
-  router.post("/", auth, adminOnly, (req: Request, res: Response): void => {
+  router.post("/", auth, adminOnly, (request: Request, response: Response): void => {
     const {
       name,
       description = "",
       allowedRoles = [],
-    } = req.body as {
+    } = request.body as {
       name?: string;
       description?: string;
       allowedRoles?: string[];
     };
     if (!name) {
-      res.status(400).json({ error: "name is required" });
+      response.status(400).json({ error: "name is required" });
       return;
     }
     const id = randomBytes(16).toString("hex");
@@ -62,57 +62,57 @@ export function createAdminDashboardRouter(database: Database, authService: Auth
     database
       .prepare("INSERT INTO dashboards (id, name, description, allowedRoles, createdAt) VALUES (?, ?, ?, ?, ?)")
       .run(id, name, description, JSON.stringify(allowedRoles), createdAt);
-    logger.info("Dashboard created", { userId: req.jwtPayload!.sub, context: { dashboardId: id } });
-    res.status(201).json(parseDashboard(database.prepare("SELECT * FROM dashboards WHERE id = ?").get(id) as DashboardRow));
+    logger.info("Dashboard created", { userId: request.jwtPayload!.sub, context: { dashboardId: id } });
+    response.status(201).json(parseDashboard(database.prepare("SELECT * FROM dashboards WHERE id = ?").get(id) as DashboardRow));
   });
 
   // GET /admin/dashboards/:id
-  router.get("/:id", auth, adminOnly, (req: Request, res: Response): void => {
-    const row = database.prepare("SELECT * FROM dashboards WHERE id = ?").get(req.params["id"]) as DashboardRow | undefined;
+  router.get("/:id", auth, adminOnly, (request: Request, response: Response): void => {
+    const row = database.prepare("SELECT * FROM dashboards WHERE id = ?").get(request.params["id"]) as DashboardRow | undefined;
     if (!row) {
-      res.status(404).json({ error: "Dashboard not found" });
+      response.status(404).json({ error: "Dashboard not found" });
       return;
     }
-    res.json(parseDashboard(row));
+    response.json(parseDashboard(row));
   });
 
   // PUT /admin/dashboards/:id
-  router.put("/:id", auth, adminOnly, (req: Request, res: Response): void => {
-    const row = database.prepare("SELECT * FROM dashboards WHERE id = ?").get(req.params["id"]) as DashboardRow | undefined;
+  router.put("/:id", auth, adminOnly, (request: Request, response: Response): void => {
+    const row = database.prepare("SELECT * FROM dashboards WHERE id = ?").get(request.params["id"]) as DashboardRow | undefined;
     if (!row) {
-      res.status(404).json({ error: "Dashboard not found" });
+      response.status(404).json({ error: "Dashboard not found" });
       return;
     }
-    const { name, description, allowedRoles } = req.body as { name?: string; description?: string; allowedRoles?: string[] };
+    const { name, description, allowedRoles } = request.body as { name?: string; description?: string; allowedRoles?: string[] };
     database
       .prepare("UPDATE dashboards SET name=?, description=?, allowedRoles=? WHERE id=?")
       .run(name ?? row.name, description ?? row.description, JSON.stringify(allowedRoles ?? (JSON.parse(row.allowedRoles) as string[])), row.id);
-    res.json(parseDashboard(database.prepare("SELECT * FROM dashboards WHERE id = ?").get(row.id) as DashboardRow));
+    response.json(parseDashboard(database.prepare("SELECT * FROM dashboards WHERE id = ?").get(row.id) as DashboardRow));
   });
 
   // DELETE /admin/dashboards/:id
-  router.delete("/:id", auth, adminOnly, (req: Request, res: Response): void => {
-    if (!database.prepare("SELECT id FROM dashboards WHERE id = ?").get(req.params["id"])) {
-      res.status(404).json({ error: "Dashboard not found" });
+  router.delete("/:id", auth, adminOnly, (request: Request, response: Response): void => {
+    if (!database.prepare("SELECT id FROM dashboards WHERE id = ?").get(request.params["id"])) {
+      response.status(404).json({ error: "Dashboard not found" });
       return;
     }
-    database.prepare("DELETE FROM dashboards WHERE id = ?").run(req.params["id"]);
-    res.status(204).send();
+    database.prepare("DELETE FROM dashboards WHERE id = ?").run(request.params["id"]);
+    response.status(204).send();
   });
 
   // GET /admin/dashboards/:id/widgets
-  router.get("/:id/widgets", auth, adminOnly, (req: Request, res: Response): void => {
-    if (!database.prepare("SELECT id FROM dashboards WHERE id = ?").get(req.params["id"])) {
-      res.status(404).json({ error: "Dashboard not found" });
+  router.get("/:id/widgets", auth, adminOnly, (request: Request, response: Response): void => {
+    if (!database.prepare("SELECT id FROM dashboards WHERE id = ?").get(request.params["id"])) {
+      response.status(404).json({ error: "Dashboard not found" });
       return;
     }
-    res.json(database.prepare("SELECT * FROM widget_configurations WHERE dashboardId = ? ORDER BY row, col").all(req.params["id"]));
+    response.json(database.prepare("SELECT * FROM widget_configurations WHERE dashboardId = ? ORDER BY row, col").all(request.params["id"]));
   });
 
   // POST /admin/dashboards/:id/widgets
-  router.post("/:id/widgets", auth, adminOnly, (req: Request, res: Response): void => {
-    if (!database.prepare("SELECT id FROM dashboards WHERE id = ?").get(req.params["id"])) {
-      res.status(404).json({ error: "Dashboard not found" });
+  router.post("/:id/widgets", auth, adminOnly, (request: Request, response: Response): void => {
+    if (!database.prepare("SELECT id FROM dashboards WHERE id = ?").get(request.params["id"])) {
+      response.status(404).json({ error: "Dashboard not found" });
       return;
     }
     const {
@@ -123,7 +123,7 @@ export function createAdminDashboardRouter(database: Database, authService: Auth
       colSpan,
       rowSpan,
       roleMinimum = "AvVolunteer",
-    } = req.body as {
+    } = request.body as {
       widgetId?: string;
       title?: string;
       col?: number;
@@ -135,7 +135,7 @@ export function createAdminDashboardRouter(database: Database, authService: Auth
 
     // eslint-disable-next-line eqeqeq -- == checks for null and undefined, but not zero
     if (!widgetId || !title || col == null || row == null || colSpan == null || rowSpan == null) {
-      res.status(400).json({ error: "widgetId, title, col, row, colSpan, rowSpan are required" });
+      response.status(400).json({ error: "widgetId, title, col, row, colSpan, rowSpan are required" });
       return;
     }
     const id = randomBytes(16).toString("hex");
@@ -145,47 +145,47 @@ export function createAdminDashboardRouter(database: Database, authService: Auth
         .prepare(
           "INSERT INTO widget_configurations (id, dashboardId, widgetId, title, col, row, colSpan, rowSpan, roleMinimum, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         )
-        .run(id, req.params["id"], widgetId, title, col, row, colSpan, rowSpan, roleMinimum, createdAt);
+        .run(id, request.params["id"], widgetId, title, col, row, colSpan, rowSpan, roleMinimum, createdAt);
     } catch {
-      res.status(409).json({ error: "widgetId already exists in this dashboard" });
+      response.status(409).json({ error: "widgetId already exists in this dashboard" });
       return;
     }
-    res.status(201).json(database.prepare("SELECT * FROM widget_configurations WHERE id = ?").get(id));
+    response.status(201).json(database.prepare("SELECT * FROM widget_configurations WHERE id = ?").get(id));
   });
 
   // GET /admin/dashboards/:id/widgets/:widgetId
-  router.get("/:id/widgets/:widgetId", auth, adminOnly, (req: Request, res: Response): void => {
-    const row = database.prepare("SELECT * FROM widget_configurations WHERE id = ?").get(req.params["widgetId"]) as WidgetRow | undefined;
-    if (!row || row.dashboardId !== req.params["id"]) {
-      res.status(404).json({ error: "Widget not found" });
+  router.get("/:id/widgets/:widgetId", auth, adminOnly, (request: Request, response: Response): void => {
+    const row = database.prepare("SELECT * FROM widget_configurations WHERE id = ?").get(request.params["widgetId"]) as WidgetRow | undefined;
+    if (!row || row.dashboardId !== request.params["id"]) {
+      response.status(404).json({ error: "Widget not found" });
       return;
     }
-    res.json(row);
+    response.json(row);
   });
 
   // PUT /admin/dashboards/:id/widgets/:widgetId
-  router.put("/:id/widgets/:widgetId", auth, adminOnly, (req: Request, res: Response): void => {
-    const row = database.prepare("SELECT * FROM widget_configurations WHERE id = ?").get(req.params["widgetId"]) as WidgetRow | undefined;
-    if (!row || row.dashboardId !== req.params["id"]) {
-      res.status(404).json({ error: "Widget not found" });
+  router.put("/:id/widgets/:widgetId", auth, adminOnly, (request: Request, response: Response): void => {
+    const row = database.prepare("SELECT * FROM widget_configurations WHERE id = ?").get(request.params["widgetId"]) as WidgetRow | undefined;
+    if (!row || row.dashboardId !== request.params["id"]) {
+      response.status(404).json({ error: "Widget not found" });
       return;
     }
-    const { title, col, row: r, colSpan, rowSpan, roleMinimum } = req.body as Partial<WidgetRow>;
+    const { title, col, row: r, colSpan, rowSpan, roleMinimum } = request.body as Partial<WidgetRow>;
     database
       .prepare("UPDATE widget_configurations SET title=?, col=?, row=?, colSpan=?, rowSpan=?, roleMinimum=? WHERE id=?")
       .run(title ?? row.title, col ?? row.col, r ?? row.row, colSpan ?? row.colSpan, rowSpan ?? row.rowSpan, roleMinimum ?? row.roleMinimum, row.id);
-    res.json(database.prepare("SELECT * FROM widget_configurations WHERE id = ?").get(row.id));
+    response.json(database.prepare("SELECT * FROM widget_configurations WHERE id = ?").get(row.id));
   });
 
   // DELETE /admin/dashboards/:id/widgets/:widgetId
-  router.delete("/:id/widgets/:widgetId", auth, adminOnly, (req: Request, res: Response): void => {
-    const row = database.prepare("SELECT * FROM widget_configurations WHERE id = ?").get(req.params["widgetId"]) as WidgetRow | undefined;
-    if (!row || row.dashboardId !== req.params["id"]) {
-      res.status(404).json({ error: "Widget not found" });
+  router.delete("/:id/widgets/:widgetId", auth, adminOnly, (request: Request, response: Response): void => {
+    const row = database.prepare("SELECT * FROM widget_configurations WHERE id = ?").get(request.params["widgetId"]) as WidgetRow | undefined;
+    if (!row || row.dashboardId !== request.params["id"]) {
+      response.status(404).json({ error: "Widget not found" });
       return;
     }
     database.prepare("DELETE FROM widget_configurations WHERE id = ?").run(row.id);
-    res.status(204).send();
+    response.status(204).send();
   });
 
   return router;

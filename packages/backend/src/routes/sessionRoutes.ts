@@ -12,8 +12,8 @@ export function createSessionRouter(authService: AuthService): Router {
   const auth = authenticate(authService);
 
   // GET /api/session/manifest
-  router.get("/manifest", auth, (_req: Request, res: Response): void => {
-    res.json(manifest);
+  router.get("/manifest", auth, (_request: Request, response: Response): void => {
+    response.json(manifest);
   });
 
   return router;

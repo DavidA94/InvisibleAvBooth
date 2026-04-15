@@ -25,13 +25,13 @@ const seedActor = { sub: "seed", username: "seed", role: "ADMIN" as const, iat: 
 
 async function loginAsAdmin(app: express.Express, authService: AuthService) {
   await authService.createUser({ username: "admin", password: "adminpass", role: "ADMIN" }, seedActor);
-  const res = await request(app).post("/auth/login").send({ username: "admin", password: "adminpass" });
-  const cookie = (res.headers["set-cookie"] as unknown as string[])[0] ?? "";
+  const response = await request(app).post("/auth/login").send({ username: "admin", password: "adminpass" });
+  const cookie = (response.headers["set-cookie"] as unknown as string[])[0] ?? "";
   return { cookie };
 }
 
-function getCookie(res: request.Response): string {
-  return (res.headers["set-cookie"] as unknown as string[])[0] ?? "";
+function getCookie(response: request.Response): string {
+  return (response.headers["set-cookie"] as unknown as string[])[0] ?? "";
 }
 
 // ── POST /auth/login ──────────────────────────────────────────────────────────
@@ -40,31 +40,31 @@ describe("POST /auth/login", () => {
   it("returns 200 and sets HttpOnly cookie on valid credentials", async () => {
     const { app, authService } = buildApp();
     await authService.createUser({ username: "alice", password: "pass", role: "AvVolunteer" }, seedActor);
-    const res = await request(app).post("/auth/login").send({ username: "alice", password: "pass" });
-    expect(res.status).toBe(200);
-    expect(getCookie(res)).toContain("HttpOnly");
-    expect(res.body.user).toBeDefined();
+    const response = await request(app).post("/auth/login").send({ username: "alice", password: "pass" });
+    expect(response.status).toBe(200);
+    expect(getCookie(response)).toContain("HttpOnly");
+    expect(response.body.user).toBeDefined();
   });
 
   it("sets a longer Max-Age when rememberMe is true", async () => {
     const { app, authService } = buildApp();
     await authService.createUser({ username: "alice", password: "pass", role: "AvVolunteer" }, seedActor);
-    const res = await request(app).post("/auth/login").send({ username: "alice", password: "pass", rememberMe: true });
-    expect(res.status).toBe(200);
-    expect(getCookie(res)).toContain("Max-Age=");
+    const response = await request(app).post("/auth/login").send({ username: "alice", password: "pass", rememberMe: true });
+    expect(response.status).toBe(200);
+    expect(getCookie(response)).toContain("Max-Age=");
   });
 
   it("returns 401 on wrong password", async () => {
     const { app, authService } = buildApp();
     await authService.createUser({ username: "alice", password: "pass", role: "AvVolunteer" }, seedActor);
-    const res = await request(app).post("/auth/login").send({ username: "alice", password: "wrong" });
-    expect(res.status).toBe(401);
+    const response = await request(app).post("/auth/login").send({ username: "alice", password: "wrong" });
+    expect(response.status).toBe(401);
   });
 
   it("returns 400 when username is missing", async () => {
     const { app } = buildApp();
-    const res = await request(app).post("/auth/login").send({ password: "pass" });
-    expect(res.status).toBe(400);
+    const response = await request(app).post("/auth/login").send({ password: "pass" });
+    expect(response.status).toBe(400);
   });
 });
 
@@ -73,9 +73,9 @@ describe("POST /auth/login", () => {
 describe("POST /auth/logout", () => {
   it("clears the token cookie", async () => {
     const { app } = buildApp();
-    const res = await request(app).post("/auth/logout");
-    expect(res.status).toBe(200);
-    expect(getCookie(res)).toContain("token=;");
+    const response = await request(app).post("/auth/logout");
+    expect(response.status).toBe(200);
+    expect(getCookie(response)).toContain("token=;");
   });
 });
 
@@ -85,9 +85,9 @@ describe("GET /admin/users", () => {
   it("returns user list for ADMIN", async () => {
     const { app, authService } = buildApp();
     const { cookie } = await loginAsAdmin(app, authService);
-    const res = await request(app).get("/admin/users").set("Cookie", cookie);
-    expect(res.status).toBe(200);
-    expect(Array.isArray(res.body)).toBe(true);
+    const response = await request(app).get("/admin/users").set("Cookie", cookie);
+    expect(response.status).toBe(200);
+    expect(Array.isArray(response.body)).toBe(true);
   });
 
   it("returns 401 without cookie", async () => {
@@ -97,16 +97,16 @@ describe("GET /admin/users", () => {
 
   it("returns 401 with an invalid token", async () => {
     const { app } = buildApp();
-    const res = await request(app).get("/admin/users").set("Cookie", "token=invalid.jwt.token");
-    expect(res.status).toBe(401);
+    const response = await request(app).get("/admin/users").set("Cookie", "token=invalid.jwt.token");
+    expect(response.status).toBe(401);
   });
 
   it("returns 403 for non-ADMIN", async () => {
     const { app, authService } = buildApp();
     await authService.createUser({ username: "vol", password: "pass", role: "AvVolunteer" }, seedActor);
     const loginRes = await request(app).post("/auth/login").send({ username: "vol", password: "pass" });
-    const res = await request(app).get("/admin/users").set("Cookie", getCookie(loginRes));
-    expect(res.status).toBe(403);
+    const response = await request(app).get("/admin/users").set("Cookie", getCookie(loginRes));
+    expect(response.status).toBe(403);
   });
 });
 
@@ -118,9 +118,9 @@ describe("GET /admin/users/:id", () => {
     const { cookie } = await loginAsAdmin(app, authService);
     const listRes = await request(app).get("/admin/users").set("Cookie", cookie);
     const id = (listRes.body as Array<{ id: string }>)[0]!.id;
-    const res = await request(app).get(`/admin/users/${id}`).set("Cookie", cookie);
-    expect(res.status).toBe(200);
-    expect(res.body.id).toBe(id);
+    const response = await request(app).get(`/admin/users/${id}`).set("Cookie", cookie);
+    expect(response.status).toBe(200);
+    expect(response.body.id).toBe(id);
   });
 
   it("returns 404 for unknown id", async () => {
@@ -136,17 +136,17 @@ describe("POST /admin/users", () => {
   it("creates a user", async () => {
     const { app, authService } = buildApp();
     const { cookie } = await loginAsAdmin(app, authService);
-    const res = await request(app).post("/admin/users").set("Cookie", cookie).send({ username: "newuser", password: "pass", role: "AvVolunteer" });
-    expect(res.status).toBe(201);
-    expect(res.body.username).toBe("newuser");
+    const response = await request(app).post("/admin/users").set("Cookie", cookie).send({ username: "newuser", password: "pass", role: "AvVolunteer" });
+    expect(response.status).toBe(201);
+    expect(response.body.username).toBe("newuser");
   });
 
   it("returns 409 on duplicate username", async () => {
     const { app, authService } = buildApp();
     const { cookie } = await loginAsAdmin(app, authService);
     await request(app).post("/admin/users").set("Cookie", cookie).send({ username: "dup", password: "p", role: "AvVolunteer" });
-    const res = await request(app).post("/admin/users").set("Cookie", cookie).send({ username: "dup", password: "p", role: "AvVolunteer" });
-    expect(res.status).toBe(409);
+    const response = await request(app).post("/admin/users").set("Cookie", cookie).send({ username: "dup", password: "p", role: "AvVolunteer" });
+    expect(response.status).toBe(409);
   });
 });
 
@@ -157,12 +157,12 @@ describe("PUT /admin/users/:id", () => {
     const { app, authService } = buildApp();
     const { cookie } = await loginAsAdmin(app, authService);
     const createRes = await request(app).post("/admin/users").set("Cookie", cookie).send({ username: "bob", password: "p", role: "AvVolunteer" });
-    const res = await request(app)
+    const response = await request(app)
       .put(`/admin/users/${createRes.body.id as string}`)
       .set("Cookie", cookie)
       .send({ username: "bobby" });
-    expect(res.status).toBe(200);
-    expect(res.body.username).toBe("bobby");
+    expect(response.status).toBe(200);
+    expect(response.body.username).toBe("bobby");
   });
 
   it("returns 404 for unknown user", async () => {
@@ -205,9 +205,9 @@ describe("POST /admin/users/:id/change-password", () => {
     const { cookie } = await loginAsAdmin(app, authService);
     const listRes = await request(app).get("/admin/users").set("Cookie", cookie);
     const adminUser = (listRes.body as Array<{ id: string }>)[0]!;
-    const res = await request(app).post(`/admin/users/${adminUser.id}/change-password`).set("Cookie", cookie).send({ newPassword: "newpass123" });
-    expect(res.status).toBe(200);
-    expect(res.headers["set-cookie"]).toBeDefined();
+    const response = await request(app).post(`/admin/users/${adminUser.id}/change-password`).set("Cookie", cookie).send({ newPassword: "newpass123" });
+    expect(response.status).toBe(200);
+    expect(response.headers["set-cookie"]).toBeDefined();
   });
 
   it("returns 400 when newPassword is missing", async () => {

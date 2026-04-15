@@ -11,15 +11,15 @@ export function createKjvRouter(database: Database, authService: AuthService): R
   const auth = authenticate(authService);
 
   // GET /api/kjv/validate?bookId=&chapter=&verse=&verseEnd=
-  router.get("/validate", auth, (req: Request, res: Response): void => {
-    const bookId = parseInt(req.query["bookId"] as string, 10);
-    const chapter = parseInt(req.query["chapter"] as string, 10);
-    const verse = parseInt(req.query["verse"] as string, 10);
-    const verseEndRaw = req.query["verseEnd"] as string | undefined;
+  router.get("/validate", auth, (request: Request, response: Response): void => {
+    const bookId = parseInt(request.query["bookId"] as string, 10);
+    const chapter = parseInt(request.query["chapter"] as string, 10);
+    const verse = parseInt(request.query["verse"] as string, 10);
+    const verseEndRaw = request.query["verseEnd"] as string | undefined;
     const verseEnd = verseEndRaw ? parseInt(verseEndRaw, 10) : undefined;
 
     const invalid = (reason: ReasonCode): void => {
-      res.json({ valid: false, reason });
+      response.json({ valid: false, reason });
     };
 
     // Check book exists (bookId 1–66)
@@ -52,7 +52,7 @@ export function createKjvRouter(database: Database, authService: AuthService): R
       }
     }
 
-    res.json({ valid: true });
+    response.json({ valid: true });
   });
 
   return router;

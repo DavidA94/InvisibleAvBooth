@@ -25,8 +25,8 @@ function buildApp() {
 
 async function loginAsAdmin(app: express.Express, authService: AuthService) {
   await authService.createUser({ username: "admin", password: "pass", role: "ADMIN" }, seedActor);
-  const res = await request(app).post("/auth/login").send({ username: "admin", password: "pass" });
-  return (res.headers["set-cookie"] as unknown as string[])[0] ?? "";
+  const response = await request(app).post("/auth/login").send({ username: "admin", password: "pass" });
+  return (response.headers["set-cookie"] as unknown as string[])[0] ?? "";
 }
 
 afterEach(() => {
@@ -39,12 +39,12 @@ describe("POST /api/logs", () => {
     const cookie = await loginAsAdmin(app, authService);
     const infoSpy = vi.spyOn(logger, "info");
 
-    const res = await request(app)
+    const response = await request(app)
       .post("/api/logs")
       .set("Cookie", cookie)
       .send([{ level: "info", message: "page loaded", userId: "u1" }]);
 
-    expect(res.status).toBe(204);
+    expect(response.status).toBe(204);
     expect(infoSpy).toHaveBeenCalledWith("page loaded", expect.objectContaining({ source: "frontend", userId: "u1" }));
   });
 

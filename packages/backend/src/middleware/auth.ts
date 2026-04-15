@@ -9,27 +9,27 @@ declare module "express-serve-static-core" {
 }
 
 export function authenticate(authService: AuthService) {
-  return (req: Request, res: Response, next: NextFunction): void => {
-    const token = req.cookies?.["token"] as string | undefined;
+  return (request: Request, response: Response, next: NextFunction): void => {
+    const token = request.cookies?.["token"] as string | undefined;
     if (!token) {
-      res.status(401).json({ error: "Unauthorized" });
+      response.status(401).json({ error: "Unauthorized" });
       return;
     }
     const result = authService.verifyToken(token);
     if (!result.success) {
-      res.status(401).json({ error: "Unauthorized" });
+      response.status(401).json({ error: "Unauthorized" });
       return;
     }
-    req.jwtPayload = result.value;
+    request.jwtPayload = result.value;
     next();
   };
 }
 
 export function requireRole(authService: AuthService, minimum: Role) {
-  return (req: Request, res: Response, next: NextFunction): void => {
-    const result = authService.requireRole(req.jwtPayload!, minimum);
+  return (request: Request, response: Response, next: NextFunction): void => {
+    const result = authService.requireRole(request.jwtPayload!, minimum);
     if (!result.success) {
-      res.status(403).json({ error: "Forbidden" });
+      response.status(403).json({ error: "Forbidden" });
       return;
     }
     next();

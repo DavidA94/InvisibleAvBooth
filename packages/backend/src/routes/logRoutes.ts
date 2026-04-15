@@ -18,11 +18,11 @@ export function createLogRouter(authService: AuthService): Router {
 
   // POST /api/logs — accepts a batch of frontend log entries and writes them
   // to the backend logger tagged with source: frontend.
-  router.post("/", auth, (req: Request, res: Response): void => {
-    const entries = req.body as LogEntry[];
+  router.post("/", auth, (request: Request, response: Response): void => {
+    const entries = request.body as LogEntry[];
 
     if (!Array.isArray(entries)) {
-      res.status(400).json({ error: "body must be an array of log entries" });
+      response.status(400).json({ error: "body must be an array of log entries" });
       return;
     }
 
@@ -36,7 +36,7 @@ export function createLogRouter(authService: AuthService): Router {
       });
     }
 
-    res.status(204).send();
+    response.status(204).send();
   });
 
   return router;

@@ -24,10 +24,10 @@ export function encrypt(plaintext: string): string {
 // Accepts base64-encoded blob produced by encrypt()
 export function decrypt(blob: string): string {
   const key = getKey();
-  const buf = Buffer.from(blob, "base64");
-  const iv = buf.subarray(0, IV_LENGTH);
-  const authTag = buf.subarray(IV_LENGTH, IV_LENGTH + AUTH_TAG_LENGTH);
-  const ciphertext = buf.subarray(IV_LENGTH + AUTH_TAG_LENGTH);
+  const buffer = Buffer.from(blob, "base64");
+  const iv = buffer.subarray(0, IV_LENGTH);
+  const authTag = buffer.subarray(IV_LENGTH, IV_LENGTH + AUTH_TAG_LENGTH);
+  const ciphertext = buffer.subarray(IV_LENGTH + AUTH_TAG_LENGTH);
   const decipher = createDecipheriv(ALGORITHM, key, iv);
   decipher.setAuthTag(authTag);
   return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString("utf8");

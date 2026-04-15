@@ -33,8 +33,8 @@ function buildApp() {
 
 async function loginAsAdmin(app: express.Express, authService: AuthService) {
   await authService.createUser({ username: "admin", password: "adminpass", role: "ADMIN" }, seedActor);
-  const res = await request(app).post("/auth/login").send({ username: "admin", password: "adminpass" });
-  return (res.headers["set-cookie"] as unknown as string[])[0] ?? "";
+  const response = await request(app).post("/auth/login").send({ username: "admin", password: "adminpass" });
+  return (response.headers["set-cookie"] as unknown as string[])[0] ?? "";
 }
 
 const baseDevice = { deviceType: "obs", label: "Main OBS", host: "localhost", port: 4455 };
@@ -45,21 +45,21 @@ describe("POST /admin/devices", () => {
   it("creates a device and returns it without password", async () => {
     const { app, authService } = buildApp();
     const cookie = await loginAsAdmin(app, authService);
-    const res = await request(app)
+    const response = await request(app)
       .post("/admin/devices")
       .set("Cookie", cookie)
       .send({ ...baseDevice, password: "secret" });
-    expect(res.status).toBe(201);
-    expect(res.body.label).toBe("Main OBS");
-    expect(res.body).not.toHaveProperty("encryptedPassword");
-    expect(res.body).not.toHaveProperty("password");
+    expect(response.status).toBe(201);
+    expect(response.body.label).toBe("Main OBS");
+    expect(response.body).not.toHaveProperty("encryptedPassword");
+    expect(response.body).not.toHaveProperty("password");
   });
 
   it("returns 400 when required fields are missing", async () => {
     const { app, authService } = buildApp();
     const cookie = await loginAsAdmin(app, authService);
-    const res = await request(app).post("/admin/devices").set("Cookie", cookie).send({ label: "OBS" });
-    expect(res.status).toBe(400);
+    const response = await request(app).post("/admin/devices").set("Cookie", cookie).send({ label: "OBS" });
+    expect(response.status).toBe(400);
   });
 
   it("returns 401 without auth", async () => {
@@ -78,10 +78,10 @@ describe("GET /admin/devices", () => {
       .post("/admin/devices")
       .set("Cookie", cookie)
       .send({ ...baseDevice, password: "secret" });
-    const res = await request(app).get("/admin/devices").set("Cookie", cookie);
-    expect(res.status).toBe(200);
-    expect(Array.isArray(res.body)).toBe(true);
-    expect(res.body[0]).not.toHaveProperty("encryptedPassword");
+    const response = await request(app).get("/admin/devices").set("Cookie", cookie);
+    expect(response.status).toBe(200);
+    expect(Array.isArray(response.body)).toBe(true);
+    expect(response.body[0]).not.toHaveProperty("encryptedPassword");
   });
 });
 
@@ -92,11 +92,11 @@ describe("GET /admin/devices/:id", () => {
     const { app, authService } = buildApp();
     const cookie = await loginAsAdmin(app, authService);
     const created = await request(app).post("/admin/devices").set("Cookie", cookie).send(baseDevice);
-    const res = await request(app)
+    const response = await request(app)
       .get(`/admin/devices/${created.body.id as string}`)
       .set("Cookie", cookie);
-    expect(res.status).toBe(200);
-    expect(res.body.id).toBe(created.body.id);
+    expect(response.status).toBe(200);
+    expect(response.body.id).toBe(created.body.id);
   });
 
   it("returns 404 for unknown id", async () => {
@@ -113,13 +113,13 @@ describe("PUT /admin/devices/:id", () => {
     const { app, authService } = buildApp();
     const cookie = await loginAsAdmin(app, authService);
     const created = await request(app).post("/admin/devices").set("Cookie", cookie).send(baseDevice);
-    const res = await request(app)
+    const response = await request(app)
       .put(`/admin/devices/${created.body.id as string}`)
       .set("Cookie", cookie)
       .send({ label: "Updated OBS" });
-    expect(res.status).toBe(200);
-    expect(res.body.label).toBe("Updated OBS");
-    expect(res.body).not.toHaveProperty("encryptedPassword");
+    expect(response.status).toBe(200);
+    expect(response.body.label).toBe("Updated OBS");
+    expect(response.body).not.toHaveProperty("encryptedPassword");
   });
 
   it("returns 404 for unknown id", async () => {
