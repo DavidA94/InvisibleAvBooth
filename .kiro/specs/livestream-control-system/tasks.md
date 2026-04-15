@@ -53,19 +53,19 @@ Tests are part of each story's definition of done. Unit tests (including propert
 
 ## Auth & User Management
 
-- [ ] 14. Create backend AuthService — src/services/authService.ts (login/bcrypt, JWT as HttpOnly cookie, verifyToken, requireRole, createUser, updateUser, deleteUser, listUsers, changePassword, bootstrap admin on empty users table, delete data/bootstrap.txt after password change)
+- [x] 14. Create backend AuthService — src/services/authService.ts (login/bcrypt, JWT as HttpOnly cookie, verifyToken, requireRole, createUser, updateUser, deleteUser, listUsers, changePassword, bootstrap admin on empty users table, delete data/bootstrap.txt after password change)
   - _Requirements: 6, 7, 13_
 
-- [ ] 15. Write unit tests for AuthService — login success/failure, JWT issuance, role enforcement, createUser/updateUser/deleteUser, self-delete block, bootstrap behavior, changePassword clears flag (mock DB)
+- [x] 15. Write unit tests for AuthService — login success/failure, JWT issuance, role enforcement, createUser/updateUser/deleteUser, self-delete block, bootstrap behavior, changePassword clears flag (mock DB)
   - _Requirements: 6, 13_
 
-- [ ] 16. Create backend auth REST routes — src/routes/authRoutes.ts (POST /auth/login with rememberMe, POST /auth/logout clearing cookie)
+- [x] 16. Create backend auth REST routes — src/routes/authRoutes.ts (POST /auth/login with rememberMe, POST /auth/logout clearing cookie)
   - _Requirements: 6_
 
-- [ ] 17. Create backend admin user management routes — src/routes/adminUserRoutes.ts (GET/POST /admin/users, GET/PUT/DELETE /admin/users/:id, POST /admin/users/:id/change-password, ADMIN role required)
+- [x] 17. Create backend admin user management routes — src/routes/adminUserRoutes.ts (GET/POST /admin/users, GET/PUT/DELETE /admin/users/:id, POST /admin/users/:id/change-password, ADMIN role required)
   - _Requirements: 13_
 
-- [ ] 18. Write integration tests for auth and user management — POST /auth/login → JWT cookie → protected route enforcement; ADMIN CRUD /admin/users; self-delete block; changePassword clears requiresPasswordChange (real SQLite, mocked bcrypt timing)
+- [x] 18. Write integration tests for auth and user management — POST /auth/login → JWT cookie → protected route enforcement; ADMIN CRUD /admin/users; self-delete block; changePassword clears requiresPasswordChange (real SQLite, mocked bcrypt timing)
   - _Requirements: 6, 13_
 
 ---
