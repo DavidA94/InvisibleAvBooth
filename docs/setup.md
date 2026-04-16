@@ -15,13 +15,13 @@ The backend encrypts device passwords at rest using AES-256-GCM. A 32-byte key i
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
-Copy `.env.example` to `.env` at the repo root and set the value:
+Copy `.env.example` to `.env` in `packages/backend/` and set the value:
 
 ```
 DEVICE_SECRET_KEY=<64-character hex string>
 ```
 
-The `.env` file is gitignored and loaded automatically when the backend starts. Never commit it.
+The `.env` file must be in `packages/backend/` — that is the working directory when the server runs. It is gitignored and loaded automatically on startup. Never commit it.
 
 ---
 
