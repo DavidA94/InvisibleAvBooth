@@ -13,7 +13,7 @@ afterEach(() => {
 });
 
 describe("applySchema", () => {
-  it("creates all four application tables", () => {
+  it("creates all five application tables including kjv", () => {
     const database = new Database(":memory:");
     applySchema(database);
 
@@ -26,6 +26,7 @@ describe("applySchema", () => {
     expect(tables).toContain("device_connections");
     expect(tables).toContain("dashboards");
     expect(tables).toContain("widget_configurations");
+    expect(tables).toContain("kjv");
     database.close();
   });
 
@@ -119,14 +120,12 @@ describe("resetDatabase", () => {
 });
 
 describe("seedKjv — idempotency", () => {
-  it("does not throw when called twice on the same DB (tableExists early return)", () => {
+  it("does not throw when called twice on the same DB", () => {
     const database = new Database(":memory:");
-    // First call: creates kjv table (empty, since path is nonexistent)
+    applySchema(database); // kjv table must exist before seedKjv can check for data
     const warnSpy = vi.spyOn(logger, "warn").mockImplementation(() => logger);
-    seedKjv(database, "/nonexistent/bibledb_kjv.sql");
-    // Second call: kjv table already exists — hits the early return branch
     expect(() => seedKjv(database, "/nonexistent/bibledb_kjv.sql")).not.toThrow();
-    expect(warnSpy).toHaveBeenCalledTimes(1); // only warned once, not twice
+    expect(() => seedKjv(database, "/nonexistent/bibledb_kjv.sql")).not.toThrow();
     warnSpy.mockRestore();
     database.close();
   });

@@ -85,6 +85,34 @@ Type everything that isn't immediately obvious. If a reader would have to think 
 - Enable and respect `strict` mode — no exceptions
 - `noUncheckedIndexedAccess` is on — always handle the `undefined` case when indexing arrays or records
 
+### Class vs. Module Functions
+
+Prefer classes over bare module-level functions when grouping related logic. This applies to services, gateways, and any module that manages state or has multiple related operations.
+
+- Use a **regular class** when instances carry their own state (e.g., `AuthService`, `ObsService`, `SessionManifestService`)
+- Use a **static class** when no instance data is needed and a singleton is appropriate (e.g., `DatabaseManager` — the database connection is process-level, so all methods and state are static)
+- Use bare module functions only for pure utilities with no associated state
+
+```ts
+// Prefer: static class for process-level singletons
+export class DatabaseManager {
+  static #instance: Database | null = null;
+  static getDatabase(): Database { ... }
+  static resetDatabase(): void { ... }
+}
+
+// Prefer: regular class for stateful services
+export class AuthService {
+  constructor(private readonly database: Database) {}
+  async login(...): Promise<Result<...>> { ... }
+}
+
+// Acceptable: bare functions for pure utilities
+export function encrypt(plaintext: string): string { ... }
+```
+
+---
+
 ### Patterns
 
 ```ts

@@ -1,7 +1,8 @@
 import type { Database } from "better-sqlite3";
 
-// All application tables. The kjv table is created separately in database.ts
-// because it is seeded from bibledb_kjv.sql rather than being empty on first run.
+// All application tables, including the KJV bible table.
+// The KJV table is created here alongside all other tables — seedKjv() in database.ts
+// handles loading the data separately on first run.
 export function applySchema(database: Database): void {
   database.exec(`
     CREATE TABLE IF NOT EXISTS users (
@@ -46,6 +47,13 @@ export function applySchema(database: Database): void {
       roleMinimum TEXT NOT NULL CHECK(roleMinimum IN ('ADMIN', 'AvPowerUser', 'AvVolunteer')),
       createdAt TEXT NOT NULL,
       UNIQUE(dashboardId, widgetId)
+    );
+
+    CREATE TABLE IF NOT EXISTS kjv (
+      BOOKID    INTEGER,
+      CHAPTERNO INTEGER,
+      VERSENO   INTEGER,
+      VERSETEXT TEXT
     );
   `);
 }
