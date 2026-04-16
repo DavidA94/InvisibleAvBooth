@@ -8,7 +8,9 @@ Base URL: `http://localhost:3000`
 
 ## Authentication
 
-All endpoints except `POST /auth/login` require a valid JWT cookie. Postman handles this automatically once you log in — the `token` cookie is set on the login response and sent on all subsequent requests to the same host.
+All endpoints except `POST /auth/login` and `POST /auth/change-password` require a valid JWT cookie. Postman handles this automatically once you log in — the `token` cookie is set on the login response and sent on all subsequent requests to the same host.
+
+**First login flow**: All new users (including the bootstrap admin) have `requiresPasswordChange` set. You must call `POST /auth/change-password` before any other protected endpoint will respond. The `/auth/*` routes are always accessible regardless of this flag.
 
 ### Login
 
@@ -22,7 +24,19 @@ All endpoints except `POST /auth/login` require a valid JWT cookie. Postman hand
 }
 ```
 
-Response sets an `HttpOnly` cookie named `token`. Postman stores this automatically.
+Response sets an `HttpOnly` cookie named `token`. If `requiresPasswordChange` is true in the response, call `POST /auth/change-password` next.
+
+### Change own password (self-service)
+
+**POST** `/auth/change-password`
+
+```json
+{
+  "newPassword": "your-new-password"
+}
+```
+
+Works even when `requiresPasswordChange` is set. Re-issues the JWT cookie with the flag cleared. No user ID needed — changes the password for the currently authenticated user.
 
 ### Logout
 
@@ -75,17 +89,17 @@ All fields optional. Omit `password` to leave it unchanged.
 
 Returns `204 No Content`. Will return `403` if you try to delete your own account.
 
-### Change password
+### Reset another user's password (admin)
 
 **POST** `/admin/users/:id/change-password`
 
 ```json
 {
-  "newPassword": "newpass456"
+  "newPassword": "temporarypass123"
 }
 ```
 
-Re-issues the JWT cookie with `requiresPasswordChange` cleared.
+Sets a new password for the target user **and** sets `requiresPasswordChange: 1` — the user will be forced to change their password on next login. Use this to reset a forgotten password or onboard a new user with a known temporary password.
 
 ---
 
