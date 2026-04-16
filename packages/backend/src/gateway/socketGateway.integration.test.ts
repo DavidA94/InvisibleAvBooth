@@ -8,8 +8,8 @@ import { AuthService } from "../services/authService.js";
 import { ObsService } from "../services/obsService.js";
 import { SessionManifestService } from "../services/sessionManifestService.js";
 import { SocketGateway } from "./socketGateway.js";
-import { ObsModule } from "./obsModule.js";
-import { SessionManifestModule } from "./sessionManifestModule.js";
+import { ObsModule } from "./modules/obsModule.js";
+import { SessionManifestModule } from "./modules/sessionManifestModule.js";
 import { eventBus } from "../eventBus.js";
 import type { ObsState } from "../eventBus.js";
 

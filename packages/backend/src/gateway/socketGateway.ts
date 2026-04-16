@@ -1,7 +1,7 @@
 import { Server as SocketServer } from "socket.io";
 import type { Server as HttpServer } from "http";
 import type { AuthService, JwtPayload } from "../services/authService.js";
-import type { SocketModule } from "./socketModule.js";
+import type { SocketModule } from "./modules/socketModule.js";
 import { logger } from "../logger.js";
 
 // SocketGateway is responsible for:

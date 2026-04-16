@@ -1,3 +1,4 @@
+import { BUS_OBS_STATE_CHANGED, BUS_SESSION_MANIFEST_UPDATED } from "../socketEvents.js";
 import { BIBLE_BOOKS } from "@invisible-av-booth/shared";
 import { eventBus } from "../eventBus.js";
 import type { SessionManifest, ScriptureReference, ObsState } from "../eventBus.js";
@@ -27,12 +28,12 @@ export class SessionManifestService {
       this.obsStreaming = state.streaming;
       this.obsRecording = state.recording;
     };
-    eventBus.subscribe("bus:obs:state:changed", this.obsStateHandler);
+    eventBus.subscribe(BUS_OBS_STATE_CHANGED, this.obsStateHandler);
   }
 
   // Call on service shutdown to remove the EventBus subscription.
   destroy(): void {
-    eventBus.unsubscribe("bus:obs:state:changed", this.obsStateHandler);
+    eventBus.unsubscribe(BUS_OBS_STATE_CHANGED, this.obsStateHandler);
   }
 
   get(): SessionManifest {
@@ -43,7 +44,7 @@ export class SessionManifestService {
     this.manifest = { ...this.manifest, ...patch };
     const interpolatedStreamTitle = this.interpolate(this.manifest, this.template);
 
-    eventBus.emit("bus:session:manifest:updated", {
+    eventBus.emit(BUS_SESSION_MANIFEST_UPDATED, {
       manifest: { ...this.manifest },
       interpolatedStreamTitle,
     });
@@ -63,7 +64,7 @@ export class SessionManifestService {
     this.manifest = {};
     const interpolatedStreamTitle = this.interpolate({}, this.template);
 
-    eventBus.emit("bus:session:manifest:updated", {
+    eventBus.emit(BUS_SESSION_MANIFEST_UPDATED, {
       manifest: {},
       interpolatedStreamTitle,
     });

@@ -37,7 +37,7 @@ Tests are part of each story's definition of done. Unit tests (including propert
 - [x] 9. Write unit tests for database layer — DB initialisation creates all tables, KJV data loads on first run and is skipped on subsequent runs, schema columns match spec (real in-memory SQLite, no mocks needed)
   - _Requirements: 13, 14, 5d_
 
-- [x] 10. Create backend EventBus — src/eventBus.ts (typed wrapper around Node.js EventEmitter, full EventMap: bus:session:manifest:updated, bus:stc:obs:state:changed, bus:obs:error, bus:bus:obs:error:resolved, device:capabilities:updated)
+- [x] 10. Create backend EventBus — src/eventBus.ts (typed wrapper around Node.js EventEmitter, full EventMap: bus:session:manifest:updated, bus:obs:state:changed, bus:obs:error, bus:obs:error:resolved, device:capabilities:updated)
   - _Requirements: 2, 4_
 
 - [x] 11. Write unit tests for EventBus — typed emit/on/off for each EventMap event, listener receives correct payload, off removes listener, multiple listeners on same event, no cross-event leakage
@@ -115,7 +115,7 @@ Tests are part of each story's definition of done. Unit tests (including propert
 
 ## Session Manifest
 
-- [x] 28. Create backend SessionManifestService — src/services/sessionManifestService.ts (in-memory SessionManifest, get/update/clear, emits bus:session:manifest:updated on EventBus, subscribes to bus:stc:obs:state:changed to block clear while live, interpolates template with BIBLE_BOOKS for {Scripture})
+- [x] 28. Create backend SessionManifestService — src/services/sessionManifestService.ts (in-memory SessionManifest, get/update/clear, emits bus:session:manifest:updated on EventBus, subscribes to bus:obs:state:changed to block clear while live, interpolates template with BIBLE_BOOKS for {Scripture})
   - _Requirements: 2, 9, 15, 19_
 
 - [x] 29. Write unit tests for SessionManifestService — get/update/clear, EventBus emissions, clear blocked while live, template interpolation for all tokens and placeholders including {Scripture} range formatting; property-based tests (fast-check) for arbitrary manifest field combinations and template strings (mock EventBus)
@@ -125,7 +125,7 @@ Tests are part of each story's definition of done. Unit tests (including propert
 
 ## OBS Control
 
-- [x] 30. Create backend ObsService — src/services/obsService.ts (connects to OBS via obs-websocket, reads config from device_connections, maintains commandedState, emits bus:stc:obs:state:changed and bus:obs:error on EventBus, safe-start sequence for startStream, subscribes to bus:session:manifest:updated for metadata cache)
+- [x] 30. Create backend ObsService — src/services/obsService.ts (connects to OBS via obs-websocket, reads config from device_connections, maintains commandedState, emits bus:obs:state:changed and bus:obs:error on EventBus, safe-start sequence for startStream, subscribes to bus:session:manifest:updated for metadata cache)
   - _Requirements: 3, 4, 8_
 
 - [x] 31. Write unit tests for ObsService — connect/disconnect, safe-start sequence, commandedState tracking, error emission, OBS_NOT_CONFIGURED, reconnect after disconnect, capabilities discovery (mock obs-websocket client)

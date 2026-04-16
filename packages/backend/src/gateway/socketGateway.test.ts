@@ -1,3 +1,10 @@
+// SocketGateway unit tests cover only gateway-level responsibilities:
+//   1. JWT authentication (reject / accept connections)
+//   2. Delegation — each module's register/registerSocket/emitInitialState is called
+//
+// Command routing, EventBus forwarding, and per-socket event handling are
+// tested in obsModule.test.ts and sessionManifestModule.test.ts.
+
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { createServer } from "http";
 import { io as ioClient } from "socket.io-client";
@@ -6,44 +13,21 @@ import Database from "better-sqlite3";
 import { applySchema } from "../database/schema.js";
 import { AuthService } from "../services/authService.js";
 import { SocketGateway } from "./socketGateway.js";
-import { ObsModule } from "./obsModule.js";
-import { SessionManifestModule } from "./sessionManifestModule.js";
-import { eventBus } from "../eventBus.js";
-import type { ObsState } from "../eventBus.js";
-
-// ── Mocks ─────────────────────────────────────────────────────────────────────
-
-const idleState: ObsState = {
-  connected: false,
-  streaming: false,
-  recording: false,
-  commandedState: { streaming: false, recording: false },
-};
-
-function makeMockObsService() {
-  return {
-    getState: vi.fn().mockReturnValue(idleState),
-    startStream: vi.fn().mockResolvedValue({ success: true, value: idleState }),
-    stopStream: vi.fn().mockResolvedValue({ success: true, value: idleState }),
-    startRecording: vi.fn().mockResolvedValue({ success: true, value: idleState }),
-    stopRecording: vi.fn().mockResolvedValue({ success: true, value: idleState }),
-    reconnect: vi.fn().mockResolvedValue({ success: true, value: undefined }),
-  };
-}
-
-function makeMockManifestService() {
-  return {
-    get: vi.fn().mockReturnValue({}),
-    update: vi.fn().mockReturnValue({ success: true, value: {} }),
-    interpolate: vi.fn().mockReturnValue("Test Title"),
-  };
-}
-
-// ── Test helpers ──────────────────────────────────────────────────────────────
+import type { SocketModule, AuthenticatedSocket } from "./modules/socketModule.js";
 
 const seedActor = { sub: "seed", username: "seed", role: "ADMIN" as const, iat: 0, exp: 9999999999 };
 
-async function buildGateway() {
+function makeMockModule(): SocketModule & { registerCalls: AuthenticatedSocket[] } {
+  const registerCalls: AuthenticatedSocket[] = [];
+  return {
+    registerCalls,
+    register: vi.fn(),
+    registerSocket: vi.fn().mockImplementation((auth: AuthenticatedSocket) => registerCalls.push(auth)),
+    emitInitialState: vi.fn(),
+  };
+}
+
+async function buildGateway(modules: SocketModule[]) {
   const database = new Database(":memory:");
   applySchema(database);
   const authService = new AuthService(database);
@@ -51,16 +35,11 @@ async function buildGateway() {
   const loginResult = await authService.login("admin", "pass");
   const token = loginResult.success ? loginResult.value.token : "";
 
-  const obsService = makeMockObsService();
-  const manifestService = makeMockManifestService();
-
   const httpServer = createServer();
-  const gateway = new SocketGateway(httpServer, authService, [new ObsModule(obsService as never), new SessionManifestModule(manifestService as never)]);
-
+  new SocketGateway(httpServer, authService, modules);
   await new Promise<void>((resolve) => httpServer.listen(0, resolve));
   const port = (httpServer.address() as { port: number }).port;
-
-  return { gateway, httpServer, obsService, manifestService, token, port };
+  return { httpServer, token, port };
 }
 
 function connectClient(port: number, token: string): Promise<ClientSocket> {
@@ -73,17 +52,15 @@ function connectClient(port: number, token: string): Promise<ClientSocket> {
 
 const cleanups: Array<() => void> = [];
 
-afterEach(async () => {
+afterEach(() => {
   cleanups.forEach((fn) => fn());
   cleanups.length = 0;
   vi.restoreAllMocks();
 });
 
-// ── JWT validation ────────────────────────────────────────────────────────────
-
 describe("SocketGateway — JWT validation", () => {
   it("rejects connection without token", async () => {
-    const { httpServer, port } = await buildGateway();
+    const { httpServer, port } = await buildGateway([]);
     cleanups.push(() => httpServer.close());
 
     await new Promise<void>((resolve) => {
@@ -96,7 +73,7 @@ describe("SocketGateway — JWT validation", () => {
   });
 
   it("rejects connection with invalid token", async () => {
-    const { httpServer, port } = await buildGateway();
+    const { httpServer, port } = await buildGateway([]);
     cleanups.push(() => httpServer.close());
 
     await new Promise<void>((resolve) => {
@@ -109,123 +86,52 @@ describe("SocketGateway — JWT validation", () => {
   });
 
   it("accepts connection with valid token", async () => {
-    const { httpServer, token, port } = await buildGateway();
+    const { httpServer, token, port } = await buildGateway([]);
     cleanups.push(() => httpServer.close());
-
     const client = await connectClient(port, token);
     cleanups.push(() => client.close());
     expect(client.connected).toBe(true);
   });
 });
 
-// ── EventBus → client broadcast ───────────────────────────────────────────────
-
-describe("SocketGateway — EventBus forwarding", () => {
-  it("broadcasts stc:obs:state when bus:obs:state:changed fires", async () => {
-    const { httpServer, token, port } = await buildGateway();
+describe("SocketGateway — module delegation", () => {
+  it("calls register on each module at startup", async () => {
+    const moduleA = makeMockModule();
+    const moduleB = makeMockModule();
+    const { httpServer } = await buildGateway([moduleA, moduleB]);
     cleanups.push(() => httpServer.close());
-    const client = await connectClient(port, token);
-    cleanups.push(() => client.close());
 
-    const received = await new Promise<ObsState>((resolve) => {
-      client.on("stc:obs:state", resolve);
-      eventBus.emit("bus:obs:state:changed", { state: { ...idleState, connected: true } });
-    });
-
-    expect(received.connected).toBe(true);
+    expect(moduleA.register).toHaveBeenCalledOnce();
+    expect(moduleB.register).toHaveBeenCalledOnce();
+    expect((moduleA.register as ReturnType<typeof vi.fn>).mock.calls[0]![0]).toBeDefined(); // io passed
   });
 
-  it("broadcasts stc:session:manifest:updated when bus:session:manifest:updated fires", async () => {
-    const { httpServer, token, port } = await buildGateway();
+  it("calls registerSocket and emitInitialState on each module per connection", async () => {
+    const moduleA = makeMockModule();
+    const moduleB = makeMockModule();
+    const { httpServer, token, port } = await buildGateway([moduleA, moduleB]);
     cleanups.push(() => httpServer.close());
     const client = await connectClient(port, token);
     cleanups.push(() => client.close());
 
-    await new Promise<void>((resolve) => setTimeout(resolve, 50));
+    // Give the server a tick to process the connection handlers
+    await new Promise<void>((resolve) => setTimeout(resolve, 20));
 
-    const received = await new Promise<{ interpolatedStreamTitle: string }>((resolve) => {
-      client.on("stc:session:manifest:updated", (payload) => {
-        if ((payload as { interpolatedStreamTitle: string }).interpolatedStreamTitle === "EventBus Title") {
-          resolve(payload as { interpolatedStreamTitle: string });
-        }
-      });
-      eventBus.emit("bus:session:manifest:updated", { manifest: {}, interpolatedStreamTitle: "EventBus Title" });
-    });
-
-    expect(received.interpolatedStreamTitle).toBe("EventBus Title");
-  });
-});
-
-// ── cts:obs:command routing ───────────────────────────────────────────────────
-
-describe("SocketGateway — cts:obs:command", () => {
-  it("routes startStream to obsService.startStream", async () => {
-    const { httpServer, token, port, obsService } = await buildGateway();
-    cleanups.push(() => httpServer.close());
-    const client = await connectClient(port, token);
-    cleanups.push(() => client.close());
-
-    await new Promise<void>((resolve) => {
-      client.emit("cts:obs:command", { type: "startStream" }, () => resolve());
-    });
-
-    expect(obsService.startStream).toHaveBeenCalledOnce();
+    expect(moduleA.registerSocket).toHaveBeenCalledOnce();
+    expect(moduleA.emitInitialState).toHaveBeenCalledOnce();
+    expect(moduleB.registerSocket).toHaveBeenCalledOnce();
+    expect(moduleB.emitInitialState).toHaveBeenCalledOnce();
   });
 
-  it("routes stopStream to obsService.stopStream", async () => {
-    const { httpServer, token, port, obsService } = await buildGateway();
+  it("passes an AuthenticatedSocket with jwtPayload to modules", async () => {
+    const module = makeMockModule();
+    const { httpServer, token, port } = await buildGateway([module]);
     cleanups.push(() => httpServer.close());
     const client = await connectClient(port, token);
     cleanups.push(() => client.close());
 
-    await new Promise<void>((resolve) => {
-      client.emit("cts:obs:command", { type: "stopStream" }, () => resolve());
-    });
+    await new Promise<void>((resolve) => setTimeout(resolve, 20));
 
-    expect(obsService.stopStream).toHaveBeenCalledOnce();
-  });
-
-  it("returns success: false on unknown command type", async () => {
-    const { httpServer, token, port } = await buildGateway();
-    cleanups.push(() => httpServer.close());
-    const client = await connectClient(port, token);
-    cleanups.push(() => client.close());
-
-    const result = await new Promise<{ success: boolean }>((resolve) => {
-      client.emit("cts:obs:command", { type: "unknown" }, resolve);
-    });
-
-    expect(result.success).toBe(false);
-  });
-
-  it("ack shape is { success: true } on success", async () => {
-    const { httpServer, token, port } = await buildGateway();
-    cleanups.push(() => httpServer.close());
-    const client = await connectClient(port, token);
-    cleanups.push(() => client.close());
-
-    const result = await new Promise<{ success: boolean }>((resolve) => {
-      client.emit("cts:obs:command", { type: "startStream" }, resolve);
-    });
-
-    expect(result).toEqual({ success: true });
-  });
-});
-
-// ── cts:obs:reconnect ─────────────────────────────────────────────────────────
-
-describe("SocketGateway — cts:obs:reconnect", () => {
-  it("calls obsService.reconnect and acks success", async () => {
-    const { httpServer, token, port, obsService } = await buildGateway();
-    cleanups.push(() => httpServer.close());
-    const client = await connectClient(port, token);
-    cleanups.push(() => client.close());
-
-    const result = await new Promise<{ success: boolean }>((resolve) => {
-      client.emit("cts:obs:reconnect", resolve);
-    });
-
-    expect(obsService.reconnect).toHaveBeenCalledOnce();
-    expect(result.success).toBe(true);
+    expect(module.registerCalls[0]!.jwtPayload.username).toBe("admin");
   });
 });

@@ -1,8 +1,20 @@
 import type { Server } from "socket.io";
-import { eventBus } from "../eventBus.js";
+import { eventBus } from "../../eventBus.js";
 import type { SocketModule, AuthenticatedSocket } from "./socketModule.js";
-import type { ObsService } from "../services/obsService.js";
-import { logger } from "../logger.js";
+import type { ObsService } from "../../services/obsService.js";
+import { logger } from "../../logger.js";
+import {
+  BUS_OBS_STATE_CHANGED,
+  BUS_OBS_ERROR,
+  BUS_OBS_ERROR_RESOLVED,
+  BUS_DEVICE_CAPABILITIES_UPDATED,
+  CTS_OBS_COMMAND,
+  CTS_OBS_RECONNECT,
+  STC_OBS_STATE,
+  STC_OBS_ERROR,
+  STC_OBS_ERROR_RESOLVED,
+  STC_DEVICE_CAPABILITIES,
+} from "../../socketEvents.js";
 
 interface ObsCommand {
   type: "startStream" | "stopStream" | "startRecording" | "stopRecording";
@@ -18,20 +30,20 @@ export class ObsModule implements SocketModule {
 
   register(io: Server): void {
     // Forward EventBus OBS events to all connected clients.
-    eventBus.subscribe("bus:obs:state:changed", ({ state }) => {
-      io.emit("stc:obs:state", state);
+    eventBus.subscribe(BUS_OBS_STATE_CHANGED, ({ state }) => {
+      io.emit(STC_OBS_STATE, state);
     });
 
-    eventBus.subscribe("bus:obs:error", (errorEvent) => {
-      io.emit("stc:obs:error", errorEvent);
+    eventBus.subscribe(BUS_OBS_ERROR, (errorEvent) => {
+      io.emit(STC_OBS_ERROR, errorEvent);
     });
 
-    eventBus.subscribe("bus:obs:error:resolved", (payload) => {
-      io.emit("stc:obs:error:resolved", payload);
+    eventBus.subscribe(BUS_OBS_ERROR_RESOLVED, (payload) => {
+      io.emit(STC_OBS_ERROR_RESOLVED, payload);
     });
 
-    eventBus.subscribe("bus:device:capabilities:updated", (payload) => {
-      io.emit("stc:device:capabilities", payload);
+    eventBus.subscribe(BUS_DEVICE_CAPABILITIES_UPDATED, (payload) => {
+      io.emit(STC_DEVICE_CAPABILITIES, payload);
     });
   }
 
@@ -39,7 +51,7 @@ export class ObsModule implements SocketModule {
     const { socket, jwtPayload } = auth;
 
     // cts:obs:command — route to ObsService
-    socket.on("cts:obs:command", async (command: ObsCommand, ack: (result: CommandResult) => void) => {
+    socket.on(CTS_OBS_COMMAND, async (command: ObsCommand, ack: (result: CommandResult) => void) => {
       logger.info("OBS command received", { userId: jwtPayload.sub, context: { type: command.type } });
 
       try {
@@ -68,7 +80,7 @@ export class ObsModule implements SocketModule {
     });
 
     // cts:obs:reconnect — available to all authenticated roles
-    socket.on("cts:obs:reconnect", async (ack: (result: CommandResult) => void) => {
+    socket.on(CTS_OBS_RECONNECT, async (ack: (result: CommandResult) => void) => {
       logger.info("OBS reconnect requested", { userId: jwtPayload.sub });
       const result = await this.obsService.reconnect();
       ack(result.success ? { success: true } : { success: false, error: result.error.message });
@@ -76,6 +88,6 @@ export class ObsModule implements SocketModule {
   }
 
   emitInitialState(auth: AuthenticatedSocket): void {
-    auth.socket.emit("stc:obs:state", this.obsService.getState());
+    auth.socket.emit(STC_OBS_STATE, this.obsService.getState());
   }
 }

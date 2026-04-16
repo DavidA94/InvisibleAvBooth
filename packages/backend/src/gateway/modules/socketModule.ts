@@ -1,5 +1,5 @@
 import type { Socket, Server } from "socket.io";
-import type { JwtPayload } from "../services/authService.js";
+import type { JwtPayload } from "../../services/authService.js";
 
 // A socket that has already passed JWT validation in SocketGateway.
 // Modules receive this type — they never need to check auth themselves.
