@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { getDb, resetDb, seedKjv } from "./database.js";
+import { getDatabase, resetDatabase, seedKjv } from "./database.js";
 import { applySchema } from "./schema.js";
 import Database from "better-sqlite3";
 import { logger } from "../logger.js";
 
 beforeEach(() => {
-  resetDb();
+  resetDatabase();
 });
 
 afterEach(() => {
@@ -69,9 +69,9 @@ describe("applySchema", () => {
   });
 });
 
-describe("getDb", () => {
+describe("getDatabase", () => {
   it("returns a database with all schema tables applied", () => {
-    const database = getDb(":memory:");
+    const database = getDatabase(":memory:");
 
     const tables = database
       .prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
@@ -85,13 +85,13 @@ describe("getDb", () => {
   });
 
   it("returns the same instance on repeated calls (singleton)", () => {
-    const a = getDb(":memory:");
-    const b = getDb(":memory:");
+    const a = getDatabase(":memory:");
+    const b = getDatabase(":memory:");
     expect(a).toBe(b);
   });
 
   it("creates the kjv table", () => {
-    const database = getDb(":memory:");
+    const database = getDatabase(":memory:");
 
     const tables = database.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='kjv'").all();
 
@@ -99,9 +99,9 @@ describe("getDb", () => {
   });
 
   it("does not duplicate kjv table on second getDb call after reset", () => {
-    getDb(":memory:");
-    resetDb();
-    const database = getDb(":memory:");
+    getDatabase(":memory:");
+    resetDatabase();
+    const database = getDatabase(":memory:");
 
     const tables = database.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='kjv'").all();
 
@@ -109,11 +109,11 @@ describe("getDb", () => {
   });
 });
 
-describe("resetDb", () => {
+describe("resetDatabase", () => {
   it("allows a fresh DB to be created after reset", () => {
-    const a = getDb(":memory:");
-    resetDb();
-    const b = getDb(":memory:");
+    const a = getDatabase(":memory:");
+    resetDatabase();
+    const b = getDatabase(":memory:");
     expect(a).not.toBe(b);
   });
 });
@@ -136,7 +136,7 @@ describe("seedKjv — missing SQL file", () => {
   it("warns and leaves kjv table empty when sql path does not exist", () => {
     const warnSpy = vi.spyOn(logger, "warn").mockImplementation(() => logger);
 
-    const database = getDb(":memory:", "/nonexistent/bibledb_kjv.sql");
+    const database = getDatabase(":memory:", "/nonexistent/bibledb_kjv.sql");
 
     expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("bibledb_kjv.sql not found"));
 

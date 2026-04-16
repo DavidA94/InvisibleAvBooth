@@ -2,7 +2,7 @@ import "dotenv/config";
 import { createServer } from "http";
 import express from "express";
 import cookieParser from "cookie-parser";
-import { getDb } from "./db/database.js";
+import { getDatabase } from "./db/database.js";
 import { AuthService } from "./services/authService.js";
 import { ObsService } from "./services/obsService.js";
 import { SessionManifestService } from "./services/sessionManifestService.js";
@@ -29,7 +29,7 @@ if (!/^[0-9a-f]{64}$/.test(secretKey)) {
 
 const PORT = parseInt(process.env["PORT"] ?? "3000", 10);
 
-const database = getDb();
+const database = getDatabase();
 const authService = new AuthService(database);
 authService.bootstrapIfEmpty();
 
