@@ -142,10 +142,11 @@ vite.config.ts.timestamp-*
 .vscode/
 
 # Backend runtime data — never commit these
-logs/
+**/logs/
 **/app.db
 **/app.database
-data/bootstrap.txt
+**data/bootstrap.txt
+**/data/
 .env
 **/.env
 
