@@ -15,13 +15,13 @@ The backend encrypts device passwords at rest using AES-256-GCM. A 32-byte key i
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
-Set it in your environment before starting the backend:
+Copy `.env.example` to `.env` at the repo root and set the value:
 
-```bash
-export DEVICE_SECRET_KEY=<64-character hex string>
+```
+DEVICE_SECRET_KEY=<64-character hex string>
 ```
 
-Never commit this value. Store it in a `.env` file (gitignored) or your deployment environment.
+The `.env` file is gitignored and loaded automatically when the backend starts. Never commit it.
 
 ---
 

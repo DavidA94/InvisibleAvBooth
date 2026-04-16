@@ -262,11 +262,13 @@ Returns `{}` until updated via Socket.io.
 **GET** `/api/kjv/validate?bookId=43&chapter=3&verse=16`
 
 Valid response:
+
 ```json
 { "valid": true }
 ```
 
 Invalid response:
+
 ```json
 { "valid": false, "reason": "VERSE_NOT_FOUND" }
 ```
@@ -308,6 +310,7 @@ Postman supports Socket.io connections natively (New → Socket.IO).
 **URL:** `http://localhost:3000`
 
 **Auth:** In the connection settings, add an `auth` object:
+
 ```json
 { "token": "<paste your JWT token here>" }
 ```
@@ -316,20 +319,21 @@ To get the raw JWT token value (not the cookie), you can decode it from the `tok
 
 ### Events to listen for (server → client)
 
-| Event | Payload |
-|---|---|
-| `obs:state` | `{ connected, streaming, recording, streamTimecode?, recordingTimecode?, commandedState }` |
-| `session:manifest:updated` | `{ manifest, interpolatedStreamTitle }` |
-| `obs:error` | `{ error: { code, message }, retryExhausted?, context? }` |
-| `obs:error:resolved` | `{ errorCode }` |
-| `device:capabilities` | `{ deviceId, capabilities: { deviceType, features } }` |
-| `notification` | `{ level, message }` |
+| Event                      | Payload                                                                                    |
+| -------------------------- | ------------------------------------------------------------------------------------------ |
+| `obs:state`                | `{ connected, streaming, recording, streamTimecode?, recordingTimecode?, commandedState }` |
+| `session:manifest:updated` | `{ manifest, interpolatedStreamTitle }`                                                    |
+| `obs:error`                | `{ error: { code, message }, retryExhausted?, context? }`                                  |
+| `obs:error:resolved`       | `{ errorCode }`                                                                            |
+| `device:capabilities`      | `{ deviceId, capabilities: { deviceType, features } }`                                     |
+| `notification`             | `{ level, message }`                                                                       |
 
 ### Events to emit (client → server)
 
 #### Start stream
 
 Event: `obs:command`
+
 ```json
 { "type": "startStream" }
 ```
@@ -339,6 +343,7 @@ Ack response: `{ "success": true }` or `{ "success": false, "error": "..." }`
 #### Stop stream
 
 Event: `obs:command`
+
 ```json
 { "type": "stopStream" }
 ```
@@ -346,6 +351,7 @@ Event: `obs:command`
 #### Start recording
 
 Event: `obs:command`
+
 ```json
 { "type": "startRecording" }
 ```
@@ -353,6 +359,7 @@ Event: `obs:command`
 #### Stop recording
 
 Event: `obs:command`
+
 ```json
 { "type": "stopRecording" }
 ```
@@ -360,6 +367,7 @@ Event: `obs:command`
 #### Update session manifest
 
 Event: `session:manifest:update`
+
 ```json
 {
   "speaker": "John Smith",

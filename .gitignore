@@ -146,6 +146,7 @@ logs/
 **/app.db
 **/app.database
 data/bootstrap.txt
+.env
 
 # Playwright test artifacts
 packages/frontend/playwright-report/
