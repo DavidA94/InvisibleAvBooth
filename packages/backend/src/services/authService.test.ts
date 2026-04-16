@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import Database from "better-sqlite3";
-import { applySchema } from "../db/schema.js";
+import { applySchema } from "../database/schema.js";
 import { AuthService } from "./authService.js";
 import type { JwtPayload } from "./authService.js";
 import jwt from "jsonwebtoken";

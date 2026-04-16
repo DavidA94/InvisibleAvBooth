@@ -2,7 +2,7 @@ import "dotenv/config";
 import { createServer } from "http";
 import express from "express";
 import cookieParser from "cookie-parser";
-import { getDatabase } from "./db/database.js";
+import { getDatabase } from "./database/database.js";
 import { AuthService } from "./services/authService.js";
 import { ObsService } from "./services/obsService.js";
 import { SessionManifestService } from "./services/sessionManifestService.js";

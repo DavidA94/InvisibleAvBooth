@@ -3,7 +3,7 @@ import express from "express";
 import cookieParser from "cookie-parser";
 import request from "supertest";
 import Database from "better-sqlite3";
-import { applySchema } from "../db/schema.js";
+import { applySchema } from "../database/schema.js";
 import { AuthService } from "../services/authService.js";
 import { createAuthRouter } from "./authRoutes.js";
 import { createAdminDashboardRouter } from "./adminDashboardRoutes.js";

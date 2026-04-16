@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import Database from "better-sqlite3";
 import type BetterSqlite3 from "better-sqlite3";
-import { applySchema } from "../db/schema.js";
+import { applySchema } from "../database/schema.js";
 import { ObsService, ObsError } from "./obsService.js";
 import { eventBus } from "../eventBus.js";
 

@@ -3,7 +3,7 @@ import { createServer } from "http";
 import { io as ioClient } from "socket.io-client";
 import type { Socket as ClientSocket } from "socket.io-client";
 import Database from "better-sqlite3";
-import { applySchema } from "../db/schema.js";
+import { applySchema } from "../database/schema.js";
 import { AuthService } from "../services/authService.js";
 import { SocketGateway } from "./socketGateway.js";
 import { eventBus } from "../eventBus.js";

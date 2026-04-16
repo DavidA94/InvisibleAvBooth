@@ -18,12 +18,12 @@ const KJV_SQL_PATH = join(PACKAGE_ROOT, "..", "..", "bibledb_kjv.sql");
 // Static class — no instance data needed; the database is a process-level singleton.
 // All methods are static; the private #instance field holds the single connection.
 export class DatabaseManager {
-  static #instance: BetterSqlite3.Database | null = null;
+  static instance: BetterSqlite3.Database | null = null;
 
   // databasePath is injectable for testing (pass ":memory:" to get a fresh in-memory DB).
   // In production, call with no arguments to use the default file-backed path.
   static getDatabase(databasePath?: string, kjvSqlPath?: string): BetterSqlite3.Database {
-    if (DatabaseManager.#instance) return DatabaseManager.#instance;
+    if (DatabaseManager.instance) return DatabaseManager.instance;
 
     const resolvedPath = databasePath ?? DATABASE_PATH;
 
@@ -33,23 +33,23 @@ export class DatabaseManager {
       mkdirSync(DATA_DIRECTORY, { recursive: true });
     }
 
-    DatabaseManager.#instance = new BetterSqlite3(resolvedPath);
+    DatabaseManager.instance = new BetterSqlite3(resolvedPath);
 
     // WAL mode improves concurrent read performance and is safe for single-process use.
-    DatabaseManager.#instance.pragma("journal_mode = WAL");
-    DatabaseManager.#instance.pragma("foreign_keys = ON");
+    DatabaseManager.instance.pragma("journal_mode = WAL");
+    DatabaseManager.instance.pragma("foreign_keys = ON");
 
-    applySchema(DatabaseManager.#instance);
-    DatabaseManager.seedKjv(DatabaseManager.#instance, kjvSqlPath ?? KJV_SQL_PATH);
+    applySchema(DatabaseManager.instance);
+    DatabaseManager.seedKjv(DatabaseManager.instance, kjvSqlPath ?? KJV_SQL_PATH);
 
-    return DatabaseManager.#instance;
+    return DatabaseManager.instance;
   }
 
   // Reset the singleton — used in tests to get a fresh database between test files.
   static resetDatabase(): void {
-    if (DatabaseManager.#instance) {
-      DatabaseManager.#instance.close();
-      DatabaseManager.#instance = null;
+    if (DatabaseManager.instance) {
+      DatabaseManager.instance.close();
+      DatabaseManager.instance = null;
     }
   }
 
