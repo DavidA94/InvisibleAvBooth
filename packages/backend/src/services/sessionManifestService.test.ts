@@ -38,7 +38,7 @@ function makeSvc(template?: string) {
 
 beforeEach(() => {
   // Emit idle state to reset any cached OBS state from previous tests
-  eventBus.emit("obs:state:changed", { state: idleObsState });
+  eventBus.emit("bus:obs:state:changed", { state: idleObsState });
 });
 
 afterEach(() => {
@@ -69,8 +69,8 @@ describe("SessionManifestService.update", () => {
   it("emits session:manifest:updated on EventBus", () => {
     const service = makeSvc();
     const handler = vi.fn();
-    eventBus.subscribe("session:manifest:updated", handler);
-    cleanups.push(() => eventBus.unsubscribe("session:manifest:updated", handler));
+    eventBus.subscribe("bus:session:manifest:updated", handler);
+    cleanups.push(() => eventBus.unsubscribe("bus:session:manifest:updated", handler));
 
     service.update({ speaker: "John" }, actor);
 
@@ -101,8 +101,8 @@ describe("SessionManifestService.clear", () => {
     const service = makeSvc();
     service.update({ speaker: "John" }, actor);
     const handler = vi.fn();
-    eventBus.subscribe("session:manifest:updated", handler);
-    cleanups.push(() => eventBus.unsubscribe("session:manifest:updated", handler));
+    eventBus.subscribe("bus:session:manifest:updated", handler);
+    cleanups.push(() => eventBus.unsubscribe("bus:session:manifest:updated", handler));
 
     service.clear(actor);
 
@@ -111,7 +111,7 @@ describe("SessionManifestService.clear", () => {
 
   it("is blocked while streaming", () => {
     const service = makeSvc();
-    eventBus.emit("obs:state:changed", { state: liveObsState });
+    eventBus.emit("bus:obs:state:changed", { state: liveObsState });
     const result = service.clear(actor);
     expect(result.success).toBe(false);
     if (!result.success) expect(result.error.code).toBe("CLEAR_BLOCKED_WHILE_LIVE");
@@ -119,15 +119,15 @@ describe("SessionManifestService.clear", () => {
 
   it("is blocked while recording", () => {
     const service = makeSvc();
-    eventBus.emit("obs:state:changed", { state: recordingObsState });
+    eventBus.emit("bus:obs:state:changed", { state: recordingObsState });
     const result = service.clear(actor);
     expect(result.success).toBe(false);
   });
 
   it("is allowed after streaming stops", () => {
     const service = makeSvc();
-    eventBus.emit("obs:state:changed", { state: liveObsState });
-    eventBus.emit("obs:state:changed", { state: idleObsState });
+    eventBus.emit("bus:obs:state:changed", { state: liveObsState });
+    eventBus.emit("bus:obs:state:changed", { state: idleObsState });
     expect(service.clear(actor).success).toBe(true);
   });
 });

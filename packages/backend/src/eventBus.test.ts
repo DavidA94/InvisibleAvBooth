@@ -26,8 +26,8 @@ const baseObsState: ObsState = {
 describe("eventBus — obs:state:changed", () => {
   it("delivers payload to subscriber", () => {
     const handler = vi.fn();
-    subscribe("obs:state:changed", handler);
-    eventBus.emit("obs:state:changed", { state: baseObsState });
+    subscribe("bus:obs:state:changed", handler);
+    eventBus.emit("bus:obs:state:changed", { state: baseObsState });
     expect(handler).toHaveBeenCalledOnce();
     expect(handler.mock.calls[0]?.[0]).toEqual({ state: baseObsState });
   });
@@ -35,18 +35,18 @@ describe("eventBus — obs:state:changed", () => {
   it("delivers to multiple subscribers", () => {
     const a = vi.fn();
     const b = vi.fn();
-    subscribe("obs:state:changed", a);
-    subscribe("obs:state:changed", b);
-    eventBus.emit("obs:state:changed", { state: baseObsState });
+    subscribe("bus:obs:state:changed", a);
+    subscribe("bus:obs:state:changed", b);
+    eventBus.emit("bus:obs:state:changed", { state: baseObsState });
     expect(a).toHaveBeenCalledOnce();
     expect(b).toHaveBeenCalledOnce();
   });
 
   it("stops delivering after unsubscribe", () => {
     const handler = vi.fn();
-    eventBus.subscribe("obs:state:changed", handler);
-    eventBus.unsubscribe("obs:state:changed", handler);
-    eventBus.emit("obs:state:changed", { state: baseObsState });
+    eventBus.subscribe("bus:obs:state:changed", handler);
+    eventBus.unsubscribe("bus:obs:state:changed", handler);
+    eventBus.emit("bus:obs:state:changed", { state: baseObsState });
     expect(handler).not.toHaveBeenCalled();
   });
 });
@@ -54,8 +54,8 @@ describe("eventBus — obs:state:changed", () => {
 describe("eventBus — session:manifest:updated", () => {
   it("delivers manifest and interpolatedStreamTitle", () => {
     const handler = vi.fn();
-    subscribe("session:manifest:updated", handler);
-    eventBus.emit("session:manifest:updated", {
+    subscribe("bus:session:manifest:updated", handler);
+    eventBus.emit("bus:session:manifest:updated", {
       manifest: { speaker: "John" },
       interpolatedStreamTitle: "Sunday Service",
     });
@@ -69,12 +69,12 @@ describe("eventBus — session:manifest:updated", () => {
 describe("eventBus — obs:error", () => {
   it("delivers OBS_UNREACHABLE payload with retryExhausted and context", () => {
     const handler = vi.fn();
-    subscribe("obs:error", handler);
+    subscribe("bus:obs:error", handler);
     const error = Object.assign(new Error("unreachable"), {
       code: "OBS_UNREACHABLE" as ObsErrorCode,
       name: "ObsError",
     }) as ObsError & { code: "OBS_UNREACHABLE" };
-    eventBus.emit("obs:error", {
+    eventBus.emit("bus:obs:error", {
       error,
       retryExhausted: true,
       context: { streaming: false, recording: false },
@@ -84,12 +84,12 @@ describe("eventBus — obs:error", () => {
 
   it("delivers non-unreachable error payload", () => {
     const handler = vi.fn();
-    subscribe("obs:error", handler);
+    subscribe("bus:obs:error", handler);
     const error = Object.assign(new Error("failed"), {
       code: "STREAM_START_FAILED" as ObsErrorCode,
       name: "ObsError",
     }) as ObsError & { code: "STREAM_START_FAILED" };
-    eventBus.emit("obs:error", { error });
+    eventBus.emit("bus:obs:error", { error });
     expect(handler).toHaveBeenCalledOnce();
   });
 });
@@ -97,8 +97,8 @@ describe("eventBus — obs:error", () => {
 describe("eventBus — obs:error:resolved", () => {
   it("delivers errorCode", () => {
     const handler = vi.fn();
-    subscribe("obs:error:resolved", handler);
-    eventBus.emit("obs:error:resolved", { errorCode: "OBS_UNREACHABLE" });
+    subscribe("bus:obs:error:resolved", handler);
+    eventBus.emit("bus:obs:error:resolved", { errorCode: "OBS_UNREACHABLE" });
     expect(handler).toHaveBeenCalledWith({ errorCode: "OBS_UNREACHABLE" });
   });
 });
@@ -106,8 +106,8 @@ describe("eventBus — obs:error:resolved", () => {
 describe("eventBus — device:capabilities:updated", () => {
   it("delivers capabilities payload", () => {
     const handler = vi.fn();
-    subscribe("device:capabilities:updated", handler);
-    eventBus.emit("device:capabilities:updated", {
+    subscribe("bus:device:capabilities:updated", handler);
+    eventBus.emit("bus:device:capabilities:updated", {
       deviceId: "obs-1",
       capabilities: { deviceId: "obs-1", deviceType: "obs", features: { streaming: true } },
     });
@@ -118,8 +118,8 @@ describe("eventBus — device:capabilities:updated", () => {
 describe("eventBus — no cross-event leakage", () => {
   it("subscriber on one event does not receive emissions on another", () => {
     const handler = vi.fn();
-    subscribe("obs:error:resolved", handler);
-    eventBus.emit("obs:state:changed", { state: baseObsState });
+    subscribe("bus:obs:error:resolved", handler);
+    eventBus.emit("bus:obs:state:changed", { state: baseObsState });
     expect(handler).not.toHaveBeenCalled();
   });
 });

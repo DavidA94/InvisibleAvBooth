@@ -73,7 +73,7 @@ export interface EventMap {
   // Emitted by SessionManifestService after any update or clear.
   // interpolatedStreamTitle is pre-computed once here so ObsService and
   // SocketGateway both read the same value rather than re-interpolating.
-  "session:manifest:updated": {
+  "bus:session:manifest:updated": {
     manifest: SessionManifest;
     interpolatedStreamTitle: string;
   };
@@ -81,19 +81,19 @@ export interface EventMap {
   // Emitted by ObsService on every state change (connect, disconnect, command
   // completion, obs-websocket event). SessionManifestService subscribes to this
   // to know whether a live session is active before allowing a manifest clear.
-  "obs:state:changed": { state: ObsState };
+  "bus:obs:state:changed": { state: ObsState };
 
   // Emitted by ObsService when a connection or command error occurs.
-  "obs:error": ObsErrorEvent;
+  "bus:obs:error": ObsErrorEvent;
 
   // Emitted by ObsService when a previously-reported error condition resolves
   // (e.g., OBS reconnects after OBS_UNREACHABLE). errorCode matches the code
   // from the original obs:error emission so the SocketGateway can dismiss the
   // corresponding notification on the frontend.
-  "obs:error:resolved": { errorCode: string };
+  "bus:obs:error:resolved": { errorCode: string };
 
   // Emitted by ObsService after connecting when capabilities are discovered.
-  "device:capabilities:updated": {
+  "bus:device:capabilities:updated": {
     deviceId: string;
     capabilities: CapabilitiesObject;
   };

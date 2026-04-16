@@ -6,6 +6,8 @@ import Database from "better-sqlite3";
 import { applySchema } from "../database/schema.js";
 import { AuthService } from "../services/authService.js";
 import { SocketGateway } from "./socketGateway.js";
+import { ObsModule } from "./obsModule.js";
+import { SessionManifestModule } from "./sessionManifestModule.js";
 import { eventBus } from "../eventBus.js";
 import type { ObsState } from "../eventBus.js";
 
@@ -46,15 +48,14 @@ async function buildGateway() {
   applySchema(database);
   const authService = new AuthService(database);
   await authService.createUser({ username: "admin", password: "pass", role: "ADMIN" }, seedActor);
-
   const loginResult = await authService.login("admin", "pass");
   const token = loginResult.success ? loginResult.value.token : "";
 
-  const httpServer = createServer();
   const obsService = makeMockObsService();
   const manifestService = makeMockManifestService();
 
-  const gateway = new SocketGateway(httpServer, authService, obsService as never, manifestService as never);
+  const httpServer = createServer();
+  const gateway = new SocketGateway(httpServer, authService, [new ObsModule(obsService as never), new SessionManifestModule(manifestService as never)]);
 
   await new Promise<void>((resolve) => httpServer.listen(0, resolve));
   const port = (httpServer.address() as { port: number }).port;
@@ -120,45 +121,44 @@ describe("SocketGateway — JWT validation", () => {
 // ── EventBus → client broadcast ───────────────────────────────────────────────
 
 describe("SocketGateway — EventBus forwarding", () => {
-  it("broadcasts obs:state when obs:state:changed fires", async () => {
+  it("broadcasts stc:obs:state when bus:obs:state:changed fires", async () => {
     const { httpServer, token, port } = await buildGateway();
     cleanups.push(() => httpServer.close());
     const client = await connectClient(port, token);
     cleanups.push(() => client.close());
 
     const received = await new Promise<ObsState>((resolve) => {
-      client.on("obs:state", resolve);
-      eventBus.emit("obs:state:changed", { state: { ...idleState, connected: true } });
+      client.on("stc:obs:state", resolve);
+      eventBus.emit("bus:obs:state:changed", { state: { ...idleState, connected: true } });
     });
 
     expect(received.connected).toBe(true);
   });
 
-  it("broadcasts session:manifest:updated when EventBus fires", async () => {
+  it("broadcasts stc:session:manifest:updated when bus:session:manifest:updated fires", async () => {
     const { httpServer, token, port } = await buildGateway();
     cleanups.push(() => httpServer.close());
     const client = await connectClient(port, token);
     cleanups.push(() => client.close());
 
-    // Wait for the initial state emission to settle, then listen for the next one
-    await new Promise<void>((r) => setTimeout(r, 50));
+    await new Promise<void>((resolve) => setTimeout(resolve, 50));
 
     const received = await new Promise<{ interpolatedStreamTitle: string }>((resolve) => {
-      client.on("session:manifest:updated", (payload) => {
+      client.on("stc:session:manifest:updated", (payload) => {
         if ((payload as { interpolatedStreamTitle: string }).interpolatedStreamTitle === "EventBus Title") {
           resolve(payload as { interpolatedStreamTitle: string });
         }
       });
-      eventBus.emit("session:manifest:updated", { manifest: {}, interpolatedStreamTitle: "EventBus Title" });
+      eventBus.emit("bus:session:manifest:updated", { manifest: {}, interpolatedStreamTitle: "EventBus Title" });
     });
 
     expect(received.interpolatedStreamTitle).toBe("EventBus Title");
   });
 });
 
-// ── obs:command routing ───────────────────────────────────────────────────────
+// ── cts:obs:command routing ───────────────────────────────────────────────────
 
-describe("SocketGateway — obs:command", () => {
+describe("SocketGateway — cts:obs:command", () => {
   it("routes startStream to obsService.startStream", async () => {
     const { httpServer, token, port, obsService } = await buildGateway();
     cleanups.push(() => httpServer.close());
@@ -166,7 +166,7 @@ describe("SocketGateway — obs:command", () => {
     cleanups.push(() => client.close());
 
     await new Promise<void>((resolve) => {
-      client.emit("obs:command", { type: "startStream" }, () => resolve());
+      client.emit("cts:obs:command", { type: "startStream" }, () => resolve());
     });
 
     expect(obsService.startStream).toHaveBeenCalledOnce();
@@ -179,7 +179,7 @@ describe("SocketGateway — obs:command", () => {
     cleanups.push(() => client.close());
 
     await new Promise<void>((resolve) => {
-      client.emit("obs:command", { type: "stopStream" }, () => resolve());
+      client.emit("cts:obs:command", { type: "stopStream" }, () => resolve());
     });
 
     expect(obsService.stopStream).toHaveBeenCalledOnce();
@@ -192,7 +192,7 @@ describe("SocketGateway — obs:command", () => {
     cleanups.push(() => client.close());
 
     const result = await new Promise<{ success: boolean }>((resolve) => {
-      client.emit("obs:command", { type: "unknown" }, resolve);
+      client.emit("cts:obs:command", { type: "unknown" }, resolve);
     });
 
     expect(result.success).toBe(false);
@@ -205,16 +205,16 @@ describe("SocketGateway — obs:command", () => {
     cleanups.push(() => client.close());
 
     const result = await new Promise<{ success: boolean }>((resolve) => {
-      client.emit("obs:command", { type: "startStream" }, resolve);
+      client.emit("cts:obs:command", { type: "startStream" }, resolve);
     });
 
     expect(result).toEqual({ success: true });
   });
 });
 
-// ── obs:reconnect ─────────────────────────────────────────────────────────────
+// ── cts:obs:reconnect ─────────────────────────────────────────────────────────
 
-describe("SocketGateway — obs:reconnect", () => {
+describe("SocketGateway — cts:obs:reconnect", () => {
   it("calls obsService.reconnect and acks success", async () => {
     const { httpServer, token, port, obsService } = await buildGateway();
     cleanups.push(() => httpServer.close());
@@ -222,7 +222,7 @@ describe("SocketGateway — obs:reconnect", () => {
     cleanups.push(() => client.close());
 
     const result = await new Promise<{ success: boolean }>((resolve) => {
-      client.emit("obs:reconnect", resolve);
+      client.emit("cts:obs:reconnect", resolve);
     });
 
     expect(obsService.reconnect).toHaveBeenCalledOnce();

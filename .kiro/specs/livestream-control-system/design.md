@@ -96,7 +96,7 @@ graph TD
 
 **Backend as authority**: No widget communicates with a device directly. All commands flow through the backend, which authenticates, authorizes, and routes them to the appropriate HAL service. This prevents conflicting commands and ensures state consistency across all connected clients.
 
-**EventBus decoupling**: Services subscribe to events independently. `SessionManifestService` emits `session:manifest:updated`; `ObsService` and `SocketGateway` subscribe. Adding a new subscriber (e.g., a future overlay service) requires zero changes to existing services.
+**EventBus decoupling**: Services subscribe to events independently. `SessionManifestService` emits `bus:session:manifest:updated`; `ObsService` and `SocketGateway` subscribe. Adding a new subscriber (e.g., a future overlay service) requires zero changes to existing services.
 
 **commandedState for event-driven devices**: obs-websocket is event-driven — OBS pushes state changes to the backend in real time rather than requiring periodic polling. The backend maintains `commandedState` as the authoritative record of what was last commanded, reconciled against obs-websocket event callbacks. This allows the backend to detect divergence between what was commanded and what OBS actually reports (e.g., a stream that failed to start, or stopped unexpectedly).
 
@@ -208,11 +208,11 @@ The manifest persists in memory as long as the backend is running. While streami
 
 `SessionManifestService` does not directly depend on `ObsService`. Instead, it subscribes to `obs:state:changed` on the EventBus and maintains a local cache of the current `{ streaming, recording }` state. The `clear()` method checks this cached state before allowing a clear. This is the only reason `SessionManifestService` listens to OBS events — it needs to know whether a live session is active so it can reject a clear. There is no other coupling between the two services; `ObsService` has no knowledge of `SessionManifestService`.
 
-**`ObsService` EventBus emissions**: `ObsService` emits `obs:state:changed` on the EventBus whenever OBS state changes — on every obs-websocket state event, on reconnect, and after each command completes. This is the internal broadcast that `SessionManifestService` and any future backend subscribers consume. It is distinct from the `obs:state` Socket.io event that `SocketGateway` broadcasts to frontend clients; both are triggered by the same state change but serve different consumers.
+**`ObsService` EventBus emissions**: `ObsService` emits `obs:state:changed` on the EventBus whenever OBS state changes — on every obs-websocket state event, on reconnect, and after each command completes. This is the internal broadcast that `SessionManifestService` and any future backend subscribers consume. It is distinct from the `stc:obs:state` Socket.io event that `SocketGateway` broadcasts to frontend clients; both are triggered by the same state change but serve different consumers.
 
 #### ObsService
 
-HAL service for all OBS communication. Reads its connection configuration from the `device_connections` table in SQLite on startup and on each reconnect attempt. Subscribes to `session:manifest:updated` on the EventBus to keep its internal metadata cache current for use during the safe-start sequence.
+HAL service for all OBS communication. Reads its connection configuration from the `device_connections` table in SQLite on startup and on each reconnect attempt. Subscribes to `bus:session:manifest:updated` on the EventBus to keep its internal metadata cache current for use during the safe-start sequence.
 
 ```typescript
 interface ObsService {
@@ -260,11 +260,11 @@ interface EventBus {
 }
 
 interface EventMap {
-  "session:manifest:updated": { manifest: SessionManifest; interpolatedStreamTitle: string };
-  "obs:state:changed": { state: ObsState };
-  "obs:error": ObsErrorEvent;
-  "obs:error:resolved": { errorCode: string };
-  "device:capabilities:updated": { deviceId: string; capabilities: CapabilitiesObject };
+  "bus:session:manifest:updated": { manifest: SessionManifest; interpolatedStreamTitle: string };
+  "bus:obs:state:changed": { state: ObsState };
+  "bus:obs:error": ObsErrorEvent;
+  "bus:obs:error:resolved": { errorCode: string };
+  "bus:device:capabilities:updated": { deviceId: string; capabilities: CapabilitiesObject };
 }
 
 // Discriminated union ensures context is always present for OBS_UNREACHABLE,
@@ -288,24 +288,24 @@ Manages all Socket.io connections. Validates JWT on connection handshake, subscr
 
 **JWT validation on reconnect**: Socket.io auto-reconnects silently after network drops. On each reconnect, the SocketGateway re-validates the JWT cookie. If the token has expired during the session, the reconnect handshake is rejected and the SocketGateway emits a `notification` event of level `modal` / severity `error` with a message prompting re-login. This prevents the frontend from silently operating with stale state after a token expiry — the volunteer sees a clear re-login prompt rather than a frozen UI.
 
-**`obs:reconnect` authorization**: The `obs:reconnect` command is available to all authenticated roles (ADMIN, AvPowerUser, AvVolunteer). Any operator present at the dashboard should be able to trigger a reconnect attempt — restricting it to ADMIN would block a volunteer from recovering a dropped OBS connection during a live service, which is the exact scenario where fast recovery matters most.
+**`cts:obs:reconnect` authorization**: The `cts:obs:reconnect` command is available to all authenticated roles (ADMIN, AvPowerUser, AvVolunteer). Any operator present at the dashboard should be able to trigger a reconnect attempt — restricting it to ADMIN would block a volunteer from recovering a dropped OBS connection during a live service, which is the exact scenario where fast recovery matters most.
 
 ```typescript
 // Socket.io event names (server → client)
 type ServerToClientEvents = {
-  "session:manifest:updated": (payload: { manifest: SessionManifest; interpolatedStreamTitle: string }) => void;
-  "obs:state": (state: ObsState) => void;
-  "obs:error": (error: ObsErrorEvent) => void;
-  "obs:error:resolved": (payload: { errorCode: string }) => void;
-  "device:capabilities": (payload: { deviceId: string; capabilities: CapabilitiesObject }) => void;
+  "bus:session:manifest:updated": (payload: { manifest: SessionManifest; interpolatedStreamTitle: string }) => void;
+  "stc:obs:state": (state: ObsState) => void;
+  "bus:obs:error": (error: ObsErrorEvent) => void;
+  "bus:obs:error:resolved": (payload: { errorCode: string }) => void;
+  "stc:device:capabilities": (payload: { deviceId: string; capabilities: CapabilitiesObject }) => void;
   notification: (notification: Notification) => void;
 };
 
 // Socket.io event names (client → server)
 type ClientToServerEvents = {
-  "obs:command": (command: ObsCommand, ack: (result: CommandResult) => void) => void;
-  "session:manifest:update": (patch: Partial<SessionManifest>, ack: (result: CommandResult) => void) => void;
-  "obs:reconnect": (ack: (result: CommandResult) => void) => void; // available to all authenticated roles
+  "cts:obs:command": (command: ObsCommand, ack: (result: CommandResult) => void) => void;
+  "cts:session:manifest:update": (patch: Partial<SessionManifest>, ack: (result: CommandResult) => void) => void;
+  "cts:obs:reconnect": (ack: (result: CommandResult) => void) => void; // available to all authenticated roles
 };
 ```
 
@@ -591,7 +591,7 @@ This approach removes the need for a separate amber warning dot in `ObsStatusBar
 
 When OBS is disconnected (`!obsState.connected`), a `WidgetErrorOverlay` covers the entire `ObsControls` section (both streaming and recording controls). Partial capability detection is deferred to a future release.
 
-If no enabled OBS device connection exists in the `device_connections` table when the backend starts, `ObsService` emits an `obs:error` with code `OBS_NOT_CONFIGURED`. The OBS widget renders a `WidgetErrorOverlay` with message `'OBS Not Configured'` and `actionLabel` `'Go to Settings → Devices'` — `onAction` navigates to `/admin/devices` if the current user has ADMIN role, otherwise it is a no-op with `actionLabel` `'Contact Admin'`. `isPending` is always false. The overlay is not dismissable. This gives an ADMIN who is also operating the dashboard a direct path to fix the configuration without needing to know the route.
+If no enabled OBS device connection exists in the `device_connections` table when the backend starts, `ObsService` emits an `bus:obs:error` with code `OBS_NOT_CONFIGURED`. The OBS widget renders a `WidgetErrorOverlay` with message `'OBS Not Configured'` and `actionLabel` `'Go to Settings → Devices'` — `onAction` navigates to `/admin/devices` if the current user has ADMIN role, otherwise it is a no-op with `actionLabel` `'Contact Admin'`. `isPending` is always false. The overlay is not dismissable. This gives an ADMIN who is also operating the dashboard a direct path to fix the configuration without needing to know the route.
 
 **Disabled Start Stream behavior**: The 'Start Stream' button is disabled when the SessionManifest does not have at least one of `speaker` or `title` populated. The `date` field is always present (auto-populated by the backend). A sub-label on the disabled button reads `'Enter metadata'`. When the user taps the disabled button:
 
@@ -640,7 +640,7 @@ The OBS widget shows an "Edit Details" button (pencil icon) in the `ObsStatusBar
 - Live preview of `interpolatedStreamTitle` updating as fields change (including visible placeholders for missing fields)
 - Save and Cancel buttons; a "Clear All" button (disabled while streaming or recording is active)
 
-On Save, the frontend emits `session:manifest:update` via Socket.io with a 5-second ack timeout. While waiting for the ack, the Save button is replaced with a spinner and disabled — the volunteer has clear feedback that the save is in progress. If the ack does not arrive within 5 seconds (e.g., network drop mid-save), the modal displays an inline error: `'Save failed — check your connection and try again.'` The modal remains open so the volunteer can retry. The 5-second timeout matches the Toast auto-dismiss duration and gives the volunteer a fast failure signal. On a network under load this may trigger a false failure (the ack arrives after the timeout), but this is an accepted tradeoff — the volunteer can simply retry, and a fast failure is preferable to a long wait during a live service.
+On Save, the frontend emits `cts:session:manifest:update` via Socket.io with a 5-second ack timeout. While waiting for the ack, the Save button is replaced with a spinner and disabled — the volunteer has clear feedback that the save is in progress. If the ack does not arrive within 5 seconds (e.g., network drop mid-save), the modal displays an inline error: `'Save failed — check your connection and try again.'` The modal remains open so the volunteer can retry. The 5-second timeout matches the Toast auto-dismiss duration and gives the volunteer a fast failure signal. On a network under load this may trigger a false failure (the ack arrives after the timeout), but this is an accepted tradeoff — the volunteer can simply retry, and a fast failure is preferable to a long wait during a live service.
 
 **Known risk — silent discard on Cancel after save failure**: If the volunteer taps Cancel after a save failure, the modal closes without saving. The widget continues to display the pre-edit metadata. The volunteer may not realize the save failed and the stream could go live with stale data. This risk is accepted — adding a "discard changes?" confirmation on Cancel would add friction to the normal (non-failure) cancel flow. The Start Stream button's metadata requirement provides a partial safety net: if the manifest is empty, the button remains disabled.
 
@@ -744,7 +744,7 @@ Renders Toast, Banner, and Modal notifications. Subscribes to a `useNotification
 
 #### SessionManifestModal
 
-A full-screen Ionic modal opened from the OBS widget's "Edit Details" button. Contains session metadata inputs (speaker, title, scripture) with a live preview of `interpolatedStreamTitle`. Emits `session:manifest:update` on save. The "Clear All" button is disabled while streaming or recording is active.
+A full-screen Ionic modal opened from the OBS widget's "Edit Details" button. Contains session metadata inputs (speaker, title, scripture) with a live preview of `interpolatedStreamTitle`. Emits `cts:session:manifest:update` on save. The "Clear All" button is disabled while streaming or recording is active.
 
 All text inputs use Ionic's `clearInput` property, which renders an X button on the right side of the field when the field has a non-empty value. Tapping it clears the field. This applies to all text inputs in the system (session manifest, user management, device management forms).
 
@@ -778,7 +778,7 @@ The backend requires the same lookup to resolve `bookId` to a display name durin
 
 **`packages/shared` configuration**: `packages/shared` is a local TypeScript workspace package with its own `package.json` (name: `@invisible-av-booth/shared`) and `tsconfig.json` (extending `tsconfig.base.json`). Both `packages/frontend` and `packages/backend` declare it as a workspace dependency and reference it via TypeScript project references. No separate build step is required — both consumers compile the shared source directly. This is the standard pattern for constants-only shared packages in TypeScript monorepos. If additional shared types are needed in the future (e.g., the Socket.io event type maps), they belong here.
 
-Sub-components and save behavior are unchanged: Save emits `session:manifest:update` via Socket.io with a 5-second ack timeout. If the ack does not arrive, the modal displays an inline error and remains open for retry.
+Sub-components and save behavior are unchanged: Save emits `cts:session:manifest:update` via Socket.io with a 5-second ack timeout. If the ack does not arrive, the modal displays an inline error and remains open for retry.
 
 #### AdminUserManagement
 
@@ -798,7 +798,7 @@ function useObsState(): {
 };
 ```
 
-Applies optimistic updates immediately on `sendCommand`, then reconciles when the backend emits `obs:state`. A thin wrapper over the Zustand `obsSlice` selectors — see Frontend State Management for the store structure. Multiple components can call `useObsState()` and each only re-renders when the specific fields they select change.
+Applies optimistic updates immediately on `sendCommand`, then reconciles when the backend emits `stc:obs:state`. A thin wrapper over the Zustand `obsSlice` selectors — see Frontend State Management for the store structure. Multiple components can call `useObsState()` and each only re-renders when the specific fields they select change.
 
 ---
 
@@ -869,7 +869,7 @@ interface AuthSlice {
 }
 ```
 
-**`obsSlice`** — updated by the Socket.io `obs:state` event listener registered in `SocketProvider`. Optimistic updates applied immediately on `sendCommand`, reconciled on the next `obs:state` broadcast.
+**`obsSlice`** — updated by the Socket.io `stc:obs:state` event listener registered in `SocketProvider`. Optimistic updates applied immediately on `sendCommand`, reconciled on the next `stc:obs:state` broadcast.
 
 ```typescript
 interface ObsSlice {
@@ -880,7 +880,7 @@ interface ObsSlice {
 }
 ```
 
-**`sessionManifestSlice`** — updated by the `session:manifest:updated` Socket.io event. Available to any widget that needs session metadata (e.g., a future lyrics widget, a lower-thirds widget).
+**`sessionManifestSlice`** — updated by the `bus:session:manifest:updated` Socket.io event. Available to any widget that needs session metadata (e.g., a future lyrics widget, a lower-thirds widget).
 
 ```typescript
 interface SessionManifestSlice {
@@ -933,10 +933,10 @@ function useAuth() {
 `SocketProvider` establishes the Socket.io connection and registers all event listeners on mount. Each listener calls the appropriate store action:
 
 ```typescript
-socket.on("obs:state", (state) => useStore.getState().setObsState(state));
-socket.on("session:manifest:updated", ({ manifest, interpolatedStreamTitle }) => useStore.getState().setManifest(manifest, interpolatedStreamTitle));
+socket.on("stc:obs:state", (state) => useStore.getState().setObsState(state));
+socket.on("bus:session:manifest:updated", ({ manifest, interpolatedStreamTitle }) => useStore.getState().setManifest(manifest, interpolatedStreamTitle));
 socket.on("notification", (n) => useStore.getState().addNotification(n));
-socket.on("obs:error:resolved", ({ errorCode }) => useStore.getState().removeNotification(errorCode));
+socket.on("bus:obs:error:resolved", ({ errorCode }) => useStore.getState().removeNotification(errorCode));
 ```
 
 `SocketProvider` is the only place that touches the socket directly. All other components interact with device state through store hooks.
@@ -1173,7 +1173,7 @@ interface Notification {
 - Retry exhausted (recording): `"OBS connection lost — recording status unknown. Tap to retry connecting."`
 - Retry exhausted (both): `"OBS connection lost — stream and recording status unknown. Tap to retry connecting."`
 
-The `commandedState` at the time of disconnect determines which message is shown. The backend includes a `context` field in the `obs:error` payload indicating which operations were active: `{ streaming: boolean; recording: boolean }`. The message does not assert that the stream or recording has stopped — only that the connection to OBS is lost and the current state cannot be confirmed until reconnection.
+The `commandedState` at the time of disconnect determines which message is shown. The backend includes a `context` field in the `bus:obs:error` payload indicating which operations were active: `{ streaming: boolean; recording: boolean }`. The message does not assert that the stream or recording has stopped — only that the connection to OBS is lost and the current state cannot be confirmed until reconnection.
 
 ---
 
@@ -1544,7 +1544,7 @@ _A property is a characteristic or behavior that should hold true across all val
 
 ### Property 1: SessionManifest update propagates to all subscribers
 
-_For any_ valid partial update to the SessionManifest, after the update is applied, every EventBus subscriber registered for `session:manifest:updated` SHALL receive the updated manifest with all fields reflecting the patch.
+_For any_ valid partial update to the SessionManifest, after the update is applied, every EventBus subscriber registered for `bus:session:manifest:updated` SHALL receive the updated manifest with all fields reflecting the patch.
 
 **Validates: Requirements 2.2, 2.3, 9.2**
 
@@ -1742,7 +1742,7 @@ Default config for ObsService reconnection:
 
 When `maxAttempts` is exhausted, ObsService:
 
-1. Emits `obs:error` on the EventBus with code `OBS_UNREACHABLE` and `retryExhausted: true`
+1. Emits `bus:obs:error` on the EventBus with code `OBS_UNREACHABLE` and `retryExhausted: true`
 2. Stops all further automatic reconnection attempts
 
 The SocketGateway broadcasts a Modal notification to all clients indicating that reconnection has stopped and manual intervention is required.
@@ -1751,13 +1751,13 @@ The SocketGateway broadcasts a Modal notification to all clients indicating that
 
 The frontend Modal shown on retry exhaustion includes a "Retry Connection" button. The "Retry Connection" button is only shown after `retryExhausted: true` is received — it is not shown while retries are still in progress. When tapped:
 
-1. The client emits an `obs:reconnect` Socket.io event to the backend
+1. The client emits an `cts:obs:reconnect` Socket.io event to the backend
 2. The backend resets the retry counter and starts a fresh reconnection sequence with the same `RetryConfig`
 3. The Modal transitions to a "Reconnecting…" pending state while retries are in progress
 4. On success, the Modal is dismissed and a Toast confirms reconnection
 5. On exhaustion again, the Modal returns to the "Retry Connection" state
 
-**`obs:reconnect` during active retries**: If a client emits `obs:reconnect` while the backend is already mid-retry sequence (i.e., `retryExhausted` has not yet been set), the backend treats it as a no-op — the in-progress retry sequence continues unchanged. This case should not occur in normal operation since the "Retry Connection" button is only visible after exhaustion, but it is handled defensively.
+**`cts:obs:reconnect` during active retries**: If a client emits `cts:obs:reconnect` while the backend is already mid-retry sequence (i.e., `retryExhausted` has not yet been set), the backend treats it as a no-op — the in-progress retry sequence continues unchanged. This case should not occur in normal operation since the "Retry Connection" button is only visible after exhaustion, but it is handled defensively.
 
 **Decision: no in-app recovery guidance for retry exhaustion**. The modal intentionally shows only "Retry Connection" with no additional instructions (e.g., "Check that OBS is running"). This is a deliberate choice: we do not yet have enough real-world failure data to write accurate SOPs, and incorrect guidance is worse than no guidance. When the system has been in production use and failure patterns are understood, operator documentation can be added outside the UI (e.g., a printed quick-reference card or a linked help page). Adding premature guidance risks misleading volunteers into incorrect recovery steps.
 
@@ -1765,9 +1765,9 @@ This is encoded in `ClientToServerEvents`:
 
 ```typescript
 type ClientToServerEvents = {
-  "obs:command": (command: ObsCommand, ack: (result: CommandResult) => void) => void;
-  "session:manifest:update": (patch: Partial<SessionManifest>, ack: (result: CommandResult) => void) => void;
-  "obs:reconnect": (ack: (result: CommandResult) => void) => void;
+  "cts:obs:command": (command: ObsCommand, ack: (result: CommandResult) => void) => void;
+  "cts:session:manifest:update": (patch: Partial<SessionManifest>, ack: (result: CommandResult) => void) => void;
+  "cts:obs:reconnect": (ack: (result: CommandResult) => void) => void;
 };
 ```
 
@@ -1860,10 +1860,10 @@ In both cases, `commandedState.streaming` remains `false` and the widget reverts
 
 When obs-websocket fires a disconnect event and `commandedState.streaming === true` or `commandedState.recording === true` (or both):
 
-1. Backend emits `obs:error` with code `OBS_UNREACHABLE`, `autoResolve: true`, and a `context: { streaming: boolean; recording: boolean }` field reflecting which operations were active at disconnect
+1. Backend emits `bus:obs:error` with code `OBS_UNREACHABLE`, `autoResolve: true`, and a `context: { streaming: boolean; recording: boolean }` field reflecting which operations were active at disconnect
 2. SocketGateway broadcasts a Modal notification to all clients with a message that names the affected operations and communicates uncertainty — the tablet may have lost its connection while OBS remains healthy (see Error Notification Mapping)
-3. When OBS reconnects, `ObsService` queries the current stream/recording state from obs-websocket and emits an `obs:state` update reflecting actual OBS state
-4. SocketGateway broadcasts `obs:error:resolved`; frontend dismisses Modal and shows a Toast
+3. When OBS reconnects, `ObsService` queries the current stream/recording state from obs-websocket and emits an `stc:obs:state` update reflecting actual OBS state
+4. SocketGateway broadcasts `bus:obs:error:resolved`; frontend dismisses Modal and shows a Toast
 5. The widget reconciles to the actual OBS state — if OBS stopped streaming during the disconnect, `obsState.streaming` will be `false` and the volunteer must manually restart the stream
 6. IF `commandedState.streaming` was `true` at disconnect and `obsState.streaming` is `false` after reconciliation, THE SocketGateway SHALL emit an additional Banner notification: `"Stream did not resume after reconnect. Tap Start Stream to go live again."` This Banner is manually dismissable and auto-clears when `obsState.streaming` becomes `true`.
 
@@ -1904,7 +1904,7 @@ When Socket.io successfully reconnects:
 
 The OBS safe-start sequence (metadata update → stream start) can be interrupted by an OBS disconnect between the two steps. If obs-websocket fires a disconnect event after the metadata update succeeds but before the stream start command is issued:
 
-1. `ObsService` detects the disconnect and emits `obs:error` with `OBS_UNREACHABLE`
+1. `ObsService` detects the disconnect and emits `bus:obs:error` with `OBS_UNREACHABLE`
 2. The in-progress `startStream()` call returns `{ success: false, error: OBS_UNREACHABLE }`
 3. `SocketGateway` handles the `startStream` failure first: emits `STREAM_START_FAILED` Banner, reverts `commandedState.streaming` to `false`
 4. The disconnect handler then fires: emits the appropriate disconnect notification (Modal if streaming was active, Banner if not) — since `commandedState.streaming` is `false` at this point, the disconnect notification is a Banner, not a Modal
@@ -1978,11 +1978,11 @@ The `WebSocketRoute` handle returned from socket helpers allows mid-test server 
 
 ```ts
 const ws = await routeObsSocket(page);
-ws.send(JSON.stringify({ event: "obs:error", data: { code: "OBS_UNREACHABLE", retryExhausted: false } }));
+ws.send(JSON.stringify({ event: "bus:obs:error", data: { code: "OBS_UNREACHABLE", retryExhausted: false } }));
 await expect(page.getByTestId("error-modal")).toBeVisible();
 
 // Simulate retry exhaustion
-ws.send(JSON.stringify({ event: "obs:error", data: { code: "OBS_UNREACHABLE", retryExhausted: true } }));
+ws.send(JSON.stringify({ event: "bus:obs:error", data: { code: "OBS_UNREACHABLE", retryExhausted: true } }));
 await expect(page.getByRole("button", { name: /retry connection/i })).toBeVisible();
 ```
 
@@ -1995,13 +1995,13 @@ Test files are organized by user flow:
 - `obs-recording-stop-confirmation.spec.ts` — tapping Stop Recording shows ConfirmationModal with danger variant and gap warning body; cancel does not issue command; confirm issues stopRecording
 - `obs-stream-start-safe-sequence.spec.ts` — metadata update failure stops before stream start
 - `obs-disconnect-modal.spec.ts` — server pushes disconnect error → Modal shown; server pushes resolved → Modal dismissed, Toast shown; if commandedState.streaming was true and obsState.streaming is false after reconnect → Banner shown with "Stream did not resume" message; Banner auto-clears when stream starts
-- `obs-retry-exhausted.spec.ts` — server pushes `retryExhausted: true` → "Retry Connection" button shown; tap triggers `obs:reconnect` emission
+- `obs-retry-exhausted.spec.ts` — server pushes `retryExhausted: true` → "Retry Connection" button shown; tap triggers `cts:obs:reconnect` emission
 - `obs-not-configured-overlay.spec.ts` — OBS_NOT_CONFIGURED error → overlay shown; ADMIN sees "Go to Settings → Devices"; non-ADMIN sees "Contact Admin"
 - `widget-container-status-indicators.spec.ts` — healthy/unhealthy dot states, expanded vs. collapsed rendering, popover on tap
 - `auth-login-flow.spec.ts` — login via REST, JWT cookie set, socket connection authenticated, role-based widget visibility
 - `auth-first-login-flow.spec.ts` — login with `requiresPasswordChange: true` → redirected to `/change-password` → after change, dashboard accessible
 - `dashboard-layout-persist.spec.ts` — GridManifest save and restore across page loads; version mismatch falls back to default; unknown widgetId falls back to default; duplicate widgetId renders without rejection
 - `notification-banner-navigation.spec.ts` — server pushes multiple banner notifications, counter navigation, dismiss
-- `session-manifest-modal.spec.ts` — open Edit Details modal, fill fields, save → Save button shows spinner while awaiting ack → `session:manifest:update` emitted; Clear All disabled while live; ack timeout shows inline error
+- `session-manifest-modal.spec.ts` — open Edit Details modal, fill fields, save → Save button shows spinner while awaiting ack → `cts:session:manifest:update` emitted; Clear All disabled while live; ack timeout shows inline error
 
 Payload factories live in `playwright/fixtures/payloads/obs.ts` and `playwright/fixtures/payloads/session.ts`.

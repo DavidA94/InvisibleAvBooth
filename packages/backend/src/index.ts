@@ -7,6 +7,8 @@ import { AuthService } from "./services/authService.js";
 import { ObsService } from "./services/obsService.js";
 import { SessionManifestService } from "./services/sessionManifestService.js";
 import { SocketGateway } from "./gateway/socketGateway.js";
+import { ObsModule } from "./gateway/obsModule.js";
+import { SessionManifestModule } from "./gateway/sessionManifestModule.js";
 import { createAuthRouter } from "./routes/authRoutes.js";
 import { createAdminUserRouter } from "./routes/adminUserRoutes.js";
 import { createAdminDeviceRouter } from "./routes/adminDeviceRoutes.js";
@@ -55,7 +57,7 @@ app.use("/api/logs", mustBeAuthenticated, mustHaveChangedPassword, createLogRout
 app.use("/api/kjv", mustBeAuthenticated, mustHaveChangedPassword, createKjvRouter(database, authService));
 
 const httpServer = createServer(app);
-new SocketGateway(httpServer, authService, obsService, manifestService);
+new SocketGateway(httpServer, authService, [new ObsModule(obsService), new SessionManifestModule(manifestService)]);
 
 // Warn if no dashboards exist — operator needs to run the seed script.
 const dashboardCount = (database.prepare("SELECT COUNT(*) as cnt FROM dashboards").get() as { cnt: number }).cnt;

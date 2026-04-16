@@ -93,8 +93,8 @@ describe("ObsService.connect", () => {
     const mockObs = makeMockObs();
     const service = makeSvc(makeDatabase(), mockObs);
     const handler = vi.fn();
-    eventBus.subscribe("obs:state:changed", handler);
-    cleanups.push(() => eventBus.unsubscribe("obs:state:changed", handler));
+    eventBus.subscribe("bus:obs:state:changed", handler);
+    cleanups.push(() => eventBus.unsubscribe("bus:obs:state:changed", handler));
     await service.connect();
     expect(handler).toHaveBeenCalledWith(expect.objectContaining({ state: expect.objectContaining({ connected: true }) }));
   });
@@ -218,8 +218,8 @@ describe("ObsService command methods", () => {
     const service = makeSvc(makeDatabase(), mockObs);
     await service.connect();
     const handler = vi.fn();
-    eventBus.subscribe("obs:error", handler);
-    cleanups.push(() => eventBus.unsubscribe("obs:error", handler));
+    eventBus.subscribe("bus:obs:error", handler);
+    cleanups.push(() => eventBus.unsubscribe("bus:obs:error", handler));
     await service.stopStream();
     expect(handler).toHaveBeenCalledWith(expect.objectContaining({ error: expect.objectContaining({ code: "STREAM_STOP_FAILED" }) }));
   });
@@ -233,8 +233,8 @@ describe("ObsService reconnect", () => {
     const service = makeSvc(makeDatabase(), mockObs);
     await service.connect();
     const handler = vi.fn();
-    eventBus.subscribe("obs:error", handler);
-    cleanups.push(() => eventBus.unsubscribe("obs:error", handler));
+    eventBus.subscribe("bus:obs:error", handler);
+    cleanups.push(() => eventBus.unsubscribe("bus:obs:error", handler));
     mockObs.emit("ConnectionClosed");
     expect(handler).toHaveBeenCalledWith(expect.objectContaining({ error: expect.objectContaining({ code: "OBS_UNREACHABLE" }), retryExhausted: false }));
   });
@@ -255,8 +255,8 @@ describe("ObsService reconnect", () => {
     await service.connect();
 
     const handler = vi.fn();
-    eventBus.subscribe("obs:error", handler);
-    cleanups.push(() => eventBus.unsubscribe("obs:error", handler));
+    eventBus.subscribe("bus:obs:error", handler);
+    cleanups.push(() => eventBus.unsubscribe("bus:obs:error", handler));
 
     mockObs.emit("ConnectionClosed");
 

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import Database from "better-sqlite3";
-import { applySchema } from "../src/db/schema.js";
+import { applySchema } from "../src/database/schema.js";
 
 // Test the seed logic directly rather than importing the script (which calls seed() at module load).
 // We replicate the seed logic here so it can be called with an injected DB.

@@ -1,61 +1,39 @@
 import { Server as SocketServer } from "socket.io";
 import type { Server as HttpServer } from "http";
-import { eventBus } from "../eventBus.js";
-import type { SessionManifest } from "../eventBus.js";
-import type { ObsService } from "../services/obsService.js";
-import type { SessionManifestService } from "../services/sessionManifestService.js";
-import type { AuthService } from "../services/authService.js";
+import type { AuthService, JwtPayload } from "../services/authService.js";
+import type { SocketModule } from "./socketModule.js";
 import { logger } from "../logger.js";
 
-interface ObsCommand {
-  type: "startStream" | "stopStream" | "startRecording" | "stopRecording";
-}
-
-interface CommandResult {
-  success: boolean;
-  error?: string;
-}
-
+// SocketGateway is responsible for:
+//   1. Establishing the Socket.io server
+//   2. JWT authentication on every connection and reconnect handshake
+//   3. Delegating lifecycle calls to each registered SocketModule
+//
+// SocketGateway has no knowledge of specific services or event names.
+// Adding or removing a module requires only changing the modules array passed
+// to the constructor — no changes to this file.
 export class SocketGateway {
-  private io: SocketServer;
+  private readonly io: SocketServer;
 
   constructor(
     httpServer: HttpServer,
     private readonly authService: AuthService,
-    private readonly obsService: ObsService,
-    private readonly manifestService: SessionManifestService,
+    private readonly modules: SocketModule[],
   ) {
     this.io = new SocketServer(httpServer, { cors: { origin: "*" } });
-    this.setupEventBusForwarding();
+
+    // Register each module's io-level event subscriptions (EventBus → broadcast).
+    for (const module of this.modules) {
+      module.register(this.io);
+    }
+
     this.setupConnectionHandler();
   }
 
-  private setupEventBusForwarding(): void {
-    // Forward EventBus events to all connected Socket.io clients.
-    eventBus.subscribe("obs:state:changed", ({ state }) => {
-      this.io.emit("obs:state", state);
-    });
-
-    eventBus.subscribe("session:manifest:updated", (payload) => {
-      this.io.emit("session:manifest:updated", payload);
-    });
-
-    eventBus.subscribe("obs:error", (errorEvent) => {
-      this.io.emit("obs:error", errorEvent);
-    });
-
-    eventBus.subscribe("obs:error:resolved", (payload) => {
-      this.io.emit("obs:error:resolved", payload);
-    });
-
-    eventBus.subscribe("device:capabilities:updated", (payload) => {
-      this.io.emit("device:capabilities", payload);
-    });
-  }
-
   private setupConnectionHandler(): void {
+    // Validate JWT on every connection and reconnect handshake.
+    // Modules never see unauthenticated sockets.
     this.io.use((socket, next) => {
-      // Validate JWT on every connection and reconnect handshake.
       const token =
         (socket.handshake.auth as { token?: string }).token ??
         (socket.handshake.headers.cookie ?? "")
@@ -70,7 +48,6 @@ export class SocketGateway {
 
       const result = this.authService.verifyToken(token);
       if (!result.success) {
-        // Token expired mid-session — emit a modal notification prompting re-login.
         if (result.error.code === "INVALID_TOKEN") {
           logger.warn("Socket reconnect rejected: TOKEN_EXPIRED", { context: { socketId: socket.id } });
         }
@@ -83,67 +60,23 @@ export class SocketGateway {
     });
 
     this.io.on("connection", (socket) => {
-      const payload = (socket.data as { jwtPayload: { sub: string; username: string } }).jwtPayload;
-      logger.info("Socket connected", { userId: payload.sub });
+      const jwtPayload = (socket.data as { jwtPayload: JwtPayload }).jwtPayload;
+      const auth = { socket, jwtPayload };
 
-      // Send current state to the newly connected client.
-      socket.emit("obs:state", this.obsService.getState());
-      socket.emit("session:manifest:updated", {
-        manifest: this.manifestService.get(),
-        interpolatedStreamTitle: this.manifestService.interpolate(this.manifestService.get(), "{Date} – {Speaker} – {Title}"),
-      });
+      logger.info("Socket connected", { userId: jwtPayload.sub });
 
-      // obs:command — route to ObsService
-      socket.on("obs:command", async (command: ObsCommand, ack: (result: CommandResult) => void) => {
-        logger.info("OBS command received", { userId: payload.sub, context: { type: command.type } });
-
-        let result;
-        try {
-          switch (command.type) {
-            case "startStream":
-              result = await this.obsService.startStream();
-              break;
-            case "stopStream":
-              result = await this.obsService.stopStream();
-              break;
-            case "startRecording":
-              result = await this.obsService.startRecording();
-              break;
-            case "stopRecording":
-              result = await this.obsService.stopRecording();
-              break;
-            default:
-              ack({ success: false, error: "Unknown command" });
-              return;
-          }
-          ack(result.success ? { success: true } : { success: false, error: result.error.message });
-        } catch (err: unknown) {
-          const message = err instanceof Error ? err.message : String(err);
-          ack({ success: false, error: message });
-        }
-      });
-
-      // session:manifest:update
-      socket.on("session:manifest:update", (patch: Record<string, unknown>, ack: (result: CommandResult) => void) => {
-        const jwtPayload = payload as Parameters<typeof this.manifestService.update>[1];
-        const result = this.manifestService.update(patch as Partial<SessionManifest>, jwtPayload);
-        ack(result.success ? { success: true } : { success: false, error: "Update failed" });
-      });
-
-      // obs:reconnect — available to all authenticated roles
-      socket.on("obs:reconnect", async (ack: (result: CommandResult) => void) => {
-        logger.info("OBS reconnect requested", { userId: payload.sub });
-        const result = await this.obsService.reconnect();
-        ack(result.success ? { success: true } : { success: false, error: result.error.message });
-      });
+      // Register per-socket event handlers and emit initial state for each module.
+      for (const module of this.modules) {
+        module.registerSocket(auth);
+        module.emitInitialState(auth);
+      }
 
       socket.on("disconnect", () => {
-        logger.info("Socket disconnected", { userId: payload.sub });
+        logger.info("Socket disconnected", { userId: jwtPayload.sub });
       });
     });
   }
 
-  // Expose the io instance for testing
   getIo(): SocketServer {
     return this.io;
   }

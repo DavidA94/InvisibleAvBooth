@@ -27,12 +27,12 @@ export class SessionManifestService {
       this.obsStreaming = state.streaming;
       this.obsRecording = state.recording;
     };
-    eventBus.subscribe("obs:state:changed", this.obsStateHandler);
+    eventBus.subscribe("bus:obs:state:changed", this.obsStateHandler);
   }
 
   // Call on service shutdown to remove the EventBus subscription.
   destroy(): void {
-    eventBus.unsubscribe("obs:state:changed", this.obsStateHandler);
+    eventBus.unsubscribe("bus:obs:state:changed", this.obsStateHandler);
   }
 
   get(): SessionManifest {
@@ -43,7 +43,7 @@ export class SessionManifestService {
     this.manifest = { ...this.manifest, ...patch };
     const interpolatedStreamTitle = this.interpolate(this.manifest, this.template);
 
-    eventBus.emit("session:manifest:updated", {
+    eventBus.emit("bus:session:manifest:updated", {
       manifest: { ...this.manifest },
       interpolatedStreamTitle,
     });
@@ -63,7 +63,7 @@ export class SessionManifestService {
     this.manifest = {};
     const interpolatedStreamTitle = this.interpolate({}, this.template);
 
-    eventBus.emit("session:manifest:updated", {
+    eventBus.emit("bus:session:manifest:updated", {
       manifest: {},
       interpolatedStreamTitle,
     });

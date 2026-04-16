@@ -333,20 +333,20 @@ To get the raw JWT token value (not the cookie), you can decode it from the `tok
 
 ### Events to listen for (server → client)
 
-| Event                      | Payload                                                                                    |
-| -------------------------- | ------------------------------------------------------------------------------------------ |
-| `obs:state`                | `{ connected, streaming, recording, streamTimecode?, recordingTimecode?, commandedState }` |
-| `session:manifest:updated` | `{ manifest, interpolatedStreamTitle }`                                                    |
-| `obs:error`                | `{ error: { code, message }, retryExhausted?, context? }`                                  |
-| `obs:error:resolved`       | `{ errorCode }`                                                                            |
-| `device:capabilities`      | `{ deviceId, capabilities: { deviceType, features } }`                                     |
-| `notification`             | `{ level, message }`                                                                       |
+| Event                          | Payload                                                                                    |
+| ------------------------------ | ------------------------------------------------------------------------------------------ |
+| `stc:obs:state`                | `{ connected, streaming, recording, streamTimecode?, recordingTimecode?, commandedState }` |
+| `stc:session:manifest:updated` | `{ manifest, interpolatedStreamTitle }`                                                    |
+| `stc:obs:error`                | `{ error: { code, message }, retryExhausted?, context? }`                                  |
+| `stc:obs:error:resolved`       | `{ errorCode }`                                                                            |
+| `stc:device:capabilities`      | `{ deviceId, capabilities: { deviceType, features } }`                                     |
+| `notification`                 | `{ level, message }`                                                                       |
 
 ### Events to emit (client → server)
 
 #### Start stream
 
-Event: `obs:command`
+Event: `cts:obs:command`
 
 ```json
 { "type": "startStream" }
@@ -356,7 +356,7 @@ Ack response: `{ "success": true }` or `{ "success": false, "error": "..." }`
 
 #### Stop stream
 
-Event: `obs:command`
+Event: `cts:obs:command`
 
 ```json
 { "type": "stopStream" }
@@ -364,7 +364,7 @@ Event: `obs:command`
 
 #### Start recording
 
-Event: `obs:command`
+Event: `cts:obs:command`
 
 ```json
 { "type": "startRecording" }
@@ -372,7 +372,7 @@ Event: `obs:command`
 
 #### Stop recording
 
-Event: `obs:command`
+Event: `cts:obs:command`
 
 ```json
 { "type": "stopRecording" }
@@ -380,7 +380,7 @@ Event: `obs:command`
 
 #### Update session manifest
 
-Event: `session:manifest:update`
+Event: `cts:session:manifest:update`
 
 ```json
 {
@@ -399,7 +399,7 @@ Ack response: `{ "success": true }`
 
 #### Reconnect OBS
 
-Event: `obs:reconnect`
+Event: `cts:obs:reconnect`
 
 No payload. Ack response: `{ "success": true }` or `{ "success": false, "error": "..." }`
 
@@ -410,4 +410,4 @@ No payload. Ack response: `{ "success": true }` or `{ "success": false, "error":
 - All `POST`/`PUT` bodies must have `Content-Type: application/json` set in Postman.
 - The JWT cookie is `HttpOnly` — Postman's cookie jar handles it automatically after login.
 - OBS commands will fail with `OBS_UNREACHABLE` if no OBS instance is running or no device connection is configured.
-- The session manifest persists in memory until the backend restarts or you explicitly clear it via `session:manifest:update` with empty fields.
+- The session manifest persists in memory until the backend restarts or you explicitly clear it via `cts:session:manifest:update` with empty fields.
