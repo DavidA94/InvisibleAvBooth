@@ -7,6 +7,8 @@ import { applySchema } from "../db/schema.js";
 import { AuthService } from "../services/authService.js";
 import { createAuthRouter } from "./authRoutes.js";
 import { createAdminUserRouter } from "./adminUserRoutes.js";
+import { createSessionRouter } from "./sessionRoutes.js";
+import { requirePasswordChanged, authenticate } from "../middleware/auth.js";
 
 function buildApp() {
   const database = new Database(":memory:");
@@ -17,7 +19,10 @@ function buildApp() {
   app.use(express.json());
   app.use(cookieParser());
   app.use("/auth", createAuthRouter(authService));
-  app.use("/admin/users", createAdminUserRouter(authService));
+  const mustBeAuthenticated = authenticate(authService);
+  const mustHaveChangedPassword = requirePasswordChanged();
+  app.use("/admin/users", mustBeAuthenticated, mustHaveChangedPassword, createAdminUserRouter(authService));
+  app.use("/api/session", mustBeAuthenticated, mustHaveChangedPassword, createSessionRouter(authService));
   return { app, authService };
 }
 
@@ -25,9 +30,11 @@ const seedActor = { sub: "seed", username: "seed", role: "ADMIN" as const, iat: 
 
 async function loginAsAdmin(app: express.Express, authService: AuthService) {
   await authService.createUser({ username: "admin", password: "adminpass", role: "ADMIN" }, seedActor);
-  const response = await request(app).post("/auth/login").send({ username: "admin", password: "adminpass" });
-  const cookie = (response.headers["set-cookie"] as unknown as string[])[0] ?? "";
-  return { cookie };
+  const loginResponse = await request(app).post("/auth/login").send({ username: "admin", password: "adminpass" });
+  const tempCookie = getCookie(loginResponse);
+  // New users require a password change — complete it so tests aren't blocked by requiresPasswordChange
+  const changeResponse = await request(app).post("/auth/change-password").set("Cookie", tempCookie).send({ newPassword: "adminpass" });
+  return { cookie: getCookie(changeResponse) };
 }
 
 function getCookie(response: request.Response): string {
@@ -198,6 +205,50 @@ describe("DELETE /admin/users/:id", () => {
 });
 
 // ── POST /admin/users/:id/change-password ─────────────────────────────────────
+
+describe("POST /auth/change-password (self-service)", () => {
+  it("allows user to change own password without knowing their id", async () => {
+    const { app, authService } = buildApp();
+    await authService.createUser({ username: "alice", password: "old", role: "AvVolunteer" }, seedActor);
+    const loginResponse = await request(app).post("/auth/login").send({ username: "alice", password: "old" });
+    const cookie = getCookie(loginResponse);
+    const response = await request(app).post("/auth/change-password").set("Cookie", cookie).send({ newPassword: "new123" });
+    expect(response.status).toBe(200);
+    expect(response.headers["set-cookie"]).toBeDefined();
+  });
+
+  it("returns 400 when newPassword is missing", async () => {
+    const { app, authService } = buildApp();
+    const { cookie } = await loginAsAdmin(app, authService);
+    expect((await request(app).post("/auth/change-password").set("Cookie", cookie).send({})).status).toBe(400);
+  });
+});
+
+describe("requiresPasswordChange enforcement", () => {
+  it("blocks access to protected routes when requiresPasswordChange is set", async () => {
+    const { app, authService } = buildApp();
+    // New users have requiresPasswordChange=1
+    await authService.createUser({ username: "newuser", password: "pass", role: "AvVolunteer" }, seedActor);
+    const loginResponse = await request(app).post("/auth/login").send({ username: "newuser", password: "pass" });
+    const cookie = getCookie(loginResponse);
+    // Should be blocked from protected routes
+    const response = await request(app).get("/api/session/manifest").set("Cookie", cookie);
+    expect(response.status).toBe(403);
+  });
+
+  it("allows access after changing password", async () => {
+    const { app, authService } = buildApp();
+    await authService.createUser({ username: "newuser", password: "pass", role: "AvVolunteer" }, seedActor);
+    const loginResponse = await request(app).post("/auth/login").send({ username: "newuser", password: "pass" });
+    const oldCookie = getCookie(loginResponse);
+    // Change password — gets new cookie without requiresPasswordChange
+    const changeResponse = await request(app).post("/auth/change-password").set("Cookie", oldCookie).send({ newPassword: "newpass" });
+    const newCookie = getCookie(changeResponse);
+    // Should now be able to access protected routes
+    const response = await request(app).get("/api/session/manifest").set("Cookie", newCookie);
+    expect(response.status).toBe(200);
+  });
+});
 
 describe("POST /admin/users/:id/change-password", () => {
   it("changes password and re-issues cookie", async () => {

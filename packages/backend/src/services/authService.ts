@@ -176,11 +176,11 @@ export class AuthService {
 
     this.database
       .prepare("INSERT INTO users (id, username, passwordHash, role, requiresPasswordChange, createdAt) VALUES (?, ?, ?, ?, ?, ?)")
-      .run(id, data.username, passwordHash, data.role, 0, createdAt);
+      .run(id, data.username, passwordHash, data.role, 1, createdAt);
 
     logger.info("User created", { userId: actor.sub, context: { newUserId: id } });
 
-    return { success: true, value: { id, username: data.username, role: data.role, requiresPasswordChange: false, createdAt } };
+    return { success: true, value: { id, username: data.username, role: data.role, requiresPasswordChange: true, createdAt } };
   }
 
   async updateUser(id: string, data: UpdateUserRequest, actor: JwtPayload): Promise<Result<User, AuthError>> {
@@ -262,7 +262,10 @@ export class AuthService {
     }
 
     const newHash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
-    this.database.prepare("UPDATE users SET passwordHash = ?, requiresPasswordChange = 0 WHERE id = ?").run(newHash, id);
+    // When an admin resets someone else's password, require them to change it on next login.
+    // When a user changes their own password, clear the flag.
+    const requiresChange = actor.sub !== id ? 1 : 0;
+    this.database.prepare("UPDATE users SET passwordHash = ?, requiresPasswordChange = ? WHERE id = ?").run(newHash, requiresChange, id);
 
     // Delete bootstrap.txt if it exists — the bootstrap password is now invalid.
     if (existsSync(BOOTSTRAP_FILE)) {
@@ -278,7 +281,7 @@ export class AuthService {
       sub: row.id,
       username: row.username,
       role: row.role,
-      // requiresPasswordChange intentionally omitted — flag is now cleared
+      ...(requiresChange ? { requiresPasswordChange: true as const } : {}),
     };
 
     const token = jwt.sign(payload, JWT_SECRET, { expiresIn: DEFAULT_EXPIRY });

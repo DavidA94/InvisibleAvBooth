@@ -15,6 +15,7 @@ import { createDashboardRouter } from "./routes/dashboardRoutes.js";
 import { createSessionRouter } from "./routes/sessionRoutes.js";
 import { createLogRouter } from "./routes/logRoutes.js";
 import { createKjvRouter } from "./routes/kjvRoutes.js";
+import { authenticate, requirePasswordChanged } from "./middleware/auth.js";
 import { logger } from "./logger.js";
 
 // Validate DEVICE_SECRET_KEY before doing anything else.
@@ -40,13 +41,18 @@ app.use(express.json());
 app.use(cookieParser());
 
 app.use("/auth", createAuthRouter(authService));
-app.use("/admin/users", createAdminUserRouter(authService));
-app.use("/admin/devices", createAdminDeviceRouter(database, authService));
-app.use("/admin/dashboards", createAdminDashboardRouter(database, authService));
-app.use("/api/dashboards", createDashboardRouter(database, authService));
-app.use("/api/session", createSessionRouter(authService));
-app.use("/api/logs", createLogRouter(authService));
-app.use("/api/kjv", createKjvRouter(database, authService));
+
+// All routes below require a valid JWT AND a completed password change.
+// authenticate() sets request.jwtPayload; requirePasswordChanged() checks it.
+const mustBeAuthenticated = authenticate(authService);
+const mustHaveChangedPassword = requirePasswordChanged();
+app.use("/admin/users", mustBeAuthenticated, mustHaveChangedPassword, createAdminUserRouter(authService));
+app.use("/admin/devices", mustBeAuthenticated, mustHaveChangedPassword, createAdminDeviceRouter(database, authService));
+app.use("/admin/dashboards", mustBeAuthenticated, mustHaveChangedPassword, createAdminDashboardRouter(database, authService));
+app.use("/api/dashboards", mustBeAuthenticated, mustHaveChangedPassword, createDashboardRouter(database, authService));
+app.use("/api/session", mustBeAuthenticated, mustHaveChangedPassword, createSessionRouter(authService));
+app.use("/api/logs", mustBeAuthenticated, mustHaveChangedPassword, createLogRouter(authService));
+app.use("/api/kjv", mustBeAuthenticated, mustHaveChangedPassword, createKjvRouter(database, authService));
 
 const httpServer = createServer(app);
 new SocketGateway(httpServer, authService, obsService, manifestService);

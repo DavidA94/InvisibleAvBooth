@@ -25,6 +25,18 @@ export function authenticate(authService: AuthService) {
   };
 }
 
+// Rejects requests from users who must change their password first.
+// Apply after authenticate(). The change-password endpoint itself is exempt.
+export function requirePasswordChanged() {
+  return (request: Request, response: Response, next: NextFunction): void => {
+    if (request.jwtPayload?.requiresPasswordChange) {
+      response.status(403).json({ error: "Password change required before accessing this resource" });
+      return;
+    }
+    next();
+  };
+}
+
 export function requireRole(authService: AuthService, minimum: Role) {
   return (request: Request, response: Response, next: NextFunction): void => {
     const result = authService.requireRole(request.jwtPayload!, minimum);

@@ -2,19 +2,28 @@ import { describe, it, expect, beforeAll } from "vitest";
 import express from "express";
 import cookieParser from "cookie-parser";
 import request from "supertest";
-import { getDb, resetDb } from "../db/database.js";
+import Database from "better-sqlite3";
+import { join, dirname } from "path";
+import { fileURLToPath } from "url";
+import { applySchema } from "../db/schema.js";
+import { seedKjv } from "../db/database.js";
 import { AuthService } from "../services/authService.js";
 import { createAuthRouter } from "./authRoutes.js";
 import { createKjvRouter } from "./kjvRoutes.js";
 
-// Use the real KJV database so we can test actual book/chapter/verse existence.
-// getDb() with no args uses the real bibledb_kjv.sql path.
-// We reset before the suite to ensure a clean singleton.
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const KJV_SQL_PATH = join(__dirname, "..", "..", "..", "..", "bibledb_kjv.sql");
+
+// Use a dedicated in-memory database for this test file — avoids singleton
+// interference with database.test.ts which calls resetDb() in beforeEach.
 let cookie = "";
 
 beforeAll(async () => {
-  resetDb();
-  const database = getDb(); // loads real KJV data
+  const database = new Database(":memory:");
+  database.pragma("foreign_keys = ON");
+  applySchema(database);
+  seedKjv(database, KJV_SQL_PATH); // loads real KJV data
+
   const authService = new AuthService(database);
   const app = express();
   app.use(express.json());
@@ -22,15 +31,16 @@ beforeAll(async () => {
   app.use("/auth", createAuthRouter(authService));
   app.use("/api/kjv", createKjvRouter(database, authService));
 
-  // Create a user and log in once for all tests
+  // Create a user, log in, then change password (new users require password change)
   await authService.createUser(
     { username: "admin", password: "pass", role: "ADMIN" },
     { sub: "seed", username: "seed", role: "ADMIN", iat: 0, exp: 9999999999 },
   );
-  const response = await request(app).post("/auth/login").send({ username: "admin", password: "pass" });
-  cookie = (response.headers["set-cookie"] as unknown as string[])[0] ?? "";
+  const loginResponse = await request(app).post("/auth/login").send({ username: "admin", password: "pass" });
+  const tempCookie = (loginResponse.headers["set-cookie"] as unknown as string[])[0] ?? "";
+  const changeResponse = await request(app).post("/auth/change-password").set("Cookie", tempCookie).send({ newPassword: "pass" });
+  cookie = (changeResponse.headers["set-cookie"] as unknown as string[])[0] ?? "";
 
-  // Store app on module scope for tests
   (globalThis as Record<string, unknown>)["__kjvApp"] = app;
 });
 

@@ -183,6 +183,14 @@ describe("AuthService.createUser", () => {
     }
   });
 
+  it("sets requiresPasswordChange on new users", async () => {
+    const database = makeDatabase();
+    const service = makeService(database);
+    const result = await service.createUser({ username: "bob", password: "secret", role: "AvVolunteer" }, adminActor);
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.value.requiresPasswordChange).toBe(true);
+  });
+
   it("rejects duplicate username", async () => {
     const database = makeDatabase();
     const service = makeService(database);
@@ -281,7 +289,7 @@ describe("AuthService.listUsers", () => {
 });
 
 describe("AuthService.changePassword", () => {
-  it("clears requiresPasswordChange flag", async () => {
+  it("clears requiresPasswordChange flag when user changes own password", async () => {
     const database = makeDatabase();
     const service = makeService(database);
     service.bootstrapIfEmpty();
@@ -290,6 +298,19 @@ describe("AuthService.changePassword", () => {
     expect(result.success).toBe(true);
     const updated = database.prepare("SELECT requiresPasswordChange FROM users WHERE id = ?").get(row.id) as { requiresPasswordChange: number };
     expect(updated.requiresPasswordChange).toBe(0);
+  });
+
+  it("sets requiresPasswordChange when admin resets another user's password", async () => {
+    const database = makeDatabase();
+    const service = makeService(database);
+    const created = await service.createUser({ username: "alice", password: "old", role: "AvVolunteer" }, adminActor);
+    expect(created.success).toBe(true);
+    if (!created.success) return;
+    // Admin resets alice's password
+    const result = await service.changePassword(created.value.id, "newpass", adminActor);
+    expect(result.success).toBe(true);
+    const updated = database.prepare("SELECT requiresPasswordChange FROM users WHERE id = ?").get(created.value.id) as { requiresPasswordChange: number };
+    expect(updated.requiresPasswordChange).toBe(1);
   });
 
   it("issues a new JWT without requiresPasswordChange", async () => {
