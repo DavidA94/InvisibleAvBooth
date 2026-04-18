@@ -1,9 +1,10 @@
+import { BUS_OBS_STATE_CHANGED, BUS_OBS_ERROR } from "./../eventBus/types.js";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import Database from "better-sqlite3";
 import type BetterSqlite3 from "better-sqlite3";
 import { applySchema } from "../database/schema.js";
 import { ObsService, ObsError } from "./obsService.js";
-import { eventBus } from "../eventBus.js";
+import { eventBus } from "../eventBus/eventBus.js";
 
 // ── Mock OBSWebSocket client ──────────────────────────────────────────────────
 // We mock at the constructor boundary — ObsService accepts an optional obsClient
@@ -93,8 +94,8 @@ describe("ObsService.connect", () => {
     const mockObs = makeMockObs();
     const service = makeSvc(makeDatabase(), mockObs);
     const handler = vi.fn();
-    eventBus.subscribe("bus:obs:state:changed", handler);
-    cleanups.push(() => eventBus.unsubscribe("bus:obs:state:changed", handler));
+    eventBus.subscribe(BUS_OBS_STATE_CHANGED, handler);
+    cleanups.push(() => eventBus.unsubscribe(BUS_OBS_STATE_CHANGED, handler));
     await service.connect();
     expect(handler).toHaveBeenCalledWith(expect.objectContaining({ state: expect.objectContaining({ connected: true }) }));
   });
@@ -218,8 +219,8 @@ describe("ObsService command methods", () => {
     const service = makeSvc(makeDatabase(), mockObs);
     await service.connect();
     const handler = vi.fn();
-    eventBus.subscribe("bus:obs:error", handler);
-    cleanups.push(() => eventBus.unsubscribe("bus:obs:error", handler));
+    eventBus.subscribe(BUS_OBS_ERROR, handler);
+    cleanups.push(() => eventBus.unsubscribe(BUS_OBS_ERROR, handler));
     await service.stopStream();
     expect(handler).toHaveBeenCalledWith(expect.objectContaining({ error: expect.objectContaining({ code: "STREAM_STOP_FAILED" }) }));
   });
@@ -233,8 +234,8 @@ describe("ObsService reconnect", () => {
     const service = makeSvc(makeDatabase(), mockObs);
     await service.connect();
     const handler = vi.fn();
-    eventBus.subscribe("bus:obs:error", handler);
-    cleanups.push(() => eventBus.unsubscribe("bus:obs:error", handler));
+    eventBus.subscribe(BUS_OBS_ERROR, handler);
+    cleanups.push(() => eventBus.unsubscribe(BUS_OBS_ERROR, handler));
     mockObs.emit("ConnectionClosed");
     expect(handler).toHaveBeenCalledWith(expect.objectContaining({ error: expect.objectContaining({ code: "OBS_UNREACHABLE" }), retryExhausted: false }));
   });
@@ -255,8 +256,8 @@ describe("ObsService reconnect", () => {
     await service.connect();
 
     const handler = vi.fn();
-    eventBus.subscribe("bus:obs:error", handler);
-    cleanups.push(() => eventBus.unsubscribe("bus:obs:error", handler));
+    eventBus.subscribe(BUS_OBS_ERROR, handler);
+    cleanups.push(() => eventBus.unsubscribe(BUS_OBS_ERROR, handler));
 
     mockObs.emit("ConnectionClosed");
 

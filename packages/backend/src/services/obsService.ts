@@ -1,9 +1,9 @@
-import { BUS_OBS_STATE_CHANGED, BUS_OBS_ERROR, BUS_SESSION_MANIFEST_UPDATED } from "../socketEvents.js";
+import { BUS_OBS_STATE_CHANGED, BUS_OBS_ERROR, BUS_SESSION_MANIFEST_UPDATED } from "../eventBus/types.js";
 import OBSWebSocket from "obs-websocket-js";
 import type { Database } from "better-sqlite3";
-import { eventBus } from "../eventBus.js";
-import { ObsError } from "../eventBus.js";
-import type { ObsState } from "../eventBus.js";
+import { eventBus } from "../eventBus/eventBus.js";
+import { ObsError } from "../gateway/modules/obs/types.js";
+import type { ObsState } from "../gateway/modules/obs/types.js";
 import { decrypt } from "../crypto.js";
 import { logger } from "../logger.js";
 

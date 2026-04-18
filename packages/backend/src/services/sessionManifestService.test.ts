@@ -1,8 +1,9 @@
+import { BUS_OBS_STATE_CHANGED, BUS_SESSION_MANIFEST_UPDATED } from "./../eventBus/types.js";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import * as fc from "fast-check";
 import { SessionManifestService, DEFAULT_STREAM_TITLE_TEMPLATE } from "./sessionManifestService.js";
-import { eventBus } from "../eventBus.js";
-import type { ObsState } from "../eventBus.js";
+import { eventBus } from "../eventBus/eventBus.js";
+import type { ObsState } from "../gateway/modules/obs/types.js";
 import type { JwtPayload } from "./authService.js";
 
 const actor: JwtPayload = { sub: "u1", username: "admin", role: "ADMIN", iat: 0, exp: 9999999999 };
@@ -38,7 +39,7 @@ function makeSvc(template?: string) {
 
 beforeEach(() => {
   // Emit idle state to reset any cached OBS state from previous tests
-  eventBus.emit("bus:obs:state:changed", { state: idleObsState });
+  eventBus.emit(BUS_OBS_STATE_CHANGED, { state: idleObsState });
 });
 
 afterEach(() => {
@@ -69,8 +70,8 @@ describe("SessionManifestService.update", () => {
   it("emits session:manifest:updated on EventBus", () => {
     const service = makeSvc();
     const handler = vi.fn();
-    eventBus.subscribe("bus:session:manifest:updated", handler);
-    cleanups.push(() => eventBus.unsubscribe("bus:session:manifest:updated", handler));
+    eventBus.subscribe(BUS_SESSION_MANIFEST_UPDATED, handler);
+    cleanups.push(() => eventBus.unsubscribe(BUS_SESSION_MANIFEST_UPDATED, handler));
 
     service.update({ speaker: "John" }, actor);
 
@@ -101,8 +102,8 @@ describe("SessionManifestService.clear", () => {
     const service = makeSvc();
     service.update({ speaker: "John" }, actor);
     const handler = vi.fn();
-    eventBus.subscribe("bus:session:manifest:updated", handler);
-    cleanups.push(() => eventBus.unsubscribe("bus:session:manifest:updated", handler));
+    eventBus.subscribe(BUS_SESSION_MANIFEST_UPDATED, handler);
+    cleanups.push(() => eventBus.unsubscribe(BUS_SESSION_MANIFEST_UPDATED, handler));
 
     service.clear(actor);
 
@@ -111,7 +112,7 @@ describe("SessionManifestService.clear", () => {
 
   it("is blocked while streaming", () => {
     const service = makeSvc();
-    eventBus.emit("bus:obs:state:changed", { state: liveObsState });
+    eventBus.emit(BUS_OBS_STATE_CHANGED, { state: liveObsState });
     const result = service.clear(actor);
     expect(result.success).toBe(false);
     if (!result.success) expect(result.error.code).toBe("CLEAR_BLOCKED_WHILE_LIVE");
@@ -119,15 +120,15 @@ describe("SessionManifestService.clear", () => {
 
   it("is blocked while recording", () => {
     const service = makeSvc();
-    eventBus.emit("bus:obs:state:changed", { state: recordingObsState });
+    eventBus.emit(BUS_OBS_STATE_CHANGED, { state: recordingObsState });
     const result = service.clear(actor);
     expect(result.success).toBe(false);
   });
 
   it("is allowed after streaming stops", () => {
     const service = makeSvc();
-    eventBus.emit("bus:obs:state:changed", { state: liveObsState });
-    eventBus.emit("bus:obs:state:changed", { state: idleObsState });
+    eventBus.emit(BUS_OBS_STATE_CHANGED, { state: liveObsState });
+    eventBus.emit(BUS_OBS_STATE_CHANGED, { state: idleObsState });
     expect(service.clear(actor).success).toBe(true);
   });
 });

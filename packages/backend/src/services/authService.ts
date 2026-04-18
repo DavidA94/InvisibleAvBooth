@@ -128,7 +128,7 @@ export class AuthService {
       sub: row.id,
       username: row.username,
       role: row.role,
-      ...(row.requiresPasswordChange ? { requiresPasswordChange: true } : {}),
+      ...(row.requiresPasswordChange ? { requirePasswordChanged: true } : {}),
     };
 
     const token = jwt.sign(payload, JWT_SECRET, {
@@ -138,7 +138,12 @@ export class AuthService {
     logger.info("User logged in", { userId: row.id });
 
     const authResult: AuthResult = {
-      user: { id: row.id, username: row.username, role: row.role, requiresPasswordChange: !!row.requiresPasswordChange },
+      user: {
+        id: row.id,
+        username: row.username,
+        role: row.role,
+        requiresPasswordChange: !!row.requiresPasswordChange,
+      },
       ...(row.requiresPasswordChange ? { requiresPasswordChange: true as const } : {}),
     };
 

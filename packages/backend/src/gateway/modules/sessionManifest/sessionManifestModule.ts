@@ -1,9 +1,10 @@
 import type { Server } from "socket.io";
-import { eventBus } from "../../eventBus.js";
-import type { SocketModule, AuthenticatedSocket } from "./socketModule.js";
-import type { SessionManifestService, SessionManifest } from "../../services/sessionManifestService.js";
-import { logger } from "../../logger.js";
-import { BUS_SESSION_MANIFEST_UPDATED, CTS_SESSION_MANIFEST_UPDATE, STC_SESSION_MANIFEST_UPDATED } from "../../socketEvents.js";
+import { eventBus } from "../../../eventBus/eventBus.js";
+import type { SocketModule, AuthenticatedSocket } from "../socketModule.js";
+import type { SessionManifestService, SessionManifest } from "../../../services/sessionManifestService.js";
+import { logger } from "../../../logger.js";
+import { BUS_SESSION_MANIFEST_UPDATED } from "../../../eventBus/types.js";
+import { CTS_SESSION_MANIFEST_UPDATE, STC_SESSION_MANIFEST_UPDATED } from "@invisible-av-booth/shared";
 
 interface CommandResult {
   success: boolean;
@@ -23,7 +24,7 @@ export class SessionManifestModule implements SocketModule {
   registerSocket(auth: AuthenticatedSocket): void {
     const { socket, jwtPayload } = auth;
 
-    // cts:session:manifest:update — update the in-memory manifest
+    // CTS_SESSION_MANIFEST_UPDATE — update the in-memory manifest
     socket.on(CTS_SESSION_MANIFEST_UPDATE, (patch: Partial<SessionManifest>, ack: (result: CommandResult) => void) => {
       logger.info("Session manifest update received", { userId: jwtPayload.sub });
       const result = this.manifestService.update(patch, jwtPayload);

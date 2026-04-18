@@ -1,3 +1,4 @@
+import { BUS_OBS_ERROR } from "./../eventBus/types.js";
 import { describe, it, expect, vi, beforeAll, afterAll, afterEach } from "vitest";
 import { createServer } from "http";
 import { io as ioClient } from "socket.io-client";
@@ -8,10 +9,11 @@ import { AuthService } from "../services/authService.js";
 import { ObsService } from "../services/obsService.js";
 import { SessionManifestService } from "../services/sessionManifestService.js";
 import { SocketGateway } from "./socketGateway.js";
-import { ObsModule } from "./modules/obsModule.js";
-import { SessionManifestModule } from "./modules/sessionManifestModule.js";
-import { eventBus } from "../eventBus.js";
-import type { ObsState } from "../eventBus.js";
+import { SessionManifestModule } from "./modules/sessionManifest/sessionManifestModule.js";
+import { eventBus } from "../eventBus/eventBus.js";
+import type { ObsState } from "./modules/obs/types.js";
+import { CTS_OBS_COMMAND, CTS_SESSION_MANIFEST_UPDATE, STC_OBS_ERROR, STC_OBS_STATE } from "@invisible-av-booth/shared";
+import { ObsModule } from "./modules/obs/obsModule.js";
 
 // ── Mock OBSWebSocket ─────────────────────────────────────────────────────────
 
@@ -108,13 +110,13 @@ describe("OBS control integration", () => {
     const client = await connectClient();
 
     const stateUpdate = new Promise<ObsState>((resolve) => {
-      client.on("stc:obs:state", (state) => {
+      client.on(STC_OBS_STATE, (state) => {
         if ((state as ObsState).commandedState?.streaming) resolve(state as ObsState);
       });
     });
 
     await new Promise<void>((resolve) => {
-      client.emit("cts:obs:command", { type: "startStream" }, () => resolve());
+      client.emit(CTS_OBS_COMMAND, { type: "startStream" }, () => resolve());
     });
 
     const state = await stateUpdate;
@@ -130,7 +132,7 @@ describe("OBS control integration", () => {
     const client = await connectClient();
 
     await new Promise<void>((resolve) => {
-      client.emit("cts:obs:command", { type: "stopStream" }, () => resolve());
+      client.emit(CTS_OBS_COMMAND, { type: "stopStream" }, () => resolve());
     });
 
     expect(mockObs.call).toHaveBeenCalledWith("StopStream");
@@ -141,7 +143,7 @@ describe("OBS control integration", () => {
     const client = await connectClient();
 
     await new Promise<void>((resolve) => {
-      client.emit("cts:obs:command", { type: "startRecording" }, () => resolve());
+      client.emit(CTS_OBS_COMMAND, { type: "startRecording" }, () => resolve());
     });
 
     expect(mockObs.call).toHaveBeenCalledWith("StartRecord");
@@ -152,7 +154,7 @@ describe("OBS control integration", () => {
     const client = await connectClient();
 
     await new Promise<void>((resolve) => {
-      client.emit("cts:obs:command", { type: "stopRecording" }, () => resolve());
+      client.emit(CTS_OBS_COMMAND, { type: "stopRecording" }, () => resolve());
     });
 
     expect(mockObs.call).toHaveBeenCalledWith("StopRecord");
@@ -163,10 +165,10 @@ describe("OBS control integration", () => {
     const client = await connectClient();
 
     const errorReceived = new Promise<{ error: { code: string } }>((resolve) => {
-      client.on("stc:obs:error", resolve);
+      client.on(STC_OBS_ERROR, resolve);
     });
 
-    eventBus.emit("bus:obs:error", {
+    eventBus.emit(BUS_OBS_ERROR, {
       error: Object.assign(new Error("test"), { code: "STREAM_START_FAILED" as const, name: "ObsError" }) as never,
     });
 
@@ -179,7 +181,7 @@ describe("OBS control integration", () => {
     const client = await connectClient();
 
     const result = await new Promise<{ success: boolean }>((resolve) => {
-      client.emit("cts:session:manifest:update", { speaker: "John" }, resolve);
+      client.emit(CTS_SESSION_MANIFEST_UPDATE, { speaker: "John" }, resolve);
     });
 
     expect(result.success).toBe(true);

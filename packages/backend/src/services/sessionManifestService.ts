@@ -1,7 +1,8 @@
-import { BUS_OBS_STATE_CHANGED, BUS_SESSION_MANIFEST_UPDATED } from "../socketEvents.js";
+import { BUS_OBS_STATE_CHANGED, BUS_SESSION_MANIFEST_UPDATED } from "../eventBus/types.js";
 import { BIBLE_BOOKS } from "@invisible-av-booth/shared";
-import { eventBus } from "../eventBus.js";
-import type { SessionManifest, ScriptureReference, ObsState } from "../eventBus.js";
+import { eventBus } from "../eventBus/eventBus.js";
+import type { SessionManifest, ScriptureReference } from "../gateway/modules/sessionManifest/types.js";
+import type { ObsState } from "../gateway/modules/obs/types.js";
 import type { JwtPayload } from "../services/authService.js";
 import { logger } from "../logger.js";
 

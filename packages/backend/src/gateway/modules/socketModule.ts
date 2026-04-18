@@ -13,9 +13,9 @@ export interface AuthenticatedSocket {
 //
 // Lifecycle:
 //   1. register(io)         — called once at gateway startup; subscribe to EventBus
-//                             events and set up io-level broadcasts (stc: events)
+//                             events and set up io-level broadcasts (`stc` events)
 //   2. registerSocket(auth) — called per authenticated connection; set up per-socket
-//                             cts: event handlers
+//                             `cts` event handlers
 //   3. emitInitialState(auth) — called per authenticated connection after registerSocket;
 //                               push current state to the newly connected client
 //
