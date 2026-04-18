@@ -85,12 +85,16 @@ export function createAdminUserRouter(authService: AuthService): Router {
       return;
     }
 
-    response.cookie("token", result.value.token, {
-      httpOnly: true,
-      secure: IS_PRODUCTION,
-      sameSite: "lax",
-      maxAge: 8 * 60 * 60 * 1000,
-    });
+    // Only re-issue the cookie when the admin is changing their own password.
+    // When resetting another user's password, the admin's session stays unchanged.
+    if (request.jwtPayload!.sub === request.params["id"]) {
+      response.cookie("token", result.value.token, {
+        httpOnly: true,
+        secure: IS_PRODUCTION,
+        sameSite: "lax",
+        maxAge: 8 * 60 * 60 * 1000,
+      });
+    }
 
     response.json({ ok: true });
   });
