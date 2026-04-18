@@ -3,7 +3,7 @@ import type { Request, Response } from "express";
 import { randomBytes } from "crypto";
 import type { Database } from "better-sqlite3";
 import type { AuthService } from "../services/authService.js";
-import { authenticate, requireRole } from "../middleware/auth.js";
+import { requireRole } from "../middleware/auth.js";
 import { logger } from "../logger.js";
 
 interface DashboardRow {
@@ -33,17 +33,18 @@ function parseDashboard(row: DashboardRow): Omit<DashboardRow, "allowedRoles"> &
 
 export function createAdminDashboardRouter(database: Database, authService: AuthService): Router {
   const router = Router();
-  const auth = authenticate(authService);
   const adminOnly = requireRole(authService, "ADMIN");
 
   // GET /admin/dashboards
-  router.get("/", auth, adminOnly, (_request: Request, response: Response): void => {
+  // Authentication is applied at mount time in src/index.ts so request.jwtPayload
+  // is already present for all routes in this router.
+  router.get("/", adminOnly, (_request: Request, response: Response): void => {
     const rows = database.prepare("SELECT * FROM dashboards ORDER BY createdAt").all() as DashboardRow[];
     response.json(rows.map(parseDashboard));
   });
 
   // POST /admin/dashboards
-  router.post("/", auth, adminOnly, (request: Request, response: Response): void => {
+  router.post("/", adminOnly, (request: Request, response: Response): void => {
     const {
       name,
       description = "",
@@ -67,7 +68,7 @@ export function createAdminDashboardRouter(database: Database, authService: Auth
   });
 
   // GET /admin/dashboards/:id
-  router.get("/:id", auth, adminOnly, (request: Request, response: Response): void => {
+  router.get("/:id", adminOnly, (request: Request, response: Response): void => {
     const row = database.prepare("SELECT * FROM dashboards WHERE id = ?").get(request.params["id"]) as DashboardRow | undefined;
     if (!row) {
       response.status(404).json({ error: "Dashboard not found" });
@@ -77,7 +78,7 @@ export function createAdminDashboardRouter(database: Database, authService: Auth
   });
 
   // PUT /admin/dashboards/:id
-  router.put("/:id", auth, adminOnly, (request: Request, response: Response): void => {
+  router.put("/:id", adminOnly, (request: Request, response: Response): void => {
     const row = database.prepare("SELECT * FROM dashboards WHERE id = ?").get(request.params["id"]) as DashboardRow | undefined;
     if (!row) {
       response.status(404).json({ error: "Dashboard not found" });
@@ -91,7 +92,7 @@ export function createAdminDashboardRouter(database: Database, authService: Auth
   });
 
   // DELETE /admin/dashboards/:id
-  router.delete("/:id", auth, adminOnly, (request: Request, response: Response): void => {
+  router.delete("/:id", adminOnly, (request: Request, response: Response): void => {
     if (!database.prepare("SELECT id FROM dashboards WHERE id = ?").get(request.params["id"])) {
       response.status(404).json({ error: "Dashboard not found" });
       return;
@@ -101,7 +102,7 @@ export function createAdminDashboardRouter(database: Database, authService: Auth
   });
 
   // GET /admin/dashboards/:id/widgets
-  router.get("/:id/widgets", auth, adminOnly, (request: Request, response: Response): void => {
+  router.get("/:id/widgets", adminOnly, (request: Request, response: Response): void => {
     if (!database.prepare("SELECT id FROM dashboards WHERE id = ?").get(request.params["id"])) {
       response.status(404).json({ error: "Dashboard not found" });
       return;
@@ -110,7 +111,7 @@ export function createAdminDashboardRouter(database: Database, authService: Auth
   });
 
   // POST /admin/dashboards/:id/widgets
-  router.post("/:id/widgets", auth, adminOnly, (request: Request, response: Response): void => {
+  router.post("/:id/widgets", adminOnly, (request: Request, response: Response): void => {
     if (!database.prepare("SELECT id FROM dashboards WHERE id = ?").get(request.params["id"])) {
       response.status(404).json({ error: "Dashboard not found" });
       return;
@@ -154,7 +155,7 @@ export function createAdminDashboardRouter(database: Database, authService: Auth
   });
 
   // GET /admin/dashboards/:id/widgets/:widgetId
-  router.get("/:id/widgets/:widgetId", auth, adminOnly, (request: Request, response: Response): void => {
+  router.get("/:id/widgets/:widgetId", adminOnly, (request: Request, response: Response): void => {
     const row = database.prepare("SELECT * FROM widget_configurations WHERE id = ?").get(request.params["widgetId"]) as WidgetRow | undefined;
     if (!row || row.dashboardId !== request.params["id"]) {
       response.status(404).json({ error: "Widget not found" });
@@ -164,7 +165,7 @@ export function createAdminDashboardRouter(database: Database, authService: Auth
   });
 
   // PUT /admin/dashboards/:id/widgets/:widgetId
-  router.put("/:id/widgets/:widgetId", auth, adminOnly, (request: Request, response: Response): void => {
+  router.put("/:id/widgets/:widgetId", adminOnly, (request: Request, response: Response): void => {
     const row = database.prepare("SELECT * FROM widget_configurations WHERE id = ?").get(request.params["widgetId"]) as WidgetRow | undefined;
     if (!row || row.dashboardId !== request.params["id"]) {
       response.status(404).json({ error: "Widget not found" });
@@ -178,7 +179,7 @@ export function createAdminDashboardRouter(database: Database, authService: Auth
   });
 
   // DELETE /admin/dashboards/:id/widgets/:widgetId
-  router.delete("/:id/widgets/:widgetId", auth, adminOnly, (request: Request, response: Response): void => {
+  router.delete("/:id/widgets/:widgetId", adminOnly, (request: Request, response: Response): void => {
     const row = database.prepare("SELECT * FROM widget_configurations WHERE id = ?").get(request.params["widgetId"]) as WidgetRow | undefined;
     if (!row || row.dashboardId !== request.params["id"]) {
       response.status(404).json({ error: "Widget not found" });

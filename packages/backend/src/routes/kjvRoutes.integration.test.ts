@@ -8,6 +8,7 @@ import { fileURLToPath } from "url";
 import { applySchema } from "../database/schema.js";
 import { seedKjv } from "../database/database.js";
 import { AuthService } from "../services/authService.js";
+import { authenticate, requirePasswordChanged } from "../middleware/auth.js";
 import { createAuthRouter } from "./authRoutes.js";
 import { createKjvRouter } from "./kjvRoutes.js";
 
@@ -29,7 +30,9 @@ beforeAll(async () => {
   app.use(express.json());
   app.use(cookieParser());
   app.use("/auth", createAuthRouter(authService));
-  app.use("/api/kjv", createKjvRouter(database, authService));
+  const mustBeAuthenticated = authenticate(authService);
+  const mustHaveChangedPassword = requirePasswordChanged();
+  app.use("/api/kjv", mustBeAuthenticated, mustHaveChangedPassword, createKjvRouter(database, authService));
 
   // Create a user, log in, then change password (new users require password change)
   await authService.createUser(

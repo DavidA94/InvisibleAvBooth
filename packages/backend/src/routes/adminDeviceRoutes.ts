@@ -3,7 +3,7 @@ import type { Request, Response } from "express";
 import { randomBytes } from "crypto";
 import type { Database } from "better-sqlite3";
 import type { AuthService } from "../services/authService.js";
-import { authenticate, requireRole } from "../middleware/auth.js";
+import { requireRole } from "../middleware/auth.js";
 import { encrypt, decrypt } from "../crypto.js";
 import { logger } from "../logger.js";
 
@@ -49,17 +49,18 @@ function toPublic(row: DeviceRow): PublicDevice {
 
 export function createAdminDeviceRouter(database: Database, authService: AuthService): Router {
   const router = Router();
-  const auth = authenticate(authService);
   const adminOnly = requireRole(authService, "ADMIN");
 
   // GET /admin/devices
-  router.get("/", auth, adminOnly, (_request: Request, response: Response): void => {
+  // Authentication is applied at mount time in src/index.ts so request.jwtPayload
+  // is already present for all routes in this router.
+  router.get("/", adminOnly, (_request: Request, response: Response): void => {
     const rows = database.prepare("SELECT * FROM device_connections ORDER BY createdAt").all() as DeviceRow[];
     response.json(rows.map(toPublic));
   });
 
   // POST /admin/devices
-  router.post("/", auth, adminOnly, (request: Request, response: Response): void => {
+  router.post("/", adminOnly, (request: Request, response: Response): void => {
     const {
       deviceType,
       label,
@@ -103,7 +104,7 @@ export function createAdminDeviceRouter(database: Database, authService: AuthSer
   });
 
   // GET /admin/devices/:id
-  router.get("/:id", auth, adminOnly, (request: Request, response: Response): void => {
+  router.get("/:id", adminOnly, (request: Request, response: Response): void => {
     const row = database.prepare("SELECT * FROM device_connections WHERE id = ?").get(request.params["id"]) as DeviceRow | undefined;
     if (!row) {
       response.status(404).json({ error: "Device not found" });
@@ -113,7 +114,7 @@ export function createAdminDeviceRouter(database: Database, authService: AuthSer
   });
 
   // PUT /admin/devices/:id
-  router.put("/:id", auth, adminOnly, (request: Request, response: Response): void => {
+  router.put("/:id", adminOnly, (request: Request, response: Response): void => {
     const row = database.prepare("SELECT * FROM device_connections WHERE id = ?").get(request.params["id"]) as DeviceRow | undefined;
     if (!row) {
       response.status(404).json({ error: "Device not found" });
@@ -155,7 +156,7 @@ export function createAdminDeviceRouter(database: Database, authService: AuthSer
   });
 
   // DELETE /admin/devices/:id
-  router.delete("/:id", auth, adminOnly, (request: Request, response: Response): void => {
+  router.delete("/:id", adminOnly, (request: Request, response: Response): void => {
     const row = database.prepare("SELECT id FROM device_connections WHERE id = ?").get(request.params["id"]);
     if (!row) {
       response.status(404).json({ error: "Device not found" });

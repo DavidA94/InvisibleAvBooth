@@ -5,6 +5,7 @@ import request from "supertest";
 import Database from "better-sqlite3";
 import { applySchema } from "../database/schema.js";
 import { AuthService } from "../services/authService.js";
+import { authenticate, requirePasswordChanged } from "../middleware/auth.js";
 import { createAuthRouter } from "./authRoutes.js";
 import { createAdminDashboardRouter } from "./adminDashboardRoutes.js";
 import { createDashboardRouter } from "./dashboardRoutes.js";
@@ -21,16 +22,20 @@ function buildApp() {
   app.use(express.json());
   app.use(cookieParser());
   app.use("/auth", createAuthRouter(authService));
-  app.use("/admin/dashboards", createAdminDashboardRouter(database, authService));
-  app.use("/api/dashboards", createDashboardRouter(database, authService));
-  app.use("/api/session", createSessionRouter(authService));
+  const mustBeAuthenticated = authenticate(authService);
+  const mustHaveChangedPassword = requirePasswordChanged();
+  app.use("/admin/dashboards", mustBeAuthenticated, mustHaveChangedPassword, createAdminDashboardRouter(database, authService));
+  app.use("/api/dashboards", mustBeAuthenticated, mustHaveChangedPassword, createDashboardRouter(database, authService));
+  app.use("/api/session", mustBeAuthenticated, mustHaveChangedPassword, createSessionRouter(authService));
   return { app, database, authService };
 }
 
 async function loginAs(app: express.Express, authService: AuthService, username: string, password: string, role: "ADMIN" | "AvPowerUser" | "AvVolunteer") {
   await authService.createUser({ username, password, role }, seedActor);
-  const response = await request(app).post("/auth/login").send({ username, password });
-  return (response.headers["set-cookie"] as unknown as string[])[0] ?? "";
+  const loginResponse = await request(app).post("/auth/login").send({ username, password });
+  const tempCookie = (loginResponse.headers["set-cookie"] as unknown as string[])[0] ?? "";
+  const changeResponse = await request(app).post("/auth/change-password").set("Cookie", tempCookie).send({ newPassword: password });
+  return (changeResponse.headers["set-cookie"] as unknown as string[])[0] ?? "";
 }
 
 const baseDashboard = { name: "Main Dashboard", description: "Test", allowedRoles: ["AvVolunteer", "AvPowerUser"] };

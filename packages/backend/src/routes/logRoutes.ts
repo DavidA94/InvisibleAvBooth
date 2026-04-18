@@ -1,7 +1,6 @@
 import { Router } from "express";
 import type { Request, Response } from "express";
 import type { AuthService } from "../services/authService.js";
-import { authenticate } from "../middleware/auth.js";
 import { logger } from "../logger.js";
 
 interface LogEntry {
@@ -14,11 +13,13 @@ interface LogEntry {
 
 export function createLogRouter(authService: AuthService): Router {
   const router = Router();
-  const auth = authenticate(authService);
+  void authService;
 
   // POST /api/logs — accepts a batch of frontend log entries and writes them
   // to the backend logger tagged with source: frontend.
-  router.post("/", auth, (request: Request, response: Response): void => {
+  // Authentication is applied at mount time in src/index.ts so request.jwtPayload
+  // is already present for all routes in this router.
+  router.post("/", (request: Request, response: Response): void => {
     const entries = request.body as LogEntry[];
 
     if (!Array.isArray(entries)) {

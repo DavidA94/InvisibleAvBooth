@@ -5,6 +5,7 @@ import request from "supertest";
 import Database from "better-sqlite3";
 import { applySchema } from "../database/schema.js";
 import { AuthService } from "../services/authService.js";
+import { authenticate, requirePasswordChanged } from "../middleware/auth.js";
 import { createAuthRouter } from "./authRoutes.js";
 import { createAdminDeviceRouter, decryptDevicePassword } from "./adminDeviceRoutes.js";
 import { decrypt } from "../crypto.js";
@@ -27,14 +28,18 @@ function buildApp() {
   app.use(express.json());
   app.use(cookieParser());
   app.use("/auth", createAuthRouter(authService));
-  app.use("/admin/devices", createAdminDeviceRouter(database, authService));
+  const mustBeAuthenticated = authenticate(authService);
+  const mustHaveChangedPassword = requirePasswordChanged();
+  app.use("/admin/devices", mustBeAuthenticated, mustHaveChangedPassword, createAdminDeviceRouter(database, authService));
   return { app, database, authService };
 }
 
 async function loginAsAdmin(app: express.Express, authService: AuthService) {
   await authService.createUser({ username: "admin", password: "adminpass", role: "ADMIN" }, seedActor);
-  const response = await request(app).post("/auth/login").send({ username: "admin", password: "adminpass" });
-  return (response.headers["set-cookie"] as unknown as string[])[0] ?? "";
+  const loginResponse = await request(app).post("/auth/login").send({ username: "admin", password: "adminpass" });
+  const tempCookie = (loginResponse.headers["set-cookie"] as unknown as string[])[0] ?? "";
+  const changeResponse = await request(app).post("/auth/change-password").set("Cookie", tempCookie).send({ newPassword: "adminpass" });
+  return (changeResponse.headers["set-cookie"] as unknown as string[])[0] ?? "";
 }
 
 const baseDevice = { deviceType: "obs", label: "Main OBS", host: "localhost", port: 4455 };

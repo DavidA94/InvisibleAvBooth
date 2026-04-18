@@ -128,7 +128,7 @@ export class AuthService {
       sub: row.id,
       username: row.username,
       role: row.role,
-      ...(row.requiresPasswordChange ? { requirePasswordChanged: true } : {}),
+      ...(row.requiresPasswordChange ? { requiresPasswordChange: true as const } : {}),
     };
 
     const token = jwt.sign(payload, JWT_SECRET, {

@@ -1,7 +1,7 @@
 import { Router } from "express";
 import type { Request, Response } from "express";
 import type { AuthService, AuthErrorCode, CreateUserRequest, UpdateUserRequest } from "../services/authService.js";
-import { authenticate, requireRole } from "../middleware/auth.js";
+import { requireRole } from "../middleware/auth.js";
 
 const IS_PRODUCTION = process.env["NODE_ENV"] === "production";
 
@@ -19,16 +19,17 @@ function errorStatus(code: AuthErrorCode): number {
 
 export function createAdminUserRouter(authService: AuthService): Router {
   const router = Router();
-  const auth = authenticate(authService);
   const adminOnly = requireRole(authService, "ADMIN");
 
   // GET /admin/users
-  router.get("/", auth, adminOnly, (_request: Request, response: Response): void => {
+  // Authentication is applied at mount time in src/index.ts so request.jwtPayload
+  // is already present for all routes in this router.
+  router.get("/", adminOnly, (_request: Request, response: Response): void => {
     // adminOnly middleware guarantees ADMIN role — listUsers cannot fail here
     const result = authService.listUsers(_request.jwtPayload!);
     response.json(result.success ? result.value : []);
   }); // POST /admin/users
-  router.post("/", auth, adminOnly, async (request: Request, response: Response): Promise<void> => {
+  router.post("/", adminOnly, async (request: Request, response: Response): Promise<void> => {
     const result = await authService.createUser(request.body as CreateUserRequest, request.jwtPayload!);
     if (!result.success) {
       response.status(errorStatus(result.error.code)).json({ error: result.error.message });
@@ -38,7 +39,7 @@ export function createAdminUserRouter(authService: AuthService): Router {
   });
 
   // GET /admin/users/:id
-  router.get("/:id", auth, adminOnly, (request: Request, response: Response): void => {
+  router.get("/:id", adminOnly, (request: Request, response: Response): void => {
     // adminOnly middleware guarantees ADMIN role — listUsers cannot fail here
     const result = authService.listUsers(request.jwtPayload!);
     const users = result.success ? result.value : [];
@@ -51,7 +52,7 @@ export function createAdminUserRouter(authService: AuthService): Router {
   });
 
   // PUT /admin/users/:id
-  router.put("/:id", auth, adminOnly, async (request: Request, response: Response): Promise<void> => {
+  router.put("/:id", adminOnly, async (request: Request, response: Response): Promise<void> => {
     const result = await authService.updateUser(request.params["id"]!, request.body as UpdateUserRequest, request.jwtPayload!);
     if (!result.success) {
       response.status(errorStatus(result.error.code)).json({ error: result.error.message });
@@ -61,7 +62,7 @@ export function createAdminUserRouter(authService: AuthService): Router {
   });
 
   // DELETE /admin/users/:id
-  router.delete("/:id", auth, adminOnly, (request: Request, response: Response): void => {
+  router.delete("/:id", adminOnly, (request: Request, response: Response): void => {
     const result = authService.deleteUser(request.params["id"]!, request.jwtPayload!);
     if (!result.success) {
       response.status(errorStatus(result.error.code)).json({ error: result.error.message });
@@ -71,7 +72,7 @@ export function createAdminUserRouter(authService: AuthService): Router {
   });
 
   // POST /admin/users/:id/change-password
-  router.post("/:id/change-password", auth, async (request: Request, response: Response): Promise<void> => {
+  router.post("/:id/change-password", async (request: Request, response: Response): Promise<void> => {
     const { newPassword } = request.body as { newPassword?: string };
     if (!newPassword) {
       response.status(400).json({ error: "newPassword is required" });

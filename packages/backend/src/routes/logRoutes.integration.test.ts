@@ -5,6 +5,7 @@ import request from "supertest";
 import Database from "better-sqlite3";
 import { applySchema } from "../database/schema.js";
 import { AuthService } from "../services/authService.js";
+import { authenticate, requirePasswordChanged } from "../middleware/auth.js";
 import { createAuthRouter } from "./authRoutes.js";
 import { createLogRouter } from "./logRoutes.js";
 import { logger } from "../logger.js";
@@ -19,14 +20,18 @@ function buildApp() {
   app.use(express.json());
   app.use(cookieParser());
   app.use("/auth", createAuthRouter(authService));
-  app.use("/api/logs", createLogRouter(authService));
+  const mustBeAuthenticated = authenticate(authService);
+  const mustHaveChangedPassword = requirePasswordChanged();
+  app.use("/api/logs", mustBeAuthenticated, mustHaveChangedPassword, createLogRouter(authService));
   return { app, authService };
 }
 
 async function loginAsAdmin(app: express.Express, authService: AuthService) {
   await authService.createUser({ username: "admin", password: "pass", role: "ADMIN" }, seedActor);
-  const response = await request(app).post("/auth/login").send({ username: "admin", password: "pass" });
-  return (response.headers["set-cookie"] as unknown as string[])[0] ?? "";
+  const loginResponse = await request(app).post("/auth/login").send({ username: "admin", password: "pass" });
+  const tempCookie = (loginResponse.headers["set-cookie"] as unknown as string[])[0] ?? "";
+  const changeResponse = await request(app).post("/auth/change-password").set("Cookie", tempCookie).send({ newPassword: "pass" });
+  return (changeResponse.headers["set-cookie"] as unknown as string[])[0] ?? "";
 }
 
 afterEach(() => {
