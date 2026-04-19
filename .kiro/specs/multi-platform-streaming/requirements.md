@@ -6,6 +6,10 @@ This spec extends Invisible A/V Booth with the ability to stream simultaneously 
 
 This spec depends on the foundational platform delivered by the `livestream-control-system` spec (authentication, dashboard, OBS widget, session manifest, event bus, notification system). It modifies the existing OBS streaming flow and extends the session manifest with new template capabilities.
 
+This spec supersedes the single `streamTitleTemplate` field stored in `device_connections.metadata` (original spec Requirement 9). That field is replaced by the `metadata_templates` table. The existing `SessionManifestService.interpolate()` method is reworked to support multiple templates and the new `{verseText}` token.
+
+Recording controls (Start/Stop Recording) remain unchanged in the OBS widget and are unaffected by this spec. The "Manage Streams" button coexists alongside the existing recording button.
+
 See `docs/architecture-decisions/001-multi-platform-streaming.md` for the architectural decision record on the hybrid relay approach.
 
 ---
@@ -15,11 +19,12 @@ See `docs/architecture-decisions/001-multi-platform-streaming.md` for the archit
 - **Platform**: A streaming destination service (e.g., YouTube, Facebook). Each platform has its own API integration, OAuth credentials, and RTMP ingest URL.
 - **PlatformConfig**: The stored configuration for a streaming platform, including OAuth tokens (encrypted), platform-specific settings, and enabled status. Stored in a new `streaming_platforms` database table.
 - **Broadcast**: A platform-specific live video object created via the platform's API before streaming begins. YouTube calls this a `liveBroadcast` + `liveStream`; Facebook calls it a `LiveVideo`. The backend abstracts both behind a common interface.
-- **RTMP Relay**: A local `node-media-server` instance that accepts OBS's RTMP stream and makes it available for per-destination FFmpeg forwarding processes.
+- **RTMP Relay**: A local `node-media-server` instance that accepts OBS's RTMP stream and makes it available for per-destination FFmpeg forwarding processes. Starts on backend startup and runs for the lifetime of the backend process.
 - **Relay Forwarder**: An individual FFmpeg child process that reads from the local RTMP relay and forwards the stream (via `-c copy`, no re-encoding) to a single platform's RTMP ingest URL.
 - **MetadataTemplate**: A named, admin-configured format string used to generate stream titles or descriptions. Contains placeholder tokens (e.g., `{Speaker}`, `{Title}`, `{Scripture}`, `{verseText}`) that are interpolated with SessionManifest values at stream start time.
 - **TemplateCategory**: Either `title` or `description`. Title templates and description templates are independent — a user selects one of each (description may be "None").
 - **ManageStreamsModal**: The modal UI that replaces the simple Start/Stop Stream buttons, allowing per-platform stream control during a live session.
+- **AdminIndexPage**: The landing page for ADMIN users at `/admin`, listing links to all admin management sections and the dashboard chooser.
 
 ---
 
@@ -38,10 +43,11 @@ See `docs/architecture-decisions/001-multi-platform-streaming.md` for the archit
 5. EACH platform admin page SHALL include a "Connect" button that initiates the OAuth 2.0 authorization flow for that platform, redirecting the admin to the platform's consent screen and handling the callback to store the resulting tokens.
 6. WHEN a platform is connected, THE admin page SHALL display the connected account name (YouTube channel name or Facebook page name) and a "Disconnect" button that revokes and removes the stored tokens.
 7. THE Backend SHALL validate stored OAuth tokens on startup by making a lightweight API call to each enabled platform; IF a token is invalid or expired and cannot be refreshed, THE Backend SHALL emit a Banner-level notification: "{Platform} authorization expired — an admin needs to reconnect."
+8. THE Backend SHALL expose OAuth callback endpoints (`GET /api/auth/callback/youtube` and `GET /api/auth/callback/facebook`) that receive the authorization code from the platform, exchange it for access and refresh tokens, encrypt and store the tokens in the `streaming_platforms` table, and redirect back to the corresponding admin platform page with a success or failure query parameter.
 
 ---
 
-### Requirement 2: OAuth Token Lifecycle
+### Requirement 2: OAuth Token Lifecycle and Prerequisites
 
 **User Story:** As a system operator, I want OAuth tokens to refresh automatically without any manual intervention, so that streaming works reliably every week without an admin needing to re-authorize before each service.
 
@@ -52,6 +58,8 @@ See `docs/architecture-decisions/001-multi-platform-streaming.md` for the archit
 3. WHEN a token refresh fails (e.g., user revoked access, Google Cloud project suspended), THE Backend SHALL mark the platform as unhealthy, emit a Banner-level notification identifying the affected platform, and exclude that platform from the stream start flow until an admin reconnects.
 4. THE Backend SHALL attempt token refresh proactively (before expiry) rather than waiting for an API call to fail; for YouTube, THE Backend SHALL refresh the access token when it is within 5 minutes of expiry.
 5. THE Backend SHALL NOT store plaintext tokens in logs, error messages, or API responses.
+6. THE Backend SHALL require the following environment variables for OAuth: `YOUTUBE_CLIENT_ID`, `YOUTUBE_CLIENT_SECRET`, `FACEBOOK_APP_ID`, `FACEBOOK_APP_SECRET`. IF any are missing at startup and the corresponding platform is enabled, THE Backend SHALL log a clear error identifying the missing variable(s). These values come from the Google Cloud Console and Facebook Developer portal respectively.
+7. `docs/setup.md` SHALL document the external prerequisites for each platform: (a) YouTube: create a Google Cloud project, enable the YouTube Data API v3, create OAuth 2.0 credentials (Web application type), and configure the authorized redirect URI to `{APP_URL}/api/auth/callback/youtube`. (b) Facebook: create a Facebook App, add the Live Video API product, and configure the Valid OAuth Redirect URI to `{APP_URL}/api/auth/callback/facebook`.
 
 ---
 
@@ -65,10 +73,9 @@ See `docs/architecture-decisions/001-multi-platform-streaming.md` for the archit
 2. THE Backend SHALL support the following placeholder tokens in templates: `{Date}`, `{Speaker}`, `{Title}`, `{Scripture}`, `{verseText}`. `{Date}` is always today's ISO 8601 date. `{Scripture}` resolves to the formatted reference (e.g., "John 3:16-17"). `{verseText}` resolves to the full KJV text of the referenced verse(s), formatted per Requirement 9.
 3. WHEN formatting the `{Scripture}` token, IF the stored scripture reference starts at verse 0, THE Backend SHALL display the range starting at verse 1 (e.g., a stored range of Psalm 23:0-2 displays as `Psalm 23:1-2`). IF the stored reference is a single verse 0 with no verseEnd, THE Backend SHALL display `Psalm 23` (chapter only, no verse number).
 4. THE Backend SHALL expose REST endpoints for creating, reading, updating, and deleting metadata templates; all endpoints SHALL require the ADMIN role.
-5. THE Frontend SHALL provide a template management section within the admin streaming configuration (route TBD) where an ADMIN can create, edit, and delete templates, specifying a name, category, and format string.
-6. WHEN interpolating `{verseText}`, THE Backend SHALL query the KJV database for all verses in the referenced range (bookId, chapter, verse through verseEnd) and concatenate their text with a single space between verses.
-7. IF a template contains `{verseText}` or `{Scripture}` and the SessionManifest has no scripture reference, THE Backend SHALL substitute `[No Scripture]` for `{Scripture}` and `[No Verse Text]` for `{verseText}`.
-8. AT LEAST one title template SHALL exist in the system; THE Backend SHALL reject deletion of the last remaining title template.
+5. THE Frontend SHALL provide a template management page at `/admin/templates` where an ADMIN can create, edit, and delete templates, specifying a name, category, and format string.
+6. IF a template contains `{verseText}` or `{Scripture}` and the SessionManifest has no scripture reference, THE Backend SHALL substitute `[No Scripture]` for `{Scripture}` and `[No Verse Text]` for `{verseText}`.
+7. AT LEAST one title template SHALL exist in the system; THE Backend SHALL reject deletion of the last remaining title template.
 
 ---
 
@@ -78,13 +85,15 @@ See `docs/architecture-decisions/001-multi-platform-streaming.md` for the archit
 
 #### Acceptance Criteria
 
-1. THE Frontend SHALL present two side-by-side dropdowns (stacked on narrow viewports) for template selection: one for title templates and one for description templates. The description dropdown SHALL include a "None" option.
-2. UNTIL both dropdowns have a selection (title is required; description may be "None"), THE Frontend SHALL NOT display metadata input fields; instead, THE Frontend SHALL display a semi-transparent message: "Choose templates".
+1. THE Frontend SHALL present two side-by-side dropdowns (stacked on narrow viewports) for template selection in the SessionManifestModal: one labeled "Title Format" for title templates and one labeled "Description Format" for description templates. The description dropdown SHALL include a "None" option.
+2. UNTIL both dropdowns have a selection (title is required; description may be "None"), THE Frontend SHALL NOT display metadata input fields; instead, THE Frontend SHALL display a message in muted text: "Select a title format above to continue".
 3. AFTER both templates are selected, THE Frontend SHALL compute the union of all unique placeholder tokens across both selected templates and present one input field per unique token. If both the title and description templates reference `{Title}`, the user sees one Title input — not two.
 4. `{Scripture}` and `{verseText}` SHALL share a single scripture reference input. If either token appears in any selected template, the scripture reference picker SHALL be shown exactly once.
 5. `{Date}` SHALL NOT produce an input field — it is always auto-populated by the backend.
 6. WHEN the user switches between templates, THE Frontend SHALL preserve all previously entered field values. Switching from a template that uses `{Scripture}` to one that does not SHALL NOT clear the scripture reference — it remains available if the user switches back.
 7. THE Frontend SHALL disable the Save button until all required fields for the selected templates have values. A field is required if its corresponding token appears in either selected template (excluding `{Date}`).
+8. THE selected template IDs (`titleTemplateId` and `descriptionTemplateId`) SHALL be included in the SessionManifest and persisted to the backend alongside other manifest fields. This ensures template selections survive page refreshes and are visible to all connected clients.
+9. THE Frontend SHALL store the most recently used template IDs in localStorage (keyed per device, not per user). WHEN the SessionManifestModal opens and no templates are selected in the current SessionManifest, THE Frontend SHALL pre-select the last-used templates from localStorage. This eliminates the template selection step for repeat use on the same device.
 
 ---
 
@@ -94,13 +103,15 @@ See `docs/architecture-decisions/001-multi-platform-streaming.md` for the archit
 
 #### Acceptance Criteria
 
-1. THE Backend SHALL manage a `node-media-server` instance as the local RTMP relay, listening on a configurable port (default: `1935`, configurable via `RELAY_PORT` environment variable).
+1. THE Backend SHALL start a `node-media-server` instance as the local RTMP relay on backend startup, listening on a configurable port (default: `1935`, configurable via `RELAY_PORT` environment variable). The relay runs for the lifetime of the backend process — it is not started/stopped per streaming session.
 2. THE relay SHALL accept exactly one inbound RTMP stream from OBS at the path `/live/stream`.
 3. THE Backend SHALL spawn one FFmpeg child process per active streaming destination; each process SHALL read from the local relay and forward to the platform's RTMP ingest URL using `-c copy` (no re-encoding).
-4. WHEN a single FFmpeg forwarder process exits unexpectedly, THE Backend SHALL NOT terminate other active forwarders; THE Backend SHALL emit a Banner-level notification identifying the affected platform and allow the user to restart that platform's stream independently.
+4. WHEN a single FFmpeg forwarder process exits unexpectedly, THE Backend SHALL NOT terminate other active forwarders; THE Backend SHALL capture the FFmpeg process's stderr output, log it, and emit a Banner-level notification identifying the affected platform with a summary of the error (e.g., "YouTube stream failed: Connection refused") to help the volunteer or admin diagnose the issue.
 5. THE Backend SHALL configure OBS (via `obs-websocket` `SetStreamServiceSettings`) to stream to `rtmp://localhost:{RELAY_PORT}/live/stream` before starting the OBS stream.
-6. IF the relay process crashes, THE Backend SHALL detect the failure, attempt to restart the relay, and emit a Banner-level notification. OBS's built-in reconnect logic will re-establish the connection to the relay once it is back.
-7. FFmpeg SHALL be a documented prerequisite in `docs/setup.md`; THE Backend SHALL verify FFmpeg is available on the system PATH at startup and log a clear error if it is not found.
+6. IF the relay fails to start (e.g., port already in use), THE Backend SHALL log a clear error message identifying the port conflict and SHALL NOT attempt to start platform streams. THE Backend SHALL emit a Banner-level notification: "RTMP relay failed to start — check server logs."
+7. IF the relay crashes during operation, THE Backend SHALL detect the failure, attempt to restart the relay, and emit a Banner-level notification. OBS's built-in reconnect logic will re-establish the connection to the relay once it is back.
+8. FFmpeg SHALL be a documented prerequisite in `docs/setup.md`; THE Backend SHALL verify FFmpeg is available on the system PATH at startup and log a clear error if it is not found.
+9. WHEN the backend process exits (gracefully or via crash), THE relay and all FFmpeg child processes SHALL be cleaned up. The backend SHALL register signal handlers (`SIGTERM`, `SIGINT`) to terminate child processes on shutdown. For crash scenarios, FFmpeg processes are orphaned but will self-terminate when their RTMP input source (the relay) disappears.
 
 ---
 
@@ -110,14 +121,16 @@ See `docs/architecture-decisions/001-multi-platform-streaming.md` for the archit
 
 #### Acceptance Criteria
 
-1. WHEN the user taps "Manage Streams" (replacing the previous "Start Stream" button), THE Frontend SHALL open the ManageStreamsModal.
+1. WHEN the user taps "Manage Streams" (replacing the previous "Start Stream" button), THE Frontend SHALL open the ManageStreamsModal. The "Manage Streams" button coexists alongside the existing Start/Stop Recording button in the OBS widget.
 2. IF no platforms are configured and enabled, THE ManageStreamsModal SHALL display a message: "No streaming platforms configured. Contact an administrator."
 3. THE ManageStreamsModal SHALL list all configured and enabled platforms with their current status (Idle, Starting, Streaming, Stopping, Error) and available actions.
-4. WHEN the user initiates "Start All" or starts an individual platform, THE Backend SHALL execute the following sequence per platform: (a) create the broadcast via the platform's API with the interpolated title and description, (b) obtain the RTMP ingest URL, (c) ensure the RTMP relay is running, (d) ensure OBS is streaming to the relay, (e) spawn an FFmpeg forwarder process for that platform, (f) transition the platform broadcast to live status.
+4. WHEN the user initiates "Start All" or starts an individual platform, THE Backend SHALL execute the following sequence per platform: (a) create the broadcast via the platform's API with the interpolated title and description, (b) obtain the RTMP ingest URL, (c) ensure OBS is streaming to the relay (configure OBS stream settings and start OBS stream if not already streaming), (d) spawn an FFmpeg forwarder process for that platform, (e) transition the platform broadcast to live status once the platform detects incoming stream data.
 5. IF a platform broadcast creation fails, THE Backend SHALL skip that platform, continue with remaining platforms, and emit a Banner-level notification identifying the failed platform and the reason.
 6. THE "Start All" button SHALL be disabled (greyed out) when all configured platforms are already streaming.
 7. BEFORE starting any platform stream, THE Frontend SHALL display a ConfirmationModal: "Start streaming to {platform list}?" with confirm label "Go Live" and cancel label "Cancel".
 8. THE "Manage Streams" button SHALL be disabled unless the SessionManifest contains at least the fields required by the selected templates; THE button SHALL display a sub-label "Enter metadata" when disabled due to missing metadata.
+9. IF any step in the platform start sequence does not complete within 30 seconds, THE Backend SHALL transition that platform's status to "Error" with a descriptive timeout message and continue with remaining platforms.
+10. FOR YouTube, THE Backend SHALL retry the broadcast transition to "live" up to 3 times with a 5-second delay between attempts, because YouTube requires the stream to be actively receiving data before the transition succeeds. IF all retries fail, THE Backend SHALL transition the platform status to "Error".
 
 ---
 
@@ -127,9 +140,9 @@ See `docs/architecture-decisions/001-multi-platform-streaming.md` for the archit
 
 #### Acceptance Criteria
 
-1. THE ManageStreamsModal SHALL display each platform as a row with: platform name, current status, and action button(s).
+1. THE ManageStreamsModal SHALL display each platform as a full-width row (not a compact table) with: platform name, current status with health indicator, and action button(s). Each row SHALL meet WCAG 2.5.5 touch target minimums for the action button.
 2. FOR a platform with status "Streaming", THE action SHALL be "Stop Stream"; tapping it SHALL display a ConfirmationModal: "Stop streaming to {platform}?" before proceeding.
-3. FOR a platform with status "Idle" or "Error", THE action SHALL be "Start Stream"; tapping it SHALL initiate the platform start sequence for that single platform.
+3. FOR a platform with status "Idle" or "Error", THE action SHALL be "Start Stream"; tapping it SHALL initiate the platform start sequence for that single platform. IF OBS is not currently streaming to the relay (e.g., all platforms were previously stopped per Req 7.7), THE Backend SHALL restart OBS streaming to the relay before spawning the FFmpeg forwarder.
 4. WHEN a platform stream is stopped, THE Backend SHALL: (a) terminate the FFmpeg forwarder process for that platform, (b) end the broadcast via the platform's API (YouTube: transition to `complete`; Facebook: end the live video), (c) update the platform status to "Idle".
 5. THE "Stop All" button SHALL be disabled (greyed out) when no platforms are currently streaming.
 6. THE "Stop All" action SHALL display a ConfirmationModal: "Stop all streams?" before proceeding.
@@ -151,7 +164,7 @@ See `docs/architecture-decisions/001-multi-platform-streaming.md` for the archit
 6. IF a platform's stream health degrades to a critical level, THE Backend SHALL emit a Banner-level notification: "{Platform} stream quality is poor."
 7. WHILE at least one platform is actively streaming, THE OBS Widget's `WidgetContainer` SHALL display a "Stream" connection status indicator. This indicator SHALL NOT appear when no platforms are streaming.
 8. THE "Stream" connection status indicator SHALL use a three-state model: (a) green solid dot (`healthy`) when all active platform streams report good health, (b) yellow/amber solid dot (`degraded`) when any active platform stream reports degraded quality but none have fully failed, (c) red blinking dot (`unhealthy`) when any active platform stream has fully failed (FFmpeg process exited, platform API reports stream down).
-9. THE existing `ConnectionStatus` model SHALL be extended from a boolean `healthy` field to a three-value `status` field: `"healthy"` | `"degraded"` | `"unhealthy"`. The `WidgetContainer` title bar SHALL render a yellow/amber solid dot for `degraded` — visually distinct from both the green healthy dot and the red blinking unhealthy dot.
+9. THE existing `ConnectionStatus` model SHALL be extended from a boolean `healthy` field to a three-value `status` field: `"healthy"` | `"degraded"` | `"unhealthy"`. The `WidgetContainer` title bar SHALL render a yellow/amber solid dot for `degraded` — visually distinct from both the green healthy dot and the red blinking unhealthy dot. The amber color SHALL be `color-warning` (`#F39C12`) which has a verified ~8.6:1 contrast ratio against `color-bg` (`#1A1A1A`).
 10. WHEN the user taps the connection indicators section, THE popover SHALL show the "Stream" entry with the worst-case status and list which platform(s) are degraded or failed.
 
 ---
@@ -167,7 +180,7 @@ See `docs/architecture-decisions/001-multi-platform-streaming.md` for the archit
    - Line 1: the formatted scripture reference (e.g., `John 3:16-17`)
    - Subsequent lines: each verse prefixed with its verse number and a period (e.g., `16. For God so loved...`)
    - Each verse on its own line, separated by newlines
-3. FOR a single verse (no verseEnd), THE Backend SHALL format the output as a single line: the formatted scripture reference, an em dash (`–`), and the verse text (e.g., `John 3:16 – For God so loved the world...`).
+3. FOR a single verse (no verseEnd), THE Backend SHALL format the output as a single line: the formatted scripture reference, an em dash (` – `), and the verse text (e.g., `John 3:16 – For God so loved the world...`).
 4. IF verse 0 is included in the range (i.e., the stored verse value is 0), THE Backend SHALL: (a) output verse 0's text on its own line immediately after the reference line with no number prefix, (b) exclude verse 0 from the displayed reference range — the displayed range starts at verse 1 (e.g., a stored range of Psalm 23:0-2 displays as `Psalm 23:1-2` in the reference, with verse 0's text appearing unnumbered before verse 1).
 5. IF no scripture reference is set in the SessionManifest, THE Backend SHALL substitute `[No Verse Text]` for the `{verseText}` token.
 6. THE `{verseText}` token and the `{Scripture}` token SHALL share the same scripture reference input — if either appears in any selected template, the scripture reference picker is shown once, and the single reference is used for both tokens.
@@ -184,3 +197,30 @@ See `docs/architecture-decisions/001-multi-platform-streaming.md` for the archit
 2. THE platform admin pages SHALL be registered via a platform registry pattern so that adding a new platform requires: (a) creating a new page component file, (b) adding an entry to the registry. No existing platform files are modified.
 3. EACH platform admin page SHALL handle its own OAuth flow, display its own configuration fields, and manage its own connection status independently.
 4. THE Backend SHALL use a similar modular pattern for platform API integrations — each platform's API client is a separate module implementing a common `StreamingPlatformClient` interface.
+
+---
+
+### Requirement 11: Admin Index Page
+
+**User Story:** As an administrator, I want a central admin page that links to all management sections, so that I can navigate to any admin function without memorizing URLs.
+
+#### Acceptance Criteria
+
+1. THE Frontend SHALL provide an Admin Index Page at `/admin` accessible only to authenticated ADMIN users.
+2. THE Admin Index Page SHALL display links to all admin management sections: User Management (`/admin/users`), Device Management (`/admin/devices`), Streaming Platforms (`/admin/platforms/youtube`, `/admin/platforms/facebook`), Metadata Templates (`/admin/templates`), and the Dashboard Chooser.
+3. WHEN an ADMIN user logs in (and has completed any required password change), THE Frontend SHALL navigate to `/admin` instead of the Dashboard Selection Screen. Non-ADMIN users continue to navigate to the Dashboard Selection Screen.
+4. THE `GlobalTitleBar` dashboard navigation label SHALL link to `/admin` for ADMIN users instead of the Dashboard Selection Screen.
+
+---
+
+### Requirement 12: Interaction Flow Between Metadata and Stream Management
+
+**User Story:** As a volunteer, I want a clear, sequential workflow for entering metadata and starting streams, so that I don't have to guess which step comes first.
+
+#### Acceptance Criteria
+
+1. Metadata entry (template selection and field input) SHALL happen in the SessionManifestModal. Stream platform management (start/stop per platform) SHALL happen in the ManageStreamsModal. These are separate modals with separate concerns.
+2. THE SessionManifestModal SHALL be opened via the existing metadata preview row / pencil icon in the OBS widget, unchanged from the original spec.
+3. THE ManageStreamsModal SHALL be opened via the "Manage Streams" button in the OBS widget.
+4. THE "Manage Streams" button SHALL be disabled with sub-label "Enter metadata" until the SessionManifest contains all fields required by the selected templates. This guides the volunteer to complete metadata entry before attempting to start streams.
+5. IF the volunteer taps the disabled "Manage Streams" button and the only reason it is disabled is missing metadata (OBS is connected, templates are selected), THE Frontend SHALL open the SessionManifestModal directly — the same behavior as the existing disabled "Start Stream" button.
