@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { renderHook } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { renderHook, act } from "@testing-library/react";
 import { useAuth } from "./useAuth";
 import { useStore } from "../store";
 import { INITIAL_OBS_STATE } from "../store/obsSlice";
@@ -17,7 +17,9 @@ beforeEach(() => {
 
 describe("useAuth", () => {
   it("throws when user is null", () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
     expect(() => renderHook(() => useAuth())).toThrow("useAuth must be called inside an authenticated route tree");
+    spy.mockRestore();
   });
 
   it("returns the user from the store", () => {
@@ -52,11 +54,12 @@ describe("useAuth", () => {
 
   it("updates when store changes", () => {
     useStore.getState().setUser({ id: "u1", username: "admin", role: "ADMIN" });
-    const { result, rerender } = renderHook(() => useAuth());
+    const { result } = renderHook(() => useAuth());
     expect(result.current.user.username).toBe("admin");
 
-    useStore.getState().setUser({ id: "u2", username: "vol", role: "AvVolunteer" });
-    rerender();
+    act(() => {
+      useStore.getState().setUser({ id: "u2", username: "vol", role: "AvVolunteer" });
+    });
     expect(result.current.user.username).toBe("vol");
   });
 });

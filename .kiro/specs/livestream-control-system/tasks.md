@@ -209,34 +209,34 @@ Tests are part of each story's definition of done. Unit tests (including propert
 
 ## Auth UI
 
-- [ ] 54. Create frontend LoginPage — src/pages/LoginPage.tsx (username/password form with clearInput, Remember Me checkbox, POST /auth/login, stores user in authSlice, redirects based on requiresPasswordChange)
+- [x] 54. Create frontend LoginPage — src/pages/LoginPage.tsx (username/password form with clearInput, Remember Me checkbox, POST /auth/login, stores user in authSlice, redirects based on requiresPasswordChange)
   - _Requirements: 6, 20_
 
-- [ ] 55. Write unit tests for LoginPage — form submits credentials, successful login stores user and redirects, failed login shows error, requiresPasswordChange redirects to /change-password, Remember Me checkbox present (mock fetch, mock store)
+- [x] 55. Write unit tests for LoginPage — form submits credentials, successful login stores user and redirects, failed login shows error, requiresPasswordChange redirects to /change-password, Remember Me checkbox present (mock fetch, mock store)
   - _Requirements: 6, 20_
 
-- [ ] 56. Create frontend ChangePasswordPage — src/pages/ChangePasswordPage.tsx (new password form, POST /admin/users/:id/change-password, redirect to /dashboards on success)
+- [x] 56. Create frontend ChangePasswordPage — src/pages/ChangePasswordPage.tsx (new password form, POST /admin/users/:id/change-password, redirect to /dashboards on success)
   - _Requirements: 13_
 
-- [ ] 57. Write unit tests for ChangePasswordPage — form submits new password, success redirects to /dashboards, error displays inline message (mock fetch)
+- [x] 57. Write unit tests for ChangePasswordPage — form submits new password, success redirects to /dashboards, error displays inline message (mock fetch)
   - _Requirements: 13_
 
-- [ ] 58. Create frontend GlobalTitleBar — src/components/GlobalTitleBar.tsx (username, role, dashboard nav label, Logout; reduced variant on /change-password; nav label tap always navigates to /dashboards; Logout clears localStorage and redirects)
+- [x] 58. Create frontend GlobalTitleBar — src/components/GlobalTitleBar.tsx (username, role, dashboard nav label, Logout; reduced variant on /change-password; nav label tap always navigates to /dashboards; Logout clears localStorage and redirects)
   - _Requirements: 5c_
 
-- [ ] 59. Write unit tests for GlobalTitleBar — displays username and role, nav label navigates to /dashboards, Logout clears store and redirects to /login, reduced variant renders on /change-password (mock useAuth, mock router)
+- [x] 59. Write unit tests for GlobalTitleBar — displays username and role, nav label navigates to /dashboards, Logout clears store and redirects to /login, reduced variant renders on /change-password (mock useAuth, mock router)
   - _Requirements: 5c_
 
-- [ ] 60. Create frontend DashboardSelectionScreen — src/pages/DashboardSelectionScreen.tsx (fetches GET /api/dashboards, lists dashboards with name/description, no-dashboards state, stores dashboardId in localStorage, auto-selects if exactly one on initial auth)
+- [x] 60. Create frontend DashboardSelectionScreen — src/pages/DashboardSelectionScreen.tsx (fetches GET /api/dashboards, lists dashboards with name/description, no-dashboards state, stores dashboardId in localStorage, auto-selects if exactly one on initial auth)
   - _Requirements: 5_
 
-- [ ] 61. Write unit tests for DashboardSelectionScreen — renders dashboard list from API, no-dashboards empty state, selecting a dashboard stores id and navigates, auto-selects single dashboard on initial auth (mock fetch)
+- [x] 61. Write unit tests for DashboardSelectionScreen — renders dashboard list from API, no-dashboards empty state, selecting a dashboard stores id and navigates, auto-selects single dashboard on initial auth (mock fetch)
   - _Requirements: 5_
 
-- [ ] 62. Create frontend Dashboard page — src/pages/Dashboard.tsx (all 8 selection flows, GridManifest loading with localStorage cache fallback, Loading/Refreshing spinners, structural change detection, 5×3 landscape / 3×5 portrait grid, widgetId → component mapping)
+- [x] 62. Create frontend Dashboard page — src/pages/Dashboard.tsx (all 8 selection flows, GridManifest loading with localStorage cache fallback, Loading/Refreshing spinners, structural change detection, 5×3 landscape / 3×5 portrait grid, widgetId → component mapping)
   - _Requirements: 5b, 18_
 
-- [ ] 63. Write unit tests for Dashboard — renders correct grid layout, shows Loading spinner on first load, shows Refreshing spinner on refresh, falls back to localStorage cache on fetch failure, structural change triggers re-render, widgetId maps to correct component (mock fetch, mock store)
+- [x] 63. Write unit tests for Dashboard — renders correct grid layout, shows Loading spinner on first load, shows Refreshing spinner on refresh, falls back to localStorage cache on fetch failure, structural change triggers re-render, widgetId maps to correct component (mock fetch, mock store)
   - _Requirements: 5b, 18_
 
 - [ ] 64. Create Playwright fixture infrastructure — playwright/fixtures/payloads/obs.ts, auth.ts, session.ts (typed factory functions with happy-path defaults and partial overrides) and playwright/support/routes/obs.ts, auth.ts, session.ts (shared HTTP and WebSocket route handlers)

@@ -7,6 +7,11 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     setupFiles: ["./src/test/setup.ts"],
+    server: {
+      deps: {
+        inline: ["@ionic/core", "@ionic/react", "@ionic/react-router", "ionicons"],
+      },
+    },
     coverage: {
       provider: "v8",
       include: ["src/**/*.{ts,tsx}"],

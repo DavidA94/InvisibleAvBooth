@@ -53,3 +53,18 @@ export interface Notification {
   errorCode?: string;
   autoResolve?: boolean;
 }
+
+export interface GridManifest {
+  version: 1;
+  cells: GridCell[];
+}
+
+export interface GridCell {
+  widgetId: string;
+  title: string;
+  col: number;
+  row: number;
+  colSpan: number;
+  rowSpan: number;
+  roleMinimum: Role;
+}
