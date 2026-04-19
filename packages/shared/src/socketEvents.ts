@@ -12,6 +12,7 @@
 export const CTS_OBS_COMMAND = "cts:obs:command" as const;
 export const CTS_OBS_RECONNECT = "cts:obs:reconnect" as const;
 export const CTS_SESSION_MANIFEST_UPDATE = "cts:session:manifest:update" as const;
+export const CTS_REQUEST_INITIAL_STATE = "cts:request:initial:state" as const;
 
 // ── Server → Client ───────────────────────────────────────────────────────────
 

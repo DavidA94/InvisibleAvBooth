@@ -1892,7 +1892,7 @@ Socket.io handles this automatically: it detects the dropped connection and begi
 When Socket.io successfully reconnects:
 
 1. The SocketGateway re-validates the JWT on the reconnect handshake (see JWT Expiry section above).
-2. If the JWT is still valid, the backend emits the current state for all devices to the reconnected client — the frontend reconciles to the fresh state.
+2. If the JWT is still valid, the frontend emits `cts:request:initial:state` after re-establishing listeners — the backend responds with the current state for all devices and the frontend reconciles to the fresh state.
 3. The frontend dismisses the "Connection lost" Banner and shows a Toast: `"Reconnected"`.
 4. Controls are re-enabled.
 

@@ -81,7 +81,7 @@ Invisible A/V Booth is a web-based, touch-first control interface for managing c
 
 1. THE Backend SHALL use Socket.io to broadcast device state changes to all connected clients.
 2. WHEN a device state changes (via polling or command confirmation), THE Backend SHALL emit a state update event to all subscribed clients within 500ms of detecting the change.
-3. WHEN a client connects, THE Backend SHALL emit the current known state for all devices to that client.
+3. WHEN a client connects and emits `cts:request:initial:state`, THE Backend SHALL respond with the current known state for all devices to that client. Initial state is not emitted automatically on connect — the client must request it after setting up its listeners to avoid a race condition.
 4. WHILE a pollable device is connected, THE Backend SHALL poll the device at a configured interval and reconcile any differences between polled state and commandedState.
 5. WHEN a manual adjustment is detected on a pollable device (e.g., a physical fader moved on the XR18), THE Backend SHALL update its internal state and broadcast the reconciled state to all clients.
 6. FOR event-driven devices (e.g., OBS via obs-websocket), THE Backend SHALL reconcile `commandedState` against real-time state events pushed by the device and broadcast the authoritative state to all clients.
@@ -423,7 +423,7 @@ Invisible A/V Booth is a web-based, touch-first control interface for managing c
 1. WHEN the frontend Socket.io connection drops (e.g., tablet Wi-Fi lost), THE Frontend SHALL display a persistent, non-dismissable Banner: "Connection lost — reconnecting…"
 2. WHILE the Socket.io connection is dropped, THE Frontend SHALL disable all OBS command controls so the volunteer cannot issue commands that would be silently lost.
 3. WHILE the Socket.io connection is dropped, THE `WidgetContainer` connection status indicator SHALL show the unhealthy (red) state, since the backend connection is lost and device state cannot be confirmed.
-4. WHEN the Socket.io connection is restored, THE Backend SHALL emit the current state for all devices to the reconnected client; THE Frontend SHALL reconcile to the fresh state, dismiss the "Connection lost" Banner, and display a Toast: "Reconnected".
+4. WHEN the Socket.io connection is restored, THE Frontend SHALL emit `cts:request:initial:state` to receive the current state for all devices; THE Frontend SHALL reconcile to the fresh state, dismiss the "Connection lost" Banner, and display a Toast: "Reconnected".
 5. WHEN the Socket.io connection is restored, THE Frontend SHALL re-enable all controls.
 6. THE Frontend SHALL rely on Socket.io's built-in reconnection — no manual "Retry Connection" button is shown for tablet network loss. The "Retry Connection" affordance is reserved exclusively for OBS reconnection exhaustion.
 

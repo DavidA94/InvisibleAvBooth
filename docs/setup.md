@@ -4,6 +4,7 @@
 
 - Node.js 20+
 - `bibledb_kjv.sql` in the repo root (not committed — obtain separately)
+- OBS Studio installed with stream settings configured (Settings → Stream → Service, Server, and Stream Key). The backend controls OBS start/stop and metadata, but the stream destination must be configured in OBS directly.
 
 ---
 

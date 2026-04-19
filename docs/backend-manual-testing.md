@@ -344,6 +344,14 @@ To get the raw JWT token value (not the cookie), you can decode it from the `tok
 
 ### Events to emit (client → server)
 
+#### Request initial state
+
+After connecting and setting up your listeners, emit this to receive the current state from all modules. This avoids the race condition where the server emits initial state before the client is listening.
+
+Event: `cts:request:initial:state`
+
+No payload needed.
+
 #### Start stream
 
 Event: `cts:obs:command`

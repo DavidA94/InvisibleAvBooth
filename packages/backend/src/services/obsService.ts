@@ -86,6 +86,7 @@ export class ObsService {
     try {
       const url = `ws://${config.host}:${config.port}`;
       const password = config.encryptedPassword ? decrypt(config.encryptedPassword) : undefined;
+      logger.debug("Connecting to OBS", { url });
       await this.obs.connect(url, password);
 
       this.retryAttempt = 0;

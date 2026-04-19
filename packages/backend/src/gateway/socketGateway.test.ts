@@ -118,9 +118,7 @@ describe("SocketGateway — module delegation", () => {
     await new Promise<void>((resolve) => setTimeout(resolve, 20));
 
     expect(moduleA.registerSocket).toHaveBeenCalledOnce();
-    expect(moduleA.emitInitialState).toHaveBeenCalledOnce();
     expect(moduleB.registerSocket).toHaveBeenCalledOnce();
-    expect(moduleB.emitInitialState).toHaveBeenCalledOnce();
   });
 
   it("passes an AuthenticatedSocket with jwtPayload to modules", async () => {

@@ -3,6 +3,7 @@ import type { Server as HttpServer } from "http";
 import type { AuthService, JwtPayload } from "../services/authService.js";
 import type { SocketModule } from "./modules/socketModule.js";
 import { logger } from "../logger.js";
+import { CTS_REQUEST_INITIAL_STATE } from "@invisible-av-booth/shared";
 
 // SocketGateway is responsible for:
 //   1. Establishing the Socket.io server
@@ -65,11 +66,19 @@ export class SocketGateway {
 
       logger.info("Socket connected", { userId: jwtPayload.sub });
 
-      // Register per-socket event handlers and emit initial state for each module.
+      // Register per-socket event handlers for each module.
       for (const module of this.modules) {
         module.registerSocket(auth);
-        module.emitInitialState(auth);
       }
+
+      // Initial state is NOT emitted automatically on connect — the client must
+      // emit cts:request:initial:state after its listeners are ready. This avoids
+      // the race condition where the server emits before the client is listening.
+      socket.on(CTS_REQUEST_INITIAL_STATE, () => {
+        for (const module of this.modules) {
+          module.emitInitialState(auth);
+        }
+      });
 
       socket.on("disconnect", () => {
         logger.info("Socket disconnected", { userId: jwtPayload.sub });

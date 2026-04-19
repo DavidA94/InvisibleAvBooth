@@ -12,15 +12,16 @@ export interface AuthenticatedSocket {
 // SocketGateway calls each method at the appropriate lifecycle point.
 //
 // Lifecycle:
-//   1. register(io)         — called once at gateway startup; subscribe to EventBus
-//                             events and set up io-level broadcasts (`stc` events)
-//   2. registerSocket(auth) — called per authenticated connection; set up per-socket
-//                             `cts` event handlers
-//   3. emitInitialState(auth) — called per authenticated connection after registerSocket;
-//                               push current state to the newly connected client
+//   1. register(io)           — called once at gateway startup; subscribe to EventBus
+//                               events and set up io-level broadcasts (stc: events)
+//   2. registerSocket(auth)   — called per authenticated connection; set up per-socket
+//                               cts: event handlers
+//   3. emitInitialState(auth) — called when the client emits cts:request:initial:state;
+//                               push current state to the requesting client
 //
-// Order of emitInitialState calls across modules is not guaranteed and should not matter.
-// If ordering ever becomes significant, document it explicitly in the module.
+// Initial state is NOT emitted automatically on connect. The client must explicitly
+// request it after setting up its listeners. This eliminates the race condition where
+// the server emits before the client is listening.
 export interface SocketModule {
   register(io: Server): void;
   registerSocket(auth: AuthenticatedSocket): void;

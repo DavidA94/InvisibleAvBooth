@@ -105,7 +105,7 @@ describe("registerSocket", () => {
     if (errorMessage) {
       expect(ackCallback).toHaveBeenCalledWith({ success: false, error: errorMessage });
     } else {
-      expect(ackCallback).toHaveBeenCalledWith({ success: true });
+      expect(ackCallback).toHaveBeenCalledWith({ success: true, state: idleState });
     }
     // @ts-expect-error TS doesn't understand that we can reference function calls like this
     expect(obsService[command]).toHaveBeenCalledOnce();

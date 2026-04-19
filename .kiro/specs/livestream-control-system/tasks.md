@@ -169,7 +169,7 @@ Tests are part of each story's definition of done. Unit tests (including propert
 - [ ] 41. Write unit tests for frontend store slices — authSlice, obsSlice, sessionManifestSlice, notificationSlice: state transitions, action correctness, initial state (useStore.setState reset between tests)
   - _Requirements: 4, 11_
 
-- [ ] 42. Create frontend SocketProvider — src/providers/SocketProvider.tsx (Socket.io connection after auth, all event listeners wiring to store actions, socket context for command emission, tablet network loss banner handling)
+- [ ] 42. Create frontend SocketProvider — src/providers/SocketProvider.tsx (Socket.io connection after auth, all event listeners wiring to store actions, emits cts:request:initial:state after listeners are ready, socket context for command emission, tablet network loss banner handling, re-emits cts:request:initial:state on reconnect)
   - _Requirements: 4, 23_
 
 - [ ] 43. Write unit tests for SocketProvider — socket connects after auth, disconnects on logout, each incoming event updates the correct store slice, network loss banner appears on disconnect (mock Socket.io client)

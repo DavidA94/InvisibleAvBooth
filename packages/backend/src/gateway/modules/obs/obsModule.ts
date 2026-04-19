@@ -13,6 +13,7 @@ interface ObsCommand {
 interface CommandResult {
   success: boolean;
   error?: string;
+  state?: ObsState;
 }
 
 export class ObsModule implements SocketModule {
@@ -64,7 +65,7 @@ export class ObsModule implements SocketModule {
             return;
         }
         logger.info("OBS Command finished", { ...baseLogPayload, result });
-        ack(result.success ? { success: true } : { success: false, error: result.error.message });
+        ack(result.success ? { success: true, state: result.value } : { success: false, error: result.error.message });
       } catch (err: unknown) {
         logger.info("OBS Command Failed", { ...baseLogPayload, err });
         ack({ success: false, error: err instanceof Error ? err.message : String(err) });
@@ -79,6 +80,8 @@ export class ObsModule implements SocketModule {
   }
 
   emitInitialState(auth: AuthenticatedSocket): void {
-    auth.socket.emit(STC_OBS_STATE, this.obsService.getState());
+    const state = this.obsService.getState();
+    logger.info("Emitting initial OBS state", { userId: auth.jwtPayload.sub, context: { state } });
+    auth.socket.emit(STC_OBS_STATE, state);
   }
 }
