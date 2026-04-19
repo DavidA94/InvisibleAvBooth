@@ -62,8 +62,9 @@ See `docs/architecture-decisions/001-multi-platform-streaming.md` for the archit
 #### Acceptance Criteria
 
 1. THE Backend SHALL store metadata templates in a `metadata_templates` database table with fields: `id`, `name` (admin-provided display name, e.g., "Speaker and Title"), `category` (`"title"` or `"description"`), `formatString` (the template with placeholder tokens), and `createdAt`.
-2. THE Backend SHALL support the following placeholder tokens in templates: `{Date}`, `{Speaker}`, `{Title}`, `{Scripture}`, `{verseText}`. `{Date}` is always today's ISO 8601 date. `{Scripture}` resolves to the formatted reference (e.g., "John 3:16-17"). `{verseText}` resolves to the full KJV text of the referenced verse(s).
-3. THE Backend SHALL expose REST endpoints for creating, reading, updating, and deleting metadata templates; all endpoints SHALL require the ADMIN role.
+2. THE Backend SHALL support the following placeholder tokens in templates: `{Date}`, `{Speaker}`, `{Title}`, `{Scripture}`, `{verseText}`. `{Date}` is always today's ISO 8601 date. `{Scripture}` resolves to the formatted reference (e.g., "John 3:16-17"). `{verseText}` resolves to the full KJV text of the referenced verse(s), formatted per Requirement 9.
+3. WHEN formatting the `{Scripture}` token, IF the stored scripture reference starts at verse 0, THE Backend SHALL display the range starting at verse 1 (e.g., a stored range of Psalm 23:0-2 displays as `Psalm 23:1-2`). IF the stored reference is a single verse 0 with no verseEnd, THE Backend SHALL display `Psalm 23` (chapter only, no verse number).
+4. THE Backend SHALL expose REST endpoints for creating, reading, updating, and deleting metadata templates; all endpoints SHALL require the ADMIN role.
 4. THE Frontend SHALL provide a template management section within the admin streaming configuration (route TBD) where an ADMIN can create, edit, and delete templates, specifying a name, category, and format string.
 5. WHEN interpolating `{verseText}`, THE Backend SHALL query the KJV database for all verses in the referenced range (bookId, chapter, verse through verseEnd) and concatenate their text with a single space between verses.
 6. IF a template contains `{verseText}` or `{Scripture}` and the SessionManifest has no scripture reference, THE Backend SHALL substitute `[No Scripture]` for `{Scripture}` and `[No Verse Text]` for `{verseText}`.
@@ -157,11 +158,15 @@ See `docs/architecture-decisions/001-multi-platform-streaming.md` for the archit
 
 #### Acceptance Criteria
 
-1. WHEN a template contains the `{verseText}` token, THE Backend SHALL query the `kjv` table for all verses matching the current SessionManifest's scripture reference (bookId, chapter, verse through verseEnd inclusive).
-2. THE Backend SHALL concatenate the verse texts with a single space separator, preserving the database order (by VERSENO).
-3. IF the scripture reference is a single verse (no verseEnd), THE Backend SHALL return that single verse's text.
-4. IF no scripture reference is set in the SessionManifest, THE Backend SHALL substitute `[No Verse Text]` for the `{verseText}` token.
-5. THE `{verseText}` token and the `{Scripture}` token SHALL share the same scripture reference input — if either appears in any selected template, the scripture reference picker is shown once, and the single reference is used for both tokens.
+1. WHEN a template contains the `{verseText}` token, THE Backend SHALL query the `kjv` table for all verses matching the current SessionManifest's scripture reference (bookId, chapter, verse through verseEnd inclusive, including verse 0 if it falls within the range).
+2. FOR a multi-verse range (verseEnd is present and differs from verse after normalization), THE Backend SHALL format the output as:
+   - Line 1: the formatted scripture reference (e.g., `John 3:16-17`)
+   - Subsequent lines: each verse prefixed with its verse number and a period (e.g., `16. For God so loved...`)
+   - Each verse on its own line, separated by newlines
+3. FOR a single verse (no verseEnd), THE Backend SHALL format the output as a single line: the formatted scripture reference, an em dash (` – `), and the verse text (e.g., `John 3:16 – For God so loved the world...`).
+4. IF verse 0 is included in the range (i.e., the stored verse value is 0), THE Backend SHALL: (a) output verse 0's text on its own line immediately after the reference line with no number prefix, (b) exclude verse 0 from the displayed reference range — the displayed range starts at verse 1 (e.g., a stored range of Psalm 23:0-2 displays as `Psalm 23:1-2` in the reference, with verse 0's text appearing unnumbered before verse 1).
+5. IF no scripture reference is set in the SessionManifest, THE Backend SHALL substitute `[No Verse Text]` for the `{verseText}` token.
+6. THE `{verseText}` token and the `{Scripture}` token SHALL share the same scripture reference input — if either appears in any selected template, the scripture reference picker is shown once, and the single reference is used for both tokens.
 
 ---
 
