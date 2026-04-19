@@ -67,6 +67,7 @@ Use full words for variable and parameter names. Do not abbreviate.
 - `error` not `err`
 
 **Allowed shorthands** (domain terms or universally understood):
+
 - `row` — standard database result variable
 - `auth` — Express middleware variable (`const auth = authenticate(...)`)
 - `app` — Express application instance

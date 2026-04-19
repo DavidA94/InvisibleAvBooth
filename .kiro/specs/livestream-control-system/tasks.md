@@ -160,49 +160,49 @@ Tests are part of each story's definition of done. Unit tests (including propert
 
 ## Frontend Core
 
-- [ ] 39. Create frontend entry point and Ionic/React app shell — src/main.tsx, App.tsx (Router with all route definitions), src/theme/variables.css (color tokens, spacing tokens, root font-size clamp(12px, 1.5625vw, 24px))
+- [x] 39. Create frontend entry point and Ionic/React app shell — src/main.tsx, App.tsx (Router with all route definitions), src/theme/variables.css (color tokens, spacing tokens, root font-size clamp(12px, 1.5625vw, 24px))
   - _Requirements: 18_
 
-- [ ] 40. Create frontend Zustand store — src/store/index.ts composing authSlice, obsSlice, sessionManifestSlice, notificationSlice; plus individual slice files
+- [x] 40. Create frontend Zustand store — src/store/index.ts composing authSlice, obsSlice, sessionManifestSlice, notificationSlice; plus individual slice files
   - _Requirements: 4, 11_
 
-- [ ] 41. Write unit tests for frontend store slices — authSlice, obsSlice, sessionManifestSlice, notificationSlice: state transitions, action correctness, initial state (useStore.setState reset between tests)
+- [x] 41. Write unit tests for frontend store slices — authSlice, obsSlice, sessionManifestSlice, notificationSlice: state transitions, action correctness, initial state (useStore.setState reset between tests)
   - _Requirements: 4, 11_
 
-- [ ] 42. Create frontend SocketProvider — src/providers/SocketProvider.tsx (Socket.io connection after auth, all event listeners wiring to store actions, emits cts:request:initial:state after listeners are ready, socket context for command emission, tablet network loss banner handling, re-emits cts:request:initial:state on reconnect)
+- [x] 42. Create frontend SocketProvider — src/providers/SocketProvider.tsx (Socket.io connection after auth, all event listeners wiring to store actions, emits cts:request:initial:state after listeners are ready, socket context for command emission, tablet network loss banner handling, re-emits cts:request:initial:state on reconnect)
   - _Requirements: 4, 23_
 
-- [ ] 43. Write unit tests for SocketProvider — socket connects after auth, disconnects on logout, each incoming event updates the correct store slice, network loss banner appears on disconnect (mock Socket.io client)
+- [x] 43. Write unit tests for SocketProvider — socket connects after auth, disconnects on logout, each incoming event updates the correct store slice, network loss banner appears on disconnect (mock Socket.io client)
   - _Requirements: 4, 23_
 
-- [ ] 44. Create frontend logger — src/logger.ts (debug/info/warn/error interface, batches entries, POSTs to /api/logs with 3-retry logic, buffers while Socket.io is down)
+- [x] 44. Create frontend logger — src/logger.ts (debug/info/warn/error interface, batches entries, POSTs to /api/logs with 3-retry logic, buffers while Socket.io is down)
   - _Requirements: 24_
 
-- [ ] 45. Write unit tests for frontend logger — entries are batched and POSTed to /api/logs, 3-retry logic on failure, entries buffer when socket is down and flush on reconnect (mock fetch)
+- [x] 45. Write unit tests for frontend logger — entries are batched and POSTed to /api/logs, 3-retry logic on failure, entries buffer when socket is down and flush on reconnect (mock fetch)
   - _Requirements: 24_
 
-- [ ] 46. Create frontend useAuth hook — src/hooks/useAuth.ts (reads authSlice, provides user and isRole(minimum) helper with role hierarchy)
+- [x] 46. Create frontend useAuth hook — src/hooks/useAuth.ts (reads authSlice, provides user and isRole(minimum) helper with role hierarchy)
   - _Requirements: 7_
 
-- [ ] 47. Write unit tests for useAuth — returns correct user from store, isRole returns true/false for each role level, updates when store changes
+- [x] 47. Write unit tests for useAuth — returns correct user from store, isRole returns true/false for each role level, updates when store changes
   - _Requirements: 7_
 
-- [ ] 48. Create frontend useObsState hook — src/hooks/useObsState.ts (reads obsSlice, provides state/isPending/sendCommand with optimistic update logic)
+- [x] 48. Create frontend useObsState hook — src/hooks/useObsState.ts (reads obsSlice, provides state/isPending/sendCommand with optimistic update logic)
   - _Requirements: 8, 11_
 
-- [ ] 49. Write unit tests for useObsState — returns current OBS state, isPending reflects optimistic update, sendCommand emits socket event and sets pending, pending clears on state update (mock socket context)
+- [x] 49. Write unit tests for useObsState — returns current OBS state, isPending reflects optimistic update, sendCommand emits socket event and sets pending, pending clears on state update (mock socket context)
   - _Requirements: 8, 11_
 
-- [ ] 50. Create frontend useResizeObserver hook — src/hooks/useResizeObserver.ts (observes contentRect.width via ResizeObserver, returns current width, cleans up on unmount)
+- [x] 50. Create frontend useResizeObserver hook — src/hooks/useResizeObserver.ts (observes contentRect.width via ResizeObserver, returns current width, cleans up on unmount)
   - _Requirements: 16, 18_
 
-- [ ] 51. Write unit tests for useResizeObserver — returns observed width, updates on resize, disconnects observer on unmount (mock ResizeObserver)
+- [x] 51. Write unit tests for useResizeObserver — returns observed width, updates on resize, disconnects observer on unmount (mock ResizeObserver)
   - _Requirements: 16, 18_
 
-- [ ] 52. Create frontend ProtectedRoutes — src/components/ProtectedRoutes.tsx (redirects to /login if no auth user, to /change-password if requiresPasswordChange, non-ADMIN away from /admin/\* routes)
+- [x] 52. Create frontend ProtectedRoutes — src/components/ProtectedRoutes.tsx (redirects to /login if no auth user, to /change-password if requiresPasswordChange, non-ADMIN away from /admin/\* routes)
   - _Requirements: 6, 7_
 
-- [ ] 53. Write unit tests for ProtectedRoutes — unauthenticated user redirects to /login, requiresPasswordChange redirects to /change-password, non-ADMIN redirects away from /admin/\* routes, authenticated ADMIN passes through (mock useAuth)
+- [x] 53. Write unit tests for ProtectedRoutes — unauthenticated user redirects to /login, requiresPasswordChange redirects to /change-password, non-ADMIN redirects away from /admin/\* routes, authenticated ADMIN passes through (mock useAuth)
   - _Requirements: 6, 7_
 
 ---
