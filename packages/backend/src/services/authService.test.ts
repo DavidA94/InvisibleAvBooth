@@ -260,6 +260,17 @@ describe("AuthService.deleteUser", () => {
     if (!result.success) expect(result.error.code).toBe("SELF_DELETE");
   });
 
+  it("rejects non-ADMIN actor", async () => {
+    const database = makeDatabase();
+    const service = makeService(database);
+    const created = await service.createUser({ username: "bob", password: "pass", role: "AvVolunteer" }, adminActor);
+    expect(created.success).toBe(true);
+    if (!created.success) return;
+    const result = service.deleteUser(created.value.id, volunteerActor);
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error.code).toBe("INSUFFICIENT_ROLE");
+  });
+
   it("returns USER_NOT_FOUND for unknown id", () => {
     const service = makeService(makeDatabase());
     const result = service.deleteUser("nonexistent", adminActor);
