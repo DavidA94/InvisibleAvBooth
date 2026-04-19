@@ -65,10 +65,10 @@ See `docs/architecture-decisions/001-multi-platform-streaming.md` for the archit
 2. THE Backend SHALL support the following placeholder tokens in templates: `{Date}`, `{Speaker}`, `{Title}`, `{Scripture}`, `{verseText}`. `{Date}` is always today's ISO 8601 date. `{Scripture}` resolves to the formatted reference (e.g., "John 3:16-17"). `{verseText}` resolves to the full KJV text of the referenced verse(s), formatted per Requirement 9.
 3. WHEN formatting the `{Scripture}` token, IF the stored scripture reference starts at verse 0, THE Backend SHALL display the range starting at verse 1 (e.g., a stored range of Psalm 23:0-2 displays as `Psalm 23:1-2`). IF the stored reference is a single verse 0 with no verseEnd, THE Backend SHALL display `Psalm 23` (chapter only, no verse number).
 4. THE Backend SHALL expose REST endpoints for creating, reading, updating, and deleting metadata templates; all endpoints SHALL require the ADMIN role.
-4. THE Frontend SHALL provide a template management section within the admin streaming configuration (route TBD) where an ADMIN can create, edit, and delete templates, specifying a name, category, and format string.
-5. WHEN interpolating `{verseText}`, THE Backend SHALL query the KJV database for all verses in the referenced range (bookId, chapter, verse through verseEnd) and concatenate their text with a single space between verses.
-6. IF a template contains `{verseText}` or `{Scripture}` and the SessionManifest has no scripture reference, THE Backend SHALL substitute `[No Scripture]` for `{Scripture}` and `[No Verse Text]` for `{verseText}`.
-7. AT LEAST one title template SHALL exist in the system; THE Backend SHALL reject deletion of the last remaining title template.
+5. THE Frontend SHALL provide a template management section within the admin streaming configuration (route TBD) where an ADMIN can create, edit, and delete templates, specifying a name, category, and format string.
+6. WHEN interpolating `{verseText}`, THE Backend SHALL query the KJV database for all verses in the referenced range (bookId, chapter, verse through verseEnd) and concatenate their text with a single space between verses.
+7. IF a template contains `{verseText}` or `{Scripture}` and the SessionManifest has no scripture reference, THE Backend SHALL substitute `[No Scripture]` for `{Scripture}` and `[No Verse Text]` for `{verseText}`.
+8. AT LEAST one title template SHALL exist in the system; THE Backend SHALL reject deletion of the last remaining title template.
 
 ---
 
@@ -139,7 +139,7 @@ See `docs/architecture-decisions/001-multi-platform-streaming.md` for the archit
 
 ### Requirement 8: Stream Health Monitoring
 
-**User Story:** As a volunteer, I want to see the health status of each active stream, so that I can identify and respond to quality issues before they become visible to viewers.
+**User Story:** As a volunteer, I want to see the health status of each active stream at a glance, so that I can identify and respond to quality issues before they become visible to viewers.
 
 #### Acceptance Criteria
 
@@ -149,6 +149,10 @@ See `docs/architecture-decisions/001-multi-platform-streaming.md` for the archit
 4. THE Backend SHALL broadcast stream health updates to all connected clients via Socket.io.
 5. THE ManageStreamsModal SHALL display a health indicator alongside each streaming platform's status (e.g., "Streaming (Good)", "Streaming (Poor)").
 6. IF a platform's stream health degrades to a critical level, THE Backend SHALL emit a Banner-level notification: "{Platform} stream quality is poor."
+7. WHILE at least one platform is actively streaming, THE OBS Widget's `WidgetContainer` SHALL display a "Stream" connection status indicator. This indicator SHALL NOT appear when no platforms are streaming.
+8. THE "Stream" connection status indicator SHALL use a three-state model: (a) green solid dot (`healthy`) when all active platform streams report good health, (b) yellow/amber solid dot (`degraded`) when any active platform stream reports degraded quality but none have fully failed, (c) red blinking dot (`unhealthy`) when any active platform stream has fully failed (FFmpeg process exited, platform API reports stream down).
+9. THE existing `ConnectionStatus` model SHALL be extended from a boolean `healthy` field to a three-value `status` field: `"healthy"` | `"degraded"` | `"unhealthy"`. The `WidgetContainer` title bar SHALL render a yellow/amber solid dot for `degraded` — visually distinct from both the green healthy dot and the red blinking unhealthy dot.
+10. WHEN the user taps the connection indicators section, THE popover SHALL show the "Stream" entry with the worst-case status and list which platform(s) are degraded or failed.
 
 ---
 
@@ -163,7 +167,7 @@ See `docs/architecture-decisions/001-multi-platform-streaming.md` for the archit
    - Line 1: the formatted scripture reference (e.g., `John 3:16-17`)
    - Subsequent lines: each verse prefixed with its verse number and a period (e.g., `16. For God so loved...`)
    - Each verse on its own line, separated by newlines
-3. FOR a single verse (no verseEnd), THE Backend SHALL format the output as a single line: the formatted scripture reference, an em dash (` – `), and the verse text (e.g., `John 3:16 – For God so loved the world...`).
+3. FOR a single verse (no verseEnd), THE Backend SHALL format the output as a single line: the formatted scripture reference, an em dash (`–`), and the verse text (e.g., `John 3:16 – For God so loved the world...`).
 4. IF verse 0 is included in the range (i.e., the stored verse value is 0), THE Backend SHALL: (a) output verse 0's text on its own line immediately after the reference line with no number prefix, (b) exclude verse 0 from the displayed reference range — the displayed range starts at verse 1 (e.g., a stored range of Psalm 23:0-2 displays as `Psalm 23:1-2` in the reference, with verse 0's text appearing unnumbered before verse 1).
 5. IF no scripture reference is set in the SessionManifest, THE Backend SHALL substitute `[No Verse Text]` for the `{verseText}` token.
 6. THE `{verseText}` token and the `{Scripture}` token SHALL share the same scripture reference input — if either appears in any selected template, the scripture reference picker is shown once, and the single reference is used for both tokens.
