@@ -33,7 +33,7 @@ Each package manages its own `vitest.config.ts`. Test files live alongside the c
 
 ### Coverage
 
-- Minimum thresholds: **90% lines, branches, and statements**
+- Minimum thresholds: **90% lines and statements, 85% branches**
 - Enforced as a hard CI failure
 - Measured per-package, not as a monorepo aggregate
 

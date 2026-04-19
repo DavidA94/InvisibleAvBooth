@@ -56,6 +56,23 @@ Acronyms follow the case of their context — they are not treated as all-caps b
 
 When in doubt, prefer readability over strict rules. `ObsClient` is clearer than `OBSClient` in most contexts.
 
+### No Abbreviations in Variable Names
+
+Use full words for variable and parameter names. Do not abbreviate.
+
+- `database` not `db`
+- `service` not `svc`
+- `request` / `response` not `req` / `res`
+- `buffer` not `buf`
+- `error` not `err`
+
+**Allowed shorthands** (domain terms or universally understood):
+- `row` — standard database result variable
+- `auth` — Express middleware variable (`const auth = authenticate(...)`)
+- `app` — Express application instance
+- `col` / `row` / `colSpan` / `rowSpan` — CSS Grid domain terms
+- `id` — universally understood identifier
+
 ---
 
 ## TypeScript
