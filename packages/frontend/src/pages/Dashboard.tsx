@@ -4,6 +4,17 @@ import { IonPage, IonContent, IonSpinner } from "@ionic/react";
 import { useHistory, useParams } from "react-router-dom";
 import type { GridManifest, GridCell, Role } from "../types";
 import { useStore } from "../store";
+import { ObsWidget } from "../components/obs/ObsWidget";
+
+function useIsPortrait(): boolean {
+  const [portrait, setPortrait] = useState(window.innerHeight > window.innerWidth);
+  useEffect(() => {
+    const handler = (): void => setPortrait(window.innerHeight > window.innerWidth);
+    window.addEventListener("resize", handler);
+    return () => window.removeEventListener("resize", handler);
+  }, []);
+  return portrait;
+}
 
 const DEFAULT_GRID_MANIFEST: GridManifest = {
   version: 1,
@@ -18,6 +29,9 @@ function isStructuralChange(cached: GridCell[], fresh: GridCell[]): boolean {
 }
 
 function WidgetPlaceholder({ cell }: { cell: GridCell }): ReactNode {
+  if (cell.widgetId === "obs") {
+    return <ObsWidget />;
+  }
   return (
     <div
       data-testid={`widget-${cell.widgetId}`}
@@ -43,6 +57,7 @@ export function Dashboard(): ReactNode {
   const historyRef = useRef(history);
   historyRef.current = history;
   const userRole = useStore((s) => s.user?.role) as Role | undefined;
+  const portrait = useIsPortrait();
 
   useEffect(() => {
     if (!dashboardId) {
@@ -122,6 +137,8 @@ export function Dashboard(): ReactNode {
   const ROLE_LEVEL: Record<Role, number> = { ADMIN: 3, AvPowerUser: 2, AvVolunteer: 1 };
   const userLevel = userRole ? ROLE_LEVEL[userRole] : 0;
   const visibleCells = manifest.cells.filter((c) => userLevel >= ROLE_LEVEL[c.roleMinimum]);
+  const cols = portrait ? 3 : 5;
+  const rows = portrait ? 5 : 3;
 
   return (
     <IonPage>
@@ -130,11 +147,13 @@ export function Dashboard(): ReactNode {
           data-testid="dashboard-grid"
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(5, 1fr)",
-            gridTemplateRows: "repeat(3, 1fr)",
+            gridTemplateColumns: `repeat(${cols}, 1fr)`,
+            gridTemplateRows: `repeat(${rows}, 1fr)`,
             gap: "var(--space-grid-gap)",
             padding: "var(--space-screen-edge)",
             height: "100%",
+            minWidth: "500px",
+            minHeight: "500px",
           }}
         >
           {visibleCells.map((cell) => (

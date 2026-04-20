@@ -43,15 +43,18 @@ describe("SessionManifestModal", () => {
     expect(screen.queryByTestId("session-manifest-modal")).not.toBeInTheDocument();
   });
 
-  it("shows live preview from store", () => {
-    useStore.setState({ interpolatedStreamTitle: "Apr 19 – John – Grace" });
+  it("shows live preview computed from form state", () => {
+    useStore.setState({ manifest: { speaker: "John", title: "Grace" } });
     render(<SessionManifestModal isOpen={true} onClose={onClose} />);
-    expect(screen.getByTestId("manifest-preview")).toHaveTextContent("Apr 19 – John – Grace");
+    // Preview is computed locally from form fields
+    expect(screen.getByTestId("manifest-preview")).toHaveTextContent("John");
+    expect(screen.getByTestId("manifest-preview")).toHaveTextContent("Grace");
   });
 
-  it("shows empty state in preview", () => {
+  it("shows placeholder text in preview when fields empty", () => {
     render(<SessionManifestModal isOpen={true} onClose={onClose} />);
-    expect(screen.getByTestId("manifest-preview")).toHaveTextContent("No session details set");
+    expect(screen.getByTestId("manifest-preview")).toHaveTextContent("[No Speaker]");
+    expect(screen.getByTestId("manifest-preview")).toHaveTextContent("[No Title]");
   });
 
   it("scripture autocomplete filters by contains search", () => {
@@ -99,6 +102,6 @@ describe("SessionManifestModal", () => {
   it("Clear All is disabled while streaming", () => {
     useStore.setState({ obsState: { ...INITIAL_OBS_STATE, streaming: true } });
     render(<SessionManifestModal isOpen={true} onClose={onClose} />);
-    expect(screen.getByTestId("manifest-clear")).toHaveAttribute("disabled", "true");
+    expect(screen.getByTestId("manifest-clear")).toBeDisabled();
   });
 });

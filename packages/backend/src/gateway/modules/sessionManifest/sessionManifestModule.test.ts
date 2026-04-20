@@ -14,7 +14,7 @@ function makeMockManifestService(): SessionManifestService {
   return {
     get: vi.fn().mockReturnValue({ speaker: "John" }),
     update: vi.fn().mockReturnValue({ success: true, value: { speaker: "John" } }),
-    interpolate: vi.fn().mockReturnValue("Today – John – Grace"),
+    preview: vi.fn().mockReturnValue("Today – John – Grace"),
   } as unknown as SessionManifestService;
 }
 

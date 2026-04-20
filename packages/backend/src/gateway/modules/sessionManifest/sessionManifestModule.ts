@@ -36,7 +36,7 @@ export class SessionManifestModule implements SocketModule {
     const manifest = this.manifestService.get();
     auth.socket.emit(STC_SESSION_MANIFEST_UPDATED, {
       manifest,
-      interpolatedStreamTitle: this.manifestService.interpolate(manifest, "{Date} – {Speaker} – {Title}"),
+      interpolatedStreamTitle: this.manifestService.preview(manifest),
     });
   }
 }

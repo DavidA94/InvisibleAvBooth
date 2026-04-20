@@ -16,6 +16,11 @@ vi.mock("react-router-dom", async () => {
   };
 });
 
+// Mock ObsWidget to avoid needing socket/ResizeObserver in Dashboard tests
+vi.mock("../components/obs/ObsWidget", () => ({
+  ObsWidget: () => <div data-testid="widget-obs">OBS Mock</div>,
+}));
+
 const mockFetch = vi.fn();
 vi.stubGlobal("fetch", mockFetch);
 

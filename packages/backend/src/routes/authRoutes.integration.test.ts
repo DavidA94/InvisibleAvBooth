@@ -8,6 +8,7 @@ import { AuthService } from "../services/authService.js";
 import { createAuthRouter } from "./authRoutes.js";
 import { createAdminUserRouter } from "./adminUserRoutes.js";
 import { createSessionRouter } from "./sessionRoutes.js";
+import { SessionManifestService } from "../services/sessionManifestService.js";
 import { requirePasswordChanged, authenticate } from "../middleware/auth.js";
 
 function buildApp() {
@@ -22,7 +23,7 @@ function buildApp() {
   const mustBeAuthenticated = authenticate(authService);
   const mustHaveChangedPassword = requirePasswordChanged();
   app.use("/admin/users", mustBeAuthenticated, mustHaveChangedPassword, createAdminUserRouter(authService));
-  app.use("/api/session", mustBeAuthenticated, mustHaveChangedPassword, createSessionRouter(authService));
+  app.use("/api/session", mustBeAuthenticated, mustHaveChangedPassword, createSessionRouter(new SessionManifestService()));
   return { app, authService };
 }
 

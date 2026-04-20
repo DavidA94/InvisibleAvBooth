@@ -24,9 +24,23 @@ export function ObsWidget(): ReactNode {
   const hasMetadata = !!(manifest.speaker || manifest.title);
   const streamDisabledReason = !hasMetadata ? "Enter metadata" : undefined;
 
+  const runCommand = useCallback(
+    async (type: "startStream" | "stopStream" | "startRecording" | "stopRecording"): Promise<void> => {
+      const result = await sendCommand({ type });
+      if (!result.success) {
+        useStore.getState().addNotification({
+          id: `obs-cmd-${Date.now()}`,
+          level: "banner",
+          severity: "error",
+          message: result.message,
+        });
+      }
+    },
+    [sendCommand],
+  );
+
   const handleStartStream = useCallback((): void => {
     if (!hasMetadata) {
-      // Missing metadata — open the modal instead
       setShowManifestModal(true);
       return;
     }
@@ -35,8 +49,8 @@ export function ObsWidget(): ReactNode {
 
   const confirmStartStream = useCallback((): void => {
     setShowStartConfirm(false);
-    void sendCommand({ type: "startStream" });
-  }, [sendCommand]);
+    void runCommand("startStream");
+  }, [runCommand]);
 
   const handleStopStream = useCallback((): void => {
     setShowStopStreamConfirm(true);
@@ -44,8 +58,12 @@ export function ObsWidget(): ReactNode {
 
   const confirmStopStream = useCallback((): void => {
     setShowStopStreamConfirm(false);
-    void sendCommand({ type: "stopStream" });
-  }, [sendCommand]);
+    void runCommand("stopStream");
+  }, [runCommand]);
+
+  const handleStartRecording = useCallback((): void => {
+    void runCommand("startRecording");
+  }, [runCommand]);
 
   const handleStopRecording = useCallback((): void => {
     setShowStopRecordConfirm(true);
@@ -53,20 +71,19 @@ export function ObsWidget(): ReactNode {
 
   const confirmStopRecording = useCallback((): void => {
     setShowStopRecordConfirm(false);
-    void sendCommand({ type: "stopRecording" });
-  }, [sendCommand]);
+    void runCommand("stopRecording");
+  }, [runCommand]);
 
   const handleReconnect = useCallback((): void => {
     setReconnecting(true);
-    // Reconnect is handled via socket — for now just toggle state
     setTimeout(() => setReconnecting(false), 3000);
   }, []);
 
   return (
     <WidgetContainer title="OBS" connections={[{ label: "OBS", healthy: obsState.connected }]}>
       <div data-testid="obs-widget" style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-        <ObsStatusBar obsState={obsState} onEditDetails={() => setShowManifestModal(true)} />
-        <ObsMetadataPreview interpolatedStreamTitle={interpolatedStreamTitle} />
+        <ObsStatusBar obsState={obsState} />
+        <ObsMetadataPreview interpolatedStreamTitle={interpolatedStreamTitle} onEditDetails={() => setShowManifestModal(true)} />
         <WidgetErrorOverlay
           isVisible={!obsState.connected}
           message="OBS Disconnected"
@@ -79,7 +96,7 @@ export function ObsWidget(): ReactNode {
             isPending={isPending}
             onStartStream={handleStartStream}
             onStopStream={handleStopStream}
-            onStartRecording={() => void sendCommand({ type: "startRecording" })}
+            onStartRecording={handleStartRecording}
             onStopRecording={handleStopRecording}
             {...(streamDisabledReason ? { streamDisabledReason } : {})}
           />

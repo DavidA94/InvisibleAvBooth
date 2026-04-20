@@ -5,6 +5,7 @@ import request from "supertest";
 import Database from "better-sqlite3";
 import { applySchema } from "../database/schema.js";
 import { AuthService } from "../services/authService.js";
+import { SessionManifestService } from "../services/sessionManifestService.js";
 import { authenticate, requirePasswordChanged } from "../middleware/auth.js";
 import { createAuthRouter } from "./authRoutes.js";
 import { createAdminDashboardRouter } from "./adminDashboardRoutes.js";
@@ -26,7 +27,7 @@ function buildApp() {
   const mustHaveChangedPassword = requirePasswordChanged();
   app.use("/admin/dashboards", mustBeAuthenticated, mustHaveChangedPassword, createAdminDashboardRouter(database, authService));
   app.use("/api/dashboards", mustBeAuthenticated, mustHaveChangedPassword, createDashboardRouter(database, authService));
-  app.use("/api/session", mustBeAuthenticated, mustHaveChangedPassword, createSessionRouter(authService));
+  app.use("/api/session", mustBeAuthenticated, mustHaveChangedPassword, createSessionRouter(new SessionManifestService()));
   return { app, database, authService };
 }
 

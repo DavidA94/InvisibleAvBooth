@@ -16,12 +16,14 @@ interface WidgetContainerProps {
 
 const COLLAPSE_THRESHOLD = 200;
 
+let instanceCounter = 0;
+
 export function WidgetContainer({ title, connections, children }: WidgetContainerProps): ReactNode {
   const titleBarRef = useRef<HTMLDivElement>(null);
   const width = useResizeObserver(titleBarRef);
   const collapsed = width > 0 && width < COLLAPSE_THRESHOLD;
   const [popoverOpen, setPopoverOpen] = useState(false);
-  const indicatorRef = useRef<HTMLSpanElement>(null);
+  const [triggerId] = useState(() => `wc-indicators-${++instanceCounter}`);
 
   return (
     <div
@@ -36,7 +38,7 @@ export function WidgetContainer({ title, connections, children }: WidgetContaine
         <span style={{ fontWeight: "bold" }}>{title}</span>
         <span style={{ flex: 1 }} />
         <span
-          ref={indicatorRef}
+          id={triggerId}
           data-testid="connection-indicators"
           role="button"
           tabIndex={0}
@@ -65,9 +67,9 @@ export function WidgetContainer({ title, connections, children }: WidgetContaine
           data-testid="connection-popover"
           isOpen={popoverOpen}
           onDidDismiss={() => setPopoverOpen(false)}
-          reference="event"
-          trigger={undefined}
-          event={undefined}
+          trigger={triggerId}
+          side="bottom"
+          alignment="end"
         >
           <div style={{ padding: "0.75rem" }}>
             {connections.map((c) => (

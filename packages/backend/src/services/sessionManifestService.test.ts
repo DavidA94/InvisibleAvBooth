@@ -2,6 +2,7 @@ import { BUS_OBS_STATE_CHANGED, BUS_SESSION_MANIFEST_UPDATED } from "./../eventB
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import * as fc from "fast-check";
 import { SessionManifestService, DEFAULT_STREAM_TITLE_TEMPLATE } from "./sessionManifestService.js";
+import { interpolateStreamTitle } from "@invisible-av-booth/shared";
 import { eventBus } from "../eventBus/eventBus.js";
 import type { ObsState } from "../gateway/modules/obs/types.js";
 import type { JwtPayload } from "./authService.js";
@@ -135,54 +136,43 @@ describe("SessionManifestService.clear", () => {
 
 // ── interpolate ───────────────────────────────────────────────────────────────
 
-describe("SessionManifestService.interpolate", () => {
+describe("interpolateStreamTitle (shared)", () => {
   it("replaces {Speaker}, {Title}, {Date}", () => {
-    const service = makeSvc();
-    const result = service.interpolate({ speaker: "John", title: "Grace" }, DEFAULT_STREAM_TITLE_TEMPLATE);
+    const result = interpolateStreamTitle({ speaker: "John", title: "Grace" }, DEFAULT_STREAM_TITLE_TEMPLATE);
     expect(result).toContain("John");
     expect(result).toContain("Grace");
-    expect(result).toMatch(/\d{4}-\d{2}-\d{2}/); // today's date
+    expect(result).toMatch(/\d{4}-\d{2}-\d{2}/);
   });
 
   it("uses placeholders for missing fields", () => {
-    const service = makeSvc();
-    const result = service.interpolate({}, DEFAULT_STREAM_TITLE_TEMPLATE);
+    const result = interpolateStreamTitle({}, DEFAULT_STREAM_TITLE_TEMPLATE);
     expect(result).toContain("[No Speaker]");
     expect(result).toContain("[No Title]");
   });
 
   it("formats single verse scripture", () => {
-    const service = makeSvc();
-    const result = service.interpolate({ scripture: { bookId: 43, chapter: 3, verse: 16 } }, "{Scripture}");
+    const result = interpolateStreamTitle({ scripture: { bookId: 43, chapter: 3, verse: 16 } }, "{Scripture}");
     expect(result).toBe("John 3:16");
   });
 
   it("formats verse range scripture", () => {
-    const service = makeSvc();
-    const result = service.interpolate({ scripture: { bookId: 43, chapter: 3, verse: 16, verseEnd: 17 } }, "{Scripture}");
+    const result = interpolateStreamTitle({ scripture: { bookId: 43, chapter: 3, verse: 16, verseEnd: 17 } }, "{Scripture}");
     expect(result).toBe("John 3:16-17");
   });
 
   it("uses [No Scripture] when scripture is absent", () => {
-    const service = makeSvc();
-    expect(service.interpolate({}, "{Scripture}")).toBe("[No Scripture]");
+    expect(interpolateStreamTitle({}, "{Scripture}")).toBe("[No Scripture]");
   });
 
   it("{Date} is always today — never [No Date]", () => {
-    const service = makeSvc();
-    const result = service.interpolate({}, "{Date}");
+    const result = interpolateStreamTitle({}, "{Date}");
     expect(result).not.toContain("[No Date]");
     expect(result).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 });
 
-// ── Property-based tests ──────────────────────────────────────────────────────
-// Feature: livestream-control-system, Property 1: Manifest propagation
-// Feature: livestream-control-system, Property 2: Template interpolation completeness + placeholders
-
-describe("Property: interpolate never returns undefined or throws", () => {
+describe("Property: interpolateStreamTitle", () => {
   it("handles arbitrary manifest field combinations", () => {
-    const service = makeSvc();
     fc.assert(
       fc.property(
         fc.record({
@@ -190,9 +180,8 @@ describe("Property: interpolate never returns undefined or throws", () => {
           title: fc.option(fc.string({ minLength: 1 }), { nil: undefined }),
         }),
         (raw) => {
-          // Strip undefined values to satisfy exactOptionalPropertyTypes
           const manifest = Object.fromEntries(Object.entries(raw).filter(([, v]) => v !== undefined)) as { speaker?: string; title?: string };
-          const result = service.interpolate(manifest, DEFAULT_STREAM_TITLE_TEMPLATE);
+          const result = interpolateStreamTitle(manifest, DEFAULT_STREAM_TITLE_TEMPLATE);
           expect(typeof result).toBe("string");
           expect(result.length).toBeGreaterThan(0);
         },
@@ -201,7 +190,6 @@ describe("Property: interpolate never returns undefined or throws", () => {
   });
 
   it("handles arbitrary template strings — always produces a string", () => {
-    const service = makeSvc();
     fc.assert(
       fc.property(
         fc.string(),
@@ -211,7 +199,7 @@ describe("Property: interpolate never returns undefined or throws", () => {
         }),
         (template, raw) => {
           const manifest = Object.fromEntries(Object.entries(raw).filter(([, v]) => v !== undefined)) as { speaker?: string; title?: string };
-          const result = service.interpolate(manifest, template);
+          const result = interpolateStreamTitle(manifest, template);
           expect(typeof result).toBe("string");
         },
       ),
@@ -219,10 +207,9 @@ describe("Property: interpolate never returns undefined or throws", () => {
   });
 
   it("missing fields always produce visible placeholders, never empty tokens", () => {
-    const service = makeSvc();
-    const result = service.interpolate({}, "{Speaker} {Title} {Scripture}");
+    const result = interpolateStreamTitle({}, "{Speaker} {Title} {Scripture}");
     expect(result).not.toContain("{}");
-    expect(result).not.toMatch(/\{\w+\}/); // no unreplaced tokens
+    expect(result).not.toMatch(/\{\w+\}/);
     expect(result).toContain("[No Speaker]");
     expect(result).toContain("[No Title]");
     expect(result).toContain("[No Scripture]");

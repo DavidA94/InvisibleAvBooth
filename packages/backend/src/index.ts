@@ -52,7 +52,7 @@ app.use("/admin/users", mustBeAuthenticated, mustHaveChangedPassword, createAdmi
 app.use("/admin/devices", mustBeAuthenticated, mustHaveChangedPassword, createAdminDeviceRouter(database, authService));
 app.use("/admin/dashboards", mustBeAuthenticated, mustHaveChangedPassword, createAdminDashboardRouter(database, authService));
 app.use("/api/dashboards", mustBeAuthenticated, mustHaveChangedPassword, createDashboardRouter(database, authService));
-app.use("/api/session", mustBeAuthenticated, mustHaveChangedPassword, createSessionRouter(authService));
+app.use("/api/session", mustBeAuthenticated, mustHaveChangedPassword, createSessionRouter(manifestService));
 app.use("/api/logs", mustBeAuthenticated, mustHaveChangedPassword, createLogRouter(authService));
 app.use("/api/kjv", mustBeAuthenticated, mustHaveChangedPassword, createKjvRouter(database, authService));
 

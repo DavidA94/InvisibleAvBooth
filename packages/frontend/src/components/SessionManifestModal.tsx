@@ -1,8 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import type { ReactNode } from "react";
-import { IonInput, IonButton, IonText } from "@ionic/react";
-import { BIBLE_BOOKS } from "@invisible-av-booth/shared";
-import { CTS_SESSION_MANIFEST_UPDATE } from "@invisible-av-booth/shared";
+import { IonInput, IonText } from "@ionic/react";
+import { BIBLE_BOOKS, CTS_SESSION_MANIFEST_UPDATE, interpolateStreamTitle } from "@invisible-av-booth/shared";
 import { useStore } from "../store";
 import { useSocket } from "../providers/SocketProvider";
 import type { SessionManifest, ScriptureReference, CommandResult } from "../types";
@@ -17,7 +16,6 @@ interface SessionManifestModalProps {
 
 export function SessionManifestModal({ isOpen, onClose }: SessionManifestModalProps): ReactNode {
   const storeManifest = useStore((s) => s.manifest);
-  const storeTitle = useStore((s) => s.interpolatedStreamTitle);
   const obsState = useStore((s) => s.obsState);
   const socket = useSocket();
 
@@ -32,7 +30,19 @@ export function SessionManifestModal({ isOpen, onClose }: SessionManifestModalPr
   const [error, setError] = useState("");
   const [validationError, setValidationError] = useState("");
 
-  // Sync from store when modal opens
+  // Live preview using the shared interpolation function — same logic as backend
+  const preview = useMemo(() => {
+    const draft: Partial<SessionManifest> = {};
+    if (speaker) draft.speaker = speaker;
+    if (title) draft.title = title;
+    if (bookId && chapter && verse) {
+      const ref: ScriptureReference = { bookId, chapter: Number(chapter), verse: Number(verse) };
+      if (verseEnd) ref.verseEnd = Number(verseEnd);
+      draft.scripture = ref;
+    }
+    return interpolateStreamTitle(draft);
+  }, [speaker, title, bookId, chapter, verse, verseEnd]);
+
   useEffect(() => {
     if (isOpen) {
       setSpeaker(storeManifest.speaker ?? "");
@@ -55,7 +65,6 @@ export function SessionManifestModal({ isOpen, onClose }: SessionManifestModalPr
     }
   }, [isOpen, storeManifest]);
 
-  // Book autocomplete — case-insensitive contains search
   const bookSuggestions = useMemo(() => {
     if (!bookSearch || bookId) return [];
     const lower = bookSearch.toLowerCase();
@@ -67,20 +76,17 @@ export function SessionManifestModal({ isOpen, onClose }: SessionManifestModalPr
     setBookSearch(entry.name);
   };
 
-  // End verse normalisation on blur
   const normaliseVerseEnd = (): void => {
     const v = Number(verse);
     const ve = Number(verseEnd);
     if (!verseEnd || !verse) return;
-    if (ve === v) {
-      setVerseEnd("");
-    } else if (ve < v) {
+    if (ve === v) setVerseEnd("");
+    else if (ve < v) {
       setVerse(String(ve));
       setVerseEnd(String(v));
     }
   };
 
-  // Scripture validation on blur
   const validateScripture = async (): Promise<void> => {
     if (!bookId || !chapter || !verse) {
       setValidationError("");
@@ -122,17 +128,16 @@ export function SessionManifestModal({ isOpen, onClose }: SessionManifestModalPr
     socket.emit(CTS_SESSION_MANIFEST_UPDATE, buildManifest(), (result: CommandResult) => {
       clearTimeout(timeout);
       setSaving(false);
-      if (result.success) {
-        onClose();
-      } else {
-        setError(result.message);
-      }
+      if (result.success) onClose();
+      else setError(result.message);
     });
   };
 
   const handleClear = (): void => {
     if (!socket) return;
     setSaving(true);
+    setError("");
+
     socket.emit(CTS_SESSION_MANIFEST_UPDATE, {}, (result: CommandResult) => {
       setSaving(false);
       if (result.success) {
@@ -143,6 +148,8 @@ export function SessionManifestModal({ isOpen, onClose }: SessionManifestModalPr
         setChapter("");
         setVerse("");
         setVerseEnd("");
+      } else {
+        setError(result.message);
       }
     });
   };
@@ -154,159 +161,203 @@ export function SessionManifestModal({ isOpen, onClose }: SessionManifestModalPr
   return (
     <div
       data-testid="session-manifest-modal"
-      style={{ position: "fixed", inset: 0, background: "var(--color-bg)", zIndex: 9999, display: "flex", flexDirection: "column" }}
+      style={{ position: "fixed", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.7)", zIndex: 9999 }}
+      onClick={onClose}
+      role="dialog"
+      tabIndex={-1}
+      onKeyDown={(e) => e.key === "Escape" && onClose()}
     >
       <div
         style={{
-          padding: "var(--space-screen-edge)",
-          flex: 1,
+          background: "var(--color-bg)",
+          borderRadius: "0.5rem",
+          padding: "1.5rem",
+          maxWidth: "28rem",
+          width: "90%",
+          maxHeight: "90vh",
           overflow: "auto",
-          display: "flex",
-          flexDirection: "column",
-          gap: "0.75rem",
-          maxWidth: "32rem",
-          margin: "0 auto",
-          width: "100%",
         }}
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => e.stopPropagation()}
+        role="document"
       >
-        <h2 style={{ margin: 0 }}>Session Details</h2>
+        <h2 style={{ margin: "0 0 1.5rem" }}>Session Details</h2>
 
-        <IonInput
-          data-testid="manifest-speaker"
-          label="Speaker"
-          labelPlacement="stacked"
-          fill="outline"
-          value={speaker}
-          onIonInput={(e) => setSpeaker(e.detail.value ?? "")}
-          clearInput
-        />
-        <IonInput
-          data-testid="manifest-title"
-          label="Sermon Title"
-          labelPlacement="stacked"
-          fill="outline"
-          value={title}
-          onIonInput={(e) => setTitle(e.detail.value ?? "")}
-          clearInput
-        />
-
-        {/* Scripture */}
-        <div style={{ position: "relative" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
           <IonInput
-            data-testid="manifest-book"
-            label="Book"
+            data-testid="manifest-speaker"
+            label="Speaker"
             labelPlacement="stacked"
             fill="outline"
-            value={bookSearch}
-            onIonInput={(e) => {
-              setBookSearch(e.detail.value ?? "");
-              setBookId(null);
-            }}
-            onIonBlur={() => void validateScripture()}
+            value={speaker}
+            onIonInput={(e) => setSpeaker(e.detail.value ?? "")}
             clearInput
           />
-          {bookSuggestions.length > 0 && (
-            <div
-              data-testid="book-suggestions"
+          <IonInput
+            data-testid="manifest-title"
+            label="Sermon Title"
+            labelPlacement="stacked"
+            fill="outline"
+            value={title}
+            onIonInput={(e) => setTitle(e.detail.value ?? "")}
+            clearInput
+          />
+
+          <div style={{ position: "relative" }}>
+            <IonInput
+              data-testid="manifest-book"
+              label="Book"
+              labelPlacement="stacked"
+              fill="outline"
+              value={bookSearch}
+              onIonInput={(e) => {
+                setBookSearch(e.detail.value ?? "");
+                setBookId(null);
+              }}
+              onIonBlur={() => void validateScripture()}
+              clearInput
+            />
+            {bookSuggestions.length > 0 && (
+              <div
+                data-testid="book-suggestions"
+                style={{
+                  position: "absolute",
+                  top: "100%",
+                  left: 0,
+                  right: 0,
+                  background: "var(--color-surface-raised)",
+                  borderRadius: "0 0 0.375rem 0.375rem",
+                  zIndex: 100,
+                  maxHeight: "12rem",
+                  overflow: "auto",
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.5)",
+                }}
+              >
+                {bookSuggestions.map((b) => (
+                  <div
+                    key={b.id}
+                    role="option"
+                    onClick={() => selectBook(b)}
+                    onKeyDown={(e) => e.key === "Enter" && selectBook(b)}
+                    tabIndex={0}
+                    style={{ padding: "0.5rem 0.75rem", cursor: "pointer" }}
+                  >
+                    {b.name}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div style={{ display: "flex", gap: "0.5rem" }}>
+            <IonInput
+              data-testid="manifest-chapter"
+              label="Ch"
+              labelPlacement="stacked"
+              fill="outline"
+              type="number"
+              value={chapter}
+              onIonInput={(e) => setChapter(e.detail.value ?? "")}
+              onIonBlur={() => void validateScripture()}
+              style={{ flex: 1 }}
+            />
+            <IonInput
+              data-testid="manifest-verse"
+              label="Verse"
+              labelPlacement="stacked"
+              fill="outline"
+              type="number"
+              value={verse}
+              onIonInput={(e) => setVerse(e.detail.value ?? "")}
+              onIonBlur={() => void validateScripture()}
+              style={{ flex: 1 }}
+            />
+            <IonInput
+              data-testid="manifest-verse-end"
+              label="End"
+              labelPlacement="stacked"
+              fill="outline"
+              type="number"
+              value={verseEnd}
+              onIonInput={(e) => setVerseEnd(e.detail.value ?? "")}
+              onIonBlur={() => {
+                normaliseVerseEnd();
+                void validateScripture();
+              }}
+              style={{ flex: 1 }}
+            />
+          </div>
+
+          {validationError && (
+            <IonText color="danger" data-testid="scripture-validation-error">
+              <p style={{ margin: 0, fontSize: "0.8125rem" }}>{validationError}</p>
+            </IonText>
+          )}
+
+          <div
+            data-testid="manifest-preview"
+            style={{ background: "var(--color-surface-raised)", borderRadius: "0.375rem", padding: "0.75rem", fontSize: "0.875rem" }}
+          >
+            <span style={{ color: "var(--color-text-muted)", fontSize: "0.75rem" }}>Stream title preview</span>
+            <p style={{ margin: "0.25rem 0 0", fontWeight: "bold" }}>{preview}</p>
+          </div>
+
+          {error && (
+            <IonText color="danger" data-testid="manifest-save-error">
+              <p style={{ margin: 0, fontSize: "0.875rem" }}>{error}</p>
+            </IonText>
+          )}
+
+          <div style={{ display: "flex", gap: "0.75rem", marginTop: "0.5rem" }}>
+            <button
+              data-testid="manifest-save"
+              onClick={handleSave}
+              disabled={saving || !!validationError}
               style={{
-                position: "absolute",
-                top: "100%",
-                left: 0,
-                right: 0,
-                background: "var(--color-surface-raised)",
-                borderRadius: "0 0 0.375rem 0.375rem",
-                zIndex: 1,
-                maxHeight: "12rem",
-                overflow: "auto",
+                background: "var(--color-primary)",
+                color: "var(--color-text)",
+                border: "none",
+                borderRadius: "0.375rem",
+                padding: "0.625rem 1.25rem",
+                fontWeight: "bold",
+                cursor: "pointer",
+                opacity: saving || validationError ? 0.5 : 1,
               }}
             >
-              {bookSuggestions.map((b) => (
-                <div
-                  key={b.id}
-                  role="option"
-                  onClick={() => selectBook(b)}
-                  onKeyDown={(e) => e.key === "Enter" && selectBook(b)}
-                  tabIndex={0}
-                  style={{ padding: "0.5rem 0.75rem", cursor: "pointer" }}
-                >
-                  {b.name}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div style={{ display: "flex", gap: "0.5rem" }}>
-          <IonInput
-            data-testid="manifest-chapter"
-            label="Ch"
-            labelPlacement="stacked"
-            fill="outline"
-            type="number"
-            value={chapter}
-            onIonInput={(e) => setChapter(e.detail.value ?? "")}
-            onIonBlur={() => void validateScripture()}
-            style={{ flex: 1 }}
-          />
-          <IonInput
-            data-testid="manifest-verse"
-            label="Verse"
-            labelPlacement="stacked"
-            fill="outline"
-            type="number"
-            value={verse}
-            onIonInput={(e) => setVerse(e.detail.value ?? "")}
-            onIonBlur={() => void validateScripture()}
-            style={{ flex: 1 }}
-          />
-          <IonInput
-            data-testid="manifest-verse-end"
-            label="End"
-            labelPlacement="stacked"
-            fill="outline"
-            type="number"
-            value={verseEnd}
-            onIonInput={(e) => setVerseEnd(e.detail.value ?? "")}
-            onIonBlur={() => {
-              normaliseVerseEnd();
-              void validateScripture();
-            }}
-            style={{ flex: 1 }}
-          />
-        </div>
-
-        {validationError && (
-          <IonText color="danger" data-testid="scripture-validation-error">
-            <p style={{ margin: 0, fontSize: "0.8125rem" }}>{validationError}</p>
-          </IonText>
-        )}
-
-        {/* Live preview */}
-        <div
-          data-testid="manifest-preview"
-          style={{ background: "var(--color-surface-raised)", borderRadius: "0.375rem", padding: "0.75rem", fontSize: "0.875rem" }}
-        >
-          <span style={{ color: "var(--color-text-muted)", fontSize: "0.75rem" }}>Stream title preview</span>
-          <p style={{ margin: "0.25rem 0 0", fontWeight: "bold" }}>{storeTitle || "No session details set"}</p>
-        </div>
-
-        {error && (
-          <IonText color="danger" data-testid="manifest-save-error">
-            <p style={{ margin: 0, fontSize: "0.875rem" }}>{error}</p>
-          </IonText>
-        )}
-
-        <div style={{ display: "flex", gap: "0.75rem", marginTop: "0.5rem" }}>
-          <IonButton data-testid="manifest-save" onClick={handleSave} disabled={saving || !!validationError}>
-            {saving ? "Saving…" : "Save"}
-          </IonButton>
-          <IonButton data-testid="manifest-cancel" fill="outline" onClick={onClose} disabled={saving}>
-            Cancel
-          </IonButton>
-          <span style={{ flex: 1 }} />
-          <IonButton data-testid="manifest-clear" fill="clear" color="danger" onClick={handleClear} disabled={saving || isLive}>
-            Clear All
-          </IonButton>
+              {saving ? "Saving…" : "Save"}
+            </button>
+            <button
+              data-testid="manifest-cancel"
+              onClick={onClose}
+              disabled={saving}
+              style={{
+                background: "transparent",
+                color: "var(--color-text)",
+                border: "1px solid var(--color-border)",
+                borderRadius: "0.375rem",
+                padding: "0.625rem 1.25rem",
+                cursor: "pointer",
+              }}
+            >
+              Cancel
+            </button>
+            <span style={{ flex: 1 }} />
+            <button
+              data-testid="manifest-clear"
+              onClick={handleClear}
+              disabled={saving || isLive}
+              style={{
+                background: "transparent",
+                color: "var(--color-danger)",
+                border: "none",
+                padding: "0.625rem 1.25rem",
+                cursor: "pointer",
+                opacity: saving || isLive ? 0.5 : 1,
+              }}
+            >
+              Clear All
+            </button>
+          </div>
         </div>
       </div>
     </div>

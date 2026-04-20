@@ -17,42 +17,42 @@ const recordingState: ObsState = { ...INITIAL_OBS_STATE, connected: true, record
 
 describe("ObsStatusBar", () => {
   it("shows LIVE when streaming", () => {
-    render(<ObsStatusBar obsState={liveState} onEditDetails={vi.fn()} />);
+    render(<ObsStatusBar obsState={liveState} />);
     expect(screen.getByTestId("stream-status")).toHaveTextContent("LIVE");
   });
 
   it("shows Offline when not streaming", () => {
-    render(<ObsStatusBar obsState={INITIAL_OBS_STATE} onEditDetails={vi.fn()} />);
+    render(<ObsStatusBar obsState={INITIAL_OBS_STATE} />);
     expect(screen.getByTestId("stream-status")).toHaveTextContent("Offline");
   });
 
   it("shows timecode when streaming", () => {
-    render(<ObsStatusBar obsState={liveState} onEditDetails={vi.fn()} />);
+    render(<ObsStatusBar obsState={liveState} />);
     expect(screen.getByTestId("stream-timecode")).toHaveTextContent("00:14:32");
   });
 
   it("shows recording indicator when recording", () => {
-    render(<ObsStatusBar obsState={recordingState} onEditDetails={vi.fn()} />);
+    render(<ObsStatusBar obsState={recordingState} />);
     expect(screen.getByTestId("recording-indicator")).toBeInTheDocument();
-  });
-
-  it("pencil button fires callback", () => {
-    const onEdit = vi.fn();
-    render(<ObsStatusBar obsState={INITIAL_OBS_STATE} onEditDetails={onEdit} />);
-    fireEvent.click(screen.getByTestId("edit-details-btn"));
-    expect(onEdit).toHaveBeenCalledOnce();
   });
 });
 
 describe("ObsMetadataPreview", () => {
   it("shows interpolated title", () => {
-    render(<ObsMetadataPreview interpolatedStreamTitle="Apr 19 – John – Grace" />);
+    render(<ObsMetadataPreview interpolatedStreamTitle="Apr 19 – John – Grace" onEditDetails={vi.fn()} />);
     expect(screen.getByTestId("obs-metadata-preview")).toHaveTextContent("Apr 19 – John – Grace");
   });
 
   it("shows empty state when no details", () => {
-    render(<ObsMetadataPreview interpolatedStreamTitle="" />);
+    render(<ObsMetadataPreview interpolatedStreamTitle="" onEditDetails={vi.fn()} />);
     expect(screen.getByTestId("obs-metadata-preview")).toHaveTextContent("No session details set");
+  });
+
+  it("pencil button fires onEditDetails", () => {
+    const onEdit = vi.fn();
+    render(<ObsMetadataPreview interpolatedStreamTitle="Title" onEditDetails={onEdit} />);
+    fireEvent.click(screen.getByTestId("edit-details-btn"));
+    expect(onEdit).toHaveBeenCalledOnce();
   });
 });
 
@@ -100,7 +100,7 @@ describe("ObsControls", () => {
     expect(screen.getByTestId("obs-record-btn")).toHaveAttribute("disabled", "true");
   });
 
-  it("shows disabled reason when stream disabled", () => {
+  it("shows disabled reason as subtext in button", () => {
     render(
       <ObsControls
         obsState={INITIAL_OBS_STATE}
