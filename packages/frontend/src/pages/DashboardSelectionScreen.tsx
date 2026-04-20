@@ -39,9 +39,8 @@ export function DashboardSelectionScreen(): ReactNode {
   }, []);
 
   const selectDashboard = (dashboard: DashboardSummary): void => {
-    localStorage.setItem("dashboardId", dashboard.id);
     localStorage.setItem("dashboardName", dashboard.name);
-    history.push("/dashboard");
+    history.push(`/dashboard/${dashboard.id}`);
   };
 
   if (loading) {
@@ -57,11 +56,15 @@ export function DashboardSelectionScreen(): ReactNode {
   if (dashboards.length === 0) {
     return (
       <IonPage data-testid="no-dashboards-screen">
-        <IonContent className="ion-padding ion-text-center">
-          <h2>No Dashboards</h2>
-          <IonText color="medium">
-            <p>Please contact the administrator</p>
-          </IonText>
+        <IonContent className="ion-padding">
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100%", textAlign: "center" }}>
+            <div>
+              <h2>No Dashboards</h2>
+              <IonText color="medium">
+                <p>Please contact the administrator</p>
+              </IonText>
+            </div>
+          </div>
         </IonContent>
       </IonPage>
     );
@@ -70,27 +73,31 @@ export function DashboardSelectionScreen(): ReactNode {
   return (
     <IonPage data-testid="dashboard-selection-screen">
       <IonContent className="ion-padding">
-        <h2>Select Dashboard</h2>
-        {dashboards.map((d) => (
-          <div
-            key={d.id}
-            data-testid="dashboard-option"
-            role="button"
-            tabIndex={0}
-            onClick={() => selectDashboard(d)}
-            onKeyDown={(e) => e.key === "Enter" && selectDashboard(d)}
-            style={{
-              background: "var(--color-surface)",
-              borderRadius: "0.5rem",
-              padding: "var(--space-widget-inner)",
-              marginBottom: "var(--space-control-gap)",
-              cursor: "pointer",
-            }}
-          >
-            <strong>{d.name}</strong>
-            <p style={{ color: "var(--color-text-muted)", margin: "0.25rem 0 0" }}>{d.description}</p>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100%" }}>
+          <div style={{ width: "100%", maxWidth: "28rem" }}>
+            <h2 style={{ textAlign: "center", marginBottom: "1.5rem" }}>Select Dashboard</h2>
+            {dashboards.map((d) => (
+              <div
+                key={d.id}
+                data-testid="dashboard-option"
+                role="button"
+                tabIndex={0}
+                onClick={() => selectDashboard(d)}
+                onKeyDown={(e) => e.key === "Enter" && selectDashboard(d)}
+                style={{
+                  background: "var(--color-surface)",
+                  borderRadius: "0.5rem",
+                  padding: "var(--space-widget-inner)",
+                  marginBottom: "var(--space-control-gap)",
+                  cursor: "pointer",
+                }}
+              >
+                <strong>{d.name}</strong>
+                <p style={{ color: "var(--color-text-muted)", margin: "0.25rem 0 0" }}>{d.description}</p>
+              </div>
+            ))}
           </div>
-        ))}
+        </div>
       </IonContent>
     </IonPage>
   );

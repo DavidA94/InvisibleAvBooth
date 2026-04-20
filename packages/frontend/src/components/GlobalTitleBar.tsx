@@ -1,30 +1,17 @@
 import type { ReactNode } from "react";
 import { IonButton } from "@ionic/react";
-import { useHistory, useLocation } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import { useStore } from "../store";
 
 export function GlobalTitleBar(): ReactNode {
   const user = useStore((s) => s.user);
-  const history = useHistory();
   const location = useLocation();
 
   if (!user) return null;
 
   const isChangePassword = location.pathname === "/change-password";
+  const isDashboard = location.pathname.startsWith("/dashboard/");
   const dashboardName = localStorage.getItem("dashboardName");
-
-  const handleLogout = async (): Promise<void> => {
-    try {
-      await fetch("/auth/logout", { method: "POST", credentials: "include" });
-    } catch {
-      // Best-effort — clear local state regardless
-    }
-    useStore.getState().clearUser();
-    // Clear all dashboard caches from localStorage
-    const keysToRemove = Object.keys(localStorage).filter((k) => k === "dashboardId" || k === "dashboardName" || k.startsWith("dashboardLayout:"));
-    keysToRemove.forEach((k) => localStorage.removeItem(k));
-    history.replace("/login");
-  };
 
   return (
     <div
@@ -32,7 +19,6 @@ export function GlobalTitleBar(): ReactNode {
       style={{
         display: "flex",
         alignItems: "center",
-        gap: "var(--space-control-gap)",
         padding: "0 var(--space-screen-edge)",
         height: "2.5rem",
         background: "var(--color-surface)",
@@ -40,26 +26,35 @@ export function GlobalTitleBar(): ReactNode {
         fontSize: "0.875rem",
       }}
     >
-      <span data-testid="title-bar-username">{user.username}</span>
       {!isChangePassword && (
-        <>
-          <span data-testid="title-bar-role" style={{ color: "var(--color-text-muted)" }}>
-            {user.role}
-          </span>
-          <span
-            data-testid="title-bar-dashboard-nav"
-            role="button"
-            tabIndex={0}
-            onClick={() => history.push("/dashboards")}
-            onKeyDown={(e) => e.key === "Enter" && history.push("/dashboards")}
-            style={{ cursor: "pointer", flex: 1 }}
-          >
-            {dashboardName ?? "Choose Dashboard"}
-          </span>
-        </>
+        <span data-testid="title-bar-dashboard-nav" style={{ display: "inline-flex", alignItems: "center", gap: "0.375rem" }}>
+          {isDashboard && dashboardName ? (
+            <>
+              <span>{dashboardName}</span>
+              <IonButton routerLink="/dashboards" fill="clear" size="small" style={{ "--padding-start": "0", "--padding-end": "0", fontSize: "0.75rem" }}>
+                (change)
+              </IonButton>
+            </>
+          ) : (
+            <>
+              <em style={{ color: "var(--color-text-muted)" }}>No Dashboard Selected</em>
+              <IonButton routerLink="/dashboards" fill="clear" size="small" style={{ "--padding-start": "0", "--padding-end": "0", fontSize: "0.75rem" }}>
+                (choose)
+              </IonButton>
+            </>
+          )}
+        </span>
       )}
-      {isChangePassword && <span style={{ flex: 1 }} />}
-      <IonButton data-testid="title-bar-logout-btn" fill="clear" size="small" onClick={() => void handleLogout()}>
+      <span style={{ flex: 1 }} />
+      <span data-testid="title-bar-username" style={{ marginRight: "0.25rem" }}>
+        {user.username}
+      </span>
+      {!isChangePassword && (
+        <span data-testid="title-bar-role" style={{ color: "var(--color-text-muted)", marginRight: "0.5rem" }}>
+          ({user.role})
+        </span>
+      )}
+      <IonButton data-testid="title-bar-logout-btn" href="/auth/logout" fill="clear" size="small">
         Logout
       </IonButton>
     </div>

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import type { ReactNode } from "react";
 import { IonPage, IonContent, IonSpinner } from "@ionic/react";
-import { useHistory } from "react-router-dom";
+import { useHistory, useParams } from "react-router-dom";
 import type { GridManifest, GridCell, Role } from "../types";
 import { useStore } from "../store";
 
@@ -39,10 +39,10 @@ export function Dashboard(): ReactNode {
   const [manifest, setManifest] = useState<GridManifest | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const history = useHistory();
+  const { id: dashboardId } = useParams<{ id: string }>();
   const historyRef = useRef(history);
   historyRef.current = history;
   const userRole = useStore((s) => s.user?.role) as Role | undefined;
-  const dashboardId = localStorage.getItem("dashboardId");
 
   useEffect(() => {
     if (!dashboardId) {
@@ -65,8 +65,6 @@ export function Dashboard(): ReactNode {
         const response = await fetch(`/api/dashboards/${dashboardId}/layout`, { credentials: "include" });
         if (!response.ok) {
           if (response.status === 404 || response.status === 403) {
-            localStorage.removeItem("dashboardId");
-            localStorage.removeItem("dashboardName");
             historyRef.current.replace("/dashboards");
             return;
           }
@@ -93,8 +91,6 @@ export function Dashboard(): ReactNode {
       }
     };
     void fetchLayout();
-    // dashboardId is the only real dependency — history is accessed via ref
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dashboardId]);
 
   if (!manifest) {

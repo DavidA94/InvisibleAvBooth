@@ -207,14 +207,18 @@ export class AuthService {
     const newUsername = data.username ?? row.username;
     const newRole = data.role ?? row.role;
     const newHash = data.password ? await bcrypt.hash(data.password, BCRYPT_ROUNDS) : row.passwordHash;
+    // If admin is resetting the password, force the user to change it on next login
+    const newRequiresPasswordChange = data.password ? 1 : row.requiresPasswordChange;
 
-    this.database.prepare("UPDATE users SET username = ?, passwordHash = ?, role = ? WHERE id = ?").run(newUsername, newHash, newRole, id);
+    this.database
+      .prepare("UPDATE users SET username = ?, passwordHash = ?, role = ?, requiresPasswordChange = ? WHERE id = ?")
+      .run(newUsername, newHash, newRole, newRequiresPasswordChange, id);
 
     logger.info("User updated", { userId: actor.sub, context: { targetUserId: id } });
 
     return {
       success: true,
-      value: { id, username: newUsername, role: newRole, requiresPasswordChange: !!row.requiresPasswordChange, createdAt: row.createdAt },
+      value: { id, username: newUsername, role: newRole, requiresPasswordChange: !!newRequiresPasswordChange, createdAt: row.createdAt },
     };
   }
 

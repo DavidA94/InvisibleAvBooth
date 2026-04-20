@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
-import { IonPage, IonContent, IonInput, IonButton, IonText, IonItem } from "@ionic/react";
+import { IonPage, IonContent, IonInput, IonButton, IonText } from "@ionic/react";
 import { useHistory } from "react-router-dom";
 import { useStore } from "../store";
 
@@ -21,7 +21,7 @@ export function ChangePasswordPage(): ReactNode {
     if (!user) return;
     setPending(true);
     try {
-      const response = await fetch(`/admin/users/${user.id}/change-password`, {
+      const response = await fetch("/auth/change-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -44,44 +44,49 @@ export function ChangePasswordPage(): ReactNode {
   return (
     <IonPage data-testid="change-password-page">
       <IonContent className="ion-padding">
-        <form
-          data-testid="change-password-form"
-          onSubmit={(e) => {
-            e.preventDefault();
-            void handleSubmit();
-          }}
-        >
-          <IonItem>
+        <div style={{ maxWidth: "22rem", margin: "3rem auto 0" }}>
+          <form
+            data-testid="change-password-form"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void handleSubmit();
+            }}
+            style={{ display: "flex", flexDirection: "column", gap: "1rem" }}
+          >
             <IonInput
               data-testid="new-password-input"
+              name="new-password"
+              autocomplete="new-password"
               label="New Password"
               labelPlacement="stacked"
               type="password"
               value={newPassword}
               onIonInput={(e) => setNewPassword(e.detail.value ?? "")}
-              clearInput
+              fill="outline"
             />
-          </IonItem>
-          <IonItem>
             <IonInput
               data-testid="confirm-password-input"
+              name="confirm-password"
+              autocomplete="new-password"
               label="Confirm Password"
               labelPlacement="stacked"
               type="password"
               value={confirmPassword}
               onIonInput={(e) => setConfirmPassword(e.detail.value ?? "")}
-              clearInput
+              fill="outline"
             />
-          </IonItem>
-          {error && (
-            <IonText color="danger" data-testid="change-password-error">
-              <p>{error}</p>
-            </IonText>
-          )}
-          <IonButton data-testid="change-password-submit" expand="block" type="submit" disabled={pending}>
-            {pending ? "Changing…" : "Change Password"}
-          </IonButton>
-        </form>
+            {error && (
+              <IonText color="danger" data-testid="change-password-error">
+                <p style={{ margin: 0, fontSize: "0.875rem" }}>{error}</p>
+              </IonText>
+            )}
+            <div style={{ display: "flex", justifyContent: "center", marginTop: "0.5rem" }}>
+              <IonButton data-testid="change-password-submit" type="submit" disabled={pending} style={{ minHeight: "2.75rem", minWidth: "10rem" }}>
+                {pending ? "Changing…" : "Change Password"}
+              </IonButton>
+            </div>
+          </form>
+        </div>
       </IonContent>
     </IonPage>
   );

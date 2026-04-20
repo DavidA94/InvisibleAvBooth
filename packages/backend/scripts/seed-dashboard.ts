@@ -2,13 +2,13 @@
 // Run with: npx tsx scripts/seed-dashboard.ts
 // Inserts the default dashboard and OBS widget configuration. Idempotent.
 
-import { getDb, resetDb } from "../src/db/database.js";
+import { getDatabase, resetDatabase } from "../src/database/database.js";
 
 const DASHBOARD_ID = "default";
 const WIDGET_ID = "obs";
 
 function seed(): void {
-  const database = getDb();
+  const database = getDatabase();
 
   const existing = database.prepare("SELECT id FROM dashboards WHERE id = ?").get(DASHBOARD_ID);
   if (!existing) {
@@ -43,4 +43,4 @@ function seed(): void {
 }
 
 seed();
-resetDb();
+resetDatabase();

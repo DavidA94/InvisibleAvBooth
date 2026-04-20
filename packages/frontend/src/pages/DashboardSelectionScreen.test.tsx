@@ -55,7 +55,7 @@ describe("DashboardSelectionScreen", () => {
     });
   });
 
-  it("selecting a dashboard stores id and navigates", async () => {
+  it("selecting a dashboard stores name and navigates", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
       json: async () => [{ id: "d1", name: "Main Dashboard", description: "Standard view" }],
@@ -65,8 +65,7 @@ describe("DashboardSelectionScreen", () => {
       expect(screen.getByTestId("dashboard-option")).toBeInTheDocument();
     });
     await userEvent.click(screen.getByTestId("dashboard-option"));
-    expect(localStorage.getItem("dashboardId")).toBe("d1");
     expect(localStorage.getItem("dashboardName")).toBe("Main Dashboard");
-    expect(mockPush).toHaveBeenCalledWith("/dashboard");
+    expect(mockPush).toHaveBeenCalledWith("/dashboard/d1");
   });
 });

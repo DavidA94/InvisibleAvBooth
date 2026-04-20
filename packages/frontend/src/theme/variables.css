@@ -69,3 +69,8 @@
   --space-widget-inner: 0.75rem;
   --space-control-gap: 0.75rem;
 }
+
+/* Fix password reveal eye icon visibility in dark theme */
+ion-input .input-password-toggle-icon {
+  color: var(--color-text-muted);
+}
