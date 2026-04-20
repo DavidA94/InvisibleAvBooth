@@ -159,3 +159,7 @@ The admin setup flow for streaming platforms:
 4. Done. Never needs to be touched again unless switching accounts.
 
 The volunteer experience is unchanged — they see platform checkboxes on the stream start flow and a "Manage Streams" modal during streaming. They never interact with OAuth or platform configuration.
+
+### Known Limitation: No Automated Content Verification
+
+The system monitors stream health (bitrate, connection quality) via platform APIs but cannot verify that the video content is correct (e.g., not a black screen, not a frozen frame, correct camera angle). Stream health indicators may show "Good" while viewers see nothing useful. Volunteers should visually verify the stream on a phone or second device during the first minute of each broadcast. This is an operational procedure that should be included in volunteer training — it is not something the system can automate.
