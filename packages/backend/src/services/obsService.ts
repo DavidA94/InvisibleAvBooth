@@ -149,6 +149,21 @@ export class ObsService {
     try {
       await this.obs.call("StartStream");
       this.state.commandedState.streaming = true;
+
+      // Verify OBS actually transitioned — obs-websocket may accept the call
+      // but fail silently (e.g., broadcast not configured).
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      const status = (await this.obs.call("GetStreamStatus")) as { outputActive: boolean };
+      if (!status.outputActive) {
+        this.state.commandedState.streaming = false;
+        eventBus.emit(BUS_OBS_STATE_CHANGED, { state: this.getState() });
+        eventBus.emit(BUS_OBS_ERROR, {
+          error: new ObsError("STREAM_START_FAILED", "Stream failed to start — check OBS broadcast settings") as ObsError & { code: "STREAM_START_FAILED" },
+        });
+        return { success: false, error: new ObsError("STREAM_START_FAILED", "Stream failed to start — check OBS broadcast settings") };
+      }
+
+      this.state.streaming = true;
       eventBus.emit(BUS_OBS_STATE_CHANGED, { state: this.getState() });
       return { success: true, value: this.getState() };
     } catch (err) {
@@ -183,6 +198,19 @@ export class ObsService {
     try {
       await this.obs.call("StartRecord");
       this.state.commandedState.recording = true;
+
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      const status = (await this.obs.call("GetRecordStatus")) as { outputActive: boolean };
+      if (!status.outputActive) {
+        this.state.commandedState.recording = false;
+        eventBus.emit(BUS_OBS_STATE_CHANGED, { state: this.getState() });
+        eventBus.emit(BUS_OBS_ERROR, {
+          error: new ObsError("RECORDING_START_FAILED", "Recording failed to start — check OBS settings") as ObsError & { code: "RECORDING_START_FAILED" },
+        });
+        return { success: false, error: new ObsError("RECORDING_START_FAILED", "Recording failed to start — check OBS settings") };
+      }
+
+      this.state.recording = true;
       eventBus.emit(BUS_OBS_STATE_CHANGED, { state: this.getState() });
       return { success: true, value: this.getState() };
     } catch (err) {

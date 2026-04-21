@@ -74,8 +74,4 @@ export class SessionManifestService {
     logger.info("Session manifest cleared", { userId: actor.sub });
     return { success: true, value: undefined };
   }
-
-  preview(draft: Partial<SessionManifest>): string {
-    return interpolateStreamTitle(draft, this.template);
-  }
 }

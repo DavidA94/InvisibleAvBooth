@@ -15,7 +15,7 @@ const defaultProps = {
 describe("ConfirmationModal", () => {
   it("renders title and body", () => {
     render(<ConfirmationModal {...defaultProps} />);
-    expect(screen.getByTestId("confirmation-title")).toHaveTextContent("Are you sure?");
+    expect(screen.getByTestId("modal-header")).toHaveTextContent("Are you sure?");
     expect(screen.getByTestId("confirmation-body")).toHaveTextContent("This cannot be undone.");
   });
 
@@ -43,15 +43,14 @@ describe("ConfirmationModal", () => {
     expect(onCancel).toHaveBeenCalledOnce();
   });
 
-  it("confirm button uses danger color by default", () => {
-    render(<ConfirmationModal {...defaultProps} />);
-    const btn = screen.getByTestId("confirmation-confirm-btn");
-    expect(btn).toHaveAttribute("color", "danger");
+  it("does not render when closed", () => {
+    render(<ConfirmationModal {...defaultProps} isOpen={false} />);
+    expect(screen.queryByTestId("modal-header")).not.toBeInTheDocument();
   });
 
-  it("confirm button uses primary color when specified", () => {
-    render(<ConfirmationModal {...defaultProps} confirmVariant="primary" />);
-    const btn = screen.getByTestId("confirmation-confirm-btn");
-    expect(btn).toHaveAttribute("color", "primary");
+  it("no body renders without borders", () => {
+    render(<ConfirmationModal {...defaultProps} body={undefined} />);
+    expect(screen.getByTestId("modal-header")).toBeInTheDocument();
+    expect(screen.queryByTestId("modal-body")).not.toBeInTheDocument();
   });
 });

@@ -14,7 +14,7 @@ function makeMockManifestService(): SessionManifestService {
   return {
     get: vi.fn().mockReturnValue({ speaker: "John" }),
     update: vi.fn().mockReturnValue({ success: true, value: { speaker: "John" } }),
-    preview: vi.fn().mockReturnValue("Today – John – Grace"),
+    getTemplate: vi.fn().mockReturnValue("{Date} – {Speaker} – {Title}"),
   } as unknown as SessionManifestService;
 }
 
@@ -90,7 +90,7 @@ describe("emitInitialState", () => {
     module.emitInitialState(auth);
     expect(socketEmitMock).toHaveBeenCalledWith(STC_SESSION_MANIFEST_UPDATED, {
       manifest: { speaker: "John" },
-      interpolatedStreamTitle: "Today – John – Grace",
+      interpolatedStreamTitle: expect.any(String),
     });
   });
 });

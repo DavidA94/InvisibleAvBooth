@@ -18,8 +18,8 @@ function makeMockObs() {
     connect: vi.fn().mockResolvedValue(undefined),
     disconnect: vi.fn().mockResolvedValue(undefined),
     call: vi.fn().mockImplementation((method: string) => {
-      if (method === "GetStreamStatus") return Promise.resolve({ outputActive: false });
-      if (method === "GetRecordStatus") return Promise.resolve({ outputActive: false });
+      if (method === "GetStreamStatus") return Promise.resolve({ outputActive: true });
+      if (method === "GetRecordStatus") return Promise.resolve({ outputActive: true });
       return Promise.resolve({});
     }),
     on: vi.fn().mockImplementation((event: string, handler: EventHandler) => {
@@ -176,6 +176,42 @@ describe("ObsService.startStream — safe-start", () => {
     const result = await service.startStream();
     expect(result.success).toBe(false);
     if (!result.success) expect(result.error.code).toBe("OBS_UNREACHABLE");
+  });
+
+  it("returns STREAM_START_FAILED when OBS accepts command but does not transition", async () => {
+    const mockObs = makeMockObs();
+    mockObs.call.mockImplementation((method: string) => {
+      if (method === "GetStreamStatus") return Promise.resolve({ outputActive: false });
+      if (method === "GetRecordStatus") return Promise.resolve({ outputActive: true });
+      return Promise.resolve({});
+    });
+    const service = makeSvc(makeDatabase(), mockObs);
+    await service.connect();
+    const result = await service.startStream();
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.code).toBe("STREAM_START_FAILED");
+      expect(result.error.message).toContain("check OBS");
+    }
+    expect(service.getState().commandedState.streaming).toBe(false);
+  });
+
+  it("returns RECORDING_START_FAILED when OBS accepts command but does not transition", async () => {
+    const mockObs = makeMockObs();
+    mockObs.call.mockImplementation((method: string) => {
+      if (method === "GetRecordStatus") return Promise.resolve({ outputActive: false });
+      if (method === "GetStreamStatus") return Promise.resolve({ outputActive: true });
+      return Promise.resolve({});
+    });
+    const service = makeSvc(makeDatabase(), mockObs);
+    await service.connect();
+    const result = await service.startRecording();
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.code).toBe("RECORDING_START_FAILED");
+      expect(result.error.message).toContain("check OBS");
+    }
+    expect(service.getState().commandedState.recording).toBe(false);
   });
 });
 

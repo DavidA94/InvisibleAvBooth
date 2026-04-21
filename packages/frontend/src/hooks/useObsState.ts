@@ -20,7 +20,7 @@ export function useObsState(): {
       return new Promise<CommandResult>((resolve) => {
         if (!socket) {
           useStore.getState().setObsPending(false);
-          resolve({ success: false, errorCode: "NO_SOCKET", message: "Not connected" });
+          resolve({ success: false, error: "Not connected" });
           return;
         }
 

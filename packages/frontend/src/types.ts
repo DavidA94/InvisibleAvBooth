@@ -40,7 +40,7 @@ export interface ObsCommand {
   type: ObsCommandType;
 }
 
-export type CommandResult = { success: true } | { success: false; errorCode: string; message: string };
+export type CommandResult = { success: true } | { success: false; error: string };
 
 export type NotificationLevel = "toast" | "banner" | "modal";
 export type NotificationSeverity = "info" | "warning" | "error";

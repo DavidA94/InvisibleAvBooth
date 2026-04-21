@@ -8,6 +8,9 @@ import "@ionic/react/css/core.css";
 import "@ionic/react/css/normalize.css";
 import "@ionic/react/css/structure.css";
 import "@ionic/react/css/typography.css";
+import "@ionic/react/css/padding.css";
+import "@ionic/react/css/text-alignment.css";
+import "@ionic/react/css/flex-utils.css";
 
 /* Project theme — must load after Ionic defaults so our overrides win */
 import "./theme/variables.css";
@@ -15,6 +18,7 @@ import "./theme/variables.css";
 import { SocketProvider } from "./providers/SocketProvider";
 import { ProtectedRoutes } from "./components/ProtectedRoutes";
 import { GlobalTitleBar } from "./components/GlobalTitleBar";
+import { NotificationLayer } from "./components/NotificationLayer";
 import { LoginPage } from "./pages/LoginPage";
 import { ChangePasswordPage } from "./pages/ChangePasswordPage";
 import { DashboardSelectionScreen } from "./pages/DashboardSelectionScreen";
@@ -33,6 +37,7 @@ export function App(): ReactNode {
           <Route>
             <ProtectedRoutes>
               <SocketProvider>
+                <NotificationLayer />
                 <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
                   <GlobalTitleBar />
                   <div style={{ flex: 1, position: "relative" }}>

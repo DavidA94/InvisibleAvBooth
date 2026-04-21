@@ -50,7 +50,7 @@ describe("useObsState", () => {
 
   it("clears pending on error response", async () => {
     mockEmit.mockImplementation((_event: string, _command: unknown, ack: (result: CommandResult) => void) => {
-      ack({ success: false, errorCode: "STREAM_START_FAILED", message: "Failed" });
+      ack({ success: false, error: "Failed" });
     });
 
     const { result } = renderHook(() => useObsState());

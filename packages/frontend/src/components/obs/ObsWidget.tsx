@@ -30,9 +30,9 @@ export function ObsWidget(): ReactNode {
       if (!result.success) {
         useStore.getState().addNotification({
           id: `obs-cmd-${Date.now()}`,
-          level: "banner",
+          level: "toast",
           severity: "error",
-          message: result.message,
+          message: result.error,
         });
       }
     },

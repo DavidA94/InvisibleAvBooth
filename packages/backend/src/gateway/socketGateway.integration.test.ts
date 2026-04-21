@@ -25,8 +25,8 @@ function makeMockObs() {
     connect: vi.fn().mockResolvedValue(undefined),
     disconnect: vi.fn().mockResolvedValue(undefined),
     call: vi.fn().mockImplementation((method: string) => {
-      if (method === "GetStreamStatus") return Promise.resolve({ outputActive: false });
-      if (method === "GetRecordStatus") return Promise.resolve({ outputActive: false });
+      if (method === "GetStreamStatus") return Promise.resolve({ outputActive: true });
+      if (method === "GetRecordStatus") return Promise.resolve({ outputActive: true });
       return Promise.resolve({});
     }),
     on: vi.fn().mockImplementation((event: string, handler: EventHandler) => {
@@ -89,8 +89,8 @@ afterEach(() => {
   vi.clearAllMocks();
   // Reset mock call implementations
   mockObs.call.mockImplementation((method: string) => {
-    if (method === "GetStreamStatus") return Promise.resolve({ outputActive: false });
-    if (method === "GetRecordStatus") return Promise.resolve({ outputActive: false });
+    if (method === "GetStreamStatus") return Promise.resolve({ outputActive: true });
+    if (method === "GetRecordStatus") return Promise.resolve({ outputActive: true });
     return Promise.resolve({});
   });
 });
