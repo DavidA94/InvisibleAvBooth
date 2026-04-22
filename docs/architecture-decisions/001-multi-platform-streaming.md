@@ -120,7 +120,7 @@ The existing `ObsService.startStream()` safe-start sequence changes significantl
 | Single FFmpeg process crashes           | One platform loses stream; others continue | Backend detects exit, surfaces banner, allows restart          |
 | Platform API rejects broadcast creation | That platform is skipped; others proceed   | Banner notification; admin checks platform config              |
 | OAuth token expired/revoked             | Platform API calls fail for that platform  | Banner: "YouTube authorization expired — admin must reconnect" |
-| OBS disconnects from relay              | All streams stop (no source data)          | Existing OBS reconnect logic applies                           |
+| OBS disconnects from relay              | All platform streams lose source data    | Platforms transition to "No Source"; on OBS reconnect, transition to "Recovering" and verify via API; see Req 5.10 |
 
 ### Token Management
 
