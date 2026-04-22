@@ -239,10 +239,10 @@ Tests are part of each story's definition of done. Unit tests (including propert
 - [x] 63. Write unit tests for Dashboard — renders correct grid layout, shows Loading spinner on first load, shows Refreshing spinner on refresh, falls back to localStorage cache on fetch failure, structural change triggers re-render, widgetId maps to correct component (mock fetch, mock store)
   - _Requirements: 5b, 18_
 
-- [ ] 64. Create Playwright fixture infrastructure — playwright/fixtures/payloads/obs.ts, auth.ts, session.ts (typed factory functions with happy-path defaults and partial overrides) and playwright/support/routes/obs.ts, auth.ts, session.ts (shared HTTP and WebSocket route handlers)
+- [x] 64. Create Playwright fixture infrastructure — playwright/fixtures/payloads/obs.ts, auth.ts, session.ts (typed factory functions with happy-path defaults and partial overrides) and playwright/support/routes/obs.ts, auth.ts, session.ts (shared HTTP and WebSocket route handlers)
   - _Requirements: 4, 6, 8_
 
-- [ ] 65. Write Playwright E2E test for authentication flow — login success, login failure, logout, requiresPasswordChange redirect, session persistence (mocked backend)
+- [x] 65. Write Playwright E2E test for authentication flow — login success, login failure, logout, requiresPasswordChange redirect, session persistence (mocked backend)
   - _Requirements: 6, 13_
 
 ---
@@ -295,7 +295,7 @@ Tests are part of each story's definition of done. Unit tests (including propert
 - [x] 79. Write unit tests for ObsWidget — connected/disconnected states, Start Stream confirmation flow, Stop Stream confirmation flow, Stop Recording confirmation flow, disabled Start Stream behavior, metadata preview states (mock useObsState, useAuth)
   - _Requirements: 8, 9, 11, 17_
 
-- [ ] 80. Write Playwright E2E test for OBS stream start flow — login → dashboard → enter metadata → tap Start Stream → confirm → verify stream live state (mocked backend HTTP + WebSocket)
+- [x] 80. Write Playwright E2E test for OBS stream start flow — login → dashboard → enter metadata → tap Start Stream → confirm → verify stream live state (mocked backend HTTP + WebSocket)
   - _Requirements: 8, 9_
 
 ---
@@ -314,5 +314,5 @@ Tests are part of each story's definition of done. Unit tests (including propert
 - [x] 84. Write unit tests for AdminDeviceManagement — renders device list, add device form submits and updates list, edit device updates row, delete device removes row, stream title template field shows live preview (mock fetch)
   - _Requirements: 14, 20_
 
-- [ ] 85. Write Playwright E2E tests for admin pages — admin user CRUD flow end-to-end; admin device CRUD flow end-to-end (mocked backend)
+- [x] 85. Write Playwright E2E tests for admin pages — admin user CRUD flow end-to-end; admin device CRUD flow end-to-end (mocked backend)
   - _Requirements: 13, 14, 20_
