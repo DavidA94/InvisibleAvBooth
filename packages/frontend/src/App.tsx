@@ -24,6 +24,8 @@ import { LoginPage } from "./pages/LoginPage";
 import { ChangePasswordPage } from "./pages/ChangePasswordPage";
 import { DashboardSelectionScreen } from "./pages/DashboardSelectionScreen";
 import { Dashboard } from "./pages/Dashboard";
+import { AdminUserManagement } from "./pages/AdminUserManagement";
+import { AdminDeviceManagement } from "./pages/AdminDeviceManagement";
 
 // Force Material Design mode — we're a tablet web app in a controlled environment,
 // not a native app. MD mode gives consistent rendering regardless of user-agent.
@@ -46,8 +48,8 @@ export function App(): ReactNode {
                       <Route exact path="/change-password" component={ChangePasswordPage} />
                       <Route exact path="/dashboards" component={DashboardSelectionScreen} />
                       <Route exact path="/dashboard/:id" component={Dashboard} />
-                      <Route exact path="/admin/users" render={() => <div>Admin Users (coming soon)</div>} />
-                      <Route exact path="/admin/devices" render={() => <div>Admin Devices (coming soon)</div>} />
+                      <Route exact path="/admin/users" component={AdminUserManagement} />
+                      <Route exact path="/admin/devices" component={AdminDeviceManagement} />
                       <Route exact path="/" render={() => <Redirect to="/dashboards" />} />
                     </IonRouterOutlet>
                   </div>

@@ -249,50 +249,50 @@ Tests are part of each story's definition of done. Unit tests (including propert
 
 ## Platform Components
 
-- [ ] 66. Create frontend WidgetContainer — src/components/WidgetContainer.tsx (title bar with connection status indicators, content area with --space-widget-inner padding, ResizeObserver for expanded/collapsed mode, Ionic popover on indicator tap)
+- [x] 66. Create frontend WidgetContainer — src/components/WidgetContainer.tsx (title bar with connection status indicators, content area with --space-widget-inner padding, ResizeObserver for expanded/collapsed mode, Ionic popover on indicator tap)
   - _Requirements: 16, 18_
 
-- [ ] 67. Write unit tests for WidgetContainer — expanded/collapsed indicator modes, popover on tap, healthy/unhealthy dot states, title rendering (mock ResizeObserver)
+- [x] 67. Write unit tests for WidgetContainer — expanded/collapsed indicator modes, popover on tap, healthy/unhealthy dot states, title rendering (mock ResizeObserver)
   - _Requirements: 16_
 
-- [ ] 68. Create frontend ConfirmationModal — src/components/ConfirmationModal.tsx (optional title, optional body slot, confirmLabel, cancelLabel, confirmVariant danger/primary, onConfirm/onCancel callbacks)
+- [x] 68. Create frontend ConfirmationModal — src/components/ConfirmationModal.tsx (optional title, optional body slot, confirmLabel, cancelLabel, confirmVariant danger/primary, onConfirm/onCancel callbacks)
   - _Requirements: 17_
 
-- [ ] 69. Write unit tests for ConfirmationModal — confirm/cancel callbacks, danger/primary variant styling, title/body rendering, button labels
+- [x] 69. Write unit tests for ConfirmationModal — confirm/cancel callbacks, danger/primary variant styling, title/body rendering, button labels
   - _Requirements: 17_
 
-- [ ] 70. Create frontend WidgetErrorOverlay — src/components/WidgetErrorOverlay.tsx (semi-transparent scrim + centered action card when isVisible, isPending spinner, onAction on tap, non-interactive if onAction absent)
+- [x] 70. Create frontend WidgetErrorOverlay — src/components/WidgetErrorOverlay.tsx (semi-transparent scrim + centered action card when isVisible, isPending spinner, onAction on tap, non-interactive if onAction absent)
   - _Requirements: 3, 10_
 
-- [ ] 71. Write unit tests for WidgetErrorOverlay — renders when isVisible, hidden when not, shows spinner when isPending, onAction fires on tap, non-interactive when onAction absent (data-testid assertions)
+- [x] 71. Write unit tests for WidgetErrorOverlay — renders when isVisible, hidden when not, shows spinner when isPending, onAction fires on tap, non-interactive when onAction absent (data-testid assertions)
   - _Requirements: 3, 10_
 
-- [ ] 72. Create frontend NotificationLayer — src/components/NotificationLayer.tsx (Toast auto-dismiss 5s, Banner with 'Error X of Y' counter and navigation, Modal with acknowledgment or auto-clear on resolution event)
+- [x] 72. Create frontend NotificationLayer — src/components/NotificationLayer.tsx (Toast auto-dismiss 5s, Banner with 'Error X of Y' counter and navigation, Modal with acknowledgment or auto-clear on resolution event)
   - _Requirements: 10, 23_
 
-- [ ] 73. Write unit tests for NotificationLayer — toast auto-dismisses after 5s, banner shows correct 'Error X of Y' counter, banner navigation cycles through errors, modal requires acknowledgment, modal auto-clears on resolution event (mock store, mock timers)
+- [x] 73. Write unit tests for NotificationLayer — toast auto-dismisses after 5s, banner shows correct 'Error X of Y' counter, banner navigation cycles through errors, modal requires acknowledgment, modal auto-clears on resolution event (mock store, mock timers)
   - _Requirements: 10, 23_
 
 ---
 
 ## OBS Widget
 
-- [ ] 74. Create frontend SessionManifestModal — src/components/SessionManifestModal.tsx (speaker/title clearInput, scripture book autocomplete with KJV contains search, chapter/verse/verseEnd numeric inputs, live interpolatedStreamTitle preview, Save/Cancel/Clear All; 5s ack timeout with inline error; end verse normalisation on blur; scripture validation on blur)
+- [x] 74. Create frontend SessionManifestModal — src/components/SessionManifestModal.tsx (speaker/title clearInput, scripture book autocomplete with KJV contains search, chapter/verse/verseEnd numeric inputs, live interpolatedStreamTitle preview, Save/Cancel/Clear All; 5s ack timeout with inline error; end verse normalisation on blur; scripture validation on blur)
   - _Requirements: 2, 9, 15, 19, 20_
 
-- [ ] 75. Write unit tests for SessionManifestModal — speaker/title inputs update preview, scripture autocomplete filters by contains search, end verse normalises on blur, scripture validation shows error on blur, Save emits socket event with ack, 5s timeout shows inline error, Clear All resets all fields, Cancel closes without saving (mock socket context, mock fetch for KJV validation)
+- [x] 75. Write unit tests for SessionManifestModal — speaker/title inputs update preview, scripture autocomplete filters by contains search, end verse normalises on blur, scripture validation shows error on blur, Save emits socket event with ack, 5s timeout shows inline error, Clear All resets all fields, Cancel closes without saving (mock socket context, mock fetch for KJV validation)
   - _Requirements: 2, 9, 15, 19, 20_
 
-- [ ] 76. Create frontend ObsWidget sub-components — obs/ObsStatusBar.tsx (stream status dot, timecode, recording indicator, Edit Details pencil button), obs/ObsMetadataPreview.tsx (interpolated title with ellipsis, tap-to-expand popover, 'No session details set' empty state), obs/ObsControls.tsx (Start/Stop Stream and Start/Stop Recording buttons with pending state)
+- [x] 76. Create frontend ObsWidget sub-components — obs/ObsStatusBar.tsx (stream status dot, timecode, recording indicator, Edit Details pencil button), obs/ObsMetadataPreview.tsx (interpolated title with ellipsis, tap-to-expand popover, 'No session details set' empty state), obs/ObsControls.tsx (Start/Stop Stream and Start/Stop Recording buttons with pending state)
   - _Requirements: 8, 9, 11, 18_
 
-- [ ] 77. Write unit tests for ObsWidget sub-components — ObsStatusBar: correct dot color per stream state, timecode displays, recording indicator visible when recording, pencil button fires callback; ObsMetadataPreview: shows interpolated title, empty state when no details, popover on tap; ObsControls: correct button label per state, pending state disables buttons (mock useObsState)
+- [x] 77. Write unit tests for ObsWidget sub-components — ObsStatusBar: correct dot color per stream state, timecode displays, recording indicator visible when recording, pencil button fires callback; ObsMetadataPreview: shows interpolated title, empty state when no details, popover on tap; ObsControls: correct button label per state, pending state disables buttons (mock useObsState)
   - _Requirements: 8, 9, 11, 18_
 
-- [ ] 78. Create frontend ObsWidget — src/components/obs/ObsWidget.tsx (2×2 footprint, WidgetContainer with title='OBS', composes all OBS sub-components, WidgetErrorOverlay when disconnected, OBS_NOT_CONFIGURED overlay, all confirmation flows, disabled Start Stream tap behavior)
+- [x] 78. Create frontend ObsWidget — src/components/obs/ObsWidget.tsx (2×2 footprint, WidgetContainer with title='OBS', composes all OBS sub-components, WidgetErrorOverlay when disconnected, OBS_NOT_CONFIGURED overlay, all confirmation flows, disabled Start Stream tap behavior)
   - _Requirements: 8, 9, 10, 11, 17_
 
-- [ ] 79. Write unit tests for ObsWidget — connected/disconnected states, Start Stream confirmation flow, Stop Stream confirmation flow, Stop Recording confirmation flow, disabled Start Stream behavior, metadata preview states (mock useObsState, useAuth)
+- [x] 79. Write unit tests for ObsWidget — connected/disconnected states, Start Stream confirmation flow, Stop Stream confirmation flow, Stop Recording confirmation flow, disabled Start Stream behavior, metadata preview states (mock useObsState, useAuth)
   - _Requirements: 8, 9, 11, 17_
 
 - [ ] 80. Write Playwright E2E test for OBS stream start flow — login → dashboard → enter metadata → tap Start Stream → confirm → verify stream live state (mocked backend HTTP + WebSocket)
@@ -302,16 +302,16 @@ Tests are part of each story's definition of done. Unit tests (including propert
 
 ## Admin Pages
 
-- [ ] 81. Create frontend AdminUserManagement page — src/pages/AdminUserManagement.tsx (route /admin/users, ADMIN only, list/create/edit/delete users, clearInput on text inputs, pending state on submit buttons)
+- [x] 81. Create frontend AdminUserManagement page — src/pages/AdminUserManagement.tsx (route /admin/users, ADMIN only, list/create/edit/delete users, clearInput on text inputs, pending state on submit buttons)
   - _Requirements: 13, 20_
 
-- [ ] 82. Write unit tests for AdminUserManagement — renders user list, create user form submits and updates list, edit user updates row, delete user removes row, pending state on submit, clearInput on text fields (mock fetch)
+- [x] 82. Write unit tests for AdminUserManagement — renders user list, create user form submits and updates list, edit user updates row, delete user removes row, pending state on submit, clearInput on text fields (mock fetch)
   - _Requirements: 13, 20_
 
-- [ ] 83. Create frontend AdminDeviceManagement page — src/pages/AdminDeviceManagement.tsx (route /admin/devices, ADMIN only, list/add/edit/delete device connections, OBS Stream Title Template field with live preview)
+- [x] 83. Create frontend AdminDeviceManagement page — src/pages/AdminDeviceManagement.tsx (route /admin/devices, ADMIN only, list/add/edit/delete device connections, OBS Stream Title Template field with live preview)
   - _Requirements: 14, 20_
 
-- [ ] 84. Write unit tests for AdminDeviceManagement — renders device list, add device form submits and updates list, edit device updates row, delete device removes row, stream title template field shows live preview (mock fetch)
+- [x] 84. Write unit tests for AdminDeviceManagement — renders device list, add device form submits and updates list, edit device updates row, delete device removes row, stream title template field shows live preview (mock fetch)
   - _Requirements: 14, 20_
 
 - [ ] 85. Write Playwright E2E tests for admin pages — admin user CRUD flow end-to-end; admin device CRUD flow end-to-end (mocked backend)
