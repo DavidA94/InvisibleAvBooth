@@ -81,7 +81,7 @@ export function ObsWidget(): ReactNode {
 
   return (
     <WidgetContainer title="OBS" connections={[{ label: "OBS", healthy: obsState.connected }]}>
-      <div data-testid="obs-widget" style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+      <div data-testid="obs-widget" className="layout-column full-height">
         <ObsStatusBar obsState={obsState} />
         <ObsMetadataPreview interpolatedStreamTitle={interpolatedStreamTitle} onEditDetails={() => setShowManifestModal(true)} />
         <WidgetErrorOverlay
@@ -110,10 +110,8 @@ export function ObsWidget(): ReactNode {
         title="Begin Stream"
         body={
           <div>
-            <p style={{ color: "var(--color-text-muted)", fontSize: "0.875rem", marginBottom: "0.375rem" }}>Stream title</p>
-            <div style={{ background: "var(--color-surface-raised)", borderRadius: "0.375rem", padding: "0.625rem 0.75rem", fontWeight: "bold" }}>
-              {interpolatedStreamTitle}
-            </div>
+            <p className="text-muted margin-bottom-narrow">Stream title</p>
+            <div className="stream-confirm-preview">{interpolatedStreamTitle}</div>
           </div>
         }
         confirmLabel="Start Stream"

@@ -54,23 +54,14 @@ export function LoginPage(): ReactNode {
   return (
     <IonPage data-testid="login-page">
       <IonContent className="ion-padding">
-        <div
-          style={{
-            maxWidth: "22rem",
-            margin: "3rem auto 0",
-          }}
-        >
+        <div className="form-container">
           <form
             data-testid="login-form"
             onSubmit={(e) => {
               e.preventDefault();
               void handleSubmit();
             }}
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: "1rem",
-            }}
+            className="form-layout"
           >
             <IonInput
               data-testid="login-username"
@@ -93,31 +84,22 @@ export function LoginPage(): ReactNode {
               onIonInput={(e) => setPassword(e.detail.value ?? "")}
               fill="outline"
             />
-            <label
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "0.5rem",
-                fontSize: "0.8125rem",
-                color: "var(--color-text-muted)",
-                padding: "0.25rem 0",
-              }}
-            >
+            <label className="remember-me-label">
               <IonCheckbox
                 data-testid="login-remember"
                 checked={rememberMe}
                 onIonChange={(e) => setRememberMe(e.detail.checked)}
-                style={{ minWidth: "1.25rem", minHeight: "1.25rem" }}
+                className="checkbox-touch-target"
               />
               Remember Me
             </label>
             {error && (
               <IonText color="danger" data-testid="login-error">
-                <p style={{ margin: 0, fontSize: "0.875rem" }}>{error}</p>
+                <p className="margin-none text-secondary">{error}</p>
               </IonText>
             )}
-            <div style={{ display: "flex", justifyContent: "center", marginTop: "0.5rem" }}>
-              <IonButton data-testid="login-submit" type="submit" disabled={pending} style={{ minHeight: "2.75rem", minWidth: "10rem" }}>
+            <div className="form-actions">
+              <IonButton data-testid="login-submit" type="submit" disabled={pending} className="button-touch-target">
                 {pending ? "Logging in…" : "Log In"}
               </IonButton>
             </div>

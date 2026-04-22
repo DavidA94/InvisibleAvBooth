@@ -24,25 +24,23 @@ export function ObsControls({
   const streamLabel = obsState.streaming ? "Stop Stream" : "Start Stream";
   const recordLabel = obsState.recording ? "Stop Recording" : "Start Recording";
 
-  // Stream button is never truly disabled — tapping it when metadata is missing
-  // opens the metadata modal (handled by onStartStream). Only disable during pending.
   return (
-    <div data-testid="obs-controls" style={{ display: "flex", gap: "var(--space-control-gap)", flex: 1, maxHeight: "12rem" }}>
+    <div data-testid="obs-controls" className="obs-controls">
       <IonButton
         data-testid="obs-stream-btn"
         expand="block"
         color={obsState.streaming ? "danger" : "primary"}
         disabled={isPending}
         onClick={obsState.streaming ? onStopStream : onStartStream}
-        style={{ flex: 1, fontWeight: "bold", "--border-radius": "0.375rem", opacity: streamDisabledReason && !obsState.streaming ? 0.6 : 1 }}
+        className={`fill-remaining text-bold ionic-button-rounded ${streamDisabledReason && !obsState.streaming ? "opacity-subdued" : ""}`}
       >
         {isPending ? (
           <IonSpinner name="crescent" />
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-            <span style={{ fontSize: "1.125rem" }}>{streamLabel}</span>
+          <div className="layout-column layout-centered">
+            <span className="text-button-large">{streamLabel}</span>
             {streamDisabledReason && !obsState.streaming && (
-              <span data-testid="stream-disabled-reason" style={{ fontSize: "0.6875rem", opacity: 0.7, marginTop: "0.125rem" }}>
+              <span data-testid="stream-disabled-reason" style={{ fontSize: "0.75rem", opacity: 0.7, marginTop: "0.125rem" }}>
                 {streamDisabledReason}
               </span>
             )}
@@ -55,7 +53,7 @@ export function ObsControls({
         color={obsState.recording ? "danger" : "medium"}
         disabled={isPending}
         onClick={obsState.recording ? onStopRecording : onStartRecording}
-        style={{ flex: 1, fontSize: "1.125rem", fontWeight: "bold", "--border-radius": "0.375rem" }}
+        className="fill-remaining text-button-large text-bold ionic-button-rounded"
       >
         {isPending ? <IonSpinner name="crescent" /> : recordLabel}
       </IonButton>

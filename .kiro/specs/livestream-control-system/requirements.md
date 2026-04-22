@@ -117,7 +117,7 @@ Invisible A/V Booth is a web-based, touch-first control interface for managing c
 4. IF the layout API call fails or returns an unparseable response, THE Frontend SHALL fall back to the cached `GridManifest` for that dashboard ID if one exists; IF no cached layout exists, THE Frontend SHALL show the Dashboard Selection Screen with a Toast "Could not load dashboard".
 5. AFTER the dashboard renders from cache, THE Frontend SHALL immediately fetch the fresh layout from the API in the background. IF the fresh layout differs in widget placement (different `widgetId`, `col`, `row`, `colSpan`, or `rowSpan` values), THE Frontend SHALL display a full-screen spinner "Refreshing Dashboard", apply the new layout, and update the cache. IF only non-structural data changes (e.g., widget title), THE Frontend SHALL apply the update silently with no spinner.
 6. IF the stored `GridManifest` cannot be parsed (malformed JSON, unknown widget type, or schema incompatible with the current frontend version), THE Frontend SHALL treat it as an invalid cached layout, clear it from localStorage, and fetch fresh from the API.
-7. THE Dashboard SHALL render a 5-column by 3-row grid in landscape orientation and a 3-column by 5-row grid in portrait orientation, reflowing automatically on orientation change.
+7. THE Dashboard SHALL render a 10-column by 6-row grid in landscape orientation and a 6-column by 10-row grid in portrait orientation, reflowing automatically on orientation change.
 8. EACH Widget SHALL declare a footprint (e.g., 1×1, 2×1, 2×2) that determines the grid cells it occupies.
 9. THE Backend SHALL enforce that each `widgetId` is unique within a dashboard's `widget_configurations` rows via a database unique constraint on `dashboardId + widgetId`; the Frontend SHALL NOT reject a loaded `GridManifest` that contains duplicate `widgetId` values — if duplicates exist, the dashboard renders as-is.
 10. THE Backend SHALL store dashboard layout in the `widget_configurations` table, scoped to a `dashboardId` foreign key.
@@ -351,12 +351,12 @@ Invisible A/V Booth is a web-based, touch-first control interface for managing c
 
 #### Acceptance Criteria
 
-1. THE System SHALL set the root `font-size` on `html` using `clamp(12px, 1.5625vw, 24px)` so that all `rem`-based sizes scale proportionally with viewport width, with 1rem = 16px at the 1024px base viewport. This approach is safe with Ionic v4+ which does not override `html` font-size (unlike v3).
+1. THE System SHALL set the root `font-size` on `html` to a fixed `16px` so that all `rem`-based sizes produce consistent, predictable element dimensions regardless of viewport width. Viewport adaptation is handled by the grid container's percentage-based sizing and `max-width`/`max-height` constraints — not by scaling the root font size.
 2. ALL element sizes (heights, widths, padding, gaps, font sizes, icon sizes, touch targets) SHALL be specified in `rem` units in component styles; pixel values SHALL NOT appear in component CSS or inline styles. Pixel values may appear only in documentation as illustrative examples.
-3. Widget grid cells SHALL be sized as percentages of the available grid area so they always fill the viewport.
+3. Widget grid cells SHALL be sized as percentages of the available grid area so they always fill the viewport up to the grid container's maximum dimensions.
 4. THE dashboard grid SHALL apply `--space-screen-edge` (1rem) outer padding, `--space-grid-gap` (0.75rem) between widgets, and `--space-widget-inner` (0.75rem) inside each `WidgetContainer`.
 5. ALL interactive elements SHALL meet WCAG 2.5.5 touch target minimums: primary action buttons at minimum 2.75rem × 2.75rem; secondary/icon buttons at minimum 2.5rem × 2.5rem.
-6. THE supported viewport range is 1024×768px to 1280×800px; the layout SHALL remain usable below this range (scaling down) and SHALL scale up proportionally above it.
+6. THE supported viewport range is 1024×768px to 1280×800px; the grid container SHALL use `width: 100%; max-width: 1400px; height: 100%; max-height: 900px` with horizontal centering so that the layout fills the viewport within the supported range and stops growing on larger displays.
 
 ---
 

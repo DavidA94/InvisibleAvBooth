@@ -24,7 +24,7 @@ export function ConfirmationModal({
   onCancel,
 }: ConfirmationModalProps): ReactNode {
   const footer = (
-    <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.5rem" }}>
+    <div className="confirmation-footer">
       <IonButton data-testid="confirmation-cancel-btn" fill="outline" size="default" onClick={onCancel}>
         {cancelLabel}
       </IonButton>
@@ -36,7 +36,7 @@ export function ConfirmationModal({
 
   return (
     <Modal isOpen={isOpen} onClose={onCancel} size="small" header={title} footer={footer}>
-      {body && <div data-testid="confirmation-body">{typeof body === "string" ? <p style={{ margin: 0 }}>{body}</p> : body}</div>}
+      {body && <div data-testid="confirmation-body">{typeof body === "string" ? <p className="margin-none">{body}</p> : body}</div>}
     </Modal>
   );
 }

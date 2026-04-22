@@ -1,0 +1,23 @@
+{
+  "name": "default-permissions-agent",
+  "prompt": "See steering docs for how you operate",
+  "tools": ["read", "write", "shell"],
+  "allowedTools": ["read", "shell"],
+  "toolsSettings": {
+    "write": {
+      "allowedPaths": ["/mnt/c/Users/David/Documents/Programming/HTML/InvisibleAvBooth/**"]
+    },
+    "shell": {
+      "allowedCommands": [
+        "^cd(\\s|$)",
+        "^ls(\\s|$)",
+        "^cat(\\s|$)",
+        "^echo(\\s|$)",
+        "^grep(\\s|$)",
+        "^npm(\\s|$)",
+        "^head(\\s|$)",
+        "^tail(\\s|$)"
+      ]
+    }
+  }
+}

@@ -33,17 +33,7 @@ function WidgetPlaceholder({ cell }: { cell: GridCell }): ReactNode {
     return <ObsWidget />;
   }
   return (
-    <div
-      data-testid={`widget-${cell.widgetId}`}
-      style={{
-        background: "var(--color-surface)",
-        borderRadius: "0.375rem",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        height: "100%",
-      }}
-    >
+    <div data-testid={`widget-${cell.widgetId}`} className="surface layout-centered full-height">
       {cell.title}
     </div>
   );
@@ -137,23 +127,18 @@ export function Dashboard(): ReactNode {
   const ROLE_LEVEL: Record<Role, number> = { ADMIN: 3, AvPowerUser: 2, AvVolunteer: 1 };
   const userLevel = userRole ? ROLE_LEVEL[userRole] : 0;
   const visibleCells = manifest.cells.filter((c) => userLevel >= ROLE_LEVEL[c.roleMinimum]);
-  const cols = portrait ? 3 : 5;
-  const rows = portrait ? 5 : 3;
+  const cols = portrait ? 6 : 10;
+  const rows = portrait ? 10 : 6;
 
   return (
     <IonPage>
       <IonContent>
         <div
           data-testid="dashboard-grid"
+          className="dashboard-grid"
           style={{
-            display: "grid",
             gridTemplateColumns: `repeat(${cols}, 1fr)`,
             gridTemplateRows: `repeat(${rows}, 1fr)`,
-            gap: "var(--space-grid-gap)",
-            padding: "var(--space-screen-edge)",
-            height: "100%",
-            minWidth: "500px",
-            minHeight: "500px",
           }}
         >
           {visibleCells.map((cell) => (

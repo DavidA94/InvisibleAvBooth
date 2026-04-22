@@ -15,39 +15,23 @@ export function ObsMetadataPreview({ interpolatedStreamTitle, onEditDetails }: O
   const empty = !interpolatedStreamTitle;
 
   return (
-    <div data-testid="obs-metadata-preview" style={{ height: "3rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+    <div data-testid="obs-metadata-preview" className="obs-metadata-preview">
       <div
         id={triggerId}
-        style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", cursor: empty ? "default" : "pointer" }}
+        className="obs-preview-text"
+        style={{ cursor: empty ? "default" : "pointer" }}
         onClick={() => !empty && setPopoverOpen(true)}
         onKeyDown={(e) => e.key === "Enter" && !empty && setPopoverOpen(true)}
         role={empty ? undefined : "button"}
         tabIndex={empty ? undefined : 0}
       >
-        {empty ? <span style={{ color: "var(--color-text-muted)", fontStyle: "italic" }}>No session details set</span> : interpolatedStreamTitle}
+        {empty ? <span className="text-muted text-italic">No session details set</span> : interpolatedStreamTitle}
       </div>
-      <button
-        data-testid="edit-details-btn"
-        onClick={onEditDetails}
-        style={{
-          background: "none",
-          border: "none",
-          color: "var(--color-text)",
-          cursor: "pointer",
-          fontSize: "1.125rem",
-          width: "2.5rem",
-          height: "2.5rem",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          flexShrink: 0,
-        }}
-        aria-label="Edit Details"
-      >
+      <button data-testid="edit-details-btn" onClick={onEditDetails} className="obs-edit-button" aria-label="Edit Details">
         ✏
       </button>
       <IonPopover isOpen={popoverOpen} onDidDismiss={() => setPopoverOpen(false)} trigger={triggerId} side="bottom" alignment="start">
-        <div style={{ padding: "0.75rem", maxWidth: "20rem" }}>{interpolatedStreamTitle}</div>
+        <div className="popover-content">{interpolatedStreamTitle}</div>
       </IonPopover>
     </div>
   );

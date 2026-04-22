@@ -57,14 +57,9 @@ describe("SessionManifestModal", () => {
     expect(screen.getByTestId("manifest-preview")).toHaveTextContent("[No Title]");
   });
 
-  it("scripture autocomplete filters by contains search", () => {
+  it("scripture book dropdown is rendered", () => {
     render(<SessionManifestModal isOpen={true} onClose={onClose} />);
-    const bookInput = screen.getByTestId("manifest-book");
-    fireEvent(bookInput, new CustomEvent("ionInput", { detail: { value: "John" } }));
-    expect(screen.getByTestId("book-suggestions")).toBeInTheDocument();
-    // Should show John, I John, II John, III John
-    const options = screen.getAllByRole("option");
-    expect(options.length).toBeGreaterThanOrEqual(4);
+    expect(screen.getByTestId("scripture-book-select")).toBeInTheDocument();
   });
 
   it("Save emits socket event with ack", () => {

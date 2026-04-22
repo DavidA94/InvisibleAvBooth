@@ -78,42 +78,21 @@ function BannerManager(): ReactNode {
   return (
     <div
       data-testid="notification-banner"
-      style={{
-        position: "fixed",
-        top: "3rem",
-        left: "50%",
-        transform: "translateX(-50%)",
-        background: current.severity === "error" ? "var(--color-danger)" : "var(--color-warning)",
-        color: current.severity === "error" ? "var(--color-text)" : "var(--color-bg)",
-        padding: "0.5rem 1rem",
-        borderRadius: "0.375rem",
-        fontSize: "max(0.875rem, 14px)",
-        display: "flex",
-        alignItems: "center",
-        gap: "0.75rem",
-        zIndex: 10000,
-      }}
+      className={`notification-banner ${current.severity === "error" ? "notification-banner-error" : "notification-banner-warning"}`}
     >
       <span>{current.message}</span>
       {banners.length > 1 && (
-        <span data-testid="banner-counter" style={{ fontSize: "0.75rem" }}>
+        <span data-testid="banner-counter" className="text-caption">
           {(index % banners.length) + 1} of {banners.length}
-          <button
-            onClick={() => setIndex((i) => i - 1)}
-            style={{ marginLeft: "0.25rem", background: "none", border: "none", color: "inherit", cursor: "pointer" }}
-          >
+          <button onClick={() => setIndex((i) => i - 1)} className="button-unstyled margin-left-tight">
             ◀
           </button>
-          <button onClick={() => setIndex((i) => i + 1)} style={{ background: "none", border: "none", color: "inherit", cursor: "pointer" }}>
+          <button onClick={() => setIndex((i) => i + 1)} className="button-unstyled">
             ▶
           </button>
         </span>
       )}
-      <button
-        data-testid="banner-dismiss"
-        onClick={handleDismiss}
-        style={{ background: "none", border: "none", color: "inherit", cursor: "pointer", fontWeight: "bold" }}
-      >
+      <button data-testid="banner-dismiss" onClick={handleDismiss} className="button-unstyled text-bold">
         ✕
       </button>
     </div>
@@ -129,24 +108,10 @@ function ModalManager(): ReactNode {
   if (!current) return null;
 
   return (
-    <div
-      data-testid="notification-modal"
-      style={{ position: "fixed", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.7)", zIndex: 10001 }}
-    >
-      <div style={{ background: "var(--color-surface)", borderRadius: "0.5rem", padding: "1.5rem", maxWidth: "24rem", textAlign: "center" }}>
-        <p style={{ margin: "0 0 1rem", fontWeight: "bold", color: "var(--color-danger)", fontSize: "max(1rem, 16px)" }}>{current.message}</p>
-        <button
-          onClick={() => useStore.getState().removeNotification(current.id)}
-          style={{
-            background: "var(--color-primary)",
-            color: "var(--color-text)",
-            border: "none",
-            borderRadius: "0.375rem",
-            padding: "0.5rem 1.5rem",
-            cursor: "pointer",
-            fontSize: "max(0.875rem, 14px)",
-          }}
-        >
+    <div data-testid="notification-modal" className="overlay-backdrop" style={{ zIndex: 10001 }}>
+      <div className="notification-modal-card">
+        <p className="margin-none text-bold text-danger margin-bottom-wide">{current.message}</p>
+        <button onClick={() => useStore.getState().removeNotification(current.id)} className="notification-modal-button">
           Acknowledge
         </button>
       </div>

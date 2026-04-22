@@ -565,7 +565,7 @@ Renders the responsive grid for the active dashboard. Fetches `GridManifest` fro
 
 #### ObsWidget
 
-The OBS control widget. Default footprint: **2×2** (2 columns × 2 rows). This fits comfortably in both the 5×3 landscape and 3×5 portrait grids while leaving room for future widgets.
+The OBS control widget. Default footprint: **2×2** (2 columns × 2 rows). This fits comfortably in both the 10×6 landscape and 6×10 portrait grids while leaving room for future widgets.
 
 The widget is always rendered inside a `WidgetContainer` that the widget itself creates, passing `title="OBS"` and its own connection state. The OBS widget maintains one connection entry: `{ label: "OBS", healthy: obsState.connected }`. The container's title bar handles connection status display. The widget itself owns only its content area.
 
@@ -674,19 +674,20 @@ The widget content area (inside `WidgetContainer`, after the title bar and inner
 
 **Landscape layout example** (1024×768px base, illustrative only):
 
-- Widget cell height: ≈474px (2 rows × 237px)
-- Minus title bar (2.5rem ≈ 40px) and top/bottom inner padding (2 × 0.75rem ≈ 24px): ≈410px content height
-- Fixed rows (2.25rem + 3rem ≈ 84px): leaves ≈326px for `ObsControls`
-- Each button: ≈171px wide × ≈326px tall — well above WCAG minimums
+- Grid: 10 columns × 6 rows. OBS widget occupies 2 columns × 2 rows.
+- Widget cell height: ≈237px (2 rows of 6)
+- Minus title bar (2.5rem ≈ 40px) and top/bottom inner padding (2 × 0.75rem ≈ 24px): ≈173px content height
+- Fixed rows (2.25rem + 3rem ≈ 84px): leaves ≈89px for `ObsControls`
+- Each button: ≈85px wide × ≈89px tall — meets WCAG minimums
 
 **Portrait layout example** (768×1024px base, illustrative only):
 
-- Grid: 3 columns × 5 rows. OBS widget occupies 2 columns × 2 rows.
-- Widget cell width: (768 − 2×1rem − 2×0.75rem) / 3 × 2 ≈ 474px
-- Widget cell height: (1024 − 2×1rem − 4×0.75rem) / 5 × 2 ≈ 380px
-- Minus title bar (≈40px) and padding (≈24px): ≈316px content height
-- Fixed rows (≈84px): leaves ≈232px for `ObsControls`
-- Each button: ≈228px wide × ≈232px tall — still well above WCAG minimums
+- Grid: 6 columns × 10 rows. OBS widget occupies 2 columns × 2 rows.
+- Widget cell width: (768 − 2×1rem − 5×0.75rem) / 6 × 2 ≈ 233px
+- Widget cell height: (1024 − 2×1rem − 9×0.75rem) / 10 × 2 ≈ 186px
+- Minus title bar (≈40px) and padding (≈24px): ≈122px content height
+- Fixed rows (≈84px): leaves ≈38px for `ObsControls`
+- Note: At this smaller cell size, widgets that need more space should use larger `colSpan`/`rowSpan` values (e.g., 4×4 instead of 2×2)
 
 These pixel values are examples only. The layout is defined entirely in rem and percentages; it scales automatically with the root font size.
 
@@ -1785,12 +1786,10 @@ Ionic's theming system uses CSS custom properties. The project's color tokens ma
 
 ```css
 :root {
-  /* Root font size scaling — Ionic v4+ does not override html font-size (that was v3 only),
-     so setting it here is safe and is the documented approach for viewport-proportional scaling.
-     At 1024px viewport width this produces 16px (1rem = 16px).
-     clamp() prevents extremes on very small or very large screens.
-     See architecture.md §10 for the full responsive sizing rationale. */
-  font-size: clamp(12px, 1.5625vw, 24px);
+  /* Fixed root font size — consistent text rendering regardless of viewport.
+     The grid container handles viewport adaptation via percentage sizing and
+     max-width/max-height constraints. See architecture.md §10 for rationale. */
+  font-size: 16px;
 
   /* Color tokens */
   --ion-color-primary: #c0392b;

@@ -175,7 +175,7 @@ The system uses a dark-background, high-contrast theme optimized for touch use i
 
 ## 10. Responsive Sizing System
 
-The dashboard is designed for tablet-first use. All sizing uses `rem` units so that a single root font-size adjustment scales the entire UI proportionally. Widget grid cells use percentages so they always fill the available viewport.
+The dashboard is designed for tablet-first use. All sizing uses `rem` units with a fixed root font size of `16px`, ensuring consistent text and element dimensions regardless of viewport width. The grid container uses percentage-based sizing with `max-width` and `max-height` constraints to adapt to different screen sizes without scaling the font.
 
 ### Target Viewport Range
 
@@ -183,34 +183,29 @@ The dashboard is designed for tablet-first use. All sizing uses `rem` units so t
 | ----------------- | --------------------- | -------------------------------------------------------------------------- |
 | Minimum supported | 1024×768px            | Base design target — all layouts verified at this size                     |
 | Comfortable range | 1024×768 – 1280×800px | More breathing room; additional status indicator labels may become visible |
-| Large displays    | > 1280×800px          | UI scales up proportionally — everything gets bigger                       |
-| Small displays    | < 1024×768px          | UI scales down proportionally — layout remains usable                      |
+| Large displays    | > 1280×800px          | Grid stops growing at max-width/max-height; centered horizontally          |
+| Small displays    | < 1024×768px          | Grid fills viewport; cells shrink proportionally via percentage sizing     |
 
 Phone-sized viewports are explicitly out of scope for this release and will be addressed in a future iteration.
 
-### Root Font Size and Scaling
+### Root Font Size
 
-The base `font-size` on `<html>` is set to `16px` — the browser default. This is the reference point for all `rem` values.
+The `font-size` on `<html>` is set to a fixed `16px`. This is the reference point for all `rem` values. Unlike the previous `clamp()`-based approach, the font size does not change with viewport width — this eliminates inconsistent text rendering, unpredictable element sizes, and visual artifacts caused by fractional rem-to-pixel conversions at different viewport widths.
 
-For viewports outside the 1024–1280px range, a viewport-relative scaling approach is used:
+Viewport adaptation is handled entirely by the grid container:
+- `width: 100%; max-width: 1400px` — fills the viewport horizontally up to a cap
+- `height: 100%; max-height: 900px` — fills the viewport vertically up to a cap
+- `margin: 0 auto` — centers the grid when the viewport exceeds the max dimensions
 
 ```css
 html {
-  /* Scale the root font size proportionally to viewport width.
-     - At 1024px: font-size = 16px (1rem = 16px)
-     - At 1280px: font-size = 20px (1rem = 20px)
-     - At 800px:  font-size = 12.5px (1rem = 12.5px)
-     clamp() ensures the font never goes below 12px or above 24px,
-     preventing unusable extremes on very small or very large screens. */
-  font-size: clamp(12px, 1.5625vw, 24px);
+  font-size: 16px;
 }
 ```
 
-`1.5625vw` is derived from `16 / 1024 * 100` — it produces exactly 16px at 1024px viewport width. This means every `rem` value in the codebase scales automatically with the viewport without any JavaScript or media query breakpoints.
-
 **DPI handling**: Use CSS logical pixels throughout. The browser handles device pixel ratio (DPR) scaling automatically via the viewport meta tag (`<meta name="viewport" content="width=device-width, initial-scale=1">`). Do not use physical pixel values or attempt to detect DPR in application code.
 
-**Pixel values in documentation**: Pixel equivalents may appear in documentation and comments as illustrative examples (e.g., "2.5rem ≈ 40px at base viewport"). They must never appear in component CSS, inline styles, or any runtime code. All implementation uses rem.
+**Pixel values in documentation**: Pixel equivalents may appear in documentation and comments as illustrative examples (e.g., "2.5rem ≈ 40px"). They must never appear in component CSS, inline styles, or any runtime code. All implementation uses rem.
 
 ### Spacing Tokens
 
@@ -267,13 +262,15 @@ The threshold is defined in rem and converted to pixels at runtime using the cur
 
 ### Widget Grid Sizing
 
-Widget cells are sized as percentages of the available grid area (viewport minus outer padding and gaps). The grid always fills the full viewport — widgets expand to fill their cells.
+Widget cells are sized as percentages of the available grid area (grid container minus outer padding and gaps). The grid fills the viewport up to its maximum dimensions (`max-width: 1400px`, `max-height: 900px`), then centers horizontally.
+
+The grid uses a 10×6 layout in landscape and 6×10 in portrait. This doubled cell count (from the original 5×3 / 3×5) allows finer-grained widget placement — widgets that previously occupied 2×2 cells in the coarser grid now occupy the same physical space but can be positioned with more precision, and smaller 1×1 widgets become practical.
 
 The following are illustrative pixel values at the 1024×768px base viewport only. No code should use these values — all implementation uses rem and percentages.
 
-At 1024×768px landscape with `--space-screen-edge: 1rem` (≈16px) and `--space-grid-gap: 0.75rem` (≈12px):
+At 1024×768px landscape with `--space-screen-edge: 1rem` (16px) and `--space-grid-gap: 0.75rem` (12px):
 
-- Available width: 1024 − 32px (2×edge) − 48px (4×gap between 5 cols) ≈ 944px → each column ≈ 188.8px
-- Available height: 768 − 32px (2×edge) − 24px (2×gap between 3 rows) ≈ 712px → each row ≈ 237.3px
+- Available width: 1024 − 32px (2×edge) − 108px (9×gap between 10 cols) ≈ 884px → each column ≈ 88.4px
+- Available height: 768 − 32px (2×edge) − 60px (5×gap between 6 rows) ≈ 676px → each row ≈ 112.7px
 
-A 2×2 widget occupies ≈ 377.6px × 474.6px at the base viewport. These are examples only — see the OBS widget rem layout specification in the design doc for the authoritative rem-based layout.
+A 2×2 widget occupies ≈ 188.8px × 237.4px at the base viewport. A 4×4 widget occupies ≈ 389.6px × 486.8px. These are examples only — see the OBS widget rem layout specification in the design doc for the authoritative rem-based layout.

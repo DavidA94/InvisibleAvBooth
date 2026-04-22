@@ -1,13 +1,14 @@
 /* Invisible A/V Booth — Theme Variables
    Dark-background, high-contrast theme optimized for touch use in a dimly lit
-   church environment. All sizing uses rem so a single root font-size adjustment
-   scales the entire UI proportionally. */
+   church environment. All sizing uses rem with a fixed 16px root font-size for
+   consistent rendering. The grid container adapts to viewport size via
+   percentage-based sizing with max-width/max-height constraints. */
 
 :root {
-  /* Root font size scaling — produces exactly 16px at 1024px viewport width.
-     1.5625vw = 16 / 1024 * 100. Every rem value in the codebase scales
-     automatically with the viewport. clamp() prevents unusable extremes. */
-  font-size: clamp(12px, 1.5625vw, 24px);
+  /* Fixed root font size — consistent text rendering regardless of viewport.
+     Media queries on the dashboard grid container handle layout adaptation
+     instead of scaling the entire UI with viewport-relative font sizes. */
+  font-size: 16px;
 
   /* ── Color tokens ─────────────────────────────────────────────────────────── */
 

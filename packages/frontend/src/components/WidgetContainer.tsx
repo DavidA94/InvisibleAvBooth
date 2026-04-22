@@ -26,17 +26,10 @@ export function WidgetContainer({ title, connections, children }: WidgetContaine
   const [triggerId] = useState(() => `wc-indicators-${++instanceCounter}`);
 
   return (
-    <div
-      data-testid="widget-container"
-      style={{ display: "flex", flexDirection: "column", height: "100%", background: "var(--color-surface)", borderRadius: "0.375rem", overflow: "hidden" }}
-    >
-      <div
-        ref={titleBarRef}
-        data-testid="widget-title-bar"
-        style={{ display: "flex", alignItems: "center", height: "2.5rem", padding: "0 var(--space-widget-inner)", fontSize: "0.875rem" }}
-      >
-        <span style={{ fontWeight: "bold" }}>{title}</span>
-        <span style={{ flex: 1 }} />
+    <div data-testid="widget-container" className="widget-wrapper">
+      <div ref={titleBarRef} data-testid="widget-title-bar" className="widget-title-bar">
+        <span className="text-bold">{title}</span>
+        <span className="fill-remaining" />
         <span
           id={triggerId}
           data-testid="connection-indicators"
@@ -44,7 +37,7 @@ export function WidgetContainer({ title, connections, children }: WidgetContaine
           tabIndex={0}
           onClick={() => setPopoverOpen(true)}
           onKeyDown={(e) => e.key === "Enter" && setPopoverOpen(true)}
-          style={{ display: "flex", alignItems: "center", gap: "0.375rem", cursor: "pointer" }}
+          className="widget-indicators"
         >
           {collapsed ? (
             <>
@@ -57,7 +50,7 @@ export function WidgetContainer({ title, connections, children }: WidgetContaine
             </>
           ) : (
             connections.map((c) => (
-              <span key={c.label} style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
+              <span key={c.label} className="layout-row gap-tight">
                 {c.label} <span className={c.healthy ? "widget-dot-healthy" : "widget-dot-unhealthy"}>●</span>
               </span>
             ))
@@ -71,18 +64,18 @@ export function WidgetContainer({ title, connections, children }: WidgetContaine
           side="bottom"
           alignment="end"
         >
-          <div style={{ padding: "0.75rem" }}>
+          <div className="padding-standard">
             {connections.map((c) => (
-              <div key={c.label} style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.25rem" }}>
+              <div key={c.label} className="layout-row gap-standard margin-bottom-tight">
                 <span className={c.healthy ? "widget-dot-healthy" : "widget-dot-unhealthy"}>●</span>
                 <span>{c.label}</span>
-                <span style={{ color: "var(--color-text-muted)", fontSize: "0.75rem" }}>{c.healthy ? "Healthy" : "Unhealthy"}</span>
+                <span className="text-muted">{c.healthy ? "Healthy" : "Unhealthy"}</span>
               </div>
             ))}
           </div>
         </IonPopover>
       </div>
-      <div style={{ flex: 1, padding: "var(--space-widget-inner)", overflow: "hidden" }}>{children}</div>
+      <div className="widget-content">{children}</div>
     </div>
   );
 }

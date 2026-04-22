@@ -14,6 +14,7 @@ import "@ionic/react/css/flex-utils.css";
 
 /* Project theme — must load after Ionic defaults so our overrides win */
 import "./theme/variables.css";
+import "./theme/shared.css";
 
 import { SocketProvider } from "./providers/SocketProvider";
 import { ProtectedRoutes } from "./components/ProtectedRoutes";
@@ -38,9 +39,9 @@ export function App(): ReactNode {
             <ProtectedRoutes>
               <SocketProvider>
                 <NotificationLayer />
-                <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+                <div className="app-shell">
                   <GlobalTitleBar />
-                  <div style={{ flex: 1, position: "relative" }}>
+                  <div className="app-content">
                     <IonRouterOutlet>
                       <Route exact path="/change-password" component={ChangePasswordPage} />
                       <Route exact path="/dashboards" component={DashboardSelectionScreen} />

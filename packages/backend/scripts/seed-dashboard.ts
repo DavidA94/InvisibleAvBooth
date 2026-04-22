@@ -35,7 +35,7 @@ function seed(): void {
        (id, dashboardId, widgetId, title, col, row, colSpan, rowSpan, roleMinimum, createdAt)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
-      .run(`${DASHBOARD_ID}-${WIDGET_ID}`, DASHBOARD_ID, WIDGET_ID, "OBS", 0, 0, 2, 2, "AvVolunteer", new Date().toISOString());
+      .run(`${DASHBOARD_ID}-${WIDGET_ID}`, DASHBOARD_ID, WIDGET_ID, "OBS", 0, 0, 3, 2, "AvVolunteer", new Date().toISOString());
     console.log("Created widget: OBS");
   } else {
     console.log("OBS widget already exists — skipping");

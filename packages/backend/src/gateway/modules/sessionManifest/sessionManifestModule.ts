@@ -27,8 +27,13 @@ export class SessionManifestModule implements SocketModule {
     // CTS_SESSION_MANIFEST_UPDATE — update the in-memory manifest
     socket.on(CTS_SESSION_MANIFEST_UPDATE, (patch: Partial<SessionManifest>, ack: (result: CommandResult) => void) => {
       logger.info("Session manifest update received", { userId: jwtPayload.sub });
-      const result = this.manifestService.update(patch, jwtPayload);
-      ack(result.success ? { success: true } : { success: false, error: "Update failed" });
+      if (Object.keys(patch).length === 0) {
+        const result = this.manifestService.clear(jwtPayload);
+        ack(result.success ? { success: true } : { success: false, error: result.error.message });
+      } else {
+        const result = this.manifestService.update(patch, jwtPayload);
+        ack(result.success ? { success: true } : { success: false, error: "Update failed" });
+      }
     });
   }
 

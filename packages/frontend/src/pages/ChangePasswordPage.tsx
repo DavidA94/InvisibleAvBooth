@@ -44,14 +44,14 @@ export function ChangePasswordPage(): ReactNode {
   return (
     <IonPage data-testid="change-password-page">
       <IonContent className="ion-padding">
-        <div style={{ maxWidth: "22rem", margin: "3rem auto 0" }}>
+        <div className="form-container">
           <form
             data-testid="change-password-form"
             onSubmit={(e) => {
               e.preventDefault();
               void handleSubmit();
             }}
-            style={{ display: "flex", flexDirection: "column", gap: "1rem" }}
+            className="form-layout"
           >
             <IonInput
               data-testid="new-password-input"
@@ -77,11 +77,11 @@ export function ChangePasswordPage(): ReactNode {
             />
             {error && (
               <IonText color="danger" data-testid="change-password-error">
-                <p style={{ margin: 0, fontSize: "0.875rem" }}>{error}</p>
+                <p className="margin-none text-secondary">{error}</p>
               </IonText>
             )}
-            <div style={{ display: "flex", justifyContent: "center", marginTop: "0.5rem" }}>
-              <IonButton data-testid="change-password-submit" type="submit" disabled={pending} style={{ minHeight: "2.75rem", minWidth: "10rem" }}>
+            <div className="form-actions">
+              <IonButton data-testid="change-password-submit" type="submit" disabled={pending} className="button-touch-target">
                 {pending ? "Changing…" : "Change Password"}
               </IonButton>
             </div>

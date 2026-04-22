@@ -14,43 +14,32 @@ export function GlobalTitleBar(): ReactNode {
   const dashboardName = localStorage.getItem("dashboardName");
 
   return (
-    <div
-      data-testid="global-title-bar"
-      style={{
-        display: "flex",
-        alignItems: "center",
-        padding: "0 var(--space-screen-edge)",
-        height: "2.5rem",
-        background: "var(--color-surface)",
-        color: "var(--color-text)",
-        fontSize: "0.875rem",
-      }}
-    >
+    <div data-testid="global-title-bar" className="title-bar">
       {!isChangePassword && (
-        <span data-testid="title-bar-dashboard-nav" style={{ display: "inline-flex", alignItems: "center", gap: "0.375rem" }}>
+        <span data-testid="title-bar-dashboard-nav" className="title-bar-navigation">
           {isDashboard && dashboardName ? (
             <>
               <span>{dashboardName}</span>
-              <IonButton routerLink="/dashboards" fill="clear" size="small" style={{ "--padding-start": "0", "--padding-end": "0", fontSize: "0.75rem" }}>
+              <IonButton routerLink="/dashboards" fill="clear" size="small" className="title-bar-link">
                 (change)
               </IonButton>
             </>
           ) : (
             <>
-              <em style={{ color: "var(--color-text-muted)" }}>No Dashboard Selected</em>
-              <IonButton routerLink="/dashboards" fill="clear" size="small" style={{ "--padding-start": "0", "--padding-end": "0", fontSize: "0.75rem" }}>
+              <em className="text-muted">No Dashboard Selected</em>
+              <IonButton routerLink="/dashboards" fill="clear" size="small" className="title-bar-link">
                 (choose)
               </IonButton>
             </>
           )}
         </span>
       )}
-      <span style={{ flex: 1 }} />
-      <span data-testid="title-bar-username" style={{ marginRight: "0.25rem" }}>
+      <span className="fill-remaining" />
+      <span data-testid="title-bar-username" className="margin-right-tight">
         {user.username}
       </span>
       {!isChangePassword && (
-        <span data-testid="title-bar-role" style={{ color: "var(--color-text-muted)", marginRight: "0.5rem" }}>
+        <span data-testid="title-bar-role" className="text-muted margin-right-standard">
           ({user.role})
         </span>
       )}

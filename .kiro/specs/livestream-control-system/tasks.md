@@ -160,7 +160,7 @@ Tests are part of each story's definition of done. Unit tests (including propert
 
 ## Frontend Core
 
-- [x] 39. Create frontend entry point and Ionic/React app shell — src/main.tsx, App.tsx (Router with all route definitions), src/theme/variables.css (color tokens, spacing tokens, root font-size clamp(12px, 1.5625vw, 24px))
+- [x] 39. Create frontend entry point and Ionic/React app shell — src/main.tsx, App.tsx (Router with all route definitions), src/theme/variables.css (color tokens, spacing tokens, root font-size fixed at 16px)
   - _Requirements: 18_
 
 - [x] 40. Create frontend Zustand store — src/store/index.ts composing authSlice, obsSlice, sessionManifestSlice, notificationSlice; plus individual slice files
@@ -233,7 +233,7 @@ Tests are part of each story's definition of done. Unit tests (including propert
 - [x] 61. Write unit tests for DashboardSelectionScreen — renders dashboard list from API, no-dashboards empty state, selecting a dashboard stores id and navigates, auto-selects single dashboard on initial auth (mock fetch)
   - _Requirements: 5_
 
-- [x] 62. Create frontend Dashboard page — src/pages/Dashboard.tsx (all 8 selection flows, GridManifest loading with localStorage cache fallback, Loading/Refreshing spinners, structural change detection, 5×3 landscape / 3×5 portrait grid, widgetId → component mapping)
+- [x] 62. Create frontend Dashboard page — src/pages/Dashboard.tsx (all 8 selection flows, GridManifest loading with localStorage cache fallback, Loading/Refreshing spinners, structural change detection, 10×6 landscape / 6×10 portrait grid with max-width/max-height constraints, widgetId → component mapping)
   - _Requirements: 5b, 18_
 
 - [x] 63. Write unit tests for Dashboard — renders correct grid layout, shows Loading spinner on first load, shows Refreshing spinner on refresh, falls back to localStorage cache on fetch failure, structural change triggers re-render, widgetId maps to correct component (mock fetch, mock store)

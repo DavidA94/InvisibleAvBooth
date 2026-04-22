@@ -14,7 +14,7 @@ export function WidgetErrorOverlay({ isVisible, message, actionLabel, onAction, 
   if (!isVisible) return <>{children}</>;
 
   return (
-    <div style={{ position: "relative", height: "100%" }}>
+    <div style={{ position: "position-relative", height: "100%" }}>
       {children}
       <div
         data-testid="widget-error-overlay"
@@ -22,21 +22,14 @@ export function WidgetErrorOverlay({ isVisible, message, actionLabel, onAction, 
         tabIndex={onAction && !isPending ? 0 : undefined}
         onClick={onAction && !isPending ? onAction : undefined}
         onKeyDown={onAction && !isPending ? (e) => e.key === "Enter" && onAction() : undefined}
-        style={{
-          position: "absolute",
-          inset: 0,
-          background: "rgba(0,0,0,0.7)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          cursor: onAction && !isPending ? "pointer" : "default",
-        }}
+        className="overlay-scrim"
+        style={{ cursor: onAction && !isPending ? "pointer" : "default" }}
       >
-        <div style={{ textAlign: "center", color: "var(--color-text)", padding: "1rem" }}>
-          <p data-testid="error-overlay-message" style={{ color: "var(--color-danger)", fontWeight: "bold", margin: "0 0 0.5rem" }}>
+        <div className="error-overlay-content">
+          <p data-testid="error-overlay-message" className="text-danger text-bold" style={{ margin: "0 0 0.5rem" }}>
             {message}
           </p>
-          <p data-testid="error-overlay-action" style={{ margin: 0, fontSize: "0.875rem" }}>
+          <p data-testid="error-overlay-action" className="margin-none">
             {isPending ? <IonSpinner name="crescent" /> : actionLabel}
           </p>
         </div>
