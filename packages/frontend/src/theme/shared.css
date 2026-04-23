@@ -346,10 +346,14 @@
   cursor: pointer;
 }
 
-/* Widget error overlay */
+/* Widget error overlay — always present in the DOM to avoid flex layout shifts.
+   The parent passes a className to control display type (e.g., layout-column).
+   height:100% handles block/grid parents; flex:1 handles flex parents. */
 .error-overlay-wrapper {
   position: relative;
   height: 100%;
+  flex: 1;
+  min-height: 0;
 }
 
 .error-overlay-content {

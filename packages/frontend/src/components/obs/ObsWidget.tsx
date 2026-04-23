@@ -90,6 +90,7 @@ export function ObsWidget(): ReactNode {
           actionLabel="Tap to Retry"
           onAction={handleReconnect}
           isPending={reconnecting}
+          display="flex-column"
         >
           <ObsControls
             obsState={obsState}
