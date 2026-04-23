@@ -19,7 +19,7 @@ function buildApp() {
   const app = express();
   app.use(express.json());
   app.use(cookieParser());
-  app.use("/auth", createAuthRouter(authService));
+  app.use("/api/auth", createAuthRouter(authService));
   const mustBeAuthenticated = authenticate(authService);
   const mustHaveChangedPassword = requirePasswordChanged();
   app.use("/api/logs", mustBeAuthenticated, mustHaveChangedPassword, createLogRouter(authService));
@@ -28,9 +28,9 @@ function buildApp() {
 
 async function loginAsAdmin(app: express.Express, authService: AuthService) {
   await authService.createUser({ username: "admin", password: "pass", role: "ADMIN" }, seedActor);
-  const loginResponse = await request(app).post("/auth/login").send({ username: "admin", password: "pass" });
+  const loginResponse = await request(app).post("/api/auth/login").send({ username: "admin", password: "pass" });
   const tempCookie = (loginResponse.headers["set-cookie"] as unknown as string[])[0] ?? "";
-  const changeResponse = await request(app).post("/auth/change-password").set("Cookie", tempCookie).send({ newPassword: "pass" });
+  const changeResponse = await request(app).post("/api/auth/change-password").set("Cookie", tempCookie).send({ newPassword: "pass" });
   return (changeResponse.headers["set-cookie"] as unknown as string[])[0] ?? "";
 }
 

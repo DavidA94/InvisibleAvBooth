@@ -27,6 +27,13 @@ function makeMockObs() {
       handlers[event]!.push(handler);
     }),
     off: vi.fn(),
+    removeAllListeners: vi.fn().mockImplementation((event?: string) => {
+      if (event) {
+        delete handlers[event];
+      } else {
+        Object.keys(handlers).forEach((key) => delete handlers[key]);
+      }
+    }),
     // Helper to fire a registered event in tests
     emit(event: string, ...args: unknown[]) {
       handlers[event]?.forEach((h) => h(...args));

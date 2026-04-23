@@ -43,7 +43,7 @@ export function GlobalTitleBar(): ReactNode {
           ({user.role})
         </span>
       )}
-      <IonButton data-testid="title-bar-logout-btn" href="/auth/logout" fill="clear" size="small">
+      <IonButton data-testid="title-bar-logout-btn" href="/api/auth/logout" fill="clear" size="small">
         Logout
       </IonButton>
     </div>

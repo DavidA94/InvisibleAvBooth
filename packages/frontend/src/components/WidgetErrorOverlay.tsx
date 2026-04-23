@@ -13,20 +13,21 @@ interface WidgetErrorOverlayProps {
 export function WidgetErrorOverlay({ isVisible, message, actionLabel, onAction, isPending, children }: WidgetErrorOverlayProps): ReactNode {
   if (!isVisible) return <>{children}</>;
 
+  const interactive = onAction && !isPending;
+
   return (
-    <div style={{ position: "position-relative", height: "100%" }}>
+    <div className="error-overlay-wrapper">
       {children}
       <div
         data-testid="widget-error-overlay"
-        role={onAction && !isPending ? "button" : undefined}
-        tabIndex={onAction && !isPending ? 0 : undefined}
-        onClick={onAction && !isPending ? onAction : undefined}
-        onKeyDown={onAction && !isPending ? (e) => e.key === "Enter" && onAction() : undefined}
-        className="overlay-scrim"
-        style={{ cursor: onAction && !isPending ? "pointer" : "default" }}
+        role={interactive ? "button" : undefined}
+        tabIndex={interactive ? 0 : undefined}
+        onClick={interactive ? onAction : undefined}
+        onKeyDown={interactive ? (e) => e.key === "Enter" && onAction() : undefined}
+        className={`overlay-scrim ${interactive ? "cursor-pointer" : ""}`}
       >
         <div className="error-overlay-content">
-          <p data-testid="error-overlay-message" className="text-danger text-bold" style={{ margin: "0 0 0.5rem" }}>
+          <p data-testid="error-overlay-message" className="text-danger text-bold error-overlay-message">
             {message}
           </p>
           <p data-testid="error-overlay-action" className="margin-none">

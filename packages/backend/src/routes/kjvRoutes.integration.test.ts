@@ -29,7 +29,7 @@ beforeAll(async () => {
   const app = express();
   app.use(express.json());
   app.use(cookieParser());
-  app.use("/auth", createAuthRouter(authService));
+  app.use("/api/auth", createAuthRouter(authService));
   const mustBeAuthenticated = authenticate(authService);
   const mustHaveChangedPassword = requirePasswordChanged();
   app.use("/api/kjv", mustBeAuthenticated, mustHaveChangedPassword, createKjvRouter(database, authService));
@@ -39,9 +39,9 @@ beforeAll(async () => {
     { username: "admin", password: "pass", role: "ADMIN" },
     { sub: "seed", username: "seed", role: "ADMIN", iat: 0, exp: 9999999999 },
   );
-  const loginResponse = await request(app).post("/auth/login").send({ username: "admin", password: "pass" });
+  const loginResponse = await request(app).post("/api/auth/login").send({ username: "admin", password: "pass" });
   const tempCookie = (loginResponse.headers["set-cookie"] as unknown as string[])[0] ?? "";
-  const changeResponse = await request(app).post("/auth/change-password").set("Cookie", tempCookie).send({ newPassword: "pass" });
+  const changeResponse = await request(app).post("/api/auth/change-password").set("Cookie", tempCookie).send({ newPassword: "pass" });
   cookie = (changeResponse.headers["set-cookie"] as unknown as string[])[0] ?? "";
 
   (globalThis as Record<string, unknown>)["__kjvApp"] = app;

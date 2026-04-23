@@ -18,7 +18,7 @@ function useIsPortrait(): boolean {
 
 const DEFAULT_GRID_MANIFEST: GridManifest = {
   version: 1,
-  cells: [{ widgetId: "obs", title: "OBS", col: 0, row: 0, colSpan: 2, rowSpan: 2, roleMinimum: "AvVolunteer" }],
+  cells: [{ widgetId: "obs", title: "OBS", col: 0, row: 0, colSpan: 3, rowSpan: 2, roleMinimum: "AvVolunteer" }],
 };
 
 function isStructuralChange(cached: GridCell[], fresh: GridCell[]): boolean {

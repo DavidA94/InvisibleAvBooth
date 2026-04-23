@@ -49,7 +49,7 @@ export function AdminDeviceManagement(): ReactNode {
 
   const fetchDevices = useCallback(async (): Promise<void> => {
     try {
-      const response = await fetch("/admin/devices", { credentials: "include" });
+      const response = await fetch("/api/admin/devices", { credentials: "include" });
       if (response.ok) {
         setDevices((await response.json()) as DeviceRecord[]);
       }
@@ -71,7 +71,7 @@ export function AdminDeviceManagement(): ReactNode {
     setCreateError("");
     setCreatePending(true);
     try {
-      const response = await fetch("/admin/devices", {
+      const response = await fetch("/api/admin/devices", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -131,7 +131,7 @@ export function AdminDeviceManagement(): ReactNode {
         metadata: { streamTitleTemplate: editTemplate },
       };
       if (editPassword) body["password"] = editPassword;
-      const response = await fetch(`/admin/devices/${editingId}`, {
+      const response = await fetch(`/api/admin/devices/${editingId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -154,7 +154,7 @@ export function AdminDeviceManagement(): ReactNode {
   const handleDelete = async (deviceId: string): Promise<void> => {
     setDeletePendingId(deviceId);
     try {
-      const response = await fetch(`/admin/devices/${deviceId}`, { method: "DELETE", credentials: "include" });
+      const response = await fetch(`/api/admin/devices/${deviceId}`, { method: "DELETE", credentials: "include" });
       if (!response.ok) {
         const data = (await response.json()) as { error?: string };
         setError(data.error ?? "Delete failed");

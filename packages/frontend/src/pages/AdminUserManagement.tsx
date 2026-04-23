@@ -50,7 +50,7 @@ export function AdminUserManagement(): ReactNode {
 
   const fetchUsers = useCallback(async (): Promise<void> => {
     try {
-      const response = await fetch("/admin/users", { credentials: "include" });
+      const response = await fetch("/api/admin/users", { credentials: "include" });
       if (response.ok) {
         setUsers((await response.json()) as UserRecord[]);
       }
@@ -69,7 +69,7 @@ export function AdminUserManagement(): ReactNode {
     setCreateError("");
     setCreatePending(true);
     try {
-      const response = await fetch("/admin/users", {
+      const response = await fetch("/api/admin/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -111,7 +111,7 @@ export function AdminUserManagement(): ReactNode {
     try {
       const body: Record<string, string> = { username: editUsername, role: editRole };
       if (editPassword) body["password"] = editPassword;
-      const response = await fetch(`/admin/users/${editingId}`, {
+      const response = await fetch(`/api/admin/users/${editingId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -134,7 +134,7 @@ export function AdminUserManagement(): ReactNode {
   const handleDelete = async (userId: string): Promise<void> => {
     setDeletePendingId(userId);
     try {
-      const response = await fetch(`/admin/users/${userId}`, { method: "DELETE", credentials: "include" });
+      const response = await fetch(`/api/admin/users/${userId}`, { method: "DELETE", credentials: "include" });
       if (!response.ok) {
         const data = (await response.json()) as { error?: string };
         setError(data.error ?? "Delete failed");

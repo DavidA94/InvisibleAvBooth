@@ -69,7 +69,7 @@ describe("AdminDeviceManagement", () => {
     });
 
     await waitFor(() => {
-      expect(mockFetch).toHaveBeenCalledWith("/admin/devices", expect.objectContaining({ method: "POST" }));
+      expect(mockFetch).toHaveBeenCalledWith("/api/admin/devices", expect.objectContaining({ method: "POST" }));
     });
   });
 
@@ -98,7 +98,7 @@ describe("AdminDeviceManagement", () => {
     });
 
     await waitFor(() => {
-      expect(mockFetch).toHaveBeenCalledWith("/admin/devices/d1", expect.objectContaining({ method: "PUT" }));
+      expect(mockFetch).toHaveBeenCalledWith("/api/admin/devices/d1", expect.objectContaining({ method: "PUT" }));
     });
   });
 
@@ -124,7 +124,7 @@ describe("AdminDeviceManagement", () => {
     });
 
     await waitFor(() => {
-      expect(mockFetch).toHaveBeenCalledWith("/admin/devices/d1", expect.objectContaining({ method: "DELETE" }));
+      expect(mockFetch).toHaveBeenCalledWith("/api/admin/devices/d1", expect.objectContaining({ method: "DELETE" }));
     });
   });
 

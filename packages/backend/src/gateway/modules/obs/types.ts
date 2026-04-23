@@ -1,17 +1,8 @@
 import type { BUS_OBS_STATE_CHANGED, BUS_OBS_ERROR, BUS_OBS_ERROR_RESOLVED, BUS_DEVICE_CAPABILITIES_UPDATED } from "../../../eventBus/types.js";
 import type { CapabilitiesObject } from "../../../eventBus/types.js";
+import type { ObsState } from "@invisible-av-booth/shared";
 
-export interface ObsState {
-  connected: boolean;
-  streaming: boolean;
-  recording: boolean;
-  streamTimecode?: string;
-  recordingTimecode?: string;
-  commandedState: {
-    streaming: boolean;
-    recording: boolean;
-  };
-}
+export type { ObsState };
 
 export type ObsErrorCode =
   | "OBS_UNREACHABLE"

@@ -23,7 +23,7 @@ export function LoginPage(): ReactNode {
     setError("");
     setPending(true);
     try {
-      const response = await fetch("/auth/login", {
+      const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -41,7 +41,7 @@ export function LoginPage(): ReactNode {
         if (data.user.requiresPasswordChange) {
           history.replace("/change-password");
         } else {
-          history.replace("/dashboards");
+          history.replace("/dashboards", { initialAuth: true });
         }
       }
     } catch {

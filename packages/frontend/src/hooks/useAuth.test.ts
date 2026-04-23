@@ -3,6 +3,7 @@ import { renderHook, act } from "@testing-library/react";
 import { useAuth } from "./useAuth";
 import { useStore } from "../store";
 import { INITIAL_OBS_STATE } from "../store/obsSlice";
+import type { Role } from "../types";
 
 beforeEach(() => {
   useStore.setState({
@@ -28,28 +29,16 @@ describe("useAuth", () => {
     expect(result.current.user).toEqual({ id: "u1", username: "admin", role: "ADMIN" });
   });
 
-  it("isRole returns true when role meets minimum", () => {
-    useStore.getState().setUser({ id: "u1", username: "admin", role: "ADMIN" });
+  it.each<{ userRole: Role; isAdmin: boolean; isPowerUser: boolean; isVolunteer: boolean }>([
+    { userRole: "ADMIN", isAdmin: true, isPowerUser: true, isVolunteer: true },
+    { userRole: "AvPowerUser", isAdmin: false, isPowerUser: true, isVolunteer: true },
+    { userRole: "AvVolunteer", isAdmin: false, isPowerUser: false, isVolunteer: true },
+  ])("isRole for $userRole: ADMIN=$isAdmin, AvPowerUser=$isPowerUser, AvVolunteer=$isVolunteer", ({ userRole, isAdmin, isPowerUser, isVolunteer }) => {
+    useStore.getState().setUser({ id: "u1", username: "user", role: userRole });
     const { result } = renderHook(() => useAuth());
-    expect(result.current.isRole("ADMIN")).toBe(true);
-    expect(result.current.isRole("AvPowerUser")).toBe(true);
-    expect(result.current.isRole("AvVolunteer")).toBe(true);
-  });
-
-  it("isRole returns false when role is below minimum", () => {
-    useStore.getState().setUser({ id: "u1", username: "vol", role: "AvVolunteer" });
-    const { result } = renderHook(() => useAuth());
-    expect(result.current.isRole("ADMIN")).toBe(false);
-    expect(result.current.isRole("AvPowerUser")).toBe(false);
-    expect(result.current.isRole("AvVolunteer")).toBe(true);
-  });
-
-  it("AvPowerUser satisfies AvVolunteer but not ADMIN", () => {
-    useStore.getState().setUser({ id: "u1", username: "power", role: "AvPowerUser" });
-    const { result } = renderHook(() => useAuth());
-    expect(result.current.isRole("AvVolunteer")).toBe(true);
-    expect(result.current.isRole("AvPowerUser")).toBe(true);
-    expect(result.current.isRole("ADMIN")).toBe(false);
+    expect(result.current.isRole("ADMIN")).toBe(isAdmin);
+    expect(result.current.isRole("AvPowerUser")).toBe(isPowerUser);
+    expect(result.current.isRole("AvVolunteer")).toBe(isVolunteer);
   });
 
   it("updates when store changes", () => {

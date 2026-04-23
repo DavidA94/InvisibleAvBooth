@@ -48,8 +48,8 @@ export function App(): ReactNode {
                       <Route exact path="/change-password" component={ChangePasswordPage} />
                       <Route exact path="/dashboards" component={DashboardSelectionScreen} />
                       <Route exact path="/dashboard/:id" component={Dashboard} />
-                      <Route exact path="/admin/users" component={AdminUserManagement} />
-                      <Route exact path="/admin/devices" component={AdminDeviceManagement} />
+                      <Route exact path="/api/admin/users" component={AdminUserManagement} />
+                      <Route exact path="/api/admin/devices" component={AdminDeviceManagement} />
                       <Route exact path="/" render={() => <Redirect to="/dashboards" />} />
                     </IonRouterOutlet>
                   </div>

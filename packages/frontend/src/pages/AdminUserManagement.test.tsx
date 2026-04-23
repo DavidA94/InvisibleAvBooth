@@ -54,7 +54,7 @@ describe("AdminUserManagement", () => {
     });
 
     await waitFor(() => {
-      expect(mockFetch).toHaveBeenCalledWith("/admin/users", expect.objectContaining({ method: "POST" }));
+      expect(mockFetch).toHaveBeenCalledWith("/api/admin/users", expect.objectContaining({ method: "POST" }));
     });
   });
 
@@ -95,7 +95,7 @@ describe("AdminUserManagement", () => {
     });
 
     await waitFor(() => {
-      expect(mockFetch).toHaveBeenCalledWith("/admin/users/u2", expect.objectContaining({ method: "PUT" }));
+      expect(mockFetch).toHaveBeenCalledWith("/api/admin/users/u2", expect.objectContaining({ method: "PUT" }));
     });
   });
 
@@ -124,7 +124,7 @@ describe("AdminUserManagement", () => {
     });
 
     await waitFor(() => {
-      expect(mockFetch).toHaveBeenCalledWith("/admin/users/u2", expect.objectContaining({ method: "DELETE" }));
+      expect(mockFetch).toHaveBeenCalledWith("/api/admin/users/u2", expect.objectContaining({ method: "DELETE" }));
     });
   });
 });

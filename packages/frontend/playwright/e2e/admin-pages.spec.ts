@@ -27,7 +27,7 @@ test.describe("Admin User Management", () => {
     await routeAuthCheck(page);
     await routeSocketIo(page);
 
-    await page.route("**/admin/users", async (route) => {
+    await page.route("**/api/admin/users", async (route) => {
       if (route.request().method() === "GET") {
         await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(USERS) });
       } else if (route.request().method() === "POST") {
@@ -42,7 +42,7 @@ test.describe("Admin User Management", () => {
       }
     });
 
-    await page.route("**/admin/users/*", async (route) => {
+    await page.route("**/api/admin/users/*", async (route) => {
       if (route.request().method() === "PUT") {
         await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(USERS[0]) });
       } else if (route.request().method() === "DELETE") {
@@ -89,7 +89,7 @@ test.describe("Admin Device Management", () => {
     await routeAuthCheck(page);
     await routeSocketIo(page);
 
-    await page.route("**/admin/devices", async (route) => {
+    await page.route("**/api/admin/devices", async (route) => {
       if (route.request().method() === "GET") {
         await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(DEVICES) });
       } else if (route.request().method() === "POST") {
@@ -104,7 +104,7 @@ test.describe("Admin Device Management", () => {
       }
     });
 
-    await page.route("**/admin/devices/*", async (route) => {
+    await page.route("**/api/admin/devices/*", async (route) => {
       if (route.request().method() === "PUT") {
         await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(DEVICES[0]) });
       } else if (route.request().method() === "DELETE") {

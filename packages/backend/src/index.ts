@@ -42,15 +42,15 @@ const app = express();
 app.use(express.json());
 app.use(cookieParser());
 
-app.use("/auth", createAuthRouter(authService));
+app.use("/api/auth", createAuthRouter(authService));
 
 // All routes below require a valid JWT AND a completed password change.
 // authenticate() sets request.jwtPayload; requirePasswordChanged() checks it.
 const mustBeAuthenticated = authenticate(authService);
 const mustHaveChangedPassword = requirePasswordChanged();
-app.use("/admin/users", mustBeAuthenticated, mustHaveChangedPassword, createAdminUserRouter(authService));
-app.use("/admin/devices", mustBeAuthenticated, mustHaveChangedPassword, createAdminDeviceRouter(database, authService));
-app.use("/admin/dashboards", mustBeAuthenticated, mustHaveChangedPassword, createAdminDashboardRouter(database, authService));
+app.use("/api/admin/users", mustBeAuthenticated, mustHaveChangedPassword, createAdminUserRouter(authService));
+app.use("/api/admin/devices", mustBeAuthenticated, mustHaveChangedPassword, createAdminDeviceRouter(database, authService));
+app.use("/api/admin/dashboards", mustBeAuthenticated, mustHaveChangedPassword, createAdminDashboardRouter(database, authService));
 app.use("/api/dashboards", mustBeAuthenticated, mustHaveChangedPassword, createDashboardRouter(database, authService));
 app.use("/api/session", mustBeAuthenticated, mustHaveChangedPassword, createSessionRouter(manifestService));
 app.use("/api/logs", mustBeAuthenticated, mustHaveChangedPassword, createLogRouter(authService));

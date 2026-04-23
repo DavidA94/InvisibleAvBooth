@@ -22,10 +22,10 @@ function buildApp() {
   const app = express();
   app.use(express.json());
   app.use(cookieParser());
-  app.use("/auth", createAuthRouter(authService));
+  app.use("/api/auth", createAuthRouter(authService));
   const mustBeAuthenticated = authenticate(authService);
   const mustHaveChangedPassword = requirePasswordChanged();
-  app.use("/admin/dashboards", mustBeAuthenticated, mustHaveChangedPassword, createAdminDashboardRouter(database, authService));
+  app.use("/api/admin/dashboards", mustBeAuthenticated, mustHaveChangedPassword, createAdminDashboardRouter(database, authService));
   app.use("/api/dashboards", mustBeAuthenticated, mustHaveChangedPassword, createDashboardRouter(database, authService));
   app.use("/api/session", mustBeAuthenticated, mustHaveChangedPassword, createSessionRouter(new SessionManifestService()));
   return { app, database, authService };
@@ -33,9 +33,9 @@ function buildApp() {
 
 async function loginAs(app: express.Express, authService: AuthService, username: string, password: string, role: "ADMIN" | "AvPowerUser" | "AvVolunteer") {
   await authService.createUser({ username, password, role }, seedActor);
-  const loginResponse = await request(app).post("/auth/login").send({ username, password });
+  const loginResponse = await request(app).post("/api/auth/login").send({ username, password });
   const tempCookie = (loginResponse.headers["set-cookie"] as unknown as string[])[0] ?? "";
-  const changeResponse = await request(app).post("/auth/change-password").set("Cookie", tempCookie).send({ newPassword: password });
+  const changeResponse = await request(app).post("/api/auth/change-password").set("Cookie", tempCookie).send({ newPassword: password });
   return (changeResponse.headers["set-cookie"] as unknown as string[])[0] ?? "";
 }
 
@@ -44,11 +44,11 @@ const baseWidget = { widgetId: "obs", title: "OBS", col: 0, row: 0, colSpan: 2, 
 
 // ── Admin dashboard CRUD ──────────────────────────────────────────────────────
 
-describe("POST /admin/dashboards", () => {
+describe("POST /api/admin/dashboards", () => {
   it("creates a dashboard", async () => {
     const { app, authService } = buildApp();
     const cookie = await loginAs(app, authService, "admin", "pass", "ADMIN");
-    const response = await request(app).post("/admin/dashboards").set("Cookie", cookie).send(baseDashboard);
+    const response = await request(app).post("/api/admin/dashboards").set("Cookie", cookie).send(baseDashboard);
     expect(response.status).toBe(201);
     expect(response.body.name).toBe("Main Dashboard");
     expect(Array.isArray(response.body.allowedRoles)).toBe(true);
@@ -57,28 +57,28 @@ describe("POST /admin/dashboards", () => {
   it("returns 400 when name is missing", async () => {
     const { app, authService } = buildApp();
     const cookie = await loginAs(app, authService, "admin", "pass", "ADMIN");
-    expect((await request(app).post("/admin/dashboards").set("Cookie", cookie).send({})).status).toBe(400);
+    expect((await request(app).post("/api/admin/dashboards").set("Cookie", cookie).send({})).status).toBe(400);
   });
 });
 
-describe("GET /admin/dashboards", () => {
+describe("GET /api/admin/dashboards", () => {
   it("returns all dashboards for ADMIN", async () => {
     const { app, authService } = buildApp();
     const cookie = await loginAs(app, authService, "admin", "pass", "ADMIN");
-    await request(app).post("/admin/dashboards").set("Cookie", cookie).send(baseDashboard);
-    const response = await request(app).get("/admin/dashboards").set("Cookie", cookie);
+    await request(app).post("/api/admin/dashboards").set("Cookie", cookie).send(baseDashboard);
+    const response = await request(app).get("/api/admin/dashboards").set("Cookie", cookie);
     expect(response.status).toBe(200);
     expect(response.body).toHaveLength(1);
   });
 });
 
-describe("PUT /admin/dashboards/:id", () => {
+describe("PUT /api/admin/dashboards/:id", () => {
   it("updates a dashboard", async () => {
     const { app, authService } = buildApp();
     const cookie = await loginAs(app, authService, "admin", "pass", "ADMIN");
-    const created = await request(app).post("/admin/dashboards").set("Cookie", cookie).send(baseDashboard);
+    const created = await request(app).post("/api/admin/dashboards").set("Cookie", cookie).send(baseDashboard);
     const response = await request(app)
-      .put(`/admin/dashboards/${created.body.id as string}`)
+      .put(`/api/admin/dashboards/${created.body.id as string}`)
       .set("Cookie", cookie)
       .send({ name: "Updated" });
     expect(response.status).toBe(200);
@@ -88,19 +88,19 @@ describe("PUT /admin/dashboards/:id", () => {
   it("returns 404 for unknown id", async () => {
     const { app, authService } = buildApp();
     const cookie = await loginAs(app, authService, "admin", "pass", "ADMIN");
-    expect((await request(app).put("/admin/dashboards/nonexistent").set("Cookie", cookie).send({ name: "x" })).status).toBe(404);
+    expect((await request(app).put("/api/admin/dashboards/nonexistent").set("Cookie", cookie).send({ name: "x" })).status).toBe(404);
   });
 });
 
-describe("DELETE /admin/dashboards/:id", () => {
+describe("DELETE /api/admin/dashboards/:id", () => {
   it("deletes a dashboard", async () => {
     const { app, authService } = buildApp();
     const cookie = await loginAs(app, authService, "admin", "pass", "ADMIN");
-    const created = await request(app).post("/admin/dashboards").set("Cookie", cookie).send(baseDashboard);
+    const created = await request(app).post("/api/admin/dashboards").set("Cookie", cookie).send(baseDashboard);
     expect(
       (
         await request(app)
-          .delete(`/admin/dashboards/${created.body.id as string}`)
+          .delete(`/api/admin/dashboards/${created.body.id as string}`)
           .set("Cookie", cookie)
       ).status,
     ).toBe(204);
@@ -109,19 +109,19 @@ describe("DELETE /admin/dashboards/:id", () => {
   it("returns 404 for unknown id", async () => {
     const { app, authService } = buildApp();
     const cookie = await loginAs(app, authService, "admin", "pass", "ADMIN");
-    expect((await request(app).delete("/admin/dashboards/nonexistent").set("Cookie", cookie)).status).toBe(404);
+    expect((await request(app).delete("/api/admin/dashboards/nonexistent").set("Cookie", cookie)).status).toBe(404);
   });
 });
 
 // ── Widget CRUD ───────────────────────────────────────────────────────────────
 
-describe("POST /admin/dashboards/:id/widgets", () => {
+describe("POST /api/admin/dashboards/:id/widgets", () => {
   it("creates a widget", async () => {
     const { app, authService } = buildApp();
     const cookie = await loginAs(app, authService, "admin", "pass", "ADMIN");
-    const dash = await request(app).post("/admin/dashboards").set("Cookie", cookie).send(baseDashboard);
+    const dash = await request(app).post("/api/admin/dashboards").set("Cookie", cookie).send(baseDashboard);
     const response = await request(app)
-      .post(`/admin/dashboards/${dash.body.id as string}/widgets`)
+      .post(`/api/admin/dashboards/${dash.body.id as string}/widgets`)
       .set("Cookie", cookie)
       .send(baseWidget);
     expect(response.status).toBe(201);
@@ -131,20 +131,20 @@ describe("POST /admin/dashboards/:id/widgets", () => {
   it("returns 409 on duplicate widgetId", async () => {
     const { app, authService } = buildApp();
     const cookie = await loginAs(app, authService, "admin", "pass", "ADMIN");
-    const dash = await request(app).post("/admin/dashboards").set("Cookie", cookie).send(baseDashboard);
+    const dash = await request(app).post("/api/admin/dashboards").set("Cookie", cookie).send(baseDashboard);
     const id = dash.body.id as string;
-    await request(app).post(`/admin/dashboards/${id}/widgets`).set("Cookie", cookie).send(baseWidget);
-    expect((await request(app).post(`/admin/dashboards/${id}/widgets`).set("Cookie", cookie).send(baseWidget)).status).toBe(409);
+    await request(app).post(`/api/admin/dashboards/${id}/widgets`).set("Cookie", cookie).send(baseWidget);
+    expect((await request(app).post(`/api/admin/dashboards/${id}/widgets`).set("Cookie", cookie).send(baseWidget)).status).toBe(409);
   });
 
   it("returns 400 when required fields are missing", async () => {
     const { app, authService } = buildApp();
     const cookie = await loginAs(app, authService, "admin", "pass", "ADMIN");
-    const dash = await request(app).post("/admin/dashboards").set("Cookie", cookie).send(baseDashboard);
+    const dash = await request(app).post("/api/admin/dashboards").set("Cookie", cookie).send(baseDashboard);
     expect(
       (
         await request(app)
-          .post(`/admin/dashboards/${dash.body.id as string}/widgets`)
+          .post(`/api/admin/dashboards/${dash.body.id as string}/widgets`)
           .set("Cookie", cookie)
           .send({ widgetId: "obs" })
       ).status,
@@ -152,15 +152,15 @@ describe("POST /admin/dashboards/:id/widgets", () => {
   });
 });
 
-describe("PUT /admin/dashboards/:id/widgets/:widgetId", () => {
+describe("PUT /api/admin/dashboards/:id/widgets/:widgetId", () => {
   it("updates a widget", async () => {
     const { app, authService } = buildApp();
     const cookie = await loginAs(app, authService, "admin", "pass", "ADMIN");
-    const dash = await request(app).post("/admin/dashboards").set("Cookie", cookie).send(baseDashboard);
+    const dash = await request(app).post("/api/admin/dashboards").set("Cookie", cookie).send(baseDashboard);
     const dashId = dash.body.id as string;
-    const widget = await request(app).post(`/admin/dashboards/${dashId}/widgets`).set("Cookie", cookie).send(baseWidget);
+    const widget = await request(app).post(`/api/admin/dashboards/${dashId}/widgets`).set("Cookie", cookie).send(baseWidget);
     const response = await request(app)
-      .put(`/admin/dashboards/${dashId}/widgets/${widget.body.id as string}`)
+      .put(`/api/admin/dashboards/${dashId}/widgets/${widget.body.id as string}`)
       .set("Cookie", cookie)
       .send({ title: "Updated OBS" });
     expect(response.status).toBe(200);
@@ -168,17 +168,17 @@ describe("PUT /admin/dashboards/:id/widgets/:widgetId", () => {
   });
 });
 
-describe("DELETE /admin/dashboards/:id/widgets/:widgetId", () => {
+describe("DELETE /api/admin/dashboards/:id/widgets/:widgetId", () => {
   it("deletes a widget", async () => {
     const { app, authService } = buildApp();
     const cookie = await loginAs(app, authService, "admin", "pass", "ADMIN");
-    const dash = await request(app).post("/admin/dashboards").set("Cookie", cookie).send(baseDashboard);
+    const dash = await request(app).post("/api/admin/dashboards").set("Cookie", cookie).send(baseDashboard);
     const dashId = dash.body.id as string;
-    const widget = await request(app).post(`/admin/dashboards/${dashId}/widgets`).set("Cookie", cookie).send(baseWidget);
+    const widget = await request(app).post(`/api/admin/dashboards/${dashId}/widgets`).set("Cookie", cookie).send(baseWidget);
     expect(
       (
         await request(app)
-          .delete(`/admin/dashboards/${dashId}/widgets/${widget.body.id as string}`)
+          .delete(`/api/admin/dashboards/${dashId}/widgets/${widget.body.id as string}`)
           .set("Cookie", cookie)
       ).status,
     ).toBe(204);
@@ -192,11 +192,11 @@ describe("GET /api/dashboards", () => {
     const { app, authService } = buildApp();
     const adminCookie = await loginAs(app, authService, "admin", "pass", "ADMIN");
     await request(app)
-      .post("/admin/dashboards")
+      .post("/api/admin/dashboards")
       .set("Cookie", adminCookie)
       .send({ name: "A", allowedRoles: ["AvVolunteer"] });
     await request(app)
-      .post("/admin/dashboards")
+      .post("/api/admin/dashboards")
       .set("Cookie", adminCookie)
       .send({ name: "B", allowedRoles: ["ADMIN"] });
     const response = await request(app).get("/api/dashboards").set("Cookie", adminCookie);
@@ -207,11 +207,11 @@ describe("GET /api/dashboards", () => {
     const { app, authService } = buildApp();
     const adminCookie = await loginAs(app, authService, "admin", "pass", "ADMIN");
     await request(app)
-      .post("/admin/dashboards")
+      .post("/api/admin/dashboards")
       .set("Cookie", adminCookie)
       .send({ name: "Volunteer", allowedRoles: ["AvVolunteer"] });
     await request(app)
-      .post("/admin/dashboards")
+      .post("/api/admin/dashboards")
       .set("Cookie", adminCookie)
       .send({ name: "Admin Only", allowedRoles: ["ADMIN"] });
     const volCookie = await loginAs(app, authService, "vol", "pass", "AvVolunteer");
@@ -227,9 +227,9 @@ describe("GET /api/dashboards/:id/layout", () => {
   it("returns GridManifest with version and cells", async () => {
     const { app, authService } = buildApp();
     const adminCookie = await loginAs(app, authService, "admin", "pass", "ADMIN");
-    const dash = await request(app).post("/admin/dashboards").set("Cookie", adminCookie).send(baseDashboard);
+    const dash = await request(app).post("/api/admin/dashboards").set("Cookie", adminCookie).send(baseDashboard);
     const dashId = dash.body.id as string;
-    await request(app).post(`/admin/dashboards/${dashId}/widgets`).set("Cookie", adminCookie).send(baseWidget);
+    await request(app).post(`/api/admin/dashboards/${dashId}/widgets`).set("Cookie", adminCookie).send(baseWidget);
     const response = await request(app).get(`/api/dashboards/${dashId}/layout`).set("Cookie", adminCookie);
     expect(response.status).toBe(200);
     expect(response.body.version).toBe(1);
@@ -241,7 +241,7 @@ describe("GET /api/dashboards/:id/layout", () => {
     const { app, authService } = buildApp();
     const adminCookie = await loginAs(app, authService, "admin", "pass", "ADMIN");
     const dash = await request(app)
-      .post("/admin/dashboards")
+      .post("/api/admin/dashboards")
       .set("Cookie", adminCookie)
       .send({ name: "Admin Only", allowedRoles: ["ADMIN"] });
     const volCookie = await loginAs(app, authService, "vol", "pass", "AvVolunteer");

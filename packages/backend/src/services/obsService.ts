@@ -101,7 +101,12 @@ export class ObsService {
         recording: recordStatus.outputActive,
       });
 
-      // Wire up obs-websocket event listeners
+      // Remove any existing listeners before adding new ones to prevent
+      // duplicate handlers after reconnection.
+      this.obs.removeAllListeners("StreamStateChanged");
+      this.obs.removeAllListeners("RecordStateChanged");
+      this.obs.removeAllListeners("ConnectionClosed");
+
       this.obs.on("StreamStateChanged", (data) => {
         this.updateState({ streaming: data.outputActive });
       });
@@ -289,6 +294,7 @@ export class ObsService {
 
   private scheduleReconnect(): void {
     if (this.retryExhausted) return;
+    if (this.retryTimer) return; // Already scheduled
     if (this.retryAttempt >= this.retry.maxAttempts) {
       this.retryExhausted = true;
       eventBus.emit(BUS_OBS_ERROR, {
@@ -306,6 +312,7 @@ export class ObsService {
 
     this.retryAttempt++;
     this.retryTimer = setTimeout(() => {
+      this.retryTimer = null;
       void this.connect();
     }, delay);
   }

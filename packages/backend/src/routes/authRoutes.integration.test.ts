@@ -19,10 +19,10 @@ function buildApp() {
   const app = express();
   app.use(express.json());
   app.use(cookieParser());
-  app.use("/auth", createAuthRouter(authService));
+  app.use("/api/auth", createAuthRouter(authService));
   const mustBeAuthenticated = authenticate(authService);
   const mustHaveChangedPassword = requirePasswordChanged();
-  app.use("/admin/users", mustBeAuthenticated, mustHaveChangedPassword, createAdminUserRouter(authService));
+  app.use("/api/admin/users", mustBeAuthenticated, mustHaveChangedPassword, createAdminUserRouter(authService));
   app.use("/api/session", mustBeAuthenticated, mustHaveChangedPassword, createSessionRouter(new SessionManifestService()));
   return { app, authService };
 }
@@ -31,10 +31,10 @@ const seedActor = { sub: "seed", username: "seed", role: "ADMIN" as const, iat: 
 
 async function loginAsAdmin(app: express.Express, authService: AuthService) {
   await authService.createUser({ username: "admin", password: "adminpass", role: "ADMIN" }, seedActor);
-  const loginResponse = await request(app).post("/auth/login").send({ username: "admin", password: "adminpass" });
+  const loginResponse = await request(app).post("/api/auth/login").send({ username: "admin", password: "adminpass" });
   const tempCookie = getCookie(loginResponse);
   // New users require a password change — complete it so tests aren't blocked by requiresPasswordChange
-  const changeResponse = await request(app).post("/auth/change-password").set("Cookie", tempCookie).send({ newPassword: "adminpass" });
+  const changeResponse = await request(app).post("/api/auth/change-password").set("Cookie", tempCookie).send({ newPassword: "adminpass" });
   return { cookie: getCookie(changeResponse) };
 }
 
@@ -48,7 +48,7 @@ describe("POST /auth/login", () => {
   it("returns 200 and sets HttpOnly cookie on valid credentials", async () => {
     const { app, authService } = buildApp();
     await authService.createUser({ username: "alice", password: "pass", role: "AvVolunteer" }, seedActor);
-    const response = await request(app).post("/auth/login").send({ username: "alice", password: "pass" });
+    const response = await request(app).post("/api/auth/login").send({ username: "alice", password: "pass" });
     expect(response.status).toBe(200);
     expect(getCookie(response)).toContain("HttpOnly");
     expect(response.body.user).toBeDefined();
@@ -57,7 +57,7 @@ describe("POST /auth/login", () => {
   it("sets a longer Max-Age when rememberMe is true", async () => {
     const { app, authService } = buildApp();
     await authService.createUser({ username: "alice", password: "pass", role: "AvVolunteer" }, seedActor);
-    const response = await request(app).post("/auth/login").send({ username: "alice", password: "pass", rememberMe: true });
+    const response = await request(app).post("/api/auth/login").send({ username: "alice", password: "pass", rememberMe: true });
     expect(response.status).toBe(200);
     expect(getCookie(response)).toContain("Max-Age=");
   });
@@ -65,13 +65,13 @@ describe("POST /auth/login", () => {
   it("returns 401 on wrong password", async () => {
     const { app, authService } = buildApp();
     await authService.createUser({ username: "alice", password: "pass", role: "AvVolunteer" }, seedActor);
-    const response = await request(app).post("/auth/login").send({ username: "alice", password: "wrong" });
+    const response = await request(app).post("/api/auth/login").send({ username: "alice", password: "wrong" });
     expect(response.status).toBe(401);
   });
 
   it("returns 400 when username is missing", async () => {
     const { app } = buildApp();
-    const response = await request(app).post("/auth/login").send({ password: "pass" });
+    const response = await request(app).post("/api/auth/login").send({ password: "pass" });
     expect(response.status).toBe(400);
   });
 });
@@ -81,52 +81,52 @@ describe("POST /auth/login", () => {
 describe("POST /auth/logout", () => {
   it("clears the token cookie", async () => {
     const { app } = buildApp();
-    const response = await request(app).post("/auth/logout");
+    const response = await request(app).post("/api/auth/logout");
     expect(response.status).toBe(200);
     expect(getCookie(response)).toContain("token=;");
   });
 });
 
-// ── GET /admin/users ──────────────────────────────────────────────────────────
+// ── GET /api/admin/users ──────────────────────────────────────────────────────────
 
-describe("GET /admin/users", () => {
+describe("GET /api/admin/users", () => {
   it("returns user list for ADMIN", async () => {
     const { app, authService } = buildApp();
     const { cookie } = await loginAsAdmin(app, authService);
-    const response = await request(app).get("/admin/users").set("Cookie", cookie);
+    const response = await request(app).get("/api/admin/users").set("Cookie", cookie);
     expect(response.status).toBe(200);
     expect(Array.isArray(response.body)).toBe(true);
   });
 
   it("returns 401 without cookie", async () => {
     const { app } = buildApp();
-    expect((await request(app).get("/admin/users")).status).toBe(401);
+    expect((await request(app).get("/api/admin/users")).status).toBe(401);
   });
 
   it("returns 401 with an invalid token", async () => {
     const { app } = buildApp();
-    const response = await request(app).get("/admin/users").set("Cookie", "token=invalid.jwt.token");
+    const response = await request(app).get("/api/admin/users").set("Cookie", "token=invalid.jwt.token");
     expect(response.status).toBe(401);
   });
 
   it("returns 403 for non-ADMIN", async () => {
     const { app, authService } = buildApp();
     await authService.createUser({ username: "vol", password: "pass", role: "AvVolunteer" }, seedActor);
-    const loginRes = await request(app).post("/auth/login").send({ username: "vol", password: "pass" });
-    const response = await request(app).get("/admin/users").set("Cookie", getCookie(loginRes));
+    const loginRes = await request(app).post("/api/auth/login").send({ username: "vol", password: "pass" });
+    const response = await request(app).get("/api/admin/users").set("Cookie", getCookie(loginRes));
     expect(response.status).toBe(403);
   });
 });
 
-// ── GET /admin/users/:id ──────────────────────────────────────────────────────
+// ── GET /api/admin/users/:id ──────────────────────────────────────────────────────
 
-describe("GET /admin/users/:id", () => {
+describe("GET /api/admin/users/:id", () => {
   it("returns a single user", async () => {
     const { app, authService } = buildApp();
     const { cookie } = await loginAsAdmin(app, authService);
-    const listRes = await request(app).get("/admin/users").set("Cookie", cookie);
+    const listRes = await request(app).get("/api/admin/users").set("Cookie", cookie);
     const id = (listRes.body as Array<{ id: string }>)[0]!.id;
-    const response = await request(app).get(`/admin/users/${id}`).set("Cookie", cookie);
+    const response = await request(app).get(`/api/admin/users/${id}`).set("Cookie", cookie);
     expect(response.status).toBe(200);
     expect(response.body.id).toBe(id);
   });
@@ -134,17 +134,17 @@ describe("GET /admin/users/:id", () => {
   it("returns 404 for unknown id", async () => {
     const { app, authService } = buildApp();
     const { cookie } = await loginAsAdmin(app, authService);
-    expect((await request(app).get("/admin/users/nonexistent").set("Cookie", cookie)).status).toBe(404);
+    expect((await request(app).get("/api/admin/users/nonexistent").set("Cookie", cookie)).status).toBe(404);
   });
 });
 
-// ── POST /admin/users ─────────────────────────────────────────────────────────
+// ── POST /api/admin/users ─────────────────────────────────────────────────────────
 
-describe("POST /admin/users", () => {
+describe("POST /api/admin/users", () => {
   it("creates a user", async () => {
     const { app, authService } = buildApp();
     const { cookie } = await loginAsAdmin(app, authService);
-    const response = await request(app).post("/admin/users").set("Cookie", cookie).send({ username: "newuser", password: "pass", role: "AvVolunteer" });
+    const response = await request(app).post("/api/admin/users").set("Cookie", cookie).send({ username: "newuser", password: "pass", role: "AvVolunteer" });
     expect(response.status).toBe(201);
     expect(response.body.username).toBe("newuser");
   });
@@ -152,21 +152,21 @@ describe("POST /admin/users", () => {
   it("returns 409 on duplicate username", async () => {
     const { app, authService } = buildApp();
     const { cookie } = await loginAsAdmin(app, authService);
-    await request(app).post("/admin/users").set("Cookie", cookie).send({ username: "dup", password: "p", role: "AvVolunteer" });
-    const response = await request(app).post("/admin/users").set("Cookie", cookie).send({ username: "dup", password: "p", role: "AvVolunteer" });
+    await request(app).post("/api/admin/users").set("Cookie", cookie).send({ username: "dup", password: "p", role: "AvVolunteer" });
+    const response = await request(app).post("/api/admin/users").set("Cookie", cookie).send({ username: "dup", password: "p", role: "AvVolunteer" });
     expect(response.status).toBe(409);
   });
 });
 
-// ── PUT /admin/users/:id ──────────────────────────────────────────────────────
+// ── PUT /api/admin/users/:id ──────────────────────────────────────────────────────
 
-describe("PUT /admin/users/:id", () => {
+describe("PUT /api/admin/users/:id", () => {
   it("updates a user", async () => {
     const { app, authService } = buildApp();
     const { cookie } = await loginAsAdmin(app, authService);
-    const createRes = await request(app).post("/admin/users").set("Cookie", cookie).send({ username: "bob", password: "p", role: "AvVolunteer" });
+    const createRes = await request(app).post("/api/admin/users").set("Cookie", cookie).send({ username: "bob", password: "p", role: "AvVolunteer" });
     const response = await request(app)
-      .put(`/admin/users/${createRes.body.id as string}`)
+      .put(`/api/admin/users/${createRes.body.id as string}`)
       .set("Cookie", cookie)
       .send({ username: "bobby" });
     expect(response.status).toBe(200);
@@ -176,21 +176,21 @@ describe("PUT /admin/users/:id", () => {
   it("returns 404 for unknown user", async () => {
     const { app, authService } = buildApp();
     const { cookie } = await loginAsAdmin(app, authService);
-    expect((await request(app).put("/admin/users/nonexistent").set("Cookie", cookie).send({ username: "x" })).status).toBe(404);
+    expect((await request(app).put("/api/admin/users/nonexistent").set("Cookie", cookie).send({ username: "x" })).status).toBe(404);
   });
 });
 
-// ── DELETE /admin/users/:id ───────────────────────────────────────────────────
+// ── DELETE /api/admin/users/:id ───────────────────────────────────────────────────
 
-describe("DELETE /admin/users/:id", () => {
+describe("DELETE /api/admin/users/:id", () => {
   it("deletes a user", async () => {
     const { app, authService } = buildApp();
     const { cookie } = await loginAsAdmin(app, authService);
-    const createRes = await request(app).post("/admin/users").set("Cookie", cookie).send({ username: "todelete", password: "p", role: "AvVolunteer" });
+    const createRes = await request(app).post("/api/admin/users").set("Cookie", cookie).send({ username: "todelete", password: "p", role: "AvVolunteer" });
     expect(
       (
         await request(app)
-          .delete(`/admin/users/${createRes.body.id as string}`)
+          .delete(`/api/admin/users/${createRes.body.id as string}`)
           .set("Cookie", cookie)
       ).status,
     ).toBe(204);
@@ -199,21 +199,21 @@ describe("DELETE /admin/users/:id", () => {
   it("returns 403 when trying to self-delete", async () => {
     const { app, authService } = buildApp();
     const { cookie } = await loginAsAdmin(app, authService);
-    const listRes = await request(app).get("/admin/users").set("Cookie", cookie);
+    const listRes = await request(app).get("/api/admin/users").set("Cookie", cookie);
     const adminId = (listRes.body as Array<{ id: string; username: string }>).find((u) => u.username === "admin")!.id;
-    expect((await request(app).delete(`/admin/users/${adminId}`).set("Cookie", cookie)).status).toBe(403);
+    expect((await request(app).delete(`/api/admin/users/${adminId}`).set("Cookie", cookie)).status).toBe(403);
   });
 });
 
-// ── POST /admin/users/:id/change-password ─────────────────────────────────────
+// ── POST /api/admin/users/:id/change-password ─────────────────────────────────────
 
 describe("POST /auth/change-password (self-service)", () => {
   it("allows user to change own password without knowing their id", async () => {
     const { app, authService } = buildApp();
     await authService.createUser({ username: "alice", password: "old", role: "AvVolunteer" }, seedActor);
-    const loginResponse = await request(app).post("/auth/login").send({ username: "alice", password: "old" });
+    const loginResponse = await request(app).post("/api/auth/login").send({ username: "alice", password: "old" });
     const cookie = getCookie(loginResponse);
-    const response = await request(app).post("/auth/change-password").set("Cookie", cookie).send({ newPassword: "new123" });
+    const response = await request(app).post("/api/auth/change-password").set("Cookie", cookie).send({ newPassword: "new123" });
     expect(response.status).toBe(200);
     expect(response.headers["set-cookie"]).toBeDefined();
   });
@@ -221,7 +221,7 @@ describe("POST /auth/change-password (self-service)", () => {
   it("returns 400 when newPassword is missing", async () => {
     const { app, authService } = buildApp();
     const { cookie } = await loginAsAdmin(app, authService);
-    expect((await request(app).post("/auth/change-password").set("Cookie", cookie).send({})).status).toBe(400);
+    expect((await request(app).post("/api/auth/change-password").set("Cookie", cookie).send({})).status).toBe(400);
   });
 });
 
@@ -230,7 +230,7 @@ describe("requiresPasswordChange enforcement", () => {
     const { app, authService } = buildApp();
     // New users have requiresPasswordChange=1
     await authService.createUser({ username: "newuser", password: "pass", role: "AvVolunteer" }, seedActor);
-    const loginResponse = await request(app).post("/auth/login").send({ username: "newuser", password: "pass" });
+    const loginResponse = await request(app).post("/api/auth/login").send({ username: "newuser", password: "pass" });
     const cookie = getCookie(loginResponse);
     // Should be blocked from protected routes
     const response = await request(app).get("/api/session/manifest").set("Cookie", cookie);
@@ -240,10 +240,10 @@ describe("requiresPasswordChange enforcement", () => {
   it("allows access after changing password", async () => {
     const { app, authService } = buildApp();
     await authService.createUser({ username: "newuser", password: "pass", role: "AvVolunteer" }, seedActor);
-    const loginResponse = await request(app).post("/auth/login").send({ username: "newuser", password: "pass" });
+    const loginResponse = await request(app).post("/api/auth/login").send({ username: "newuser", password: "pass" });
     const oldCookie = getCookie(loginResponse);
     // Change password — gets new cookie without requiresPasswordChange
-    const changeResponse = await request(app).post("/auth/change-password").set("Cookie", oldCookie).send({ newPassword: "newpass" });
+    const changeResponse = await request(app).post("/api/auth/change-password").set("Cookie", oldCookie).send({ newPassword: "newpass" });
     const newCookie = getCookie(changeResponse);
     // Should now be able to access protected routes
     const response = await request(app).get("/api/session/manifest").set("Cookie", newCookie);
@@ -251,13 +251,13 @@ describe("requiresPasswordChange enforcement", () => {
   });
 });
 
-describe("POST /admin/users/:id/change-password", () => {
+describe("POST /api/admin/users/:id/change-password", () => {
   it("changes password and re-issues cookie", async () => {
     const { app, authService } = buildApp();
     const { cookie } = await loginAsAdmin(app, authService);
-    const listRes = await request(app).get("/admin/users").set("Cookie", cookie);
+    const listRes = await request(app).get("/api/admin/users").set("Cookie", cookie);
     const adminUser = (listRes.body as Array<{ id: string }>)[0]!;
-    const response = await request(app).post(`/admin/users/${adminUser.id}/change-password`).set("Cookie", cookie).send({ newPassword: "newpass123" });
+    const response = await request(app).post(`/api/admin/users/${adminUser.id}/change-password`).set("Cookie", cookie).send({ newPassword: "newpass123" });
     expect(response.status).toBe(200);
     expect(response.headers["set-cookie"]).toBeDefined();
   });
@@ -265,27 +265,27 @@ describe("POST /admin/users/:id/change-password", () => {
   it("returns 400 when newPassword is missing", async () => {
     const { app, authService } = buildApp();
     const { cookie } = await loginAsAdmin(app, authService);
-    const listRes = await request(app).get("/admin/users").set("Cookie", cookie);
+    const listRes = await request(app).get("/api/admin/users").set("Cookie", cookie);
     const adminUser = (listRes.body as Array<{ id: string }>)[0]!;
-    expect((await request(app).post(`/admin/users/${adminUser.id}/change-password`).set("Cookie", cookie).send({})).status).toBe(400);
+    expect((await request(app).post(`/api/admin/users/${adminUser.id}/change-password`).set("Cookie", cookie).send({})).status).toBe(400);
   });
 
   it("returns 404 for unknown user id", async () => {
     const { app, authService } = buildApp();
     const { cookie } = await loginAsAdmin(app, authService);
-    expect((await request(app).post("/admin/users/nonexistent/change-password").set("Cookie", cookie).send({ newPassword: "p" })).status).toBe(404);
+    expect((await request(app).post("/api/admin/users/nonexistent/change-password").set("Cookie", cookie).send({ newPassword: "p" })).status).toBe(404);
   });
 
   it("returns 403 when non-ADMIN tries to change another user's password", async () => {
     const { app, authService } = buildApp();
     const { cookie } = await loginAsAdmin(app, authService);
-    const createRes = await request(app).post("/admin/users").set("Cookie", cookie).send({ username: "vol", password: "pass", role: "AvVolunteer" });
-    const volLogin = await request(app).post("/auth/login").send({ username: "vol", password: "pass" });
+    const createRes = await request(app).post("/api/admin/users").set("Cookie", cookie).send({ username: "vol", password: "pass", role: "AvVolunteer" });
+    const volLogin = await request(app).post("/api/auth/login").send({ username: "vol", password: "pass" });
     const volCookie = getCookie(volLogin);
-    const adminId = ((await request(app).get("/admin/users").set("Cookie", cookie)).body as Array<{ id: string; username: string }>).find(
+    const adminId = ((await request(app).get("/api/admin/users").set("Cookie", cookie)).body as Array<{ id: string; username: string }>).find(
       (u) => u.username === "admin",
     )!.id;
-    expect((await request(app).post(`/admin/users/${adminId}/change-password`).set("Cookie", volCookie).send({ newPassword: "hack" })).status).toBe(403);
+    expect((await request(app).post(`/api/admin/users/${adminId}/change-password`).set("Cookie", volCookie).send({ newPassword: "hack" })).status).toBe(403);
     void createRes;
   });
 });

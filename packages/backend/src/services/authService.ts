@@ -16,7 +16,8 @@ const JWT_SECRET = process.env["JWT_SECRET"] ?? "dev-secret-change-in-production
 const DEFAULT_EXPIRY = "8h";
 const REMEMBER_ME_EXPIRY = "30d";
 
-export type Role = "ADMIN" | "AvPowerUser" | "AvVolunteer";
+import type { Role } from "@invisible-av-booth/shared";
+export type { Role };
 
 const ROLE_HIERARCHY: Record<Role, number> = {
   ADMIN: 3,

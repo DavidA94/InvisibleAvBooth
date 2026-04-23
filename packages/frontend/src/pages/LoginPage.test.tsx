@@ -57,7 +57,7 @@ describe("LoginPage", () => {
     await waitFor(() => {
       expect(useStore.getState().user?.username).toBe("admin");
     });
-    expect(mockReplace).toHaveBeenCalledWith("/dashboards");
+    expect(mockReplace).toHaveBeenCalledWith("/dashboards", { initialAuth: true });
   });
 
   it("requiresPasswordChange redirects to /change-password", async () => {

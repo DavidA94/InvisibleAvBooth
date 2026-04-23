@@ -347,10 +347,19 @@
 }
 
 /* Widget error overlay */
+.error-overlay-wrapper {
+  position: relative;
+  height: 100%;
+}
+
 .error-overlay-content {
   text-align: center;
   color: var(--color-text);
   padding: 1rem;
+}
+
+.error-overlay-message {
+  margin: 0 0 0.5rem;
 }
 
 /* OBS status bar */
@@ -548,4 +557,8 @@
 
 .opacity-subdued {
   opacity: 0.6;
+}
+
+.cursor-pointer {
+  cursor: pointer;
 }

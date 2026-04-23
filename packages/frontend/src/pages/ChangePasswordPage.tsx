@@ -21,7 +21,7 @@ export function ChangePasswordPage(): ReactNode {
     if (!user) return;
     setPending(true);
     try {
-      const response = await fetch("/auth/change-password", {
+      const response = await fetch("/api/auth/change-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -33,7 +33,7 @@ export function ChangePasswordPage(): ReactNode {
         return;
       }
       useStore.getState().setUser({ ...user, requiresPasswordChange: false });
-      history.replace("/dashboards");
+      history.replace("/dashboards", { initialAuth: true });
     } catch {
       setError("Network error");
     } finally {
