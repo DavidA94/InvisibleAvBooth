@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import type { ReactNode } from "react";
 import { IonPage, IonContent, IonText, IonSpinner } from "@ionic/react";
 import { useNavigate, useLocation } from "react-router";
+import { STORAGE_KEY_DASHBOARD_ID, STORAGE_KEY_DASHBOARD_NAME } from "../constants/storageKeys";
 
 interface DashboardSummary {
   id: string;
@@ -17,15 +18,25 @@ export function DashboardSelectionScreen(): ReactNode {
   const isInitialAuth = (location.state as { initialAuth?: boolean } | undefined)?.initialAuth === true;
 
   useEffect(() => {
+    // Flow 6: cached dashboard ID — go straight to it
+    if (isInitialAuth) {
+      const cachedId = localStorage.getItem(STORAGE_KEY_DASHBOARD_ID);
+      if (cachedId) {
+        navigate(`/dashboard/${cachedId}`, { replace: true });
+        return;
+      }
+    }
+
     const load = async (): Promise<void> => {
       try {
         const response = await fetch("/api/dashboards", { credentials: "include" });
         if (response.ok) {
           const data = (await response.json()) as DashboardSummary[];
           setDashboards(data);
-          // Auto-select if exactly one and this is initial auth
+          // Flow 7: exactly one dashboard on initial auth — auto-select
           if (data.length === 1 && isInitialAuth && data[0]) {
             selectDashboard(data[0]);
+            return;
           }
         }
       } catch {
@@ -39,7 +50,8 @@ export function DashboardSelectionScreen(): ReactNode {
   }, []);
 
   const selectDashboard = (dashboard: DashboardSummary): void => {
-    localStorage.setItem("dashboardName", dashboard.name);
+    localStorage.setItem(STORAGE_KEY_DASHBOARD_ID, dashboard.id);
+    localStorage.setItem(STORAGE_KEY_DASHBOARD_NAME, dashboard.name);
     navigate(`/dashboard/${dashboard.id}`);
   };
 
