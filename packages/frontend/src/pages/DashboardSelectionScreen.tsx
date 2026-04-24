@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import type { ReactNode } from "react";
 import { IonPage, IonContent, IonText, IonSpinner } from "@ionic/react";
-import { useHistory, useLocation } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router";
 
 interface DashboardSummary {
   id: string;
@@ -12,7 +12,7 @@ interface DashboardSummary {
 export function DashboardSelectionScreen(): ReactNode {
   const [dashboards, setDashboards] = useState<DashboardSummary[]>([]);
   const [loading, setLoading] = useState(true);
-  const history = useHistory();
+  const navigate = useNavigate();
   const location = useLocation();
   const isInitialAuth = (location.state as { initialAuth?: boolean } | undefined)?.initialAuth === true;
 
@@ -40,7 +40,7 @@ export function DashboardSelectionScreen(): ReactNode {
 
   const selectDashboard = (dashboard: DashboardSummary): void => {
     localStorage.setItem("dashboardName", dashboard.name);
-    history.push(`/dashboard/${dashboard.id}`);
+    navigate(`/dashboard/${dashboard.id}`);
   };
 
   if (loading) {

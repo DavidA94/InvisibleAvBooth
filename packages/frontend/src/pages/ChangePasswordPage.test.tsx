@@ -1,14 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter } from "react-router";
 import { ChangePasswordPage } from "./ChangePasswordPage";
 import { useStore } from "../store";
 import { INITIAL_OBS_STATE } from "../store/obsSlice";
 
 const mockReplace = vi.fn();
-vi.mock("react-router-dom", async () => {
-  const actual = await vi.importActual("react-router-dom");
-  return { ...actual, useHistory: () => ({ replace: mockReplace }) };
+vi.mock("react-router", async () => {
+  const actual = await vi.importActual("react-router");
+  return { ...actual, useNavigate: () => mockReplace };
 });
 
 const mockFetch = vi.fn();
@@ -50,7 +50,7 @@ describe("ChangePasswordPage", () => {
     fireEvent.submit(screen.getByTestId("change-password-form"));
 
     await waitFor(() => {
-      expect(mockReplace).toHaveBeenCalledWith("/dashboards", { initialAuth: true });
+      expect(mockReplace).toHaveBeenCalledWith("/dashboards", { replace: true, state: { initialAuth: true } });
     });
     expect(useStore.getState().user?.requiresPasswordChange).toBe(false);
   });

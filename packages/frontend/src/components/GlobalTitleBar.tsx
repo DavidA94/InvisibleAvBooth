@@ -1,11 +1,12 @@
 import type { ReactNode } from "react";
 import { IonButton } from "@ionic/react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router";
 import { useStore } from "../store";
 
 export function GlobalTitleBar(): ReactNode {
   const user = useStore((s) => s.user);
   const location = useLocation();
+  const navigate = useNavigate();
 
   if (!user) return null;
 
@@ -20,14 +21,14 @@ export function GlobalTitleBar(): ReactNode {
           {isDashboard && dashboardName ? (
             <>
               <span>{dashboardName}</span>
-              <IonButton routerLink="/dashboards" fill="clear" size="small" className="title-bar-link">
+              <IonButton fill="clear" size="small" className="title-bar-link" onClick={() => navigate("/dashboards")}>
                 (change)
               </IonButton>
             </>
           ) : (
             <>
               <em className="text-muted">No Dashboard Selected</em>
-              <IonButton routerLink="/dashboards" fill="clear" size="small" className="title-bar-link">
+              <IonButton fill="clear" size="small" className="title-bar-link" onClick={() => navigate("/dashboards")}>
                 (choose)
               </IonButton>
             </>

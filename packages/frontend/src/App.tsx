@@ -1,6 +1,5 @@
-import { IonApp, IonRouterOutlet, setupIonicReact } from "@ionic/react";
-import { IonReactRouter } from "@ionic/react-router";
-import { Route, Redirect, Switch } from "react-router-dom";
+import { IonApp, setupIonicReact } from "@ionic/react";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router";
 import type { ReactNode } from "react";
 
 /* Ionic core + theme CSS */
@@ -27,38 +26,39 @@ import { Dashboard } from "./pages/Dashboard";
 import { AdminUserManagement } from "./pages/AdminUserManagement";
 import { AdminDeviceManagement } from "./pages/AdminDeviceManagement";
 
-// Force Material Design mode — we're a tablet web app in a controlled environment,
-// not a native app. MD mode gives consistent rendering regardless of user-agent.
 setupIonicReact({ mode: "md" });
 
 export function App(): ReactNode {
   return (
     <IonApp>
-      <IonReactRouter>
-        <Switch>
-          <Route exact path="/login" component={LoginPage} />
-          <Route>
-            <ProtectedRoutes>
-              <SocketProvider>
-                <NotificationLayer />
-                <div className="app-shell">
-                  <GlobalTitleBar />
-                  <div className="app-content">
-                    <IonRouterOutlet>
-                      <Route exact path="/change-password" component={ChangePasswordPage} />
-                      <Route exact path="/dashboards" component={DashboardSelectionScreen} />
-                      <Route exact path="/dashboard/:id" component={Dashboard} />
-                      <Route exact path="/api/admin/users" component={AdminUserManagement} />
-                      <Route exact path="/api/admin/devices" component={AdminDeviceManagement} />
-                      <Route exact path="/" render={() => <Redirect to="/dashboards" />} />
-                    </IonRouterOutlet>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route
+            path="*"
+            element={
+              <ProtectedRoutes>
+                <SocketProvider>
+                  <NotificationLayer />
+                  <div className="app-shell">
+                    <GlobalTitleBar />
+                    <div className="app-content">
+                      <Routes>
+                        <Route path="/change-password" element={<ChangePasswordPage />} />
+                        <Route path="/dashboards" element={<DashboardSelectionScreen />} />
+                        <Route path="/dashboard/:id" element={<Dashboard />} />
+                        <Route path="/admin/users" element={<AdminUserManagement />} />
+                        <Route path="/admin/devices" element={<AdminDeviceManagement />} />
+                        <Route path="*" element={<Navigate to="/dashboards" replace />} />
+                      </Routes>
+                    </div>
                   </div>
-                </div>
-              </SocketProvider>
-            </ProtectedRoutes>
-          </Route>
-        </Switch>
-      </IonReactRouter>
+                </SocketProvider>
+              </ProtectedRoutes>
+            }
+          />
+        </Routes>
+      </BrowserRouter>
     </IonApp>
   );
 }

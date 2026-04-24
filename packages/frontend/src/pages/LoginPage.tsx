@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
 import { IonPage, IonContent, IonInput, IonButton, IonCheckbox, IonText } from "@ionic/react";
-import { useHistory, Redirect } from "react-router-dom";
+import { useNavigate, Navigate } from "react-router";
 import { useStore } from "../store";
 import type { AuthUser } from "../types";
 
@@ -11,12 +11,12 @@ export function LoginPage(): ReactNode {
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
-  const history = useHistory();
+  const navigate = useNavigate();
   const existingUser = useStore((s) => s.user);
 
   // Already authenticated — skip login
   if (existingUser) {
-    return <Redirect to="/dashboards" />;
+    return <Navigate to="/dashboards" replace />;
   }
 
   const handleSubmit = async (): Promise<void> => {
@@ -39,9 +39,9 @@ export function LoginPage(): ReactNode {
         const authUser = { ...data.user.user, ...(data.user.requiresPasswordChange ? { requiresPasswordChange: true as const } : {}) };
         useStore.getState().setUser(authUser);
         if (data.user.requiresPasswordChange) {
-          history.replace("/change-password");
+          navigate("/change-password", { replace: true });
         } else {
-          history.replace("/dashboards", { initialAuth: true });
+          navigate("/dashboards", { replace: true, state: { initialAuth: true } });
         }
       }
     } catch {

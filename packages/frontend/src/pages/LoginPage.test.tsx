@@ -1,14 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter } from "react-router";
 import { LoginPage } from "./LoginPage";
 import { useStore } from "../store";
 import { INITIAL_OBS_STATE } from "../store/obsSlice";
 
 const mockReplace = vi.fn();
-vi.mock("react-router-dom", async () => {
-  const actual = await vi.importActual("react-router-dom");
-  return { ...actual, useHistory: () => ({ push: vi.fn(), replace: mockReplace }) };
+vi.mock("react-router", async () => {
+  const actual = await vi.importActual("react-router");
+  return { ...actual, useNavigate: () => mockReplace };
 });
 
 const mockFetch = vi.fn();
@@ -57,7 +57,7 @@ describe("LoginPage", () => {
     await waitFor(() => {
       expect(useStore.getState().user?.username).toBe("admin");
     });
-    expect(mockReplace).toHaveBeenCalledWith("/dashboards", { initialAuth: true });
+    expect(mockReplace).toHaveBeenCalledWith("/dashboards", { replace: true, state: { initialAuth: true } });
   });
 
   it("requiresPasswordChange redirects to /change-password", async () => {
@@ -70,7 +70,7 @@ describe("LoginPage", () => {
     renderPage();
     fireEvent.submit(screen.getByTestId("login-form"));
     await waitFor(() => {
-      expect(mockReplace).toHaveBeenCalledWith("/change-password");
+      expect(mockReplace).toHaveBeenCalledWith("/change-password", { replace: true });
     });
   });
 

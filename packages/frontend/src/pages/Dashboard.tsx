@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import type { ReactNode } from "react";
 import { IonPage, IonContent, IonSpinner } from "@ionic/react";
-import { useHistory, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router";
 import type { GridManifest, GridCell, Role } from "../types";
 import { useStore } from "../store";
 import { ObsWidget } from "../components/obs/ObsWidget";
@@ -42,16 +42,16 @@ function WidgetPlaceholder({ cell }: { cell: GridCell }): ReactNode {
 export function Dashboard(): ReactNode {
   const [manifest, setManifest] = useState<GridManifest | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-  const history = useHistory();
+  const navigate = useNavigate();
   const { id: dashboardId } = useParams<{ id: string }>();
-  const historyRef = useRef(history);
-  historyRef.current = history;
+  const navigateRef = useRef(navigate);
+  navigateRef.current = navigate;
   const userRole = useStore((s) => s.user?.role) as Role | undefined;
   const portrait = useIsPortrait();
 
   useEffect(() => {
     if (!dashboardId) {
-      historyRef.current.replace("/dashboards");
+      navigateRef.current("/dashboards", { replace: true });
       return;
     }
 
@@ -70,7 +70,7 @@ export function Dashboard(): ReactNode {
         const response = await fetch(`/api/dashboards/${dashboardId}/layout`, { credentials: "include" });
         if (!response.ok) {
           if (response.status === 404 || response.status === 403) {
-            historyRef.current.replace("/dashboards");
+            navigateRef.current("/dashboards", { replace: true });
             return;
           }
           if (!cached) setManifest(DEFAULT_GRID_MANIFEST);

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
 import { IonPage, IonContent, IonInput, IonButton, IonText } from "@ionic/react";
-import { useHistory } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { useStore } from "../store";
 
 export function ChangePasswordPage(): ReactNode {
@@ -9,7 +9,7 @@ export function ChangePasswordPage(): ReactNode {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
-  const history = useHistory();
+  const navigate = useNavigate();
   const user = useStore((s) => s.user);
 
   const handleSubmit = async (): Promise<void> => {
@@ -33,7 +33,7 @@ export function ChangePasswordPage(): ReactNode {
         return;
       }
       useStore.getState().setUser({ ...user, requiresPasswordChange: false });
-      history.replace("/dashboards", { initialAuth: true });
+      navigate("/dashboards", { replace: true, state: { initialAuth: true } });
     } catch {
       setError("Network error");
     } finally {
