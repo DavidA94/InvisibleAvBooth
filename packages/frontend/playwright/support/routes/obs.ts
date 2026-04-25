@@ -22,22 +22,21 @@ export async function routeSocketIo(
   const obsState = initialObs ?? obsStateDefault();
   const manifestPayload = initialManifest ?? sessionManifestDefault();
 
-  // Block Socket.io polling transport
-  await page.route("**/socket.io/**", async (route) => {
+  // Intercept Socket.io polling transport only — WebSocket handled by routeWebSocket
+  await page.route("**/socket.io/*", async (route) => {
     const url = route.request().url();
     if (url.includes("transport=polling")) {
-      // Return a valid Socket.io handshake for polling, then let WS upgrade
-      if (url.includes("EIO=4") && !url.includes("sid=")) {
+      if (!url.includes("sid=")) {
         await route.fulfill({
           status: 200,
           contentType: "text/plain",
-          body: '0{"sid":"mock-sid","upgrades":["websocket"],"pingInterval":25000,"pingTimeout":20000}',
+          body: '0{"sid":"mock-sid","upgrades":["websocket"],"pingInterval":25000,"pingTimeout":60000}',
         });
       } else {
-        await route.fulfill({ status: 200, contentType: "text/plain", body: "ok" });
+        await route.fulfill({ status: 200, contentType: "text/plain", body: "" });
       }
     } else {
-      await route.continue();
+      await route.fallback();
     }
   });
 

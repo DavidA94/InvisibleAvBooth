@@ -33,7 +33,8 @@ export function ChangePasswordPage(): ReactNode {
         return;
       }
       useStore.getState().setUser({ ...user, requiresPasswordChange: false });
-      navigate("/dashboards", { replace: true, state: { initialAuth: true } });
+      sessionStorage.setItem("initialAuth", "true");
+      navigate("/dashboards", { replace: true });
     } catch {
       setError("Network error");
     } finally {

@@ -10,6 +10,11 @@ export default defineConfig({
     baseURL: "http://localhost:5173",
     trace: "on-first-retry",
   },
+  webServer: {
+    command: "npx vite --port 5173",
+    port: 5173,
+    reuseExistingServer: true,
+  },
   projects: [
     {
       name: "chromium",

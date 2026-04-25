@@ -4,11 +4,15 @@ import type { AuthLoginResponse } from "../../fixtures/payloads/auth";
 
 export async function routeAuthLogin(page: Page, response?: AuthLoginResponse): Promise<void> {
   await page.route("**/api/auth/login", async (route) => {
+    const payload = response ?? authLoginSuccess();
+    const userInfo = encodeURIComponent(JSON.stringify(payload.user.user));
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify(response ?? authLoginSuccess()),
-      headers: { "Set-Cookie": "token=mock-jwt; Path=/; HttpOnly" },
+      body: JSON.stringify(payload),
+      headers: {
+        "Set-Cookie": `token=mock-jwt; Path=/; HttpOnly, user_info=${userInfo}; Path=/`,
+      },
     });
   });
 }

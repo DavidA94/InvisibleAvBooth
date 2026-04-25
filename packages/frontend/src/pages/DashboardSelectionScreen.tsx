@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import type { ReactNode } from "react";
 import { IonPage, IonContent, IonText, IonSpinner } from "@ionic/react";
-import { useNavigate, useLocation } from "react-router";
+import { useNavigate } from "react-router";
 import { STORAGE_KEY_DASHBOARD_ID, STORAGE_KEY_DASHBOARD_NAME } from "../constants/storageKeys";
 
 interface DashboardSummary {
@@ -14,10 +14,11 @@ export function DashboardSelectionScreen(): ReactNode {
   const [dashboards, setDashboards] = useState<DashboardSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
-  const location = useLocation();
-  const isInitialAuth = (location.state as { initialAuth?: boolean } | undefined)?.initialAuth === true;
 
   useEffect(() => {
+    const isInitialAuth = sessionStorage.getItem("initialAuth") === "true";
+    sessionStorage.removeItem("initialAuth");
+
     // Flow 6: cached dashboard ID — go straight to it
     if (isInitialAuth) {
       const cachedId = localStorage.getItem(STORAGE_KEY_DASHBOARD_ID);

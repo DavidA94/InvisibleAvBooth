@@ -64,14 +64,21 @@ test.describe("Authentication flow", () => {
     await expect(page.getByTestId("change-password-page")).toBeVisible({ timeout: 10000 });
   });
 
-  test("session persistence — authenticated user skips login", async ({ page }) => {
+  test("session persistence — authenticated user skips login", async ({ page, context }) => {
     await routeAuthCheck(page);
     await routeDashboardApi(page);
     await routeSocketIo(page);
 
-    // Simulate existing session by setting store state via evaluate
-    await page.goto("/login");
-    // The auth check route returns a valid user, so ProtectedRoutes should redirect
+    // Simulate existing session via cookie
+    await context.addCookies([
+      {
+        name: "user_info",
+        value: encodeURIComponent(JSON.stringify({ id: "u1", username: "admin", role: "ADMIN" })),
+        domain: "localhost",
+        path: "/",
+      },
+    ]);
+
     await page.goto("/dashboards");
     await expect(page.getByTestId("dashboard-selection-screen")).toBeVisible({ timeout: 10000 });
   });

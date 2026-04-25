@@ -50,7 +50,7 @@ describe("ChangePasswordPage", () => {
     fireEvent.submit(screen.getByTestId("change-password-form"));
 
     await waitFor(() => {
-      expect(mockReplace).toHaveBeenCalledWith("/dashboards", { replace: true, state: { initialAuth: true } });
+      expect(mockReplace).toHaveBeenCalledWith("/dashboards", { replace: true });
     });
     expect(useStore.getState().user?.requiresPasswordChange).toBe(false);
   });

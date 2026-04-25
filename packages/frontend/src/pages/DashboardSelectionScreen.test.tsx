@@ -10,7 +10,6 @@ vi.mock("react-router", async () => {
   return {
     ...actual,
     useNavigate: () => mockPush,
-    useLocation: () => ({ pathname: "/dashboards", state: undefined }),
   };
 });
 

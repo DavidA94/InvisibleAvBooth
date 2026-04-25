@@ -22,10 +22,20 @@ const DEVICES = [
 ];
 
 test.describe("Admin User Management", () => {
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async ({ page, context }) => {
     await routeAuthLogin(page);
     await routeAuthCheck(page);
     await routeSocketIo(page);
+
+    // Set auth cookie so full-page navigations preserve auth state
+    await context.addCookies([
+      {
+        name: "user_info",
+        value: encodeURIComponent(JSON.stringify({ id: "u1", username: "admin", role: "ADMIN" })),
+        domain: "localhost",
+        path: "/",
+      },
+    ]);
 
     await page.route("**/api/admin/users", async (route) => {
       if (route.request().method() === "GET") {
@@ -52,12 +62,6 @@ test.describe("Admin User Management", () => {
       }
     });
 
-    // Login first
-    await page.goto("/login");
-    await page.getByTestId("login-username").locator("input").fill("admin");
-    await page.getByTestId("login-password").locator("input").fill("password");
-    await page.getByTestId("login-submit").click();
-    await page.waitForTimeout(1000);
   });
 
   test("user CRUD flow", async ({ page }) => {
@@ -84,10 +88,20 @@ test.describe("Admin User Management", () => {
 });
 
 test.describe("Admin Device Management", () => {
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async ({ page, context }) => {
     await routeAuthLogin(page);
     await routeAuthCheck(page);
     await routeSocketIo(page);
+
+    // Set auth cookie so full-page navigations preserve auth state
+    await context.addCookies([
+      {
+        name: "user_info",
+        value: encodeURIComponent(JSON.stringify({ id: "u1", username: "admin", role: "ADMIN" })),
+        domain: "localhost",
+        path: "/",
+      },
+    ]);
 
     await page.route("**/api/admin/devices", async (route) => {
       if (route.request().method() === "GET") {
@@ -114,11 +128,6 @@ test.describe("Admin Device Management", () => {
       }
     });
 
-    await page.goto("/login");
-    await page.getByTestId("login-username").locator("input").fill("admin");
-    await page.getByTestId("login-password").locator("input").fill("password");
-    await page.getByTestId("login-submit").click();
-    await page.waitForTimeout(1000);
   });
 
   test("device CRUD flow", async ({ page }) => {

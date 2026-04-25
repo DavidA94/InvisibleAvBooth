@@ -41,7 +41,8 @@ export function LoginPage(): ReactNode {
         if (data.user.requiresPasswordChange) {
           navigate("/change-password", { replace: true });
         } else {
-          navigate("/dashboards", { replace: true, state: { initialAuth: true } });
+          sessionStorage.setItem("initialAuth", "true");
+          navigate("/dashboards", { replace: true });
         }
       }
     } catch {
