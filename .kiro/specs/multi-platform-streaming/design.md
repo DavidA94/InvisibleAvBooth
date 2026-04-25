@@ -21,12 +21,16 @@ This is an extension document — it references and builds on the original desig
 
 ### Breaking Changes to the Original Design
 
-- **`ConnectionStatus` interface**: The boolean `healthy` field is replaced by `status: "healthy" | "degraded" | "unhealthy" | "inactive"`. All existing usages must be migrated. The `WidgetContainer` component, its CSS dot classes, and the popover text all change.
-- **`SessionManifest` interface**: Two new fields added: `titleTemplateId?: string` and `descriptionTemplateId?: string`. The backend `SessionManifestEventMap` payload gains `interpolatedDescription: string`.
+- **`ConnectionStatus` interface**: The boolean `healthy` field is replaced by `status: "healthy" | "degraded" | "unhealthy" | "inactive"`. All existing usages must be migrated. The `WidgetContainer` component, its CSS dot classes, and the popover text all change. Supersedes original Req 16.3 and 16.5 (which reference the boolean model).
+- **`SessionManifest` interface**: Two new fields added: `titleTemplateId?: string` and `descriptionTemplateId?: string`. The backend `SessionManifestEventMap` payload gains `interpolatedDescription: string` and `manifestReady: boolean`.
 - **`SessionManifestService` constructor**: No longer accepts a template string. Reads templates from the database via a DAO.
-- **`interpolateStreamTitle` in `packages/shared`**: Reworked to support multiple templates and the `{verseText}` token. Function signature changes.
+- **`interpolateStreamTitle` in `packages/shared`**: Renamed to `interpolateTemplate`. Reworked to support multiple templates and the `{verseText}` token. Function signature changes.
 - **OBS widget connection list**: Expands from one entry (`"OBS"`) to three (`"OBS"`, `"Relay"`, `"Stream"`).
-- **ADMIN post-login navigation**: Redirects to `/admin` instead of the Dashboard Selection Screen.
+- **ADMIN post-login navigation**: Redirects to `/admin` instead of the Dashboard Selection Screen. Supersedes original Req 5.3 for ADMIN users.
+- **OBS safe-start sequence**: Original Req 8.2 (update OBS metadata → start stream) is superseded. Metadata is now set via platform APIs, not OBS. OBS stream settings always point at the relay. Original design Property 9 (safe-start ordering) is superseded.
+- **Start Stream button disabled logic**: Original Req 8.12 (disabled unless speaker or title present) is superseded by `manifestReady` boolean computed from selected template tokens.
+- **`ObsCommand` frontend scope**: `startStream` and `stopStream` are no longer triggered by the frontend via `CTS_OBS_COMMAND`. They are called internally by `StreamingPlatformService`. The frontend `ObsCommand` type retains only `startRecording` and `stopRecording`. Original `CTS_OBS_COMMAND` handler in `ObsModule` must be updated accordingly.
+- **`ObsService.updateStreamMetadata()`**: No longer called during the stream start flow. Retained for potential future use but not part of the multi-platform streaming path.
 
 ---
 
@@ -153,7 +157,7 @@ type RelayState = "healthy" | "unhealthy" | "inactive";
 
 **OBS connection detection**: `node-media-server` emits `postPublish` and `donePublish` events when a publisher connects/disconnects. `RelayService` subscribes to these and emits `bus:relay:state:changed` accordingly. This is the mechanism for the "No Source" detection specified in Req 5.10.
 
-**Relay TCP keepalive**: `node-media-server` is configured with `ping: 5` and `ping_timeout: 3` (seconds) so that OBS crashes (process killed, machine power loss) are detected within ~8 seconds rather than relying on the OS default TCP timeout (which can be 30+ seconds). Without this, a half-open TCP connection from a crashed OBS would leave the relay in a false "OBS connected" state.
+**Relay RTMP keepalive**: `node-media-server` is configured with `ping: 5` and `ping_timeout: 3` (seconds) at the RTMP protocol level so that OBS crashes (process killed, machine power loss) are detected within ~8 seconds. Without this, a half-open connection from a crashed OBS could leave the relay in a false "OBS connected" state for 30+ seconds (OS TCP timeout). The RTMP ping is a protocol-level heartbeat — distinct from TCP keepalive — and is the correct mechanism for `node-media-server`.
 
 **FFmpeg process management**: Each forwarder is a `child_process.spawn("ffmpeg", [...])` with args:
 
@@ -321,7 +325,7 @@ async startAll(): Promise<void> {
 
 **Auto-recovery (Req 5.4)**: `StreamingPlatformService` subscribes to `bus:forwarder:exited`. When an FFmpeg process exits while the platform is in "Streaming" state, it runs the recovery sequence: wait 2s → respawn → wait 5s → poll API to verify broadcast is alive. If the platform is in "No Source" state, auto-recovery is suppressed — the exit is expected and recovery is deferred until OBS reconnects.
 
-**No Source handling (Req 5.10)**: `StreamingPlatformService` subscribes to `bus:relay:state:changed`. When OBS disconnects (relay transitions from `"healthy"` to `"inactive"`), all platforms in "Streaming" state transition to "No Source". FFmpeg processes are left running (they'll stall but not exit immediately). When OBS reconnects (relay transitions back to `"healthy"`), platforms in "No Source" transition to "Recovering" and the API verification poll runs.
+**No Source handling (Req 5.10)**: `StreamingPlatformService` subscribes to `bus:relay:state:changed`. When OBS disconnects (relay transitions from `"healthy"` to `"inactive"`), all platforms in "Streaming" state transition to "No Source". FFmpeg processes are left running (they'll stall but not exit immediately). When OBS reconnects (relay transitions back to `"healthy"`), platforms in "No Source" transition to "Recovering" and the API verification poll runs. Before transitioning from "Recovering" to "Streaming", the backend also verifies the FFmpeg forwarder process is still alive — if it died during the "No Source" window, the backend respawns it before declaring recovery successful.
 
 **OBS stream stop when all platforms idle (Req 7.7)**: After each platform transitions to "Idle" or "Error", `StreamingPlatformService` checks if any platforms remain in an active state ("Streaming", "Starting", "Stopping", "No Source", "Recovering"). If none do and OBS is still streaming to the relay, it calls `ObsService.stopStream()`.
 
@@ -395,6 +399,7 @@ The existing `SessionManifestService` is modified to support multiple templates 
 2. `update()` now reads the selected `titleTemplateId` and `descriptionTemplateId` from the manifest, fetches the corresponding format strings from the database, and interpolates both.
 3. The `BUS_SESSION_MANIFEST_UPDATED` event payload gains `interpolatedDescription: string`.
 4. `{verseText}` interpolation requires a KJV database query — this is performed in the backend only (not in `packages/shared`).
+5. `clear()` resets session data fields (`speaker`, `title`, `scripture`) to `undefined` but preserves `titleTemplateId` and `descriptionTemplateId` — template selections are structural configuration, not per-service session data.
 
 ```typescript
 // Modified constructor
@@ -593,7 +598,15 @@ CREATE TABLE IF NOT EXISTS metadata_templates (
   createdAt TEXT NOT NULL,
   UNIQUE(category, name)
 );
+
+CREATE TABLE IF NOT EXISTS oauth_states (
+  state TEXT PRIMARY KEY NOT NULL,
+  platformType TEXT NOT NULL,
+  createdAt TEXT NOT NULL
+);
 ```
+
+**`oauth_states`**: Short-lived CSRF protection for OAuth flows. Rows are created when the admin initiates an OAuth redirect and consumed (deleted) when the callback is received. A cleanup query deletes rows older than 5 minutes on each callback — no background timer needed.
 
 **`streaming_platforms.platformMetadata`** is a JSON string decoded by the DAO. Contents vary by platform:
 
@@ -625,6 +638,7 @@ export const BUS_FORWARDER_EXITED = "bus:forwarder:exited" as const;
 // Platform events
 export const BUS_PLATFORM_STATE_CHANGED = "bus:platform:state:changed" as const;
 export const BUS_PLATFORM_HEALTH_UPDATED = "bus:platform:health:updated" as const;
+export const BUS_PLATFORM_READINESS_CHANGED = "bus:platform:readiness:changed" as const;
 ```
 
 ### Shared Socket.io Event Constants
@@ -639,6 +653,7 @@ export const CTS_PLATFORM_COMMAND = "cts:platform:command" as const;
 export const STC_PLATFORM_STATE = "stc:platform:state" as const;
 export const STC_PLATFORM_HEALTH = "stc:platform:health" as const;
 export const STC_RELAY_STATE = "stc:relay:state" as const;
+export const STC_PLATFORM_READINESS = "stc:platform:readiness" as const; // token health for widget readiness icons
 ```
 
 ### EventMap Extension
@@ -660,6 +675,7 @@ interface RelayEventMap {
 interface PlatformEventMap {
   [BUS_PLATFORM_STATE_CHANGED]: { platformId: string; state: PlatformStreamState };
   [BUS_PLATFORM_HEALTH_UPDATED]: { platformId: string; health: PlatformHealth };
+  [BUS_PLATFORM_READINESS_CHANGED]: { platforms: PlatformHealthSummary[] }; // full list, not per-platform delta
 }
 ```
 
@@ -705,6 +721,12 @@ export class StreamingPlatformModule implements SocketModule {
 
     eventBus.subscribe(BUS_RELAY_STATE_CHANGED, (payload) => {
       io.emit(STC_RELAY_STATE, payload);
+    });
+
+    // Forward platform readiness (token health) changes — used by widget readiness icons.
+    // Emitted on startup validation, proactive token refresh failure, and mid-session token revocation.
+    eventBus.subscribe(BUS_PLATFORM_READINESS_CHANGED, (payload) => {
+      io.emit(STC_PLATFORM_READINESS, payload);
     });
   }
 
@@ -832,6 +854,8 @@ interface ValidationIssue {
 
 The OAuth callback endpoints are unauthenticated because the browser redirects from the platform's consent screen — the JWT cookie is present but the redirect is a GET, not an API call. The callback validates the `state` parameter (CSRF protection) before processing.
 
+**OAuth `state` parameter**: When the admin initiates the OAuth flow, the backend generates a cryptographically random `state` string, stores it in a short-lived database row (`oauth_states` table: `state TEXT PRIMARY KEY, platformType TEXT, createdAt TEXT`) with a 5-minute TTL, and includes it in the authorization URL. The callback endpoint validates the `state` against the database, deletes the row, and rejects the callback if the state is missing, expired, or already consumed. This survives backend restarts (unlike in-memory storage) and prevents replay attacks (single-use).
+
 `GET /api/platforms/health` is used by the OBS widget's platform readiness icons (Req 8.11). It returns a lightweight summary without exposing tokens:
 
 ```typescript
@@ -921,9 +945,11 @@ export interface PlatformHealthSummary {
 export interface PlatformSlice {
   platformStates: Map<string, PlatformStreamState>;
   relayState: RelayState;
+  platformReadiness: PlatformHealthSummary[]; // token health for widget readiness icons, pushed via STC_PLATFORM_READINESS
   setPlatformState: (platformId: string, state: PlatformStreamState) => void;
   setRelayState: (state: RelayState) => void;
   setPlatformHealth: (platformId: string, health: PlatformHealth) => void;
+  setPlatformReadiness: (platforms: PlatformHealthSummary[]) => void;
 }
 
 export const createPlatformSlice: StateCreator<PlatformSlice> = (set, get) => ({
@@ -1006,6 +1032,10 @@ newSocket.on(STC_PLATFORM_HEALTH, (payload: { platformId: string; health: Platfo
 
 newSocket.on(STC_RELAY_STATE, (payload: { state: RelayState }) => {
   useStore.getState().setRelayState(payload.state);
+});
+
+newSocket.on(STC_PLATFORM_READINESS, (payload: { platforms: PlatformHealthSummary[] }) => {
+  useStore.getState().setPlatformReadiness(payload.platforms);
 });
 
 // Modified manifest handler — now includes interpolatedDescription and manifestReady
@@ -1185,7 +1215,7 @@ The distinction between the two `inactive` cases requires checking whether any p
 
 **"Manage Streams" button replaces "Start Stream"**: The stream button in `ObsControls` is replaced by a "Manage Streams" button. Recording controls remain unchanged.
 
-**`ObsStatusBar` content during multi-platform streaming**: The status bar adapts to the current streaming state:
+**`ObsStatusBar` content during multi-platform streaming**: The status bar adapts to the current streaming state. It reads platform state from the Zustand `platformSlice` (via `usePlatformState()`) in addition to its existing `obsState` props — this is the only new store dependency added to the status bar:
 - **Idle** (no platforms streaming): Normal idle state — no stream dot, no timecode
 - **Starting** (start sequence in progress): "Going Live…" replaces the normal stream status (Req 6.11)
 - **Streaming** (at least one platform live): Green stream dot + OBS timecode. The timecode reflects the duration since OBS started streaming to the relay, not the platform broadcast duration. This is documented here because the relay stream may start a few seconds before the platform broadcasts go live.
@@ -1350,6 +1380,8 @@ Adds template selection dropdowns above the existing metadata fields.
 **localStorage persistence** (Req 4.9): Last-used template IDs stored in `localStorage` keyed as `lastTemplateIds:{deviceId}` (where `deviceId` is a stable identifier for the device, e.g., from the dashboard ID). On modal open, if no templates are selected in the current SessionManifest, pre-select from localStorage.
 
 **Dynamic field rendering** (Req 4.3): After both templates are selected, compute the union of placeholder tokens across both format strings. Render one input per unique token (excluding `{Date}`). `{Scripture}` and `{verseText}` share the existing `ScriptureReferenceInput`.
+
+**Live preview in modal**: Both the title and description previews in the `SessionManifestModal` are computed locally using `interpolateTemplate()` from `packages/shared` — they update instantly as the volunteer types, without waiting for a backend round-trip. The `{verseText}` token uses the frontend fallback (`John 3:16 (full text included on stream)`). The backend-computed `interpolatedDescription` (with full verse text) is shown in the OBS widget preview and the Go Live confirmation modal — not inside the `SessionManifestModal`.
 
 **Stale template handling** (Req 4.13): If a template ID in the manifest or localStorage references a template not in the fetched list (deleted or role changed), clear that selection and leave the dropdown unselected.
 
@@ -1551,6 +1583,7 @@ function createVerseTextResolver(database: Database): (ref: ScriptureReference) 
 | OBS disconnect during multi-platform stream | Modal | error | Yes — when OBS reconnects (existing behavior) |
 | Platform broadcast ended during OBS disconnect | Banner | error | No — volunteer creates new broadcast |
 | Stop broadcast API failed after 3 retries | Banner | warning | No — "Check {platform} manually" |
+| YouTube daily quota exhausted | Banner | error | No — "YouTube daily limit reached — streaming to YouTube is unavailable until tomorrow. Facebook is unaffected." |
 
 ---
 
@@ -1582,7 +1615,7 @@ _For any_ platform state transition, the new state SHALL be reachable from the c
 
 ### Property 25: Template role visibility filtering
 
-_For any_ authenticated user with role R, the template list returned by `GET /admin/templates?role=R` SHALL contain only templates where `roleMinimum` is at or below R in the hierarchy (ADMIN > AvPowerUser > AvVolunteer). Templates with `roleMinimum` above R SHALL NOT appear.
+_For any_ authenticated user with role R, the template list returned by `GET /api/templates` SHALL contain only templates where `roleMinimum` is at or below R in the hierarchy (ADMIN > AvPowerUser > AvVolunteer). Templates with `roleMinimum` above R SHALL NOT appear.
 
 **Validates: Req 4.1**
 
