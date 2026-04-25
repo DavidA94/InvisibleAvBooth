@@ -7,8 +7,23 @@ test.describe("Authentication flow", () => {
   test("login success navigates to dashboard selection", async ({ page }) => {
     await routeAuthLogin(page);
     await routeAuthCheck(page);
-    await routeDashboardApi(page);
     await routeSocketIo(page);
+
+    // Return multiple dashboards so auto-forward doesn't trigger
+    await page.route("**/api/dashboards", async (route) => {
+      if (route.request().method() === "GET") {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify([
+            { id: "d1", name: "Main", description: "Primary" },
+            { id: "d2", name: "Secondary", description: "Backup" },
+          ]),
+        });
+      } else {
+        await route.continue();
+      }
+    });
 
     await page.goto("/login");
     await page.getByTestId("login-username").locator("input").fill("admin");
@@ -33,9 +48,24 @@ test.describe("Authentication flow", () => {
   test("logout redirects to login", async ({ page }) => {
     await routeAuthLogin(page);
     await routeAuthCheck(page);
-    await routeDashboardApi(page);
     await routeSocketIo(page);
     await routeAuthLogout(page);
+
+    // Return multiple dashboards so auto-forward doesn't trigger
+    await page.route("**/api/dashboards", async (route) => {
+      if (route.request().method() === "GET") {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify([
+            { id: "d1", name: "Main", description: "Primary" },
+            { id: "d2", name: "Secondary", description: "Backup" },
+          ]),
+        });
+      } else {
+        await route.continue();
+      }
+    });
 
     // Login first
     await page.goto("/login");

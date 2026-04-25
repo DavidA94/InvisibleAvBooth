@@ -5,7 +5,7 @@ import { sessionManifestFilled } from "../fixtures/payloads/session";
 import { obsStateLive } from "../fixtures/payloads/obs";
 
 test.describe("OBS stream start flow", () => {
-  test.skip("login → dashboard → metadata present → Start Stream → confirm → stream live", async ({ page }) => {
+  test("login → dashboard → metadata present → Start Stream → confirm → stream live", async ({ page }) => {
     await routeAuthLogin(page);
     await routeAuthCheck(page);
     await routeDashboardApi(page);
@@ -17,16 +17,12 @@ test.describe("OBS stream start flow", () => {
     await page.getByTestId("login-password").locator("input").fill("password");
     await page.getByTestId("login-submit").click();
 
-    // Select dashboard
-    await expect(page.getByTestId("dashboard-selection-screen")).toBeVisible({ timeout: 10000 });
-    await page.getByTestId("dashboard-option").first().click();
-
-    // Wait for dashboard grid and OBS widget
-    await expect(page.getByTestId("dashboard-grid")).toBeVisible({ timeout: 10000 });
-    await expect(page.getByTestId("obs-widget")).toBeVisible({ timeout: 10000 });
+    // Auto-forward takes us straight to the dashboard (single dashboard)
+    await expect(page.getByTestId("dashboard-grid")).toBeVisible({ timeout: 15000 });
+    await expect(page.getByTestId("obs-widget")).toBeVisible({ timeout: 5000 });
 
     // Wait for OBS to show as connected (socket sends initial state)
-    await expect(page.getByTestId("widget-error-overlay")).not.toBeVisible({ timeout: 5000 });
+    await expect(page.getByTestId("stream-status")).toBeVisible({ timeout: 10000 });
 
     // Metadata should be present — Start Stream should be available
     await page.getByTestId("obs-stream-btn").click();
@@ -35,10 +31,13 @@ test.describe("OBS stream start flow", () => {
     await expect(page.getByTestId("confirmation-confirm-btn")).toBeVisible();
     await page.getByTestId("confirmation-confirm-btn").click();
 
+    // Wait for the command to be processed
+    await page.waitForTimeout(500);
+
     // Simulate server pushing live state
     socket.sendObsState(obsStateLive());
 
     // Verify stream is live
-    await expect(page.getByTestId("stream-status")).toContainText("LIVE", { timeout: 5000 });
+    await expect(page.getByTestId("stream-status")).toContainText("LIVE", { timeout: 10000 });
   });
 });

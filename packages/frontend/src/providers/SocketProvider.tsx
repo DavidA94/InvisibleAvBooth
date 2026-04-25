@@ -31,7 +31,7 @@ export function SocketProvider({ children }: SocketProviderProps): ReactNode {
       return;
     }
 
-    const newSocket = io({ withCredentials: true });
+    const newSocket = io({ withCredentials: true, transports: ["websocket"] });
     setSocket(newSocket);
 
     registerObsSocketHandlers(newSocket);

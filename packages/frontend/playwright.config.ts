@@ -11,7 +11,7 @@ export default defineConfig({
     trace: "on-first-retry",
   },
   webServer: {
-    command: "npx vite --port 5173",
+    command: "npx vite --port 5173 --config vite.config.test.ts",
     port: 5173,
     reuseExistingServer: true,
   },
