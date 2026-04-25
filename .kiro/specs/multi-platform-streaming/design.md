@@ -1424,7 +1424,9 @@ Each card links to the corresponding admin route. Uses `dashboard-option` class 
 
 Route: `/admin/templates`. Accessible only to ADMIN users.
 
-Two side-by-side scrollable lists with create/edit/delete functionality. See Req 3.5–3.9 for the full specification.
+Two side-by-side scrollable lists with create/edit/delete functionality. See Req 3.5–3.9 for the full specification. Each list item shows the template name, a muted `roleMinimum` badge (e.g., "AvVolunteer"), and Edit/Delete buttons.
+
+**Delete confirmation**: The `ConfirmationModal` body shows the template's display name and full format string. For long format strings (e.g., description templates with `{verseText}`), the modal body uses `overflow-y: auto` with `max-height: 12rem` to remain scrollable without overflowing the viewport.
 
 **Template create/edit modal** uses the validate-then-save flow:
 
