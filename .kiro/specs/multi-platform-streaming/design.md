@@ -325,7 +325,7 @@ async startAll(): Promise<void> {
 
 **Auto-recovery (Req 5.4)**: `StreamingPlatformService` subscribes to `bus:forwarder:exited`. When an FFmpeg process exits while the platform is in "Streaming" state, it runs the recovery sequence: wait 2s → respawn → wait 5s → poll API to verify broadcast is alive. If the platform is in "No Source" state, auto-recovery is suppressed — the exit is expected and recovery is deferred until OBS reconnects.
 
-**No Source handling (Req 5.10)**: `StreamingPlatformService` subscribes to `bus:relay:state:changed`. When OBS disconnects (relay transitions from `"healthy"` to `"inactive"`), all platforms in "Streaming" state transition to "No Source". FFmpeg processes are left running (they'll stall but not exit immediately). When OBS reconnects (relay transitions back to `"healthy"`), platforms in "No Source" transition to "Recovering" and the API verification poll runs. Before transitioning from "Recovering" to "Streaming", the backend also verifies the FFmpeg forwarder process is still alive — if it died during the "No Source" window, the backend respawns it before declaring recovery successful.
+**No Source handling (Req 5.10)**: `StreamingPlatformService` subscribes to `bus:relay:state:changed`. When OBS disconnects (relay transitions from `"healthy"` to `"inactive"`), all platforms in "Streaming" state transition to "No Source". FFmpeg processes are left running (they'll stall but not exit immediately). When OBS reconnects (relay transitions back to `"healthy"`), platforms in "No Source" transition to "Recovering" and the API verification poll runs. Before transitioning from "Recovering" to "Streaming", the backend also verifies the FFmpeg forwarder process is still alive — if it died during the "No Source" window, the backend respawns it before declaring recovery successful. If the FFmpeg respawn fails, the platform transitions to "Error" with message "{Platform} stream recovery failed — tap Start to create a new stream."
 
 **OBS stream stop when all platforms idle (Req 7.7)**: After each platform transitions to "Idle" or "Error", `StreamingPlatformService` checks if any platforms remain in an active state ("Streaming", "Starting", "Stopping", "No Source", "Recovering"). If none do and OBS is still streaming to the relay, it calls `ObsService.stopStream()`.
 
@@ -764,6 +764,8 @@ export class StreamingPlatformModule implements SocketModule {
     }
     // Emit relay state
     auth.socket.emit(STC_RELAY_STATE, { state: this.relayService.getRelayState() });
+    // Emit platform readiness (token health) for widget readiness icons
+    auth.socket.emit(STC_PLATFORM_READINESS, { platforms: this.platformService.getPlatformHealth() });
   }
 }
 ```
@@ -875,6 +877,8 @@ interface PlatformHealthResponse {
 
 ### Modified Types (`packages/frontend/src/types.ts`)
 
+**`ObsCommandType` reduction**: The original `ObsCommandType` included `"startStream" | "stopStream" | "startRecording" | "stopRecording"`. With multi-platform streaming, `startStream` and `stopStream` are removed — they are called internally by `StreamingPlatformService`, not by the frontend. The frontend type becomes `"startRecording" | "stopRecording"`.
+
 ```typescript
 // Extended SessionManifest — adds template selection
 export interface SessionManifest {
@@ -955,6 +959,7 @@ export interface PlatformSlice {
 export const createPlatformSlice: StateCreator<PlatformSlice> = (set, get) => ({
   platformStates: new Map(),
   relayState: "inactive",
+  platformReadiness: [],
   setPlatformState: (platformId, state) => {
     const next = new Map(get().platformStates);
     next.set(platformId, state);
