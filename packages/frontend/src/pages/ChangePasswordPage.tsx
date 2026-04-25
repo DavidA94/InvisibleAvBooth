@@ -1,3 +1,4 @@
+import { apiFetch, setAuthToken } from "../api/client";
 import { useState } from "react";
 import type { ReactNode } from "react";
 import { IonPage, IonContent, IonInput, IonButton, IonText } from "@ionic/react";
@@ -21,16 +22,18 @@ export function ChangePasswordPage(): ReactNode {
     if (!user) return;
     setPending(true);
     try {
-      const response = await fetch("/api/auth/change-password", {
+      const response = await apiFetch("/api/auth/change-password", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify({ newPassword }),
       });
       if (!response.ok) {
         const data = (await response.json()) as { message?: string };
         setError(data.message ?? "Failed to change password");
         return;
+      }
+      const data = (await response.json()) as { token?: string };
+      if (data.token) {
+        setAuthToken(data.token);
       }
       useStore.getState().setUser({ ...user, requiresPasswordChange: false });
       sessionStorage.setItem("initialAuth", "true");

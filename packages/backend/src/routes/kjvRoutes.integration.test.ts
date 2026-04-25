@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import express from "express";
-import cookieParser from "cookie-parser";
+
 import request from "supertest";
 import Database from "better-sqlite3";
 import { join, dirname } from "path";
@@ -17,7 +17,7 @@ const KJV_SQL_PATH = join(__dirname, "..", "..", "..", "..", "bibledb_kjv.sql");
 
 // Use a dedicated in-memory database for this test file — avoids singleton
 // interference with database.test.ts which calls resetDb() in beforeEach.
-let cookie = "";
+let token = "";
 
 beforeAll(async () => {
   const database = new Database(":memory:");
@@ -28,7 +28,7 @@ beforeAll(async () => {
   const authService = new AuthService(database);
   const app = express();
   app.use(express.json());
-  app.use(cookieParser());
+  
   app.use("/api/auth", createAuthRouter(authService));
   const mustBeAuthenticated = authenticate(authService);
   const mustHaveChangedPassword = requirePasswordChanged();
@@ -40,9 +40,9 @@ beforeAll(async () => {
     { sub: "seed", username: "seed", role: "ADMIN", iat: 0, exp: 9999999999 },
   );
   const loginResponse = await request(app).post("/api/auth/login").send({ username: "admin", password: "pass" });
-  const tempCookie = (loginResponse.headers["set-cookie"] as unknown as string[])[0] ?? "";
-  const changeResponse = await request(app).post("/api/auth/change-password").set("Cookie", tempCookie).send({ newPassword: "pass" });
-  cookie = (changeResponse.headers["set-cookie"] as unknown as string[])[0] ?? "";
+  const tempToken = (loginResponse.body as { token?: string }).token ?? "";
+  const changeResponse = await request(app).post("/api/auth/change-password").set("Authorization", `Bearer ${tempToken}`).send({ newPassword: "pass" });
+  token = (changeResponse.body as { token?: string }).token || tempToken;
 
   (globalThis as Record<string, unknown>)["__kjvApp"] = app;
 });
@@ -54,40 +54,40 @@ function getApp(): express.Express {
 describe("GET /api/kjv/validate", () => {
   it("returns valid for John 3:16", async () => {
     // John = bookId 43
-    const response = await request(getApp()).get("/api/kjv/validate").query({ bookId: 43, chapter: 3, verse: 16 }).set("Cookie", cookie);
+    const response = await request(getApp()).get("/api/kjv/validate").set("Authorization", `Bearer ${token}`).query({ bookId: 43, chapter: 3, verse: 16 });
     expect(response.status).toBe(200);
     expect(response.body).toEqual({ valid: true });
   });
 
   it("returns valid for a verse range John 3:16-17", async () => {
-    const response = await request(getApp()).get("/api/kjv/validate").query({ bookId: 43, chapter: 3, verse: 16, verseEnd: 17 }).set("Cookie", cookie);
+    const response = await request(getApp()).get("/api/kjv/validate").set("Authorization", `Bearer ${token}`).query({ bookId: 43, chapter: 3, verse: 16, verseEnd: 17 });
     expect(response.body).toEqual({ valid: true });
   });
 
   it("returns BOOK_NOT_FOUND for bookId 0", async () => {
-    const response = await request(getApp()).get("/api/kjv/validate").query({ bookId: 0, chapter: 1, verse: 1 }).set("Cookie", cookie);
+    const response = await request(getApp()).get("/api/kjv/validate").set("Authorization", `Bearer ${token}`).query({ bookId: 0, chapter: 1, verse: 1 });
     expect(response.body).toEqual({ valid: false, reason: "BOOK_NOT_FOUND" });
   });
 
   it("returns BOOK_NOT_FOUND for bookId 67", async () => {
-    const response = await request(getApp()).get("/api/kjv/validate").query({ bookId: 67, chapter: 1, verse: 1 }).set("Cookie", cookie);
+    const response = await request(getApp()).get("/api/kjv/validate").set("Authorization", `Bearer ${token}`).query({ bookId: 67, chapter: 1, verse: 1 });
     expect(response.body).toEqual({ valid: false, reason: "BOOK_NOT_FOUND" });
   });
 
   it("returns CHAPTER_NOT_FOUND for a chapter that does not exist", async () => {
     // John has 21 chapters
-    const response = await request(getApp()).get("/api/kjv/validate").query({ bookId: 43, chapter: 999, verse: 1 }).set("Cookie", cookie);
+    const response = await request(getApp()).get("/api/kjv/validate").set("Authorization", `Bearer ${token}`).query({ bookId: 43, chapter: 999, verse: 1 });
     expect(response.body).toEqual({ valid: false, reason: "CHAPTER_NOT_FOUND" });
   });
 
   it("returns VERSE_NOT_FOUND for a verse that does not exist", async () => {
     // John 3 has 36 verses
-    const response = await request(getApp()).get("/api/kjv/validate").query({ bookId: 43, chapter: 3, verse: 999 }).set("Cookie", cookie);
+    const response = await request(getApp()).get("/api/kjv/validate").set("Authorization", `Bearer ${token}`).query({ bookId: 43, chapter: 3, verse: 999 });
     expect(response.body).toEqual({ valid: false, reason: "VERSE_NOT_FOUND" });
   });
 
   it("returns VERSE_END_NOT_FOUND when verseEnd does not exist", async () => {
-    const response = await request(getApp()).get("/api/kjv/validate").query({ bookId: 43, chapter: 3, verse: 16, verseEnd: 999 }).set("Cookie", cookie);
+    const response = await request(getApp()).get("/api/kjv/validate").set("Authorization", `Bearer ${token}`).query({ bookId: 43, chapter: 3, verse: 16, verseEnd: 999 });
     expect(response.body).toEqual({ valid: false, reason: "VERSE_END_NOT_FOUND" });
   });
 

@@ -35,12 +35,7 @@ export class SocketGateway {
     // Validate JWT on every connection and reconnect handshake.
     // Modules never see unauthenticated sockets.
     this.io.use((socket, next) => {
-      const token =
-        (socket.handshake.auth as { token?: string }).token ??
-        (socket.handshake.headers.cookie ?? "")
-          .split(";")
-          .find((c) => c.trim().startsWith("token="))
-          ?.split("=")[1];
+      const token = (socket.handshake.auth as { token?: string }).token;
 
       if (!token) {
         next(new Error("Unauthorized"));

@@ -1,3 +1,4 @@
+import { apiFetch } from "../api/client";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import type { ReactNode } from "react";
 import { IonPage, IonContent, IonInput, IonButton, IonText, IonSpinner, IonCheckbox } from "@ionic/react";
@@ -49,7 +50,7 @@ export function AdminDeviceManagement(): ReactNode {
 
   const fetchDevices = useCallback(async (): Promise<void> => {
     try {
-      const response = await fetch("/api/admin/devices", { credentials: "include" });
+      const response = await apiFetch("/api/admin/devices");
       if (response.ok) {
         setDevices((await response.json()) as DeviceRecord[]);
       }
@@ -71,10 +72,8 @@ export function AdminDeviceManagement(): ReactNode {
     setCreateError("");
     setCreatePending(true);
     try {
-      const response = await fetch("/api/admin/devices", {
+      const response = await apiFetch("/api/admin/devices", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify({
           deviceType: "obs",
           label: createLabel,
@@ -131,10 +130,8 @@ export function AdminDeviceManagement(): ReactNode {
         metadata: { streamTitleTemplate: editTemplate },
       };
       if (editPassword) body["password"] = editPassword;
-      const response = await fetch(`/api/admin/devices/${editingId}`, {
+      const response = await apiFetch(`/api/admin/devices/${editingId}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify(body),
       });
       if (!response.ok) {
@@ -154,7 +151,7 @@ export function AdminDeviceManagement(): ReactNode {
   const handleDelete = async (deviceId: string): Promise<void> => {
     setDeletePendingId(deviceId);
     try {
-      const response = await fetch(`/api/admin/devices/${deviceId}`, { method: "DELETE", credentials: "include" });
+      const response = await apiFetch(`/api/admin/devices/${deviceId}`, { method: "DELETE", credentials: "include" });
       if (!response.ok) {
         const data = (await response.json()) as { error?: string };
         setError(data.error ?? "Delete failed");

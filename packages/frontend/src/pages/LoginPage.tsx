@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { IonPage, IonContent, IonInput, IonButton, IonCheckbox, IonText } from "@ionic/react";
 import { useNavigate, Navigate } from "react-router";
 import { useStore } from "../store";
+import { apiFetch, setAuthToken } from "../api/client";
 import type { AuthUser } from "../types";
 
 export function LoginPage(): ReactNode {
@@ -14,7 +15,6 @@ export function LoginPage(): ReactNode {
   const navigate = useNavigate();
   const existingUser = useStore((s) => s.user);
 
-  // Already authenticated — skip login
   if (existingUser) {
     return <Navigate to="/dashboards" replace />;
   }
@@ -23,18 +23,17 @@ export function LoginPage(): ReactNode {
     setError("");
     setPending(true);
     try {
-      const response = await fetch("/api/auth/login", {
+      const response = await apiFetch("/api/auth/login", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify({ username, password, rememberMe }),
       });
-      const data = (await response.json()) as { user?: { user: AuthUser; requiresPasswordChange?: boolean }; message?: string };
+      const data = (await response.json()) as { user?: { user: AuthUser; requiresPasswordChange?: boolean }; token?: string; error?: string };
       if (!response.ok) {
-        setError(data.message ?? "Login failed");
+        setError(data.error ?? "Login failed");
         return;
       }
-      if (data.user) {
+      if (data.user && data.token) {
+        setAuthToken(data.token);
         localStorage.setItem("lastUsername", data.user.user.username);
         const authUser = { ...data.user.user, ...(data.user.requiresPasswordChange ? { requiresPasswordChange: true as const } : {}) };
         useStore.getState().setUser(authUser);

@@ -1,7 +1,6 @@
 import "dotenv/config";
 import { createServer } from "http";
 import express from "express";
-import cookieParser from "cookie-parser";
 import { getDatabase } from "./database/database.js";
 import { AuthService } from "./services/authService.js";
 import { ObsService } from "./services/obsService.js";
@@ -40,7 +39,19 @@ const obsService = new ObsService(database);
 
 const app = express();
 app.use(express.json());
-app.use(cookieParser());
+
+// CORS — allow frontend origin
+const allowedOrigin = process.env["FRONTEND_URL"] ?? "http://localhost:5173";
+app.use((_request, response, next) => {
+  response.header("Access-Control-Allow-Origin", allowedOrigin);
+  response.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  response.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  if (_request.method === "OPTIONS") {
+    response.sendStatus(204);
+    return;
+  }
+  next();
+});
 
 app.use("/api/auth", createAuthRouter(authService));
 

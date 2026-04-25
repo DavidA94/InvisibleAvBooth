@@ -19,6 +19,10 @@ const mockSocket = {
 
 const mockIo = vi.fn(() => mockSocket);
 
+vi.mock("../api/client", () => ({
+  getAuthToken: () => "mock-token",
+  apiUrl: (path: string) => path,
+}));
 vi.mock("socket.io-client", () => ({
   io: () => mockIo(),
 }));

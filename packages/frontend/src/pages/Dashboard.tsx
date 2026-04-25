@@ -1,3 +1,4 @@
+import { apiFetch } from "../api/client";
 import { useState, useEffect, useRef } from "react";
 import type { ReactNode } from "react";
 import { IonPage, IonContent, IonSpinner } from "@ionic/react";
@@ -67,7 +68,7 @@ export function Dashboard(): ReactNode {
 
     const fetchLayout = async (): Promise<void> => {
       try {
-        const response = await fetch(`/api/dashboards/${dashboardId}/layout`, { credentials: "include" });
+        const response = await apiFetch(`/api/dashboards/${dashboardId}/layout`);
         if (!response.ok) {
           if (response.status === 404 || response.status === 403) {
             navigateRef.current("/dashboards", { replace: true });

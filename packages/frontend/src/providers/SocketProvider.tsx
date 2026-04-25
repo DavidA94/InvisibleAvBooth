@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { io } from "socket.io-client";
 import type { Socket } from "socket.io-client";
 import { useStore } from "../store";
+import { getAuthToken, apiUrl } from "../api/client";
 import { registerObsSocketHandlers } from "./socketModules/obsSocketModule";
 import { registerSessionManifestSocketHandlers } from "./socketModules/sessionManifestSocketModule";
 import { registerNotificationSocketHandlers } from "./socketModules/notificationSocketModule";
@@ -31,7 +32,13 @@ export function SocketProvider({ children }: SocketProviderProps): ReactNode {
       return;
     }
 
-    const newSocket = io({ withCredentials: true, transports: ["websocket"] });
+    const token = getAuthToken();
+    if (!token) return;
+
+    const newSocket = io(apiUrl(""), {
+      auth: { token },
+      transports: ["websocket"],
+    });
     setSocket(newSocket);
 
     registerObsSocketHandlers(newSocket);

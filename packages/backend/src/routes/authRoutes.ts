@@ -3,29 +3,11 @@ import type { Request, Response } from "express";
 import type { AuthService } from "../services/authService.js";
 import { authenticate } from "../middleware/auth.js";
 
-const IS_PRODUCTION = process.env["NODE_ENV"] === "production";
-const USER_COOKIE = "user_info";
-
-function setUserInfoCookie(response: Response, user: { username: string; role: string }, maxAge: number): void {
-  response.cookie(USER_COOKIE, JSON.stringify({ username: user.username, role: user.role }), {
-    httpOnly: false,
-    secure: IS_PRODUCTION,
-    sameSite: "lax",
-    maxAge,
-  });
-}
-
-function clearUserInfoCookie(response: Response): void {
-  response.clearCookie(USER_COOKIE, { httpOnly: false, secure: IS_PRODUCTION, sameSite: "lax" });
-}
-
 export function createAuthRouter(authService: AuthService): Router {
   const router = Router();
   const auth = authenticate(authService);
-  // Note: no requirePasswordChanged() here — these routes must remain accessible
-  // to users who need to change their password.
 
-  // POST /auth/login
+  // POST /api/auth/login
   router.post("/login", async (request: Request, response: Response): Promise<void> => {
     const { username, password, rememberMe } = request.body as {
       username?: string;
@@ -44,34 +26,17 @@ export function createAuthRouter(authService: AuthService): Router {
       return;
     }
 
-    const maxAge = rememberMe ? 30 * 24 * 60 * 60 * 1000 : 8 * 60 * 60 * 1000;
-
-    response.cookie("token", result.value.token, {
-      httpOnly: true,
-      secure: IS_PRODUCTION,
-      sameSite: "lax",
-      maxAge,
-    });
-
-    setUserInfoCookie(response, result.value.user.user, maxAge);
-    response.json({ user: result.value.user });
+    response.json({ user: result.value.user, token: result.value.token });
   });
 
-  // POST /auth/logout (API clients)
+  // POST /api/auth/logout
   router.post("/logout", (_request: Request, response: Response): void => {
-    response.clearCookie("token", { httpOnly: true, secure: IS_PRODUCTION, sameSite: "lax" });
-    clearUserInfoCookie(response);
+    // Token-based auth — nothing to clear server-side.
+    // Client discards the token.
     response.json({ ok: true });
   });
 
-  // GET /auth/logout (browser navigation — clears cookies and redirects)
-  router.get("/logout", (_request: Request, response: Response): void => {
-    response.clearCookie("token", { httpOnly: true, secure: IS_PRODUCTION, sameSite: "lax" });
-    clearUserInfoCookie(response);
-    response.redirect("/login");
-  });
-
-  // POST /auth/change-password — self-service; works even when requiresPasswordChange is set
+  // POST /api/auth/change-password
   router.post("/change-password", auth, async (request: Request, response: Response): Promise<void> => {
     const { newPassword } = request.body as { newPassword?: string };
     if (!newPassword) {
@@ -85,17 +50,8 @@ export function createAuthRouter(authService: AuthService): Router {
       return;
     }
 
-    const maxAge = 8 * 60 * 60 * 1000;
-    response.cookie("token", result.value.token, {
-      httpOnly: true,
-      secure: IS_PRODUCTION,
-      sameSite: "lax",
-      maxAge,
-    });
-
-    // Update user info cookie — requiresPasswordChange is now cleared
-    setUserInfoCookie(response, request.jwtPayload!, maxAge);
-    response.json({ ok: true });
+    // Return new token with updated claims (requiresPasswordChange cleared)
+    response.json({ ok: true, token: result.value.token });
   });
 
   return router;

@@ -1,3 +1,4 @@
+import { apiFetch } from "../api/client";
 import { useState, useEffect } from "react";
 import type { ReactNode } from "react";
 import { IonPage, IonContent, IonText, IonSpinner } from "@ionic/react";
@@ -30,7 +31,7 @@ export function DashboardSelectionScreen(): ReactNode {
 
     const load = async (): Promise<void> => {
       try {
-        const response = await fetch("/api/dashboards", { credentials: "include" });
+        const response = await apiFetch("/api/dashboards");
         if (response.ok) {
           const data = (await response.json()) as DashboardSummary[];
           setDashboards(data);

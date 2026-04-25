@@ -1,12 +1,14 @@
 import type { StateCreator } from "zustand";
 import type { AuthUser } from "../types";
+import { getAuthToken } from "../api/client";
 
-function readUserFromCookie(): AuthUser | null {
+function readUserFromStorage(): AuthUser | null {
+  // If we have a token, try to read the cached user info
+  if (!getAuthToken()) return null;
   try {
-    const match = document.cookie.split("; ").find((c) => c.startsWith("user_info="));
-    if (!match) return null;
-    const decoded = decodeURIComponent(match.split("=").slice(1).join("="));
-    return JSON.parse(decoded) as AuthUser;
+    const raw = localStorage.getItem("authUser");
+    if (!raw) return null;
+    return JSON.parse(raw) as AuthUser;
   } catch {
     return null;
   }
@@ -19,7 +21,13 @@ export interface AuthSlice {
 }
 
 export const createAuthSlice: StateCreator<AuthSlice> = (set) => ({
-  user: readUserFromCookie(),
-  setUser: (user) => set({ user }),
-  clearUser: () => set({ user: null }),
+  user: readUserFromStorage(),
+  setUser: (user) => {
+    localStorage.setItem("authUser", JSON.stringify(user));
+    set({ user });
+  },
+  clearUser: () => {
+    localStorage.removeItem("authUser");
+    set({ user: null });
+  },
 });

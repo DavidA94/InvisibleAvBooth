@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import express from "express";
-import cookieParser from "cookie-parser";
+
 import request from "supertest";
 import Database from "better-sqlite3";
 import { applySchema } from "../database/schema.js";
@@ -26,7 +26,7 @@ function buildApp() {
   const authService = new AuthService(database);
   const app = express();
   app.use(express.json());
-  app.use(cookieParser());
+  
   app.use("/api/auth", createAuthRouter(authService));
   const mustBeAuthenticated = authenticate(authService);
   const mustHaveChangedPassword = requirePasswordChanged();
@@ -37,9 +37,9 @@ function buildApp() {
 async function loginAsAdmin(app: express.Express, authService: AuthService) {
   await authService.createUser({ username: "admin", password: "adminpass", role: "ADMIN" }, seedActor);
   const loginResponse = await request(app).post("/api/auth/login").send({ username: "admin", password: "adminpass" });
-  const tempCookie = (loginResponse.headers["set-cookie"] as unknown as string[])[0] ?? "";
-  const changeResponse = await request(app).post("/api/auth/change-password").set("Cookie", tempCookie).send({ newPassword: "adminpass" });
-  return (changeResponse.headers["set-cookie"] as unknown as string[])[0] ?? "";
+  const tempToken = (loginResponse.body as { token?: string }).token ?? "";
+  const changeResponse = await request(app).post("/api/auth/change-password").set("Authorization", `Bearer ${tempToken}`).send({ newPassword: "adminpass" });
+  const finalToken = (changeResponse.body as { token?: string }).token || tempToken; return finalToken;
 }
 
 const baseDevice = { deviceType: "obs", label: "Main OBS", host: "localhost", port: 4455 };
@@ -49,11 +49,11 @@ const baseDevice = { deviceType: "obs", label: "Main OBS", host: "localhost", po
 describe("POST /api/admin/devices", () => {
   it("creates a device and returns it without password", async () => {
     const { app, authService } = buildApp();
-    const cookie = await loginAsAdmin(app, authService);
+    const token = await loginAsAdmin(app, authService);
     const response = await request(app)
       .post("/api/admin/devices")
-      .set("Cookie", cookie)
-      .send({ ...baseDevice, password: "secret" });
+      .set("Authorization", `Bearer ${token}`)
+      .set("Authorization", `Bearer ${token}`).send({ ...baseDevice, password: "secret" });
     expect(response.status).toBe(201);
     expect(response.body.label).toBe("Main OBS");
     expect(response.body).not.toHaveProperty("encryptedPassword");
@@ -62,8 +62,8 @@ describe("POST /api/admin/devices", () => {
 
   it("returns 400 when required fields are missing", async () => {
     const { app, authService } = buildApp();
-    const cookie = await loginAsAdmin(app, authService);
-    const response = await request(app).post("/api/admin/devices").set("Cookie", cookie).send({ label: "OBS" });
+    const token = await loginAsAdmin(app, authService);
+    const response = await request(app).post("/api/admin/devices").set("Authorization", `Bearer ${token}`).send({ label: "OBS" });
     expect(response.status).toBe(400);
   });
 
@@ -78,12 +78,12 @@ describe("POST /api/admin/devices", () => {
 describe("GET /api/admin/devices", () => {
   it("returns device list without passwords", async () => {
     const { app, authService } = buildApp();
-    const cookie = await loginAsAdmin(app, authService);
+    const token = await loginAsAdmin(app, authService);
     await request(app)
       .post("/api/admin/devices")
-      .set("Cookie", cookie)
-      .send({ ...baseDevice, password: "secret" });
-    const response = await request(app).get("/api/admin/devices").set("Cookie", cookie);
+      .set("Authorization", `Bearer ${token}`)
+      .set("Authorization", `Bearer ${token}`).send({ ...baseDevice, password: "secret" });
+    const response = await request(app).get("/api/admin/devices").set("Authorization", `Bearer ${token}`);
     expect(response.status).toBe(200);
     expect(Array.isArray(response.body)).toBe(true);
     expect(response.body[0]).not.toHaveProperty("encryptedPassword");
@@ -95,19 +95,18 @@ describe("GET /api/admin/devices", () => {
 describe("GET /api/admin/devices/:id", () => {
   it("returns a single device", async () => {
     const { app, authService } = buildApp();
-    const cookie = await loginAsAdmin(app, authService);
-    const created = await request(app).post("/api/admin/devices").set("Cookie", cookie).send(baseDevice);
+    const token = await loginAsAdmin(app, authService);
+    const created = await request(app).post("/api/admin/devices").set("Authorization", `Bearer ${token}`).send(baseDevice);
     const response = await request(app)
-      .get(`/api/admin/devices/${created.body.id as string}`)
-      .set("Cookie", cookie);
+      .get(`/api/admin/devices/${created.body.id as string}`).set("Authorization", `Bearer ${token}`);
     expect(response.status).toBe(200);
     expect(response.body.id).toBe(created.body.id);
   });
 
   it("returns 404 for unknown id", async () => {
     const { app, authService } = buildApp();
-    const cookie = await loginAsAdmin(app, authService);
-    expect((await request(app).get("/api/admin/devices/nonexistent").set("Cookie", cookie)).status).toBe(404);
+    const token = await loginAsAdmin(app, authService);
+    expect((await request(app).get("/api/admin/devices/nonexistent").set("Authorization", `Bearer ${token}`)).status).toBe(404);
   });
 });
 
@@ -116,11 +115,11 @@ describe("GET /api/admin/devices/:id", () => {
 describe("PUT /api/admin/devices/:id", () => {
   it("updates a device", async () => {
     const { app, authService } = buildApp();
-    const cookie = await loginAsAdmin(app, authService);
-    const created = await request(app).post("/api/admin/devices").set("Cookie", cookie).send(baseDevice);
+    const token = await loginAsAdmin(app, authService);
+    const created = await request(app).post("/api/admin/devices").set("Authorization", `Bearer ${token}`).send(baseDevice);
     const response = await request(app)
       .put(`/api/admin/devices/${created.body.id as string}`)
-      .set("Cookie", cookie)
+      .set("Authorization", `Bearer ${token}`)
       .send({ label: "Updated OBS" });
     expect(response.status).toBe(200);
     expect(response.body.label).toBe("Updated OBS");
@@ -129,8 +128,8 @@ describe("PUT /api/admin/devices/:id", () => {
 
   it("returns 404 for unknown id", async () => {
     const { app, authService } = buildApp();
-    const cookie = await loginAsAdmin(app, authService);
-    expect((await request(app).put("/api/admin/devices/nonexistent").set("Cookie", cookie).send({ label: "x" })).status).toBe(404);
+    const token = await loginAsAdmin(app, authService);
+    expect((await request(app).put("/api/admin/devices/nonexistent").set("Authorization", `Bearer ${token}`).send({ label: "x" })).status).toBe(404);
   });
 });
 
@@ -139,21 +138,21 @@ describe("PUT /api/admin/devices/:id", () => {
 describe("DELETE /api/admin/devices/:id", () => {
   it("deletes a device", async () => {
     const { app, authService } = buildApp();
-    const cookie = await loginAsAdmin(app, authService);
-    const created = await request(app).post("/api/admin/devices").set("Cookie", cookie).send(baseDevice);
+    const token = await loginAsAdmin(app, authService);
+    const created = await request(app).post("/api/admin/devices").set("Authorization", `Bearer ${token}`).send(baseDevice);
     expect(
       (
         await request(app)
           .delete(`/api/admin/devices/${created.body.id as string}`)
-          .set("Cookie", cookie)
+          .set("Authorization", `Bearer ${token}`)
       ).status,
     ).toBe(204);
   });
 
   it("returns 404 for unknown id", async () => {
     const { app, authService } = buildApp();
-    const cookie = await loginAsAdmin(app, authService);
-    expect((await request(app).delete("/api/admin/devices/nonexistent").set("Cookie", cookie)).status).toBe(404);
+    const token = await loginAsAdmin(app, authService);
+    expect((await request(app).delete("/api/admin/devices/nonexistent").set("Authorization", `Bearer ${token}`)).status).toBe(404);
   });
 });
 
@@ -162,11 +161,11 @@ describe("DELETE /api/admin/devices/:id", () => {
 describe("encryption", () => {
   it("password is encrypted at rest and never returned in responses", async () => {
     const { app, database, authService } = buildApp();
-    const cookie = await loginAsAdmin(app, authService);
+    const token = await loginAsAdmin(app, authService);
     const created = await request(app)
       .post("/api/admin/devices")
-      .set("Cookie", cookie)
-      .send({ ...baseDevice, password: "mysecret" });
+      .set("Authorization", `Bearer ${token}`)
+      .set("Authorization", `Bearer ${token}`).send({ ...baseDevice, password: "mysecret" });
     const id = created.body.id as string;
 
     // Verify the stored value is encrypted (not plaintext)
@@ -177,22 +176,22 @@ describe("encryption", () => {
     expect(decrypt(row.encryptedPassword)).toBe("mysecret");
 
     // Verify GET response never includes the password
-    const getRes = await request(app).get(`/api/admin/devices/${id}`).set("Cookie", cookie);
+    const getRes = await request(app).get(`/api/admin/devices/${id}`).set("Authorization", `Bearer ${token}`);
     expect(getRes.body).not.toHaveProperty("encryptedPassword");
     expect(getRes.body).not.toHaveProperty("password");
   });
 
   it("password is preserved when updating other fields", async () => {
     const { app, database, authService } = buildApp();
-    const cookie = await loginAsAdmin(app, authService);
+    const token = await loginAsAdmin(app, authService);
     const created = await request(app)
       .post("/api/admin/devices")
-      .set("Cookie", cookie)
-      .send({ ...baseDevice, password: "original" });
+      .set("Authorization", `Bearer ${token}`)
+      .set("Authorization", `Bearer ${token}`).send({ ...baseDevice, password: "original" });
     const id = created.body.id as string;
 
     // Update label only — no new password
-    await request(app).put(`/api/admin/devices/${id}`).set("Cookie", cookie).send({ label: "New Label" });
+    await request(app).put(`/api/admin/devices/${id}`).set("Authorization", `Bearer ${token}`).send({ label: "New Label" });
 
     const row = database.prepare("SELECT encryptedPassword FROM device_connections WHERE id = ?").get(id) as { encryptedPassword: string };
     expect(decrypt(row.encryptedPassword)).toBe("original");

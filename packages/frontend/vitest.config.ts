@@ -7,7 +7,7 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     setupFiles: ["./src/test/setup.ts"],
-    exclude: ["playwright/**", "node_modules/**", "vite.config.test.ts"],
+    exclude: ["playwright/**", "node_modules/**"],
     server: {
       deps: {
         inline: ["@ionic/core", "@ionic/react", "@ionic/react-router", "ionicons"],

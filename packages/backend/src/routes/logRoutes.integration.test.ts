@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import express from "express";
-import cookieParser from "cookie-parser";
+
 import request from "supertest";
 import Database from "better-sqlite3";
 import { applySchema } from "../database/schema.js";
@@ -18,7 +18,7 @@ function buildApp() {
   const authService = new AuthService(database);
   const app = express();
   app.use(express.json());
-  app.use(cookieParser());
+  
   app.use("/api/auth", createAuthRouter(authService));
   const mustBeAuthenticated = authenticate(authService);
   const mustHaveChangedPassword = requirePasswordChanged();
@@ -29,9 +29,9 @@ function buildApp() {
 async function loginAsAdmin(app: express.Express, authService: AuthService) {
   await authService.createUser({ username: "admin", password: "pass", role: "ADMIN" }, seedActor);
   const loginResponse = await request(app).post("/api/auth/login").send({ username: "admin", password: "pass" });
-  const tempCookie = (loginResponse.headers["set-cookie"] as unknown as string[])[0] ?? "";
-  const changeResponse = await request(app).post("/api/auth/change-password").set("Cookie", tempCookie).send({ newPassword: "pass" });
-  return (changeResponse.headers["set-cookie"] as unknown as string[])[0] ?? "";
+  const tempToken = (loginResponse.body as { token?: string }).token ?? "";
+  const changeResponse = await request(app).post("/api/auth/change-password").set("Authorization", `Bearer ${tempToken}`).send({ newPassword: "pass" });
+  const finalToken = (changeResponse.body as { token?: string }).token || tempToken; return finalToken;
 }
 
 afterEach(() => {
@@ -41,12 +41,12 @@ afterEach(() => {
 describe("POST /api/logs", () => {
   it("writes entries to logger with source: frontend", async () => {
     const { app, authService } = buildApp();
-    const cookie = await loginAsAdmin(app, authService);
+    const token = await loginAsAdmin(app, authService);
     const infoSpy = vi.spyOn(logger, "info");
 
     const response = await request(app)
       .post("/api/logs")
-      .set("Cookie", cookie)
+      .set("Authorization", `Bearer ${token}`)
       .send([{ level: "info", message: "page loaded", userId: "u1" }]);
 
     expect(response.status).toBe(204);
@@ -55,13 +55,13 @@ describe("POST /api/logs", () => {
 
   it("handles multiple entries in one batch", async () => {
     const { app, authService } = buildApp();
-    const cookie = await loginAsAdmin(app, authService);
+    const token = await loginAsAdmin(app, authService);
     const infoSpy = vi.spyOn(logger, "info");
     const warnSpy = vi.spyOn(logger, "warn");
 
     await request(app)
       .post("/api/logs")
-      .set("Cookie", cookie)
+      .set("Authorization", `Bearer ${token}`)
       .send([
         { level: "info", message: "first" },
         { level: "warn", message: "second" },
@@ -84,7 +84,7 @@ describe("POST /api/logs", () => {
 
   it("returns 400 when body is not an array", async () => {
     const { app, authService } = buildApp();
-    const cookie = await loginAsAdmin(app, authService);
-    expect((await request(app).post("/api/logs").set("Cookie", cookie).send({ level: "info", message: "x" })).status).toBe(400);
+    const token = await loginAsAdmin(app, authService);
+    expect((await request(app).post("/api/logs").set("Authorization", `Bearer ${token}`).send({ level: "info", message: "x" })).status).toBe(400);
   });
 });

@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { IonButton } from "@ionic/react";
 import { useLocation, useNavigate } from "react-router";
 import { useStore } from "../store";
+import { clearAuthToken } from "../api/client";
 
 export function GlobalTitleBar(): ReactNode {
   const user = useStore((s) => s.user);
@@ -13,6 +14,12 @@ export function GlobalTitleBar(): ReactNode {
   const isChangePassword = location.pathname === "/change-password";
   const isDashboard = location.pathname.startsWith("/dashboard/");
   const dashboardName = localStorage.getItem("dashboardName");
+
+  const handleLogout = (): void => {
+    clearAuthToken();
+    useStore.getState().clearUser();
+    navigate("/login", { replace: true });
+  };
 
   return (
     <div data-testid="global-title-bar" className="title-bar">
@@ -44,7 +51,7 @@ export function GlobalTitleBar(): ReactNode {
           ({user.role})
         </span>
       )}
-      <IonButton data-testid="title-bar-logout-btn" href="/api/auth/logout" fill="clear" size="small">
+      <IonButton data-testid="title-bar-logout-btn" fill="clear" size="small" onClick={handleLogout}>
         Logout
       </IonButton>
     </div>

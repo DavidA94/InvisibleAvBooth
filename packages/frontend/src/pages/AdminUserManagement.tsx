@@ -1,3 +1,4 @@
+import { apiFetch } from "../api/client";
 import { useState, useEffect, useCallback } from "react";
 import type { ReactNode } from "react";
 import { IonPage, IonContent, IonInput, IonButton, IonText, IonSpinner } from "@ionic/react";
@@ -50,7 +51,7 @@ export function AdminUserManagement(): ReactNode {
 
   const fetchUsers = useCallback(async (): Promise<void> => {
     try {
-      const response = await fetch("/api/admin/users", { credentials: "include" });
+      const response = await apiFetch("/api/admin/users");
       if (response.ok) {
         setUsers((await response.json()) as UserRecord[]);
       }
@@ -69,10 +70,8 @@ export function AdminUserManagement(): ReactNode {
     setCreateError("");
     setCreatePending(true);
     try {
-      const response = await fetch("/api/admin/users", {
+      const response = await apiFetch("/api/admin/users", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify({ username: createUsername, password: createPassword, role: createRole }),
       });
       if (!response.ok) {
@@ -111,10 +110,8 @@ export function AdminUserManagement(): ReactNode {
     try {
       const body: Record<string, string> = { username: editUsername, role: editRole };
       if (editPassword) body["password"] = editPassword;
-      const response = await fetch(`/api/admin/users/${editingId}`, {
+      const response = await apiFetch(`/api/admin/users/${editingId}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify(body),
       });
       if (!response.ok) {
@@ -134,7 +131,7 @@ export function AdminUserManagement(): ReactNode {
   const handleDelete = async (userId: string): Promise<void> => {
     setDeletePendingId(userId);
     try {
-      const response = await fetch(`/api/admin/users/${userId}`, { method: "DELETE", credentials: "include" });
+      const response = await apiFetch(`/api/admin/users/${userId}`, { method: "DELETE", credentials: "include" });
       if (!response.ok) {
         const data = (await response.json()) as { error?: string };
         setError(data.error ?? "Delete failed");

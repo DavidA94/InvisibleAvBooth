@@ -3,7 +3,6 @@ import type { Request, Response } from "express";
 import type { AuthService, AuthErrorCode, CreateUserRequest, UpdateUserRequest } from "../services/authService.js";
 import { requireRole } from "../middleware/auth.js";
 
-const IS_PRODUCTION = process.env["NODE_ENV"] === "production";
 
 const STATUS: Partial<Record<AuthErrorCode, number>> = {
   USER_NOT_FOUND: 404,
@@ -85,18 +84,12 @@ export function createAdminUserRouter(authService: AuthService): Router {
       return;
     }
 
-    // Only re-issue the cookie when the admin is changing their own password.
-    // When resetting another user's password, the admin's session stays unchanged.
+    // Return new token when the admin is changing their own password.
     if (request.jwtPayload!.sub === request.params["id"]) {
-      response.cookie("token", result.value.token, {
-        httpOnly: true,
-        secure: IS_PRODUCTION,
-        sameSite: "lax",
-        maxAge: 8 * 60 * 60 * 1000,
-      });
+      response.json({ ok: true, token: result.value.token });
+    } else {
+      response.json({ ok: true });
     }
-
-    response.json({ ok: true });
   });
 
   return router;

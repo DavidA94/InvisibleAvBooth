@@ -1,11 +1,10 @@
 import { test, expect } from "@playwright/test";
-import { routeAuthLogin, routeAuthCheck } from "../support/routes/auth";
+import { routeAuthLogin } from "../support/routes/auth";
 import { routeSocketIo, routeDashboardApi } from "../support/routes/obs";
 
 test.describe("Dashboard auto-forward", () => {
   test("Flow 7: auto-selects single dashboard on initial login", async ({ page }) => {
     await routeAuthLogin(page);
-    await routeAuthCheck(page);
     await routeDashboardApi(page);
     await routeSocketIo(page);
 
@@ -34,7 +33,6 @@ test.describe("Dashboard auto-forward", () => {
 
   test("Flow 6: auto-navigates to cached dashboard on initial login", async ({ page }) => {
     await routeAuthLogin(page);
-    await routeAuthCheck(page);
     await routeDashboardApi(page);
     await routeSocketIo(page);
 

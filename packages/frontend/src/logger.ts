@@ -1,3 +1,4 @@
+import { apiFetch } from "./api/client";
 // Frontend logger — batches entries and POSTs to /api/logs.
 // Mirrors the backend debug/info/warn/error interface so call sites are identical.
 
@@ -34,10 +35,8 @@ function enqueue(level: LogEntry["level"], message: string, meta?: { userId?: st
 
 async function sendWithRetry(entries: LogEntry[], attempt = 0): Promise<boolean> {
   try {
-    const response = await fetch("/api/logs", {
+    const response = await apiFetch("/api/logs", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
       body: JSON.stringify(entries),
     });
     return response.ok;

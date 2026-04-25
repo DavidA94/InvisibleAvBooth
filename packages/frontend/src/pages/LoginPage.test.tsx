@@ -50,7 +50,7 @@ describe("LoginPage", () => {
   it("successful login stores user and redirects to /dashboards", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
-      json: async () => ({ user: { user: { id: "u1", username: "admin", role: "ADMIN" } } }),
+      json: async () => ({ user: { user: { id: "u1", username: "admin", role: "ADMIN" } }, token: "mock-token" }),
     });
     renderPage();
     fireEvent.submit(screen.getByTestId("login-form"));
@@ -65,6 +65,7 @@ describe("LoginPage", () => {
       ok: true,
       json: async () => ({
         user: { user: { id: "u1", username: "admin", role: "ADMIN" }, requiresPasswordChange: true },
+        token: "mock-token",
       }),
     });
     renderPage();

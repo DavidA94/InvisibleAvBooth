@@ -29,7 +29,7 @@ describe("frontend logger", () => {
     const [url, options] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toBe("/api/logs");
     expect(options.method).toBe("POST");
-    expect(options.credentials).toBe("include");
+    // credentials no longer used — token-based auth via Authorization header
 
     const body = JSON.parse(options.body as string) as unknown[];
     expect(body).toHaveLength(1);

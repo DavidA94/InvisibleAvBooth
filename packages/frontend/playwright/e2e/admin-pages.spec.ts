@@ -1,5 +1,4 @@
 import { test, expect } from "@playwright/test";
-import { routeAuthLogin, routeAuthCheck } from "../support/routes/auth";
 import { routeSocketIo } from "../support/routes/obs";
 
 const USERS = [
@@ -22,20 +21,16 @@ const DEVICES = [
 ];
 
 test.describe("Admin User Management", () => {
-  test.beforeEach(async ({ page, context }) => {
-    await routeAuthLogin(page);
-    await routeAuthCheck(page);
+  test.beforeEach(async ({ page }) => {
     await routeSocketIo(page);
 
-    // Set auth cookie so full-page navigations preserve auth state
-    await context.addCookies([
-      {
-        name: "user_info",
-        value: encodeURIComponent(JSON.stringify({ id: "u1", username: "admin", role: "ADMIN" })),
-        domain: "localhost",
-        path: "/",
-      },
-    ]);
+    // Set auth in localStorage for full-page navigation
+    await page.goto("/login");
+    await page.evaluate(() => {
+      localStorage.setItem("authToken", "mock-jwt-token");
+      localStorage.setItem("authUser", JSON.stringify({ id: "u1", username: "admin", role: "ADMIN" }));
+    });
+
 
     await page.route("**/api/admin/users", async (route) => {
       if (route.request().method() === "GET") {
@@ -88,20 +83,16 @@ test.describe("Admin User Management", () => {
 });
 
 test.describe("Admin Device Management", () => {
-  test.beforeEach(async ({ page, context }) => {
-    await routeAuthLogin(page);
-    await routeAuthCheck(page);
+  test.beforeEach(async ({ page }) => {
     await routeSocketIo(page);
 
-    // Set auth cookie so full-page navigations preserve auth state
-    await context.addCookies([
-      {
-        name: "user_info",
-        value: encodeURIComponent(JSON.stringify({ id: "u1", username: "admin", role: "ADMIN" })),
-        domain: "localhost",
-        path: "/",
-      },
-    ]);
+    // Set auth in localStorage for full-page navigation
+    await page.goto("/login");
+    await page.evaluate(() => {
+      localStorage.setItem("authToken", "mock-jwt-token");
+      localStorage.setItem("authUser", JSON.stringify({ id: "u1", username: "admin", role: "ADMIN" }));
+    });
+
 
     await page.route("**/api/admin/devices", async (route) => {
       if (route.request().method() === "GET") {

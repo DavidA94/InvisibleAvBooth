@@ -8,9 +8,17 @@ declare module "express-serve-static-core" {
   }
 }
 
+function extractToken(request: Request): string | undefined {
+  const authHeader = request.headers.authorization;
+  if (authHeader?.startsWith("Bearer ")) {
+    return authHeader.slice(7);
+  }
+  return undefined;
+}
+
 export function authenticate(authService: AuthService) {
   return (request: Request, response: Response, next: NextFunction): void => {
-    const token = request.cookies?.["token"] as string | undefined;
+    const token = extractToken(request);
     if (!token) {
       response.status(401).json({ error: "Unauthorized" });
       return;
@@ -25,8 +33,6 @@ export function authenticate(authService: AuthService) {
   };
 }
 
-// Rejects requests from users who must change their password first.
-// Apply after authenticate(). The change-password endpoint itself is exempt.
 export function requirePasswordChanged() {
   return (request: Request, response: Response, next: NextFunction): void => {
     if (request.jwtPayload?.requiresPasswordChange) {
