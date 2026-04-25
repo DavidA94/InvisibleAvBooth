@@ -283,7 +283,7 @@ interface StreamingPlatformService {
 | Starting | Error | Timeout (30s) or API failure |
 | Streaming | Stopping | User taps Stop / Stop All |
 | Streaming | No Source | OBS disconnects from relay (publisher disconnect event) |
-| Stopping | Idle | FFmpeg killed + broadcast ended via API |
+| Stopping | Idle | FFmpeg killed + broadcast ended via API, or 30-second stop timeout (Req 7.4) |
 | No Source | Recovering | OBS reconnects to relay (publisher connect event) |
 | Recovering | Streaming | Platform API confirms broadcast still active |
 | Recovering | Error | Platform API reports broadcast ended |
@@ -974,6 +974,7 @@ export const createPlatformSlice: StateCreator<PlatformSlice> = (set, get) => ({
       set({ platformStates: next });
     }
   },
+  setPlatformReadiness: (platforms) => set({ platformReadiness: platforms }),
 });
 ```
 
