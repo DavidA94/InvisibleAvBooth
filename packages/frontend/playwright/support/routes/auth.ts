@@ -8,7 +8,7 @@ export async function routeAuthLogin(page: Page, response?: AuthLoginResponse): 
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({ ...payload, token: "mock-jwt-token" }),
+      body: JSON.stringify({ ...payload, token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1MSIsImV4cCI6OTk5OTk5OTk5OX0.mock-signature" }),
     });
   });
 }
@@ -33,7 +33,7 @@ export async function routeChangePassword(page: Page): Promise<void> {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({ ok: true, token: "mock-jwt-token-new" }),
+      body: JSON.stringify({ ok: true, token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1MSIsImV4cCI6OTk5OTk5OTk5OX0.mock-signature-new" }),
     });
   });
 }

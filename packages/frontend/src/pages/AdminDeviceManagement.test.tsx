@@ -1,3 +1,5 @@
+import { MOCK_JWT } from "../test/setup";
+import { setAuthToken } from "../api/client";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, fireEvent, act } from "@testing-library/react";
 import { AdminDeviceManagement } from "./AdminDeviceManagement";
@@ -22,6 +24,7 @@ const DEVICES = [
 ];
 
 beforeEach(() => {
+  setAuthToken(MOCK_JWT);
   vi.clearAllMocks();
   useStore.setState({
     user: { id: "u1", username: "admin", role: "ADMIN" },

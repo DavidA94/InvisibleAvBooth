@@ -25,8 +25,16 @@ import { DashboardSelectionScreen } from "./pages/DashboardSelectionScreen";
 import { Dashboard } from "./pages/Dashboard";
 import { AdminUserManagement } from "./pages/AdminUserManagement";
 import { AdminDeviceManagement } from "./pages/AdminDeviceManagement";
+import { setAuthExpiredHandler } from "./api/client";
+import { useStore } from "./store";
 
 setupIonicReact({ mode: "md" });
+
+// Global handler: when a 401 is received or token expires, clear auth state.
+// ProtectedRoutes will redirect to /login when user becomes null.
+setAuthExpiredHandler(() => {
+  useStore.getState().clearUser();
+});
 
 export function App(): ReactNode {
   return (

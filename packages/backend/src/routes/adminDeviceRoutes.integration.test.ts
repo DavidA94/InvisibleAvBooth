@@ -26,7 +26,7 @@ function buildApp() {
   const authService = new AuthService(database);
   const app = express();
   app.use(express.json());
-  
+
   app.use("/api/auth", createAuthRouter(authService));
   const mustBeAuthenticated = authenticate(authService);
   const mustHaveChangedPassword = requirePasswordChanged();
@@ -39,7 +39,8 @@ async function loginAsAdmin(app: express.Express, authService: AuthService) {
   const loginResponse = await request(app).post("/api/auth/login").send({ username: "admin", password: "adminpass" });
   const tempToken = (loginResponse.body as { token?: string }).token ?? "";
   const changeResponse = await request(app).post("/api/auth/change-password").set("Authorization", `Bearer ${tempToken}`).send({ newPassword: "adminpass" });
-  const finalToken = (changeResponse.body as { token?: string }).token || tempToken; return finalToken;
+  const finalToken = (changeResponse.body as { token?: string }).token || tempToken;
+  return finalToken;
 }
 
 const baseDevice = { deviceType: "obs", label: "Main OBS", host: "localhost", port: 4455 };
@@ -53,7 +54,8 @@ describe("POST /api/admin/devices", () => {
     const response = await request(app)
       .post("/api/admin/devices")
       .set("Authorization", `Bearer ${token}`)
-      .set("Authorization", `Bearer ${token}`).send({ ...baseDevice, password: "secret" });
+      .set("Authorization", `Bearer ${token}`)
+      .send({ ...baseDevice, password: "secret" });
     expect(response.status).toBe(201);
     expect(response.body.label).toBe("Main OBS");
     expect(response.body).not.toHaveProperty("encryptedPassword");
@@ -82,7 +84,8 @@ describe("GET /api/admin/devices", () => {
     await request(app)
       .post("/api/admin/devices")
       .set("Authorization", `Bearer ${token}`)
-      .set("Authorization", `Bearer ${token}`).send({ ...baseDevice, password: "secret" });
+      .set("Authorization", `Bearer ${token}`)
+      .send({ ...baseDevice, password: "secret" });
     const response = await request(app).get("/api/admin/devices").set("Authorization", `Bearer ${token}`);
     expect(response.status).toBe(200);
     expect(Array.isArray(response.body)).toBe(true);
@@ -98,7 +101,8 @@ describe("GET /api/admin/devices/:id", () => {
     const token = await loginAsAdmin(app, authService);
     const created = await request(app).post("/api/admin/devices").set("Authorization", `Bearer ${token}`).send(baseDevice);
     const response = await request(app)
-      .get(`/api/admin/devices/${created.body.id as string}`).set("Authorization", `Bearer ${token}`);
+      .get(`/api/admin/devices/${created.body.id as string}`)
+      .set("Authorization", `Bearer ${token}`);
     expect(response.status).toBe(200);
     expect(response.body.id).toBe(created.body.id);
   });
@@ -165,7 +169,8 @@ describe("encryption", () => {
     const created = await request(app)
       .post("/api/admin/devices")
       .set("Authorization", `Bearer ${token}`)
-      .set("Authorization", `Bearer ${token}`).send({ ...baseDevice, password: "mysecret" });
+      .set("Authorization", `Bearer ${token}`)
+      .send({ ...baseDevice, password: "mysecret" });
     const id = created.body.id as string;
 
     // Verify the stored value is encrypted (not plaintext)
@@ -187,7 +192,8 @@ describe("encryption", () => {
     const created = await request(app)
       .post("/api/admin/devices")
       .set("Authorization", `Bearer ${token}`)
-      .set("Authorization", `Bearer ${token}`).send({ ...baseDevice, password: "original" });
+      .set("Authorization", `Bearer ${token}`)
+      .send({ ...baseDevice, password: "original" });
     const id = created.body.id as string;
 
     // Update label only — no new password

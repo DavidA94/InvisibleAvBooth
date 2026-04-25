@@ -1,3 +1,5 @@
+import { MOCK_JWT } from "../test/setup";
+import { setAuthToken } from "../api/client";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, act } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
@@ -30,6 +32,7 @@ const TEST_MANIFEST: GridManifest = {
 };
 
 beforeEach(() => {
+  setAuthToken(MOCK_JWT);
   useStore.setState({
     user: { id: "u1", username: "admin", role: "ADMIN" },
     obsState: INITIAL_OBS_STATE,

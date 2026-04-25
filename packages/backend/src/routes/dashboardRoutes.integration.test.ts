@@ -21,7 +21,7 @@ function buildApp() {
   const authService = new AuthService(database);
   const app = express();
   app.use(express.json());
-  
+
   app.use("/api/auth", createAuthRouter(authService));
   const mustBeAuthenticated = authenticate(authService);
   const mustHaveChangedPassword = requirePasswordChanged();

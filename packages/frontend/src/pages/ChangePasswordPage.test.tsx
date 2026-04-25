@@ -1,3 +1,5 @@
+import { MOCK_JWT } from "../test/setup";
+import { setAuthToken } from "../api/client";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
@@ -15,6 +17,7 @@ const mockFetch = vi.fn();
 vi.stubGlobal("fetch", mockFetch);
 
 beforeEach(() => {
+  setAuthToken(MOCK_JWT);
   useStore.setState({
     user: { id: "u1", username: "admin", role: "ADMIN", requiresPasswordChange: true },
     obsState: INITIAL_OBS_STATE,

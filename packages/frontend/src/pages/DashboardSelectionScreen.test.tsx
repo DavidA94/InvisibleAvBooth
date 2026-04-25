@@ -1,3 +1,5 @@
+import { MOCK_JWT } from "../test/setup";
+import { setAuthToken } from "../api/client";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -17,6 +19,7 @@ const mockFetch = vi.fn();
 vi.stubGlobal("fetch", mockFetch);
 
 beforeEach(() => {
+  setAuthToken(MOCK_JWT);
   vi.clearAllMocks();
   localStorage.clear();
 });

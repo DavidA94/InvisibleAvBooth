@@ -9,13 +9,15 @@
     "start": "node dist/index.js",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "test:integration": "vitest run integration/"
   },
   "dependencies": {
     "@invisible-av-booth/shared": "*",
     "bcrypt": "^5.1.0",
     "better-sqlite3": "^9.0.0",
     "cookie-parser": "^1.4.6",
+    "cors": "2.8.5",
     "dotenv": "^17.4.2",
     "express": "^4.18.0",
     "jsonwebtoken": "^9.0.0",

@@ -94,7 +94,7 @@ test.describe("Authentication flow", () => {
     // Set token and user in localStorage before navigating
     await page.goto("/login");
     await page.evaluate(() => {
-      localStorage.setItem("authToken", "mock-jwt-token");
+      localStorage.setItem("authToken", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1MSIsImV4cCI6OTk5OTk5OTk5OX0.mock-signature");
       localStorage.setItem("authUser", JSON.stringify({ id: "u1", username: "admin", role: "ADMIN" }));
     });
 

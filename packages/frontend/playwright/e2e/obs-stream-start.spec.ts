@@ -5,7 +5,7 @@ import { sessionManifestFilled } from "../fixtures/payloads/session";
 import { obsStateLive } from "../fixtures/payloads/obs";
 
 test.describe("OBS stream start flow", () => {
-  test.skip("login → dashboard → metadata present → Start Stream → confirm → stream live", async ({ page }) => {
+  test("login → dashboard → metadata present → Start Stream → confirm → stream live", async ({ page }) => {
     await routeAuthLogin(page);
     await routeDashboardApi(page);
     const socket = await routeSocketIo(page, undefined, sessionManifestFilled());

@@ -18,7 +18,7 @@ function buildApp() {
   const authService = new AuthService(database);
   const app = express();
   app.use(express.json());
-  
+
   app.use("/api/auth", createAuthRouter(authService));
   const mustBeAuthenticated = authenticate(authService);
   const mustHaveChangedPassword = requirePasswordChanged();
@@ -31,7 +31,8 @@ async function loginAsAdmin(app: express.Express, authService: AuthService) {
   const loginResponse = await request(app).post("/api/auth/login").send({ username: "admin", password: "pass" });
   const tempToken = (loginResponse.body as { token?: string }).token ?? "";
   const changeResponse = await request(app).post("/api/auth/change-password").set("Authorization", `Bearer ${tempToken}`).send({ newPassword: "pass" });
-  const finalToken = (changeResponse.body as { token?: string }).token || tempToken; return finalToken;
+  const finalToken = (changeResponse.body as { token?: string }).token || tempToken;
+  return finalToken;
 }
 
 afterEach(() => {

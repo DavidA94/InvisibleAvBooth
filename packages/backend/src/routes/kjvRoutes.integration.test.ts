@@ -28,7 +28,7 @@ beforeAll(async () => {
   const authService = new AuthService(database);
   const app = express();
   app.use(express.json());
-  
+
   app.use("/api/auth", createAuthRouter(authService));
   const mustBeAuthenticated = authenticate(authService);
   const mustHaveChangedPassword = requirePasswordChanged();
@@ -60,7 +60,10 @@ describe("GET /api/kjv/validate", () => {
   });
 
   it("returns valid for a verse range John 3:16-17", async () => {
-    const response = await request(getApp()).get("/api/kjv/validate").set("Authorization", `Bearer ${token}`).query({ bookId: 43, chapter: 3, verse: 16, verseEnd: 17 });
+    const response = await request(getApp())
+      .get("/api/kjv/validate")
+      .set("Authorization", `Bearer ${token}`)
+      .query({ bookId: 43, chapter: 3, verse: 16, verseEnd: 17 });
     expect(response.body).toEqual({ valid: true });
   });
 
@@ -87,7 +90,10 @@ describe("GET /api/kjv/validate", () => {
   });
 
   it("returns VERSE_END_NOT_FOUND when verseEnd does not exist", async () => {
-    const response = await request(getApp()).get("/api/kjv/validate").set("Authorization", `Bearer ${token}`).query({ bookId: 43, chapter: 3, verse: 16, verseEnd: 999 });
+    const response = await request(getApp())
+      .get("/api/kjv/validate")
+      .set("Authorization", `Bearer ${token}`)
+      .query({ bookId: 43, chapter: 3, verse: 16, verseEnd: 999 });
     expect(response.body).toEqual({ valid: false, reason: "VERSE_END_NOT_FOUND" });
   });
 

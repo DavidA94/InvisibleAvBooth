@@ -1,3 +1,5 @@
+import { MOCK_JWT } from "./test/setup";
+import { setAuthToken } from "./api/client";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { logger } from "./logger";
 
@@ -6,6 +8,7 @@ const mockFetch = vi.fn();
 vi.stubGlobal("fetch", mockFetch);
 
 beforeEach(() => {
+  setAuthToken(MOCK_JWT);
   logger._reset();
   vi.clearAllMocks();
   vi.useFakeTimers();

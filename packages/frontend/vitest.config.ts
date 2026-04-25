@@ -10,7 +10,7 @@ export default defineConfig({
     exclude: ["playwright/**", "node_modules/**"],
     server: {
       deps: {
-        inline: ["@ionic/core", "@ionic/react", "@ionic/react-router", "ionicons"],
+        inline: ["@ionic/core", "@ionic/react", "@ionic/react-router", "ionicons", "@emotion/react"],
       },
     },
     coverage: {

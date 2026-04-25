@@ -58,7 +58,7 @@ export async function routeSocketIo(
         return;
       }
 
-      if (text === "40") {
+      if (text === "40" || text.startsWith("40{")) {
         ws.send('40{"sid":"mock-ws-sid"}');
         return;
       }

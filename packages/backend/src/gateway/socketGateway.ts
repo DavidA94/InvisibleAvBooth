@@ -21,7 +21,8 @@ export class SocketGateway {
     private readonly authService: AuthService,
     private readonly modules: SocketModule[],
   ) {
-    this.io = new SocketServer(httpServer, { cors: { origin: "*" } });
+    const allowedOrigin = process.env["FRONTEND_URL"] ?? "http://localhost:5173";
+    this.io = new SocketServer(httpServer, { cors: { origin: allowedOrigin } });
 
     // Register each module's io-level event subscriptions (EventBus → broadcast).
     for (const module of this.modules) {

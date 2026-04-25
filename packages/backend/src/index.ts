@@ -19,6 +19,8 @@ import { createKjvRouter } from "./routes/kjvRoutes.js";
 import { authenticate, requirePasswordChanged } from "./middleware/auth.js";
 import { logger } from "./logger.js";
 
+import cors from "cors";
+
 // Validate DEVICE_SECRET_KEY before doing anything else.
 const secretKey = process.env["DEVICE_SECRET_KEY"] ?? "";
 if (!/^[0-9a-f]{64}$/.test(secretKey)) {
@@ -40,18 +42,8 @@ const obsService = new ObsService(database);
 const app = express();
 app.use(express.json());
 
-// CORS — allow frontend origin
 const allowedOrigin = process.env["FRONTEND_URL"] ?? "http://localhost:5173";
-app.use((_request, response, next) => {
-  response.header("Access-Control-Allow-Origin", allowedOrigin);
-  response.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  response.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-  if (_request.method === "OPTIONS") {
-    response.sendStatus(204);
-    return;
-  }
-  next();
-});
+app.use(cors({ origin: allowedOrigin }));
 
 app.use("/api/auth", createAuthRouter(authService));
 

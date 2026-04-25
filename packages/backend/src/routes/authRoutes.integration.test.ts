@@ -35,10 +35,7 @@ async function loginAsAdmin(app: express.Express, authService: AuthService) {
   await authService.createUser({ username: "admin", password: "adminpass", role: "ADMIN" }, seedActor);
   const loginResponse = await request(app).post("/api/auth/login").send({ username: "admin", password: "adminpass" });
   const tempToken = getToken(loginResponse);
-  const changeResponse = await request(app)
-    .post("/api/auth/change-password")
-    .set("Authorization", `Bearer ${tempToken}`)
-    .send({ newPassword: "adminpass" });
+  const changeResponse = await request(app).post("/api/auth/change-password").set("Authorization", `Bearer ${tempToken}`).send({ newPassword: "adminpass" });
   const finalToken = getToken(changeResponse) || tempToken;
   return { token: finalToken };
 }
@@ -122,7 +119,9 @@ describe("GET /api/admin/users", () => {
     const { app, authService } = buildApp();
     await authService.createUser({ username: "alice", password: "pass", role: "ADMIN" }, seedActor);
     const loginRes = await request(app).post("/api/auth/login").send({ username: "alice", password: "pass" });
-    const response = await request(app).get("/api/admin/users").set("Authorization", `Bearer ${getToken(loginRes)}`);
+    const response = await request(app)
+      .get("/api/admin/users")
+      .set("Authorization", `Bearer ${getToken(loginRes)}`);
     expect(response.status).toBe(403);
   });
 });
@@ -186,7 +185,11 @@ describe("DELETE /api/admin/users/:id", () => {
       .set("Authorization", `Bearer ${token}`)
       .send({ username: "bob", password: "pass", role: "AvVolunteer" });
     expect(
-      (await request(app).delete(`/api/admin/users/${createRes.body.id as string}`).set("Authorization", `Bearer ${token}`)).status,
+      (
+        await request(app)
+          .delete(`/api/admin/users/${createRes.body.id as string}`)
+          .set("Authorization", `Bearer ${token}`)
+      ).status,
     ).toBe(204);
   });
 
@@ -206,18 +209,12 @@ describe("POST /api/auth/change-password", () => {
     const { app, authService } = buildApp();
     const { token } = await loginAsAdmin(app, authService);
     // Create a volunteer
-    await request(app)
-      .post("/api/admin/users")
-      .set("Authorization", `Bearer ${token}`)
-      .send({ username: "vol", password: "pass", role: "AvVolunteer" });
+    await request(app).post("/api/admin/users").set("Authorization", `Bearer ${token}`).send({ username: "vol", password: "pass", role: "AvVolunteer" });
     // Login as volunteer
     const volLogin = await request(app).post("/api/auth/login").send({ username: "vol", password: "pass" });
     const volToken = getToken(volLogin);
     // Volunteer changes own password (should work)
-    const response = await request(app)
-      .post("/api/auth/change-password")
-      .set("Authorization", `Bearer ${volToken}`)
-      .send({ newPassword: "newpass" });
+    const response = await request(app).post("/api/auth/change-password").set("Authorization", `Bearer ${volToken}`).send({ newPassword: "newpass" });
     expect(response.status).toBe(200);
     expect(response.body).toHaveProperty("token");
   });
@@ -227,7 +224,12 @@ describe("POST /api/auth/change-password", () => {
     await authService.createUser({ username: "alice", password: "pass", role: "ADMIN" }, seedActor);
     const loginRes = await request(app).post("/api/auth/login").send({ username: "alice", password: "pass" });
     expect(
-      (await request(app).post("/api/auth/change-password").set("Authorization", `Bearer ${getToken(loginRes)}`).send({})).status,
+      (
+        await request(app)
+          .post("/api/auth/change-password")
+          .set("Authorization", `Bearer ${getToken(loginRes)}`)
+          .send({})
+      ).status,
     ).toBe(400);
   });
 });
@@ -252,9 +254,7 @@ describe("POST /api/admin/users/:id/change-password", () => {
     const { token } = await loginAsAdmin(app, authService);
     const listRes = await request(app).get("/api/admin/users").set("Authorization", `Bearer ${token}`);
     const adminUser = listRes.body[0];
-    expect(
-      (await request(app).post(`/api/admin/users/${adminUser.id}/change-password`).set("Authorization", `Bearer ${token}`).send({})).status,
-    ).toBe(400);
+    expect((await request(app).post(`/api/admin/users/${adminUser.id}/change-password`).set("Authorization", `Bearer ${token}`).send({})).status).toBe(400);
   });
 
   it("returns 403 when non-ADMIN tries to change another user's password", async () => {
@@ -269,7 +269,10 @@ describe("POST /api/admin/users/:id/change-password", () => {
     // Change own password first to clear requiresPasswordChange
     const changeRes = await request(app).post("/api/auth/change-password").set("Authorization", `Bearer ${volToken}`).send({ newPassword: "pass" });
     const volFinalToken = getToken(changeRes) || volToken;
-    expect((await request(app).post(`/api/admin/users/${adminId}/change-password`).set("Authorization", `Bearer ${volFinalToken}`).send({ newPassword: "hack" })).status).toBe(403);
+    expect(
+      (await request(app).post(`/api/admin/users/${adminId}/change-password`).set("Authorization", `Bearer ${volFinalToken}`).send({ newPassword: "hack" }))
+        .status,
+    ).toBe(403);
   });
 });
 
