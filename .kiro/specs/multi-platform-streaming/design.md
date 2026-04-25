@@ -153,6 +153,8 @@ type RelayState = "healthy" | "unhealthy" | "inactive";
 
 **OBS connection detection**: `node-media-server` emits `postPublish` and `donePublish` events when a publisher connects/disconnects. `RelayService` subscribes to these and emits `bus:relay:state:changed` accordingly. This is the mechanism for the "No Source" detection specified in Req 5.10.
 
+**Relay TCP keepalive**: `node-media-server` is configured with `ping: 5` and `ping_timeout: 3` (seconds) so that OBS crashes (process killed, machine power loss) are detected within ~8 seconds rather than relying on the OS default TCP timeout (which can be 30+ seconds). Without this, a half-open TCP connection from a crashed OBS would leave the relay in a false "OBS connected" state.
+
 **FFmpeg process management**: Each forwarder is a `child_process.spawn("ffmpeg", [...])` with args:
 
 ```
@@ -175,9 +177,43 @@ interface RelayEventMap {
 
 ---
 
+### PlatformConfig (New Type)
+
+The decoded representation of a `streaming_platforms` row. Tokens are decrypted by the DAO before being passed to services — no service handles encrypted blobs directly.
+
+```typescript
+interface PlatformConfig {
+  id: string;
+  platformType: "youtube" | "facebook";
+  label: string;
+  enabled: boolean;
+  accessToken: string;            // decrypted by DAO
+  refreshToken: string;           // decrypted by DAO
+  tokenExpiresAt: string | null;  // ISO 8601 or null (Facebook tokens don't expire)
+  platformMetadata: YouTubeMetadata | FacebookMetadata; // decoded from JSON by DAO
+  createdAt: string;
+}
+
+interface YouTubeMetadata {
+  privacy: "public" | "unlisted" | "private";
+  channelId: string;
+}
+
+interface FacebookMetadata {
+  pageId: string;
+  pageName: string;
+}
+```
+
+The DAO decrypts tokens via the existing `decrypt()` utility and parses `platformMetadata` from JSON. REST GET endpoints never return `accessToken` or `refreshToken` — those fields are write-only from the API perspective.
+
+---
+
 ### StreamingPlatformService (New)
 
 Manages platform configurations, OAuth token lifecycle, broadcast CRUD, health polling, and the platform state machine. This is the orchestrator for the multi-platform streaming flow.
+
+**Manifest authority**: `StreamingPlatformService` does not receive the manifest from the frontend. It reads the current manifest and interpolated strings from `SessionManifestService.getInterpolated()` at the moment of broadcast creation. This ensures the backend's authoritative manifest is always used — if another client updated the manifest between the volunteer's last state sync and their "Go Live" tap, the backend uses the latest version.
 
 ```typescript
 interface StreamingPlatformService {
@@ -185,9 +221,9 @@ interface StreamingPlatformService {
   getEnabledPlatforms(): PlatformConfig[];
   getPlatformHealth(): PlatformHealthMap;           // Token validity + page access for each platform
 
-  // Broadcast lifecycle
-  startAll(manifest: SessionManifest, titleTemplateId: string, descriptionTemplateId: string): Promise<void>;
-  startPlatform(platformId: string, manifest: SessionManifest, titleTemplateId: string, descriptionTemplateId: string): Promise<void>;
+  // Broadcast lifecycle — reads manifest from SessionManifestService internally
+  startAll(): Promise<void>;
+  startPlatform(platformId: string): Promise<void>;
   stopAll(): Promise<void>;
   stopPlatform(platformId: string): Promise<void>;
 
@@ -253,14 +289,27 @@ interface StreamingPlatformService {
 
 ```typescript
 // Simplified orchestration logic
-async startAll(...): Promise<void> {
+async startAll(): Promise<void> {
+  // Read interpolated strings from the backend's authoritative manifest
+  const { interpolatedStreamTitle, interpolatedDescription } = this.manifestService.getInterpolated();
+
   const platforms = this.getEnabledPlatforms();
   // Steps (a) and (b) run per-platform in parallel
   const broadcasts = await Promise.allSettled(
-    platforms.map((p) => this.createBroadcast(p, ...))
+    platforms.map((p) => this.createBroadcast(p, interpolatedStreamTitle, interpolatedDescription))
   );
   // Step (c) runs once — shared prerequisite
-  await this.ensureObsStreamingToRelay();
+  const obsResult = await this.ensureObsStreamingToRelay();
+  if (!obsResult.success) {
+    // Step (c) failed — clean up any successfully created broadcasts
+    for (const result of broadcasts) {
+      if (result.status === "fulfilled") {
+        this.endBroadcastBestEffort(result.value.platformId, result.value.broadcastId);
+        this.transitionPlatform(result.value.platformId, "error", "Could not start OBS stream");
+      }
+    }
+    return;
+  }
   // Step (d) runs per-platform for successful broadcasts
   for (const result of broadcasts) {
     if (result.status === "fulfilled") {
@@ -355,7 +404,17 @@ constructor(private readonly database: Database) {
   // ... existing EventBus subscription for OBS state
 }
 
-// Modified update — now interpolates both title and description
+// New — returns current interpolated strings without triggering an update or event.
+// Used by StreamingPlatformService for broadcast creation and by emitInitialState().
+getInterpolated(): { interpolatedStreamTitle: string; interpolatedDescription: string; manifestReady: boolean } {
+  return {
+    interpolatedStreamTitle: this.cachedInterpolatedTitle,
+    interpolatedDescription: this.cachedInterpolatedDescription,
+    manifestReady: this.cachedManifestReady,
+  };
+}
+
+// Modified update — now interpolates both title and description, computes manifestReady
 update(patch: Partial<SessionManifest>, actor: JwtPayload): Result<SessionManifest, never> {
   this.manifest = { ...this.manifest, ...patch };
 
@@ -366,22 +425,48 @@ update(patch: Partial<SessionManifest>, actor: JwtPayload): Result<SessionManife
     ? this.templateDao.getById(this.manifest.descriptionTemplateId)
     : null;
 
-  const interpolatedStreamTitle = interpolateTemplate(
+  this.cachedInterpolatedTitle = interpolateTemplate(
     this.manifest,
     titleTemplate?.formatString ?? DEFAULT_STREAM_TITLE_TEMPLATE,
-    this.database, // needed for {verseText} KJV lookup
+    this.verseTextResolver,
   );
-  const interpolatedDescription = descriptionTemplate && descriptionTemplate.formatString
-    ? interpolateTemplate(this.manifest, descriptionTemplate.formatString, this.database)
+  this.cachedInterpolatedDescription = descriptionTemplate && descriptionTemplate.formatString
+    ? interpolateTemplate(this.manifest, descriptionTemplate.formatString, this.verseTextResolver)
     : "";
+
+  // manifestReady: true when templates are selected AND all required tokens have values.
+  // A token is "required" if it appears in either selected template (excluding {Date}).
+  this.cachedManifestReady = this.computeManifestReady(titleTemplate, descriptionTemplate);
 
   eventBus.emit(BUS_SESSION_MANIFEST_UPDATED, {
     manifest: { ...this.manifest },
-    interpolatedStreamTitle,
-    interpolatedDescription,
+    interpolatedStreamTitle: this.cachedInterpolatedTitle,
+    interpolatedDescription: this.cachedInterpolatedDescription,
+    manifestReady: this.cachedManifestReady,
   });
 
   return { success: true, value: { ...this.manifest } };
+}
+
+// Checks whether all tokens referenced by the selected templates have values in the manifest.
+private computeManifestReady(titleTemplate: MetadataTemplateRow | null, descriptionTemplate: MetadataTemplateRow | null): boolean {
+  if (!this.manifest.titleTemplateId) return false; // no title template selected
+  const tokens = new Set<string>();
+  for (const t of [titleTemplate, descriptionTemplate]) {
+    if (!t?.formatString) continue;
+    for (const match of t.formatString.matchAll(/\{(\w+)\}/g)) {
+      if (match[1] !== "Date") tokens.add(match[1]!);
+    }
+  }
+  for (const token of tokens) {
+    switch (token) {
+      case "Speaker": if (!this.manifest.speaker?.trim()) return false; break;
+      case "Title": if (!this.manifest.title?.trim()) return false; break;
+      case "Scripture":
+      case "verseText": if (!this.manifest.scripture) return false; break;
+    }
+  }
+  return true;
 }
 ```
 
@@ -396,7 +481,7 @@ export function interpolateTemplate(
 ): string;
 ```
 
-The backend passes a resolver that queries the KJV table. The frontend passes no resolver — `{verseText}` tokens in the frontend preview are replaced with `[Verse text shown on stream]` as a placeholder, since the frontend does not have access to the KJV database. The full verse text is only visible in the backend-computed `interpolatedDescription` that is broadcast to clients.
+The backend passes a resolver that queries the KJV table. The frontend passes no resolver — `{verseText}` tokens in the frontend preview are replaced with the formatted scripture reference followed by `(full text included on stream)` (e.g., `John 3:16 (full text included on stream)`), since the frontend does not have access to the KJV database. The full verse text is only visible in the backend-computed `interpolatedDescription` that is broadcast to clients.
 
 ---
 
@@ -588,6 +673,7 @@ interface SessionManifestEventMap {
     manifest: SessionManifest;
     interpolatedStreamTitle: string;
     interpolatedDescription: string; // new — empty string when "None" template selected
+    manifestReady: boolean;          // new — true when templates selected and all required fields populated
   };
 }
 ```
@@ -630,10 +716,10 @@ export class StreamingPlatformModule implements SocketModule {
       try {
         switch (command.type) {
           case "startAll":
-            await this.platformService.startAll(command.manifest, command.titleTemplateId, command.descriptionTemplateId);
+            await this.platformService.startAll();
             break;
           case "startPlatform":
-            await this.platformService.startPlatform(command.platformId, command.manifest, command.titleTemplateId, command.descriptionTemplateId);
+            await this.platformService.startPlatform(command.platformId);
             break;
           case "stopAll":
             await this.platformService.stopAll();
@@ -662,10 +748,12 @@ export class StreamingPlatformModule implements SocketModule {
 
 ### PlatformCommand Type
 
+The frontend sends only the command type and platform ID. The backend reads the manifest and interpolated strings from its own `SessionManifestService` — the frontend never sends manifest data with start commands.
+
 ```typescript
 type PlatformCommand =
-  | { type: "startAll"; manifest: SessionManifest; titleTemplateId: string; descriptionTemplateId: string }
-  | { type: "startPlatform"; platformId: string; manifest: SessionManifest; titleTemplateId: string; descriptionTemplateId: string }
+  | { type: "startAll" }
+  | { type: "startPlatform"; platformId: string }
   | { type: "stopAll" }
   | { type: "stopPlatform"; platformId: string };
 ```
@@ -677,8 +765,8 @@ The `emitInitialState` method now includes `interpolatedDescription` in the payl
 ```typescript
 emitInitialState(auth: AuthenticatedSocket): void {
   const manifest = this.manifestService.get();
-  const { interpolatedStreamTitle, interpolatedDescription } = this.manifestService.getInterpolated();
-  auth.socket.emit(STC_SESSION_MANIFEST_UPDATED, { manifest, interpolatedStreamTitle, interpolatedDescription });
+  const { interpolatedStreamTitle, interpolatedDescription, manifestReady } = this.manifestService.getInterpolated();
+  auth.socket.emit(STC_SESSION_MANIFEST_UPDATED, { manifest, interpolatedStreamTitle, interpolatedDescription, manifestReady });
 }
 ```
 
@@ -688,18 +776,29 @@ emitInitialState(auth: AuthenticatedSocket): void {
 
 ### Template Routes (New)
 
-`createTemplateRouter(database: Database, authService: AuthService): Router`
+Two routers serve template data at different paths with different auth requirements:
 
-| Method | Path | Auth | Description |
-|---|---|---|---|
-| `GET` | `/admin/templates` | ADMIN | List all templates |
-| `GET` | `/admin/templates?category={title\|description}&role={role}` | Authenticated | List templates filtered by category and/or role visibility |
-| `POST` | `/admin/templates` | ADMIN | Create template (runs validation) |
-| `PUT` | `/admin/templates/:id` | ADMIN | Update template (runs validation) |
-| `DELETE` | `/admin/templates/:id` | ADMIN | Delete template (guards last title template) |
-| `POST` | `/admin/templates/validate` | ADMIN | Validate without saving — returns blockers and warnings |
+**Admin CRUD** — `createAdminTemplateRouter(database: Database, authService: AuthService): Router`
 
-The `GET` endpoint with `role` query parameter is used by the `SessionManifestModal` to fetch templates visible to the current user. The backend filters by role hierarchy — a request with `role=AvVolunteer` returns only templates with `roleMinimum: "AvVolunteer"`.
+Mounted at `/admin/templates`. Requires ADMIN role.
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/admin/templates` | List all templates (unfiltered, for admin management page) |
+| `POST` | `/admin/templates` | Create template (runs validation) |
+| `PUT` | `/admin/templates/:id` | Update template (runs validation) |
+| `DELETE` | `/admin/templates/:id` | Delete template (guards last title template) |
+| `POST` | `/admin/templates/validate` | Validate without saving — returns blockers and warnings |
+
+**Volunteer read** — `createTemplateRouter(database: Database, authService: AuthService): Router`
+
+Mounted at `/api/templates`. Requires authentication (any role). Used by `SessionManifestModal` to populate template dropdowns.
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/templates?category={title\|description}` | List templates filtered by the authenticated user's role (derived from JWT, not a query param) |
+
+The backend reads the user's role from the JWT payload and filters templates where `roleMinimum` is at or below that role in the hierarchy. The `category` query parameter is optional — if omitted, both categories are returned.
 
 **Validation endpoint**: `POST /admin/templates/validate` accepts the same body as create/update but returns validation results without persisting. Response:
 
@@ -794,10 +893,10 @@ export interface MetadataTemplate {
   roleMinimum: Role;
 }
 
-// New — platform command sent via Socket.io
+// New — platform command sent via Socket.io (backend reads its own manifest)
 export type PlatformCommand =
-  | { type: "startAll"; manifest: SessionManifest; titleTemplateId: string; descriptionTemplateId: string }
-  | { type: "startPlatform"; platformId: string; manifest: SessionManifest; titleTemplateId: string; descriptionTemplateId: string }
+  | { type: "startAll" }
+  | { type: "startPlatform"; platformId: string }
   | { type: "stopAll" }
   | { type: "stopPlatform"; platformId: string };
 
@@ -847,14 +946,15 @@ export const createPlatformSlice: StateCreator<PlatformSlice> = (set, get) => ({
 });
 ```
 
-**Modified `sessionManifestSlice`** — adds `interpolatedDescription`:
+**Modified `sessionManifestSlice`** — adds `interpolatedDescription` and `manifestReady`:
 
 ```typescript
 export interface SessionManifestSlice {
   manifest: SessionManifest;
   interpolatedStreamTitle: string;
   interpolatedDescription: string; // new
-  setManifest: (manifest: SessionManifest, interpolatedStreamTitle: string, interpolatedDescription: string) => void;
+  manifestReady: boolean;          // new — backend-computed, true when templates selected + required fields populated
+  setManifest: (manifest: SessionManifest, interpolatedStreamTitle: string, interpolatedDescription: string, manifestReady: boolean) => void;
 }
 ```
 
@@ -908,13 +1008,14 @@ newSocket.on(STC_RELAY_STATE, (payload: { state: RelayState }) => {
   useStore.getState().setRelayState(payload.state);
 });
 
-// Modified manifest handler — now includes interpolatedDescription
+// Modified manifest handler — now includes interpolatedDescription and manifestReady
 newSocket.on(STC_SESSION_MANIFEST_UPDATED, (payload: {
   manifest: SessionManifest;
   interpolatedStreamTitle: string;
   interpolatedDescription: string;
+  manifestReady: boolean;
 }) => {
-  useStore.getState().setManifest(payload.manifest, payload.interpolatedStreamTitle, payload.interpolatedDescription);
+  useStore.getState().setManifest(payload.manifest, payload.interpolatedStreamTitle, payload.interpolatedDescription, payload.manifestReady);
 });
 ```
 
@@ -1084,6 +1185,12 @@ The distinction between the two `inactive` cases requires checking whether any p
 
 **"Manage Streams" button replaces "Start Stream"**: The stream button in `ObsControls` is replaced by a "Manage Streams" button. Recording controls remain unchanged.
 
+**`ObsStatusBar` content during multi-platform streaming**: The status bar adapts to the current streaming state:
+- **Idle** (no platforms streaming): Normal idle state — no stream dot, no timecode
+- **Starting** (start sequence in progress): "Going Live…" replaces the normal stream status (Req 6.11)
+- **Streaming** (at least one platform live): Green stream dot + OBS timecode. The timecode reflects the duration since OBS started streaming to the relay, not the platform broadcast duration. This is documented here because the relay stream may start a few seconds before the platform broadcasts go live.
+- **Stopping** (stop sequence in progress): "Stopping…" replaces the normal stream status
+
 ```
 ObsWidget (2×2)
 └── WidgetContainer (title: "OBS", connections: [OBS, Relay, Stream])
@@ -1106,16 +1213,17 @@ function getManageStreamsSubLabel(
   relayState: RelayState,
   obsConnected: boolean,
   manifest: SessionManifest,
+  manifestReady: boolean,
 ): string | undefined {
   if (relayState === "unhealthy") return "Streaming unavailable";
   if (!obsConnected) return "OBS not connected";
   if (!manifest.titleTemplateId) return "Select templates";
-  // Check if required fields for selected templates are filled
-  // (requires knowing which tokens the selected templates use)
-  if (!hasRequiredFields(manifest)) return "Enter metadata";
+  if (!manifestReady) return "Enter metadata";
   return undefined; // enabled — no sub-label
 }
 ```
+
+`manifestReady` is read from the Zustand store — it is computed by the backend and broadcast via the `BUS_SESSION_MANIFEST_UPDATED` event. The frontend never parses template format strings to determine which fields are required.
 
 **Tapping the disabled button** (Req 12.5): If the sub-label is "Select templates" or "Enter metadata", opens `SessionManifestModal`. If "Streaming unavailable" or "OBS not connected", shows a Toast with the sub-label text.
 
@@ -1232,7 +1340,7 @@ Adds template selection dropdowns above the existing metadata fields.
 └──────────────────────────────────────────┘
 ```
 
-**Template fetching**: Templates are fetched via `GET /admin/templates?role={userRole}` when the modal opens. Not pushed via Socket.io — the list is stable for the modal's lifetime.
+**Template fetching**: Templates are fetched via `GET /api/templates` when the modal opens. The backend filters by the authenticated user's role (derived from the JWT, not a query parameter). Not pushed via Socket.io — the list is stable for the modal's lifetime.
 
 **Auto-select logic** (Req 4.1): After fetching, the frontend applies auto-selection:
 - Title: if exactly one non-"None" template visible → auto-select it
@@ -1322,12 +1430,12 @@ For description templates, the Template field is a multi-line `<textarea>` inste
 
 | Endpoint | Role | Description |
 |---|---|---|
-| `GET /admin/templates` | ADMIN | List all templates |
-| `GET /admin/templates?category=&role=` | Authenticated | List templates filtered by category and role |
+| `GET /admin/templates` | ADMIN | List all templates (unfiltered) |
 | `POST /admin/templates` | ADMIN | Create template |
 | `PUT /admin/templates/:id` | ADMIN | Update template |
 | `DELETE /admin/templates/:id` | ADMIN | Delete template |
 | `POST /admin/templates/validate` | ADMIN | Validate template without saving |
+| `GET /api/templates?category=` | Authenticated | List templates filtered by user's role (from JWT) |
 | `GET /admin/platforms` | ADMIN | List platform configs |
 | `GET /admin/platforms/:platformType` | ADMIN | Get single platform config |
 | `PUT /admin/platforms/:platformType` | ADMIN | Update platform config |
@@ -1365,7 +1473,12 @@ export function interpolateTemplate(
   // {verseText} — requires database access, backend-only
   result = result.replace(/\{verseText\}/g, () => {
     if (!manifest.scripture) return "[No Verse Text]";
-    if (!verseTextResolver) return "[Verse text shown on stream]"; // frontend fallback
+    if (!verseTextResolver) {
+      // Frontend fallback — show the scripture reference with a note
+      const ref = manifest.scripture;
+      const refText = ref ? formatScripture(ref) : "";
+      return refText ? `${refText} (full text included on stream)` : "[No Verse Text]";
+    }
     return verseTextResolver(manifest.scripture);
   });
 
