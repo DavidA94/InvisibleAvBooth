@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { IonPage, IonContent, IonInput, IonButton, IonText, IonSpinner } from "@ionic/react";
 import Select from "react-select";
 import { darkSelectStyles } from "../theme/selectStyles";
+import { useStore } from "../store";
 import type { Role } from "../types";
 
 interface UserRecord {
@@ -48,6 +49,9 @@ export function AdminUserManagement(): ReactNode {
   const [editError, setEditError] = useState("");
 
   const [deletePendingId, setDeletePendingId] = useState<string | null>(null);
+
+  const currentUserId = useStore((s) => s.user?.id);
+  const isEditingSelf = editingId === currentUserId;
 
   const fetchUsers = useCallback(async (): Promise<void> => {
     try {
@@ -240,13 +244,14 @@ export function AdminUserManagement(): ReactNode {
                       onIonInput={(e) => setEditPassword(e.detail.value ?? "")}
                       clearInput
                     />
-                    <div data-testid="edit-role-select">
+                    <div data-testid="edit-role-select" title={isEditingSelf ? "Cannot change your own role" : undefined}>
                       <Select<RoleOption>
                         options={ROLE_OPTIONS}
                         value={ROLE_OPTIONS.find((o) => o.value === editRole)}
                         onChange={(option) => setEditRole(option?.value ?? "AvVolunteer")}
                         styles={roleStyles}
                         isSearchable={false}
+                        isDisabled={isEditingSelf}
                         menuPortalTarget={document.body}
                       />
                     </div>

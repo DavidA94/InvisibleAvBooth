@@ -61,7 +61,7 @@ export interface UpdateUserRequest {
 
 export type Result<T, E> = { success: true; value: T } | { success: false; error: E };
 
-export type AuthErrorCode = "INVALID_CREDENTIALS" | "USER_NOT_FOUND" | "USERNAME_TAKEN" | "FORBIDDEN" | "SELF_DELETE" | "INVALID_TOKEN" | "INSUFFICIENT_ROLE";
+export type AuthErrorCode = "INVALID_CREDENTIALS" | "USER_NOT_FOUND" | "USERNAME_TAKEN" | "FORBIDDEN" | "SELF_DELETE" | "SELF_ROLE_CHANGE" | "INVALID_TOKEN" | "INSUFFICIENT_ROLE";
 
 export class AuthError extends Error {
   constructor(
@@ -203,6 +203,10 @@ export class AuthService {
       if (existing) {
         return { success: false, error: new AuthError("USERNAME_TAKEN", "Username already exists") };
       }
+    }
+
+    if (data.role && data.role !== row.role && actor.sub === id) {
+      return { success: false, error: new AuthError("SELF_ROLE_CHANGE", "Cannot change your own role") };
     }
 
     const newUsername = data.username ?? row.username;

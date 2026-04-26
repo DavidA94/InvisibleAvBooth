@@ -8,6 +8,7 @@ const STATUS: Partial<Record<AuthErrorCode, number>> = {
   USER_NOT_FOUND: 404,
   USERNAME_TAKEN: 409,
   SELF_DELETE: 403,
+  SELF_ROLE_CHANGE: 403,
   INSUFFICIENT_ROLE: 403,
   FORBIDDEN: 403,
 };

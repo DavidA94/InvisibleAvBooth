@@ -172,6 +172,32 @@ describe("PUT /api/admin/users/:id", () => {
     expect(response.status).toBe(200);
     expect(response.body.username).toBe("bobby");
   });
+
+  it("returns 403 when trying to change own role", async () => {
+    const { app, authService } = buildApp();
+    const { token } = await loginAsAdmin(app, authService);
+    const listRes = await request(app).get("/api/admin/users").set("Authorization", `Bearer ${token}`);
+    const adminId = listRes.body[0].id as string;
+    const response = await request(app)
+      .put(`/api/admin/users/${adminId}`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ role: "AvVolunteer" });
+    expect(response.status).toBe(403);
+    expect(response.body.error).toContain("Cannot change your own role");
+  });
+
+  it("allows admin to change own username without changing role", async () => {
+    const { app, authService } = buildApp();
+    const { token } = await loginAsAdmin(app, authService);
+    const listRes = await request(app).get("/api/admin/users").set("Authorization", `Bearer ${token}`);
+    const adminId = listRes.body[0].id as string;
+    const response = await request(app)
+      .put(`/api/admin/users/${adminId}`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ username: "newadmin" });
+    expect(response.status).toBe(200);
+    expect(response.body.username).toBe("newadmin");
+  });
 });
 
 // ── DELETE /api/admin/users/:id ───────────────────────────────────────────────
