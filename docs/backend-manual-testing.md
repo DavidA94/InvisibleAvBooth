@@ -1,5 +1,7 @@
 # Backend Manual Testing Guide
 
+> **Automated alternative:** Full-stack integration tests are available in `packages/backend/integration/`. Run `npm run test:integration` from `packages/backend/` to exercise the complete backend (auth, devices, OBS, Socket.io, dashboards) without needing OBS or any real devices. See `docs/setup.md` for details.
+
 Assumes the backend is running (`npx tsx src/index.ts`) and you have completed the setup steps in `docs/setup.md`.
 
 Base URL: `http://localhost:3000`

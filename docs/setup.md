@@ -102,6 +102,33 @@ All admin routes require an authenticated ADMIN JWT cookie.
 
 ---
 
+## Running Tests
+
+### Unit tests
+
+```bash
+cd packages/backend
+npm test
+```
+
+### Integration tests
+
+Integration tests exercise the full backend stack (HTTP routes, Socket.io, OBS service, session manifest, database) using an in-memory database and a programmable mock OBS client. No real devices or file I/O required.
+
+```bash
+cd packages/backend
+npm run test:integration
+```
+
+The test harness (`packages/backend/integration/testHarness.ts`) creates a fully wired backend identical to production but with:
+- In-memory SQLite (no `data/` directory needed)
+- Mock OBS client with controllable responses (happy path, errors, disconnects)
+- Dynamic port allocation (no conflicts with a running backend)
+
+To add new integration tests, create files in `packages/backend/integration/` with the `.test.ts` suffix.
+
+---
+
 ## Key rotation
 
 If `DEVICE_SECRET_KEY` is changed, all stored device passwords become unreadable. Re-enter all device passwords via `/admin/devices` after rotating the key.
