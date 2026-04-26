@@ -21,7 +21,7 @@
     "react-router": "^7.14.2",
     "react-select": "^5.10.2",
     "socket.io-client": "^4.7.0",
-    "zustand": "^4.0.0"
+    "zustand": "^4.5.7"
   },
   "devDependencies": {
     "@playwright/test": "^1.44.0",
