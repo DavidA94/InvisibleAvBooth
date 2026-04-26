@@ -4,7 +4,11 @@ import type { StylesConfig, GroupBase } from "react-select";
  * Dark-theme styles for react-select that match the Invisible A/V Booth design tokens.
  * Used by all dropdowns in the application for visual consistency.
  */
-export function darkSelectStyles<Option, IsMulti extends boolean = false>(): StylesConfig<Option, IsMulti, GroupBase<Option>> {
+export function darkSelectStyles<
+  Option,
+  IsMulti extends boolean = false,
+  Group extends GroupBase<Option> = GroupBase<Option>,
+>(): StylesConfig<Option, IsMulti, Group> {
   return {
     control: (base, state) => ({
       ...base,

@@ -67,7 +67,7 @@ function buildVerseOptions(bookId: number | null, chapter: number | null): Numbe
   return Array.from({ length: max - min + 1 }, (_, i) => ({ value: min + i, label: String(min + i) }));
 }
 
-const bookStyles = darkSelectStyles<BookOption>();
+const bookStyles = darkSelectStyles<BookOption, false, BookGroup>();
 const numberStyles = darkSelectStyles<NumberOption>();
 
 export function ScriptureReferenceInput({

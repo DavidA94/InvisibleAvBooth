@@ -204,7 +204,7 @@ export function AdminUserManagement(): ReactNode {
               <div data-testid={TEST_ID_CREATE_ROLE_SELECT}>
                 <Select<RoleOption>
                   options={ROLE_OPTIONS}
-                  value={ROLE_OPTIONS.find((o) => o.value === createRole)}
+                  value={ROLE_OPTIONS.find((o) => o.value === createRole) ?? null}
                   onChange={(option) => setCreateRole(option?.value ?? "AvVolunteer")}
                   styles={roleStyles}
                   isSearchable={false}
@@ -257,7 +257,7 @@ export function AdminUserManagement(): ReactNode {
                       <div data-testid={TEST_ID_EDIT_ROLE_SELECT}>
                         <Select<RoleOption>
                           options={ROLE_OPTIONS}
-                          value={ROLE_OPTIONS.find((o) => o.value === editRole)}
+                          value={ROLE_OPTIONS.find((o) => o.value === editRole) ?? null}
                           onChange={(option) => setEditRole(option?.value ?? "AvVolunteer")}
                           styles={roleStyles}
                           isSearchable={false}

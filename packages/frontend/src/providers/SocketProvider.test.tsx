@@ -26,7 +26,7 @@ vi.mock("socket.io-client", () => ({
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function getHandler(event: string): EventHandler | undefined {
-  const call = mockSocket.on.mock.calls.find(([e]: [string]) => e === event);
+  const call = mockSocket.on.mock.calls.find((c) => c[0] === event);
   return call?.[1] as EventHandler | undefined;
 }
 
