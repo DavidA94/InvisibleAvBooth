@@ -3,6 +3,7 @@ import { render, screen, waitFor, fireEvent, act } from "@testing-library/react"
 import { AdminDeviceManagement } from "./AdminDeviceManagement";
 import { useStore } from "../store";
 import { INITIAL_OBS_STATE } from "../store/obsSlice";
+import { TEST_ID_CREATE_DEVICE_HOST, TEST_ID_CREATE_DEVICE_LABEL, TEST_ID_CREATE_DEVICE_SUBMIT, TEST_ID_CREATE_TEMPLATE_PREVIEW, TEST_ID_DEVICE_LIST, TEST_ID_EDIT_DEVICE_LABEL, TEST_ID_EDIT_DEVICE_SAVE, TEST_ID_EDIT_TEMPLATE_PREVIEW } from "../constants/testIds";
 
 const mockFetch = vi.fn();
 vi.stubGlobal("fetch", mockFetch);
@@ -54,10 +55,10 @@ describe("AdminDeviceManagement", () => {
   it("create device form submits and refreshes list", async () => {
     mockListDevices();
     renderPage();
-    await waitFor(() => expect(screen.getByTestId("device-list")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByTestId(TEST_ID_DEVICE_LIST)).toBeInTheDocument());
 
-    const labelInput = screen.getByTestId("create-device-label");
-    const hostInput = screen.getByTestId("create-device-host");
+    const labelInput = screen.getByTestId(TEST_ID_CREATE_DEVICE_LABEL);
+    const hostInput = screen.getByTestId(TEST_ID_CREATE_DEVICE_HOST);
     fireEvent(labelInput, new CustomEvent("ionInput", { detail: { value: "Backup OBS" } }));
     fireEvent(hostInput, new CustomEvent("ionInput", { detail: { value: "192.168.1.200" } }));
 
@@ -65,7 +66,7 @@ describe("AdminDeviceManagement", () => {
     mockFetch.mockResolvedValueOnce({ ok: true, json: async () => [...DEVICES, { id: "d2", label: "Backup OBS" }] });
 
     await act(async () => {
-      fireEvent.click(screen.getByTestId("create-device-submit"));
+      fireEvent.click(screen.getByTestId(TEST_ID_CREATE_DEVICE_SUBMIT));
     });
 
     await waitFor(() => {
@@ -76,25 +77,25 @@ describe("AdminDeviceManagement", () => {
   it("stream title template shows live preview", async () => {
     mockListDevices();
     renderPage();
-    await waitFor(() => expect(screen.getByTestId("create-template-preview")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByTestId(TEST_ID_CREATE_TEMPLATE_PREVIEW)).toBeInTheDocument());
 
     // Default template with store manifest { speaker: "John", title: "Grace" }
-    expect(screen.getByTestId("create-template-preview")).toHaveTextContent("John");
+    expect(screen.getByTestId(TEST_ID_CREATE_TEMPLATE_PREVIEW)).toHaveTextContent("John");
   });
 
   it("edit device opens form and saves", async () => {
     mockListDevices();
     renderPage();
-    await waitFor(() => expect(screen.getByTestId("edit-device-btn-d1")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByTestId("edit-device-button-d1")).toBeInTheDocument());
 
-    fireEvent.click(screen.getByTestId("edit-device-btn-d1"));
-    expect(screen.getByTestId("edit-device-label")).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("edit-device-button-d1"));
+    expect(screen.getByTestId(TEST_ID_EDIT_DEVICE_LABEL)).toBeInTheDocument();
 
     mockFetch.mockResolvedValueOnce({ ok: true, json: async () => DEVICES[0] });
     mockFetch.mockResolvedValueOnce({ ok: true, json: async () => DEVICES });
 
     await act(async () => {
-      fireEvent.click(screen.getByTestId("edit-device-save"));
+      fireEvent.click(screen.getByTestId(TEST_ID_EDIT_DEVICE_SAVE));
     });
 
     await waitFor(() => {
@@ -105,22 +106,22 @@ describe("AdminDeviceManagement", () => {
   it("edit shows template preview", async () => {
     mockListDevices();
     renderPage();
-    await waitFor(() => expect(screen.getByTestId("edit-device-btn-d1")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByTestId("edit-device-button-d1")).toBeInTheDocument());
 
-    fireEvent.click(screen.getByTestId("edit-device-btn-d1"));
-    expect(screen.getByTestId("edit-template-preview")).toHaveTextContent("John");
+    fireEvent.click(screen.getByTestId("edit-device-button-d1"));
+    expect(screen.getByTestId(TEST_ID_EDIT_TEMPLATE_PREVIEW)).toHaveTextContent("John");
   });
 
   it("delete device calls API and refreshes", async () => {
     mockListDevices();
     renderPage();
-    await waitFor(() => expect(screen.getByTestId("delete-device-btn-d1")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByTestId("delete-device-button-d1")).toBeInTheDocument());
 
     mockFetch.mockResolvedValueOnce({ ok: true });
     mockFetch.mockResolvedValueOnce({ ok: true, json: async () => [] });
 
     await act(async () => {
-      fireEvent.click(screen.getByTestId("delete-device-btn-d1"));
+      fireEvent.click(screen.getByTestId("delete-device-button-d1"));
     });
 
     await waitFor(() => {

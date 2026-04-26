@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { TEST_ID_MODAL_BACKDROP, TEST_ID_MODAL_CONTAINER, TEST_ID_MODAL_HEADER, TEST_ID_MODAL_BODY, TEST_ID_MODAL_FOOTER } from "../constants/testIds";
 
 type ModalSize = "small" | "large";
 
@@ -19,7 +20,7 @@ export function Modal({ isOpen, onClose, size = "small", header, footer, childre
 
   return (
     <div
-      data-testid="modal-backdrop"
+      data-testid={TEST_ID_MODAL_BACKDROP}
       className="overlay-backdrop"
       style={{ zIndex: 9999 }}
       onClick={onClose}
@@ -28,7 +29,7 @@ export function Modal({ isOpen, onClose, size = "small", header, footer, childre
       tabIndex={-1}
     >
       <div
-        data-testid="modal-container"
+        data-testid={TEST_ID_MODAL_CONTAINER}
         className="modal-container"
         style={{ width: size === "small" ? "50%" : "80%", maxWidth: "90vw", maxHeight: "80vh" }}
         onClick={(e) => e.stopPropagation()}
@@ -37,7 +38,7 @@ export function Modal({ isOpen, onClose, size = "small", header, footer, childre
       >
         {header && (
           <div
-            data-testid="modal-header"
+            data-testid={TEST_ID_MODAL_HEADER}
             className="modal-header"
             style={{ borderBottom: showBorders ? "1px solid var(--color-border)" : undefined }}
           >
@@ -45,13 +46,13 @@ export function Modal({ isOpen, onClose, size = "small", header, footer, childre
           </div>
         )}
         {children && (
-          <div data-testid="modal-body" className="modal-body">
+          <div data-testid={TEST_ID_MODAL_BODY} className="modal-body">
             {children}
           </div>
         )}
         {footer && (
           <div
-            data-testid="modal-footer"
+            data-testid={TEST_ID_MODAL_FOOTER}
             className="modal-footer"
             style={{ borderTop: showBorders ? "1px solid var(--color-border)" : undefined }}
           >

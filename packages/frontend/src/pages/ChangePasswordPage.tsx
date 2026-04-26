@@ -3,6 +3,10 @@ import type { ReactNode } from "react";
 import { IonPage, IonContent, IonInput, IonButton, IonText } from "@ionic/react";
 import { useNavigate } from "react-router";
 import { useStore } from "../store";
+import {
+  TEST_ID_CHANGE_PASSWORD_PAGE, TEST_ID_CHANGE_PASSWORD_FORM, TEST_ID_NEW_PASSWORD_INPUT,
+  TEST_ID_CONFIRM_PASSWORD_INPUT, TEST_ID_CHANGE_PASSWORD_SUBMIT, TEST_ID_CHANGE_PASSWORD_ERROR,
+} from "../constants/testIds";
 
 export function ChangePasswordPage(): ReactNode {
   const [newPassword, setNewPassword] = useState("");
@@ -43,11 +47,11 @@ export function ChangePasswordPage(): ReactNode {
   };
 
   return (
-    <IonPage data-testid="change-password-page">
+    <IonPage data-testid={TEST_ID_CHANGE_PASSWORD_PAGE}>
       <IonContent className="ion-padding">
         <div className="form-container">
           <form
-            data-testid="change-password-form"
+            data-testid={TEST_ID_CHANGE_PASSWORD_FORM}
             onSubmit={(e) => {
               e.preventDefault();
               void handleSubmit();
@@ -55,7 +59,7 @@ export function ChangePasswordPage(): ReactNode {
             className="form-layout"
           >
             <IonInput
-              data-testid="new-password-input"
+              data-testid={TEST_ID_NEW_PASSWORD_INPUT}
               name="new-password"
               autocomplete="new-password"
               label="New Password"
@@ -66,7 +70,7 @@ export function ChangePasswordPage(): ReactNode {
               fill="outline"
             />
             <IonInput
-              data-testid="confirm-password-input"
+              data-testid={TEST_ID_CONFIRM_PASSWORD_INPUT}
               name="confirm-password"
               autocomplete="new-password"
               label="Confirm Password"
@@ -77,12 +81,12 @@ export function ChangePasswordPage(): ReactNode {
               fill="outline"
             />
             {error && (
-              <IonText color="danger" data-testid="change-password-error">
+              <IonText color="danger" data-testid={TEST_ID_CHANGE_PASSWORD_ERROR}>
                 <p className="margin-none text-secondary">{error}</p>
               </IonText>
             )}
             <div className="form-actions">
-              <IonButton data-testid="change-password-submit" type="submit" disabled={pending} className="button-touch-target">
+              <IonButton data-testid={TEST_ID_CHANGE_PASSWORD_SUBMIT} type="submit" disabled={pending} className="button-touch-target">
                 {pending ? "Changing…" : "Change Password"}
               </IonButton>
             </div>

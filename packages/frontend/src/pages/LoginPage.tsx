@@ -3,6 +3,10 @@ import type { ReactNode } from "react";
 import { IonPage, IonContent, IonInput, IonButton, IonCheckbox, IonText } from "@ionic/react";
 import { useNavigate, Navigate } from "react-router";
 import { useStore } from "../store";
+import {
+  TEST_ID_LOGIN_PAGE, TEST_ID_LOGIN_FORM, TEST_ID_LOGIN_USERNAME, TEST_ID_LOGIN_PASSWORD,
+  TEST_ID_LOGIN_REMEMBER, TEST_ID_LOGIN_SUBMIT, TEST_ID_LOGIN_ERROR,
+} from "../constants/testIds";
 import type { AuthUser } from "../types";
 
 export function LoginPage(): ReactNode {
@@ -53,11 +57,11 @@ export function LoginPage(): ReactNode {
   };
 
   return (
-    <IonPage data-testid="login-page">
+    <IonPage data-testid={TEST_ID_LOGIN_PAGE}>
       <IonContent className="ion-padding">
         <div className="form-container">
           <form
-            data-testid="login-form"
+            data-testid={TEST_ID_LOGIN_FORM}
             onSubmit={(e) => {
               e.preventDefault();
               void handleSubmit();
@@ -65,7 +69,7 @@ export function LoginPage(): ReactNode {
             className="form-layout"
           >
             <IonInput
-              data-testid="login-username"
+              data-testid={TEST_ID_LOGIN_USERNAME}
               name="username"
               autocomplete="username"
               label="Username"
@@ -75,7 +79,7 @@ export function LoginPage(): ReactNode {
               fill="outline"
             />
             <IonInput
-              data-testid="login-password"
+              data-testid={TEST_ID_LOGIN_PASSWORD}
               name="password"
               autocomplete="current-password"
               label="Password"
@@ -87,7 +91,7 @@ export function LoginPage(): ReactNode {
             />
             <label className="remember-me-label">
               <IonCheckbox
-                data-testid="login-remember"
+                data-testid={TEST_ID_LOGIN_REMEMBER}
                 checked={rememberMe}
                 onIonChange={(e) => setRememberMe(e.detail.checked)}
                 className="checkbox-touch-target"
@@ -95,12 +99,12 @@ export function LoginPage(): ReactNode {
               Remember Me
             </label>
             {error && (
-              <IonText color="danger" data-testid="login-error">
+              <IonText color="danger" data-testid={TEST_ID_LOGIN_ERROR}>
                 <p className="margin-none text-secondary">{error}</p>
               </IonText>
             )}
             <div className="form-actions">
-              <IonButton data-testid="login-submit" type="submit" disabled={pending} className="button-touch-target">
+              <IonButton data-testid={TEST_ID_LOGIN_SUBMIT} type="submit" disabled={pending} className="button-touch-target">
                 {pending ? "Logging in…" : "Log In"}
               </IonButton>
             </div>

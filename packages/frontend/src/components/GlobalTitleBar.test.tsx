@@ -4,6 +4,7 @@ import { MemoryRouter } from "react-router";
 import { GlobalTitleBar } from "./GlobalTitleBar";
 import { useStore } from "../store";
 import { INITIAL_OBS_STATE } from "../store/obsSlice";
+import { TEST_ID_TITLE_BAR_DASHBOARD_NAV, TEST_ID_TITLE_BAR_LOGOUT_BUTTON, TEST_ID_TITLE_BAR_ROLE, TEST_ID_TITLE_BAR_USERNAME } from "../constants/testIds";
 
 vi.mock("react-router", async () => {
   const actual = await vi.importActual("react-router");
@@ -33,8 +34,8 @@ function renderBar(path = "/dashboard/default"): ReturnType<typeof render> {
 describe("GlobalTitleBar", () => {
   it("displays username and role", () => {
     renderBar();
-    expect(screen.getByTestId("title-bar-username")).toHaveTextContent("John");
-    expect(screen.getByTestId("title-bar-role")).toHaveTextContent("(AvVolunteer)");
+    expect(screen.getByTestId(TEST_ID_TITLE_BAR_USERNAME)).toHaveTextContent("John");
+    expect(screen.getByTestId(TEST_ID_TITLE_BAR_ROLE)).toHaveTextContent("(AvVolunteer)");
   });
 
   it("shows 'No Dashboard Selected' with (choose) when no dashboard name", () => {
@@ -52,14 +53,14 @@ describe("GlobalTitleBar", () => {
 
   it("reduced variant on /change-password hides role and nav", () => {
     renderBar("/change-password");
-    expect(screen.getByTestId("title-bar-username")).toBeInTheDocument();
-    expect(screen.queryByTestId("title-bar-role")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("title-bar-dashboard-nav")).not.toBeInTheDocument();
+    expect(screen.getByTestId(TEST_ID_TITLE_BAR_USERNAME)).toBeInTheDocument();
+    expect(screen.queryByTestId(TEST_ID_TITLE_BAR_ROLE)).not.toBeInTheDocument();
+    expect(screen.queryByTestId(TEST_ID_TITLE_BAR_DASHBOARD_NAV)).not.toBeInTheDocument();
   });
 
   it("logout link points to /auth/logout", () => {
     renderBar();
-    const logoutBtn = screen.getByTestId("title-bar-logout-btn");
+    const logoutBtn = screen.getByTestId(TEST_ID_TITLE_BAR_LOGOUT_BUTTON);
     expect(logoutBtn).toBeInTheDocument();
   });
 });

@@ -3,6 +3,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { DashboardSelectionScreen } from "./DashboardSelectionScreen";
+import { TEST_ID_DASHBOARD_OPTION, TEST_ID_NO_DASHBOARDS_SCREEN } from "../constants/testIds";
 
 const mockPush = vi.fn();
 vi.mock("react-router", async () => {
@@ -40,7 +41,7 @@ describe("DashboardSelectionScreen", () => {
     });
     renderPage();
     await waitFor(() => {
-      expect(screen.getAllByTestId("dashboard-option")).toHaveLength(2);
+      expect(screen.getAllByTestId(TEST_ID_DASHBOARD_OPTION)).toHaveLength(2);
     });
     expect(screen.getByText("Main Dashboard")).toBeInTheDocument();
     expect(screen.getByText("Tech Dashboard")).toBeInTheDocument();
@@ -50,7 +51,7 @@ describe("DashboardSelectionScreen", () => {
     mockFetch.mockResolvedValueOnce({ ok: true, json: async () => [] });
     renderPage();
     await waitFor(() => {
-      expect(screen.getByTestId("no-dashboards-screen")).toBeInTheDocument();
+      expect(screen.getByTestId(TEST_ID_NO_DASHBOARDS_SCREEN)).toBeInTheDocument();
     });
   });
 
@@ -61,9 +62,9 @@ describe("DashboardSelectionScreen", () => {
     });
     renderPage();
     await waitFor(() => {
-      expect(screen.getByTestId("dashboard-option")).toBeInTheDocument();
+      expect(screen.getByTestId(TEST_ID_DASHBOARD_OPTION)).toBeInTheDocument();
     });
-    await userEvent.click(screen.getByTestId("dashboard-option"));
+    await userEvent.click(screen.getByTestId(TEST_ID_DASHBOARD_OPTION));
     expect(localStorage.getItem("dashboardName")).toBe("Main Dashboard");
     expect(mockPush).toHaveBeenCalledWith("/dashboard/d1");
   });

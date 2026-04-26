@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { IonButton } from "@ionic/react";
 import { useLocation, useNavigate } from "react-router";
 import { useStore } from "../store";
+import { TEST_ID_GLOBAL_TITLE_BAR, TEST_ID_TITLE_BAR_DASHBOARD_NAV, TEST_ID_TITLE_BAR_USERNAME, TEST_ID_TITLE_BAR_ROLE, TEST_ID_TITLE_BAR_LOGOUT_BUTTON } from "../constants/testIds";
 
 export function GlobalTitleBar(): ReactNode {
   const user = useStore((s) => s.user);
@@ -15,9 +16,9 @@ export function GlobalTitleBar(): ReactNode {
   const dashboardName = localStorage.getItem("dashboardName");
 
   return (
-    <div data-testid="global-title-bar" className="title-bar">
+    <div data-testid={TEST_ID_GLOBAL_TITLE_BAR} className="title-bar">
       {!isChangePassword && (
-        <span data-testid="title-bar-dashboard-nav" className="title-bar-navigation">
+        <span data-testid={TEST_ID_TITLE_BAR_DASHBOARD_NAV} className="title-bar-navigation">
           {isDashboard && dashboardName ? (
             <>
               <span>{dashboardName}</span>
@@ -36,15 +37,15 @@ export function GlobalTitleBar(): ReactNode {
         </span>
       )}
       <span className="fill-remaining" />
-      <span data-testid="title-bar-username" className="margin-right-tight">
+      <span data-testid={TEST_ID_TITLE_BAR_USERNAME} className="margin-right-tight">
         {user.username}
       </span>
       {!isChangePassword && (
-        <span data-testid="title-bar-role" className="text-muted margin-right-standard">
+        <span data-testid={TEST_ID_TITLE_BAR_ROLE} className="text-muted margin-right-standard">
           ({user.role})
         </span>
       )}
-      <IonButton data-testid="title-bar-logout-btn" href="/api/auth/logout" fill="clear" size="small">
+      <IonButton data-testid={TEST_ID_TITLE_BAR_LOGOUT_BUTTON} href="/api/auth/logout" fill="clear" size="small">
         Logout
       </IonButton>
     </div>

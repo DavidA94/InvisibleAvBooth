@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import type { ReactNode } from "react";
 import { useIonToast } from "@ionic/react";
 import { useStore } from "../store";
+import { TEST_ID_NOTIFICATION_BANNER, TEST_ID_BANNER_COUNTER, TEST_ID_BANNER_DISMISS, TEST_ID_NOTIFICATION_MODAL } from "../constants/testIds";
 import type { Notification } from "../types";
 
 const ANIMATION_DELAY = 500;
@@ -77,12 +78,12 @@ function BannerManager(): ReactNode {
 
   return (
     <div
-      data-testid="notification-banner"
+      data-testid={TEST_ID_NOTIFICATION_BANNER}
       className={`notification-banner ${current.severity === "error" ? "notification-banner-error" : "notification-banner-warning"}`}
     >
       <span>{current.message}</span>
       {banners.length > 1 && (
-        <span data-testid="banner-counter" className="text-caption">
+        <span data-testid={TEST_ID_BANNER_COUNTER} className="text-caption">
           {(index % banners.length) + 1} of {banners.length}
           <button onClick={() => setIndex((i) => i - 1)} className="button-unstyled margin-left-tight">
             ◀
@@ -92,7 +93,7 @@ function BannerManager(): ReactNode {
           </button>
         </span>
       )}
-      <button data-testid="banner-dismiss" onClick={handleDismiss} className="button-unstyled text-bold">
+      <button data-testid={TEST_ID_BANNER_DISMISS} onClick={handleDismiss} className="button-unstyled text-bold">
         ✕
       </button>
     </div>
@@ -108,7 +109,7 @@ function ModalManager(): ReactNode {
   if (!current) return null;
 
   return (
-    <div data-testid="notification-modal" className="overlay-backdrop" style={{ zIndex: 10001 }}>
+    <div data-testid={TEST_ID_NOTIFICATION_MODAL} className="overlay-backdrop" style={{ zIndex: 10001 }}>
       <div className="notification-modal-card">
         <p className="margin-none text-bold text-danger margin-bottom-wide">{current.message}</p>
         <button onClick={() => useStore.getState().removeNotification(current.id)} className="notification-modal-button">

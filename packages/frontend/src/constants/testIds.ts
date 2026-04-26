@@ -23,7 +23,7 @@ export const TEST_ID_GLOBAL_TITLE_BAR = "global-title-bar";
 export const TEST_ID_TITLE_BAR_DASHBOARD_NAV = "title-bar-dashboard-nav";
 export const TEST_ID_TITLE_BAR_USERNAME = "title-bar-username";
 export const TEST_ID_TITLE_BAR_ROLE = "title-bar-role";
-export const TEST_ID_TITLE_BAR_LOGOUT_BUTTON = "title-bar-logout-btn";
+export const TEST_ID_TITLE_BAR_LOGOUT_BUTTON = "title-bar-logout-button";
 
 // ── Dashboard ──────────────────────────────────────────────────────────────────
 export const TEST_ID_DASHBOARD_GRID = "dashboard-grid";
@@ -42,8 +42,8 @@ export const TEST_ID_MODAL_FOOTER = "modal-footer";
 
 // ── Confirmation Modal ─────────────────────────────────────────────────────────
 export const TEST_ID_CONFIRMATION_BODY = "confirmation-body";
-export const TEST_ID_CONFIRMATION_CANCEL_BUTTON = "confirmation-cancel-btn";
-export const TEST_ID_CONFIRMATION_CONFIRM_BUTTON = "confirmation-confirm-btn";
+export const TEST_ID_CONFIRMATION_CANCEL_BUTTON = "confirmation-cancel-button";
+export const TEST_ID_CONFIRMATION_CONFIRM_BUTTON = "confirmation-confirm-button";
 
 // ── Notifications ──────────────────────────────────────────────────────────────
 export const TEST_ID_NOTIFICATION_BANNER = "notification-banner";
@@ -67,13 +67,13 @@ export const TEST_ID_OBS_WIDGET = "obs-widget";
 export const TEST_ID_OBS_STATUS_BAR = "obs-status-bar";
 export const TEST_ID_OBS_METADATA_PREVIEW = "obs-metadata-preview";
 export const TEST_ID_OBS_CONTROLS = "obs-controls";
-export const TEST_ID_OBS_STREAM_BUTTON = "obs-stream-btn";
-export const TEST_ID_OBS_RECORD_BUTTON = "obs-record-btn";
+export const TEST_ID_OBS_STREAM_BUTTON = "obs-stream-button";
+export const TEST_ID_OBS_RECORD_BUTTON = "obs-record-button";
 export const TEST_ID_STREAM_STATUS = "stream-status";
 export const TEST_ID_STREAM_TIMECODE = "stream-timecode";
 export const TEST_ID_RECORDING_INDICATOR = "recording-indicator";
 export const TEST_ID_STREAM_DISABLED_REASON = "stream-disabled-reason";
-export const TEST_ID_EDIT_DETAILS_BUTTON = "edit-details-btn";
+export const TEST_ID_EDIT_DETAILS_BUTTON = "edit-details-button";
 
 // ── Session Manifest Modal ─────────────────────────────────────────────────────
 export const TEST_ID_SESSION_MANIFEST_MODAL = "session-manifest-modal";

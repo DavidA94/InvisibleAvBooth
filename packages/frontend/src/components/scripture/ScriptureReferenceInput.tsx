@@ -13,6 +13,7 @@ import {
   isVerseValidForChapter,
 } from "@invisible-av-booth/shared";
 import { darkSelectStyles } from "../../theme/selectStyles";
+import { TEST_ID_SCRIPTURE_BOOK_SELECT, TEST_ID_SCRIPTURE_CHAPTER_SELECT, TEST_ID_SCRIPTURE_VERSE_SELECT, TEST_ID_SCRIPTURE_VERSE_END_SELECT } from "../../constants/testIds";
 
 interface NumberOption {
   value: number;
@@ -174,7 +175,7 @@ export function ScriptureReferenceInput({
 
   return (
     <>
-      <div data-testid="scripture-book-select">
+      <div data-testid={TEST_ID_SCRIPTURE_BOOK_SELECT}>
         <Select<BookOption, false, BookGroup>
           options={BOOK_GROUPS}
           value={selectedBook}
@@ -187,7 +188,7 @@ export function ScriptureReferenceInput({
         />
       </div>
       <div className="manifest-scripture-row">
-        <div className="fill-remaining" data-testid="scripture-chapter-select">
+        <div className="fill-remaining" data-testid={TEST_ID_SCRIPTURE_CHAPTER_SELECT}>
           <Select<NumberOption>
             options={chapterOptions}
             value={selectedChapter}
@@ -199,7 +200,7 @@ export function ScriptureReferenceInput({
             menuPortalTarget={document.body}
           />
         </div>
-        <div className="fill-remaining" data-testid="scripture-verse-select">
+        <div className="fill-remaining" data-testid={TEST_ID_SCRIPTURE_VERSE_SELECT}>
           <Select<NumberOption>
             options={verseOptions}
             value={selectedVerse}
@@ -211,7 +212,7 @@ export function ScriptureReferenceInput({
             menuPortalTarget={document.body}
           />
         </div>
-        <div className="fill-remaining" data-testid="scripture-verse-end-select">
+        <div className="fill-remaining" data-testid={TEST_ID_SCRIPTURE_VERSE_END_SELECT}>
           <Select<NumberOption>
             options={verseEndOptions}
             value={selectedVerseEnd}

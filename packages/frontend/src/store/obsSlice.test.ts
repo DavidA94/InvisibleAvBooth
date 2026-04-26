@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect, beforeEach } from "vitest";
 import { useStore } from "./index";
 import { INITIAL_OBS_STATE } from "./obsSlice";

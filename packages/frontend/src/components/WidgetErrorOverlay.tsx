@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { IonSpinner } from "@ionic/react";
+import { TEST_ID_WIDGET_ERROR_OVERLAY, TEST_ID_ERROR_OVERLAY_MESSAGE, TEST_ID_ERROR_OVERLAY_ACTION } from "../constants/testIds";
 
 type OverlayDisplay = "flex-column" | "flex-row" | "block" | "grid";
 
@@ -29,7 +30,7 @@ export function WidgetErrorOverlay({ isVisible, message, actionLabel, onAction, 
       {children}
       {isVisible && (
         <div
-          data-testid="widget-error-overlay"
+          data-testid={TEST_ID_WIDGET_ERROR_OVERLAY}
           role={interactive ? "button" : undefined}
           tabIndex={interactive ? 0 : undefined}
           onClick={interactive ? onAction : undefined}
@@ -37,10 +38,10 @@ export function WidgetErrorOverlay({ isVisible, message, actionLabel, onAction, 
           className={`overlay-scrim ${interactive ? "cursor-pointer" : ""}`}
         >
           <div className="error-overlay-content">
-            <p data-testid="error-overlay-message" className="text-danger text-bold error-overlay-message">
+            <p data-testid={TEST_ID_ERROR_OVERLAY_MESSAGE} className="text-danger text-bold error-overlay-message">
               {message}
             </p>
-            <p data-testid="error-overlay-action" className="margin-none">
+            <p data-testid={TEST_ID_ERROR_OVERLAY_ACTION} className="margin-none">
               {isPending ? <IonSpinner name="crescent" /> : actionLabel}
             </p>
           </div>

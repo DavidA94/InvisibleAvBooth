@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { WidgetErrorOverlay } from "./WidgetErrorOverlay";
+import { TEST_ID_ERROR_OVERLAY_ACTION, TEST_ID_ERROR_OVERLAY_MESSAGE, TEST_ID_WIDGET_ERROR_OVERLAY } from "../constants/testIds";
 
 describe("WidgetErrorOverlay", () => {
   it("renders children normally when not visible", () => {
@@ -10,7 +11,7 @@ describe("WidgetErrorOverlay", () => {
       </WidgetErrorOverlay>,
     );
     expect(screen.getByTestId("child")).toBeInTheDocument();
-    expect(screen.queryByTestId("widget-error-overlay")).not.toBeInTheDocument();
+    expect(screen.queryByTestId(TEST_ID_WIDGET_ERROR_OVERLAY)).not.toBeInTheDocument();
   });
 
   it("shows overlay when visible", () => {
@@ -19,9 +20,9 @@ describe("WidgetErrorOverlay", () => {
         <div>Content</div>
       </WidgetErrorOverlay>,
     );
-    expect(screen.getByTestId("widget-error-overlay")).toBeInTheDocument();
-    expect(screen.getByTestId("error-overlay-message")).toHaveTextContent("OBS Disconnected");
-    expect(screen.getByTestId("error-overlay-action")).toHaveTextContent("Tap to Retry");
+    expect(screen.getByTestId(TEST_ID_WIDGET_ERROR_OVERLAY)).toBeInTheDocument();
+    expect(screen.getByTestId(TEST_ID_ERROR_OVERLAY_MESSAGE)).toHaveTextContent("OBS Disconnected");
+    expect(screen.getByTestId(TEST_ID_ERROR_OVERLAY_ACTION)).toHaveTextContent("Tap to Retry");
   });
 
   it("shows spinner when isPending", () => {
@@ -30,7 +31,7 @@ describe("WidgetErrorOverlay", () => {
         <div>Content</div>
       </WidgetErrorOverlay>,
     );
-    expect(screen.getByTestId("error-overlay-action").querySelector("ion-spinner")).toBeInTheDocument();
+    expect(screen.getByTestId(TEST_ID_ERROR_OVERLAY_ACTION).querySelector("ion-spinner")).toBeInTheDocument();
   });
 
   it("onAction fires on click", () => {
@@ -40,7 +41,7 @@ describe("WidgetErrorOverlay", () => {
         <div>Content</div>
       </WidgetErrorOverlay>,
     );
-    fireEvent.click(screen.getByTestId("widget-error-overlay"));
+    fireEvent.click(screen.getByTestId(TEST_ID_WIDGET_ERROR_OVERLAY));
     expect(onAction).toHaveBeenCalledOnce();
   });
 
@@ -50,7 +51,7 @@ describe("WidgetErrorOverlay", () => {
         <div>Content</div>
       </WidgetErrorOverlay>,
     );
-    const overlay = screen.getByTestId("widget-error-overlay");
+    const overlay = screen.getByTestId(TEST_ID_WIDGET_ERROR_OVERLAY);
     expect(overlay).not.toHaveAttribute("role", "button");
   });
 });

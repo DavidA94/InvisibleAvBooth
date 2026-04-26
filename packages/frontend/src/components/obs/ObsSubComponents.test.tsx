@@ -5,6 +5,7 @@ import { ObsMetadataPreview } from "./ObsMetadataPreview";
 import { ObsControls } from "./ObsControls";
 import { INITIAL_OBS_STATE } from "../../store/obsSlice";
 import type { ObsState } from "../../types";
+import { TEST_ID_EDIT_DETAILS_BUTTON, TEST_ID_OBS_METADATA_PREVIEW, TEST_ID_OBS_RECORD_BUTTON, TEST_ID_OBS_STREAM_BUTTON, TEST_ID_RECORDING_INDICATOR, TEST_ID_STREAM_DISABLED_REASON, TEST_ID_STREAM_STATUS, TEST_ID_STREAM_TIMECODE } from "../../constants/testIds";
 
 const liveState: ObsState = {
   ...INITIAL_OBS_STATE,
@@ -18,40 +19,40 @@ const recordingState: ObsState = { ...INITIAL_OBS_STATE, connected: true, record
 describe("ObsStatusBar", () => {
   it("shows LIVE when streaming", () => {
     render(<ObsStatusBar obsState={liveState} />);
-    expect(screen.getByTestId("stream-status")).toHaveTextContent("LIVE");
+    expect(screen.getByTestId(TEST_ID_STREAM_STATUS)).toHaveTextContent("LIVE");
   });
 
   it("shows Offline when not streaming", () => {
     render(<ObsStatusBar obsState={INITIAL_OBS_STATE} />);
-    expect(screen.getByTestId("stream-status")).toHaveTextContent("Offline");
+    expect(screen.getByTestId(TEST_ID_STREAM_STATUS)).toHaveTextContent("Offline");
   });
 
   it("shows timecode when streaming", () => {
     render(<ObsStatusBar obsState={liveState} />);
-    expect(screen.getByTestId("stream-timecode")).toHaveTextContent("00:14:32");
+    expect(screen.getByTestId(TEST_ID_STREAM_TIMECODE)).toHaveTextContent("00:14:32");
   });
 
   it("shows recording indicator when recording", () => {
     render(<ObsStatusBar obsState={recordingState} />);
-    expect(screen.getByTestId("recording-indicator")).toBeInTheDocument();
+    expect(screen.getByTestId(TEST_ID_RECORDING_INDICATOR)).toBeInTheDocument();
   });
 });
 
 describe("ObsMetadataPreview", () => {
   it("shows interpolated title", () => {
     render(<ObsMetadataPreview interpolatedStreamTitle="Apr 19 – John – Grace" onEditDetails={vi.fn()} />);
-    expect(screen.getByTestId("obs-metadata-preview")).toHaveTextContent("Apr 19 – John – Grace");
+    expect(screen.getByTestId(TEST_ID_OBS_METADATA_PREVIEW)).toHaveTextContent("Apr 19 – John – Grace");
   });
 
   it("shows empty state when no details", () => {
     render(<ObsMetadataPreview interpolatedStreamTitle="" onEditDetails={vi.fn()} />);
-    expect(screen.getByTestId("obs-metadata-preview")).toHaveTextContent("No session details set");
+    expect(screen.getByTestId(TEST_ID_OBS_METADATA_PREVIEW)).toHaveTextContent("No session details set");
   });
 
   it("pencil button fires onEditDetails", () => {
     const onEdit = vi.fn();
     render(<ObsMetadataPreview interpolatedStreamTitle="Title" onEditDetails={onEdit} />);
-    fireEvent.click(screen.getByTestId("edit-details-btn"));
+    fireEvent.click(screen.getByTestId(TEST_ID_EDIT_DETAILS_BUTTON));
     expect(onEdit).toHaveBeenCalledOnce();
   });
 });
@@ -68,7 +69,7 @@ describe("ObsControls", () => {
         onStopRecording={vi.fn()}
       />,
     );
-    expect(screen.getByTestId("obs-stream-btn")).toHaveTextContent("Start Stream");
+    expect(screen.getByTestId(TEST_ID_OBS_STREAM_BUTTON)).toHaveTextContent("Start Stream");
   });
 
   it("shows Stop Stream when streaming", () => {
@@ -82,7 +83,7 @@ describe("ObsControls", () => {
         onStopRecording={vi.fn()}
       />,
     );
-    expect(screen.getByTestId("obs-stream-btn")).toHaveTextContent("Stop Stream");
+    expect(screen.getByTestId(TEST_ID_OBS_STREAM_BUTTON)).toHaveTextContent("Stop Stream");
   });
 
   it("disables buttons when pending", () => {
@@ -96,8 +97,8 @@ describe("ObsControls", () => {
         onStopRecording={vi.fn()}
       />,
     );
-    expect(screen.getByTestId("obs-stream-btn")).toHaveAttribute("disabled", "true");
-    expect(screen.getByTestId("obs-record-btn")).toHaveAttribute("disabled", "true");
+    expect(screen.getByTestId(TEST_ID_OBS_STREAM_BUTTON)).toHaveAttribute("disabled", "true");
+    expect(screen.getByTestId(TEST_ID_OBS_RECORD_BUTTON)).toHaveAttribute("disabled", "true");
   });
 
   it("shows disabled reason as subtext in button", () => {
@@ -112,6 +113,6 @@ describe("ObsControls", () => {
         onStopRecording={vi.fn()}
       />,
     );
-    expect(screen.getByTestId("stream-disabled-reason")).toHaveTextContent("Enter metadata");
+    expect(screen.getByTestId(TEST_ID_STREAM_DISABLED_REASON)).toHaveTextContent("Enter metadata");
   });
 });

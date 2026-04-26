@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { TEST_ID_OBS_STATUS_BAR, TEST_ID_STREAM_STATUS, TEST_ID_STREAM_TIMECODE, TEST_ID_RECORDING_INDICATOR } from "../../constants/testIds";
 import type { ObsState } from "../../types";
 
 interface ObsStatusBarProps {
@@ -7,19 +8,19 @@ interface ObsStatusBarProps {
 
 export function ObsStatusBar({ obsState }: ObsStatusBarProps): ReactNode {
   return (
-    <div data-testid="obs-status-bar" className="obs-status-bar">
+    <div data-testid={TEST_ID_OBS_STATUS_BAR} className="obs-status-bar">
       {obsState.streaming ? (
-        <span data-testid="stream-status" className="text-success text-bold">
+        <span data-testid={TEST_ID_STREAM_STATUS} className="text-success text-bold">
           ● LIVE
         </span>
       ) : (
-        <span data-testid="stream-status" className="text-muted">
+        <span data-testid={TEST_ID_STREAM_STATUS} className="text-muted">
           ● Offline
         </span>
       )}
-      {obsState.streamTimecode && <span data-testid="stream-timecode">{obsState.streamTimecode}</span>}
+      {obsState.streamTimecode && <span data-testid={TEST_ID_STREAM_TIMECODE}>{obsState.streamTimecode}</span>}
       {obsState.recording && (
-        <span data-testid="recording-indicator" className="text-danger">
+        <span data-testid={TEST_ID_RECORDING_INDICATOR} className="text-danger">
           ⏺ REC
         </span>
       )}

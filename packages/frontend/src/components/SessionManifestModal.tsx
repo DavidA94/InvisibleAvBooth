@@ -6,6 +6,11 @@ import { useStore } from "../store";
 import { useSocket } from "../providers/SocketProvider";
 import { Modal } from "./Modal";
 import { ScriptureReferenceInput } from "./scripture/ScriptureReferenceInput";
+import {
+  TEST_ID_SESSION_MANIFEST_MODAL, TEST_ID_MANIFEST_SPEAKER, TEST_ID_MANIFEST_TITLE,
+  TEST_ID_MANIFEST_PREVIEW, TEST_ID_MANIFEST_SAVE, TEST_ID_MANIFEST_CANCEL,
+  TEST_ID_MANIFEST_CLEAR, TEST_ID_MANIFEST_SAVE_ERROR,
+} from "../constants/testIds";
 import type { SessionManifest, ScriptureReference, CommandResult } from "../types";
 
 const ACK_TIMEOUT = 5000;
@@ -103,7 +108,7 @@ export function SessionManifestModal({ isOpen, onClose }: SessionManifestModalPr
   const footer = (
     <div className="manifest-footer">
       <button
-        data-testid="manifest-clear"
+        data-testid={TEST_ID_MANIFEST_CLEAR}
         onClick={handleClear}
         disabled={saving || isLive}
         className={`button-ghost-danger button-padding-compact ${saving || isLive ? "opacity-disabled" : ""}`}
@@ -112,7 +117,7 @@ export function SessionManifestModal({ isOpen, onClose }: SessionManifestModalPr
       </button>
       <span className="fill-remaining" />
       <button
-        data-testid="manifest-cancel"
+        data-testid={TEST_ID_MANIFEST_CANCEL}
         onClick={onClose}
         disabled={saving}
         className="button-outline button-padding-standard"
@@ -120,7 +125,7 @@ export function SessionManifestModal({ isOpen, onClose }: SessionManifestModalPr
         Cancel
       </button>
       <button
-        data-testid="manifest-save"
+        data-testid={TEST_ID_MANIFEST_SAVE}
         onClick={handleSave}
         disabled={saving}
         className={`button-primary text-bold button-padding-standard ${saving ? "opacity-disabled" : ""}`}
@@ -132,9 +137,9 @@ export function SessionManifestModal({ isOpen, onClose }: SessionManifestModalPr
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="small" header="Session Details" footer={footer}>
-      <div data-testid="session-manifest-modal" className="manifest-form">
+      <div data-testid={TEST_ID_SESSION_MANIFEST_MODAL} className="manifest-form">
         <IonInput
-          data-testid="manifest-speaker"
+          data-testid={TEST_ID_MANIFEST_SPEAKER}
           label="Speaker"
           labelPlacement="stacked"
           fill="outline"
@@ -143,7 +148,7 @@ export function SessionManifestModal({ isOpen, onClose }: SessionManifestModalPr
           clearInput
         />
         <IonInput
-          data-testid="manifest-title"
+          data-testid={TEST_ID_MANIFEST_TITLE}
           label="Sermon Title"
           labelPlacement="stacked"
           fill="outline"
@@ -163,13 +168,13 @@ export function SessionManifestModal({ isOpen, onClose }: SessionManifestModalPr
           onVerseEndChange={setVerseEnd}
         />
 
-        <div data-testid="manifest-preview" className="manifest-preview">
+        <div data-testid={TEST_ID_MANIFEST_PREVIEW} className="manifest-preview">
           <span className="text-muted">Stream title preview</span>
           <p className="text-bold margin-top-tight margin-none">{preview}</p>
         </div>
 
         {error && (
-          <IonText color="danger" data-testid="manifest-save-error">
+          <IonText color="danger" data-testid={TEST_ID_MANIFEST_SAVE_ERROR}>
             <p className="margin-none text-secondary">{error}</p>
           </IonText>
         )}

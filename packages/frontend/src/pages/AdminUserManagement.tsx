@@ -3,6 +3,14 @@ import type { ReactNode } from "react";
 import { IonPage, IonContent, IonInput, IonButton, IonText, IonSpinner } from "@ionic/react";
 import Select from "react-select";
 import { darkSelectStyles } from "../theme/selectStyles";
+import { useAuth } from "../hooks/useAuth";
+import {
+  TEST_ID_ADMIN_USERS_PAGE, TEST_ID_CREATE_USER_FORM, TEST_ID_CREATE_USERNAME,
+  TEST_ID_CREATE_PASSWORD, TEST_ID_CREATE_ROLE_SELECT, TEST_ID_CREATE_USER_SUBMIT,
+  TEST_ID_CREATE_USER_ERROR, TEST_ID_USER_LIST, TEST_ID_EDIT_USERNAME,
+  TEST_ID_EDIT_PASSWORD, TEST_ID_EDIT_ROLE_SELECT, TEST_ID_EDIT_SAVE,
+  TEST_ID_EDIT_CANCEL, TEST_ID_EDIT_USER_ERROR,
+} from "../constants/testIds";
 import type { Role } from "../types";
 
 interface UserRecord {
@@ -27,6 +35,7 @@ const ROLE_OPTIONS: RoleOption[] = [
 const roleStyles = darkSelectStyles<RoleOption>();
 
 export function AdminUserManagement(): ReactNode {
+  const { user: currentUser } = useAuth();
   const [users, setUsers] = useState<UserRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -149,7 +158,7 @@ export function AdminUserManagement(): ReactNode {
 
   if (loading) {
     return (
-      <IonPage data-testid="admin-users-page">
+      <IonPage data-testid={TEST_ID_ADMIN_USERS_PAGE}>
         <IonContent className="ion-padding ion-text-center">
           <IonSpinner />
         </IonContent>
@@ -158,7 +167,7 @@ export function AdminUserManagement(): ReactNode {
   }
 
   return (
-    <IonPage data-testid="admin-users-page">
+    <IonPage data-testid={TEST_ID_ADMIN_USERS_PAGE}>
       <IonContent className="ion-padding">
         <div className="form-container" style={{ maxWidth: "40rem" }}>
           <h2 className="text-center margin-bottom-spacious">User Management</h2>
@@ -170,11 +179,11 @@ export function AdminUserManagement(): ReactNode {
           )}
 
           {/* Create user form */}
-          <div data-testid="create-user-form" className="surface" style={{ padding: "1rem", marginBottom: "1.5rem" }}>
+          <div data-testid={TEST_ID_CREATE_USER_FORM} className="surface" style={{ padding: "1rem", marginBottom: "1.5rem" }}>
             <h3 className="margin-none margin-bottom-wide">Create User</h3>
             <div className="form-layout">
               <IonInput
-                data-testid="create-username"
+                data-testid={TEST_ID_CREATE_USERNAME}
                 label="Username"
                 labelPlacement="stacked"
                 fill="outline"
@@ -183,7 +192,7 @@ export function AdminUserManagement(): ReactNode {
                 clearInput
               />
               <IonInput
-                data-testid="create-password"
+                data-testid={TEST_ID_CREATE_PASSWORD}
                 label="Password"
                 labelPlacement="stacked"
                 fill="outline"
@@ -192,7 +201,7 @@ export function AdminUserManagement(): ReactNode {
                 onIonInput={(e) => setCreatePassword(e.detail.value ?? "")}
                 clearInput
               />
-              <div data-testid="create-role-select">
+              <div data-testid={TEST_ID_CREATE_ROLE_SELECT}>
                 <Select<RoleOption>
                   options={ROLE_OPTIONS}
                   value={ROLE_OPTIONS.find((o) => o.value === createRole)}
@@ -203,12 +212,12 @@ export function AdminUserManagement(): ReactNode {
                 />
               </div>
               {createError && (
-                <IonText color="danger" data-testid="create-user-error">
+                <IonText color="danger" data-testid={TEST_ID_CREATE_USER_ERROR}>
                   <p className="margin-none text-secondary">{createError}</p>
                 </IonText>
               )}
               <IonButton
-                data-testid="create-user-submit"
+                data-testid={TEST_ID_CREATE_USER_SUBMIT}
                 expand="block"
                 disabled={createPending || !createUsername || !createPassword}
                 onClick={() => void handleCreate()}
@@ -219,76 +228,80 @@ export function AdminUserManagement(): ReactNode {
           </div>
 
           {/* User list */}
-          <div data-testid="user-list">
-            {users.map((user) => (
-              <div key={user.id} data-testid={`user-row-${user.id}`} className="surface" style={{ padding: "0.75rem", marginBottom: "0.5rem" }}>
-                {editingId === user.id ? (
-                  <div className="form-layout">
-                    <IonInput
-                      data-testid="edit-username"
-                      label="Username"
-                      labelPlacement="stacked"
-                      fill="outline"
-                      value={editUsername}
-                      onIonInput={(e) => setEditUsername(e.detail.value ?? "")}
-                      clearInput
-                    />
-                    <IonInput
-                      data-testid="edit-password"
-                      label="New Password (leave blank to keep)"
-                      labelPlacement="stacked"
-                      fill="outline"
-                      type="password"
-                      value={editPassword}
-                      onIonInput={(e) => setEditPassword(e.detail.value ?? "")}
-                      clearInput
-                    />
-                    <div data-testid="edit-role-select">
-                      <Select<RoleOption>
-                        options={ROLE_OPTIONS}
-                        value={ROLE_OPTIONS.find((o) => o.value === editRole)}
-                        onChange={(option) => setEditRole(option?.value ?? "AvVolunteer")}
-                        styles={roleStyles}
-                        isSearchable={false}
-                        menuPortalTarget={document.body}
+          <div data-testid={TEST_ID_USER_LIST}>
+            {users.map((user) => {
+              const isSelf = user.id === currentUser.id;
+              return (
+                <div key={user.id} data-testid={`user-row-${user.id}`} className="surface" style={{ padding: "0.75rem", marginBottom: "0.5rem" }}>
+                  {editingId === user.id ? (
+                    <div className="form-layout">
+                      <IonInput
+                        data-testid={TEST_ID_EDIT_USERNAME}
+                        label="Username"
+                        labelPlacement="stacked"
+                        fill="outline"
+                        value={editUsername}
+                        onIonInput={(e) => setEditUsername(e.detail.value ?? "")}
+                        clearInput
                       />
+                      <IonInput
+                        data-testid={TEST_ID_EDIT_PASSWORD}
+                        label="New Password (leave blank to keep)"
+                        labelPlacement="stacked"
+                        fill="outline"
+                        type="password"
+                        value={editPassword}
+                        onIonInput={(e) => setEditPassword(e.detail.value ?? "")}
+                        clearInput
+                      />
+                      <div data-testid={TEST_ID_EDIT_ROLE_SELECT}>
+                        <Select<RoleOption>
+                          options={ROLE_OPTIONS}
+                          value={ROLE_OPTIONS.find((o) => o.value === editRole)}
+                          onChange={(option) => setEditRole(option?.value ?? "AvVolunteer")}
+                          styles={roleStyles}
+                          isSearchable={false}
+                          isDisabled={isSelf}
+                          menuPortalTarget={document.body}
+                        />
+                      </div>
+                      {editError && (
+                        <IonText color="danger" data-testid={TEST_ID_EDIT_USER_ERROR}>
+                          <p className="margin-none text-secondary">{editError}</p>
+                        </IonText>
+                      )}
+                      <div className="layout-row gap-standard">
+                        <IonButton data-testid={TEST_ID_EDIT_SAVE} size="small" disabled={editPending} onClick={() => void handleEdit()}>
+                          {editPending ? <IonSpinner name="crescent" /> : "Save"}
+                        </IonButton>
+                        <IonButton data-testid={TEST_ID_EDIT_CANCEL} size="small" fill="outline" onClick={cancelEdit}>
+                          Cancel
+                        </IonButton>
+                      </div>
                     </div>
-                    {editError && (
-                      <IonText color="danger" data-testid="edit-user-error">
-                        <p className="margin-none text-secondary">{editError}</p>
-                      </IonText>
-                    )}
+                  ) : (
                     <div className="layout-row gap-standard">
-                      <IonButton data-testid="edit-save" size="small" disabled={editPending} onClick={() => void handleEdit()}>
-                        {editPending ? <IonSpinner name="crescent" /> : "Save"}
+                      <strong>{user.username}</strong>
+                      <span className="text-muted text-secondary">({user.role})</span>
+                      <span className="fill-remaining" />
+                      <IonButton data-testid={`edit-button-${user.id}`} size="small" fill="clear" onClick={() => startEdit(user)}>
+                        Edit
                       </IonButton>
-                      <IonButton data-testid="edit-cancel" size="small" fill="outline" onClick={cancelEdit}>
-                        Cancel
+                      <IonButton
+                        data-testid={`delete-button-${user.id}`}
+                        size="small"
+                        fill="clear"
+                        color="danger"
+                        disabled={deletePendingId === user.id}
+                        onClick={() => void handleDelete(user.id)}
+                      >
+                        {deletePendingId === user.id ? <IonSpinner name="crescent" /> : "Delete"}
                       </IonButton>
                     </div>
-                  </div>
-                ) : (
-                  <div className="layout-row gap-standard">
-                    <strong>{user.username}</strong>
-                    <span className="text-muted text-secondary">({user.role})</span>
-                    <span className="fill-remaining" />
-                    <IonButton data-testid={`edit-btn-${user.id}`} size="small" fill="clear" onClick={() => startEdit(user)}>
-                      Edit
-                    </IonButton>
-                    <IonButton
-                      data-testid={`delete-btn-${user.id}`}
-                      size="small"
-                      fill="clear"
-                      color="danger"
-                      disabled={deletePendingId === user.id}
-                      onClick={() => void handleDelete(user.id)}
-                    >
-                      {deletePendingId === user.id ? <IonSpinner name="crescent" /> : "Delete"}
-                    </IonButton>
-                  </div>
-                )}
-              </div>
-            ))}
+                  )}
+                </div>
+              );
+            })}
             {users.length === 0 && <p className="text-muted text-center">No users found</p>}
           </div>
         </div>

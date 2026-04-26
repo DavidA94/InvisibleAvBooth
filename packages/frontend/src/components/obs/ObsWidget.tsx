@@ -8,6 +8,7 @@ import { ObsStatusBar } from "./ObsStatusBar";
 import { ObsMetadataPreview } from "./ObsMetadataPreview";
 import { ObsControls } from "./ObsControls";
 import { useObsState } from "../../hooks/useObsState";
+import { TEST_ID_OBS_WIDGET } from "../../constants/testIds";
 import { useStore } from "../../store";
 
 export function ObsWidget(): ReactNode {
@@ -81,7 +82,7 @@ export function ObsWidget(): ReactNode {
 
   return (
     <WidgetContainer title="OBS" connections={[{ label: "OBS", healthy: obsState.connected }]}>
-      <div data-testid="obs-widget" className="layout-column full-height">
+      <div data-testid={TEST_ID_OBS_WIDGET} className="layout-column full-height">
         <ObsStatusBar obsState={obsState} />
         <ObsMetadataPreview interpolatedStreamTitle={interpolatedStreamTitle} onEditDetails={() => setShowManifestModal(true)} />
         <WidgetErrorOverlay

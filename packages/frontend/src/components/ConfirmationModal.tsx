@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { IonButton } from "@ionic/react";
 import { Modal } from "./Modal";
+import { TEST_ID_CONFIRMATION_BODY, TEST_ID_CONFIRMATION_CANCEL_BUTTON, TEST_ID_CONFIRMATION_CONFIRM_BUTTON } from "../constants/testIds";
 
 interface ConfirmationModalProps {
   isOpen: boolean;
@@ -25,10 +26,10 @@ export function ConfirmationModal({
 }: ConfirmationModalProps): ReactNode {
   const footer = (
     <div className="confirmation-footer">
-      <IonButton data-testid="confirmation-cancel-btn" fill="outline" size="default" onClick={onCancel}>
+      <IonButton data-testid={TEST_ID_CONFIRMATION_CANCEL_BUTTON} fill="outline" size="default" onClick={onCancel}>
         {cancelLabel}
       </IonButton>
-      <IonButton data-testid="confirmation-confirm-btn" color={confirmVariant === "danger" ? "danger" : "primary"} size="default" onClick={onConfirm}>
+      <IonButton data-testid={TEST_ID_CONFIRMATION_CONFIRM_BUTTON} color={confirmVariant === "danger" ? "danger" : "primary"} size="default" onClick={onConfirm}>
         {confirmLabel}
       </IonButton>
     </div>
@@ -36,7 +37,7 @@ export function ConfirmationModal({
 
   return (
     <Modal isOpen={isOpen} onClose={onCancel} size="small" header={title} footer={footer}>
-      {body && <div data-testid="confirmation-body">{typeof body === "string" ? <p className="margin-none">{body}</p> : body}</div>}
+      {body && <div data-testid={TEST_ID_CONFIRMATION_BODY}>{typeof body === "string" ? <p className="margin-none">{body}</p> : body}</div>}
     </Modal>
   );
 }

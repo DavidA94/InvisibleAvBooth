@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { IonButton, IonSpinner } from "@ionic/react";
+import { TEST_ID_OBS_CONTROLS, TEST_ID_OBS_STREAM_BUTTON, TEST_ID_OBS_RECORD_BUTTON, TEST_ID_STREAM_DISABLED_REASON } from "../../constants/testIds";
 import type { ObsState } from "../../types";
 
 interface ObsControlsProps {
@@ -25,9 +26,9 @@ export function ObsControls({
   const recordLabel = obsState.recording ? "Stop Recording" : "Start Recording";
 
   return (
-    <div data-testid="obs-controls" className="obs-controls">
+    <div data-testid={TEST_ID_OBS_CONTROLS} className="obs-controls">
       <IonButton
-        data-testid="obs-stream-btn"
+        data-testid={TEST_ID_OBS_STREAM_BUTTON}
         expand="block"
         color={obsState.streaming ? "danger" : "primary"}
         disabled={isPending}
@@ -40,7 +41,7 @@ export function ObsControls({
           <div className="layout-column layout-centered">
             <span className="text-button-large">{streamLabel}</span>
             {streamDisabledReason && !obsState.streaming && (
-              <span data-testid="stream-disabled-reason" style={{ fontSize: "0.75rem", opacity: 0.7, marginTop: "0.125rem" }}>
+              <span data-testid={TEST_ID_STREAM_DISABLED_REASON} style={{ fontSize: "0.75rem", opacity: 0.7, marginTop: "0.125rem" }}>
                 {streamDisabledReason}
               </span>
             )}
@@ -48,7 +49,7 @@ export function ObsControls({
         )}
       </IonButton>
       <IonButton
-        data-testid="obs-record-btn"
+        data-testid={TEST_ID_OBS_RECORD_BUTTON}
         expand="block"
         color={obsState.recording ? "danger" : "medium"}
         disabled={isPending}

@@ -11,7 +11,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const PACKAGE_ROOT = join(__dirname, "..", "..");
 const BOOTSTRAP_FILE = join(PACKAGE_ROOT, "data", "bootstrap.txt");
 
-const BCRYPT_ROUNDS = 12;
+const BCRYPT_ROUNDS = process.env["BCRYPT_ROUNDS"] ? Number(process.env["BCRYPT_ROUNDS"]) : 12;
 const JWT_SECRET = process.env["JWT_SECRET"] ?? "dev-secret-change-in-production";
 const DEFAULT_EXPIRY = "8h";
 const REMEMBER_ME_EXPIRY = "30d";
@@ -61,7 +61,7 @@ export interface UpdateUserRequest {
 
 export type Result<T, E> = { success: true; value: T } | { success: false; error: E };
 
-export type AuthErrorCode = "INVALID_CREDENTIALS" | "USER_NOT_FOUND" | "USERNAME_TAKEN" | "FORBIDDEN" | "SELF_DELETE" | "INVALID_TOKEN" | "INSUFFICIENT_ROLE";
+export type AuthErrorCode = "INVALID_CREDENTIALS" | "USER_NOT_FOUND" | "USERNAME_TAKEN" | "FORBIDDEN" | "SELF_DELETE" | "SELF_ROLE_CHANGE" | "INVALID_TOKEN" | "INSUFFICIENT_ROLE";
 
 export class AuthError extends Error {
   constructor(
@@ -196,6 +196,11 @@ export class AuthService {
     const row = this.database.prepare("SELECT * FROM users WHERE id = ?").get(id) as UserRow | undefined;
     if (!row) {
       return { success: false, error: new AuthError("USER_NOT_FOUND", "User not found") };
+    }
+
+    // Prevent admin from changing their own role
+    if (actor.sub === id && data.role && data.role !== row.role) {
+      return { success: false, error: new AuthError("SELF_ROLE_CHANGE", "Cannot change your own role") };
     }
 
     if (data.username && data.username !== row.username) {

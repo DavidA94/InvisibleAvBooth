@@ -178,6 +178,16 @@ describe("PUT /api/admin/users/:id", () => {
     const { cookie } = await loginAsAdmin(app, authService);
     expect((await request(app).put("/api/admin/users/nonexistent").set("Cookie", cookie).send({ username: "x" })).status).toBe(404);
   });
+
+  it("returns 403 when admin tries to change own role", async () => {
+    const { app, authService } = buildApp();
+    const { cookie } = await loginAsAdmin(app, authService);
+    const listRes = await request(app).get("/api/admin/users").set("Cookie", cookie);
+    const adminId = (listRes.body as Array<{ id: string; username: string }>).find((u) => u.username === "admin")!.id;
+    const response = await request(app).put(`/api/admin/users/${adminId}`).set("Cookie", cookie).send({ role: "AvVolunteer" });
+    expect(response.status).toBe(403);
+    expect(response.body.error).toContain("Cannot change your own role");
+  });
 });
 
 // ── DELETE /api/admin/users/:id ───────────────────────────────────────────────────

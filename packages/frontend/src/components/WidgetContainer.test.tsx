@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { WidgetContainer } from "./WidgetContainer";
+import { TEST_ID_CONNECTION_INDICATORS, TEST_ID_WIDGET_TITLE_BAR } from "../constants/testIds";
 
 let mockWidth = 300;
 vi.mock("../hooks/useResizeObserver", () => ({
@@ -20,7 +21,7 @@ describe("WidgetContainer", () => {
         content
       </WidgetContainer>,
     );
-    expect(screen.getByTestId("widget-title-bar")).toHaveTextContent("OBS");
+    expect(screen.getByTestId(TEST_ID_WIDGET_TITLE_BAR)).toHaveTextContent("OBS");
   });
 
   it("expanded mode shows label + dot", () => {
@@ -29,7 +30,7 @@ describe("WidgetContainer", () => {
         content
       </WidgetContainer>,
     );
-    const indicators = screen.getByTestId("connection-indicators");
+    const indicators = screen.getByTestId(TEST_ID_CONNECTION_INDICATORS);
     expect(indicators).toHaveTextContent("OBS");
     expect(indicators).toHaveTextContent("●");
   });
@@ -41,7 +42,7 @@ describe("WidgetContainer", () => {
         content
       </WidgetContainer>,
     );
-    const indicators = screen.getByTestId("connection-indicators");
+    const indicators = screen.getByTestId(TEST_ID_CONNECTION_INDICATORS);
     expect(indicators).toHaveTextContent("Status");
     expect(indicators).not.toHaveTextContent("OBS");
   });
@@ -52,7 +53,7 @@ describe("WidgetContainer", () => {
         content
       </WidgetContainer>,
     );
-    const dot = screen.getByTestId("connection-indicators").querySelector(".widget-dot-healthy");
+    const dot = screen.getByTestId(TEST_ID_CONNECTION_INDICATORS).querySelector(".widget-dot-healthy");
     expect(dot).toBeInTheDocument();
   });
 
@@ -62,7 +63,7 @@ describe("WidgetContainer", () => {
         content
       </WidgetContainer>,
     );
-    const dot = screen.getByTestId("connection-indicators").querySelector(".widget-dot-unhealthy");
+    const dot = screen.getByTestId(TEST_ID_CONNECTION_INDICATORS).querySelector(".widget-dot-unhealthy");
     expect(dot).toBeInTheDocument();
   });
 
@@ -72,9 +73,9 @@ describe("WidgetContainer", () => {
         content
       </WidgetContainer>,
     );
-    fireEvent.click(screen.getByTestId("connection-indicators"));
+    fireEvent.click(screen.getByTestId(TEST_ID_CONNECTION_INDICATORS));
     // IonPopover may not render content in jsdom — verify the click doesn't throw
     // and the popover element exists in the DOM
-    expect(screen.getByTestId("connection-indicators")).toBeInTheDocument();
+    expect(screen.getByTestId(TEST_ID_CONNECTION_INDICATORS)).toBeInTheDocument();
   });
 });

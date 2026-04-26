@@ -4,6 +4,7 @@ import { IonApp } from "@ionic/react";
 import { NotificationLayer } from "./NotificationLayer";
 import { useStore } from "../store";
 import { INITIAL_OBS_STATE } from "../store/obsSlice";
+import { TEST_ID_BANNER_COUNTER, TEST_ID_BANNER_DISMISS, TEST_ID_NOTIFICATION_BANNER, TEST_ID_NOTIFICATION_MODAL } from "../constants/testIds";
 
 function resetStore(): void {
   useStore.setState({
@@ -49,22 +50,22 @@ describe("NotificationLayer - Banner", () => {
     useStore.getState().addNotification({ id: "b1", level: "banner", severity: "error", message: "Error 1" });
     useStore.getState().addNotification({ id: "b2", level: "banner", severity: "error", message: "Error 2" });
     renderLayer();
-    expect(screen.getByTestId("banner-counter")).toHaveTextContent("1 of 2");
+    expect(screen.getByTestId(TEST_ID_BANNER_COUNTER)).toHaveTextContent("1 of 2");
   });
 
   it("banner navigation cycles through errors", () => {
     useStore.getState().addNotification({ id: "b1", level: "banner", severity: "error", message: "Error 1" });
     useStore.getState().addNotification({ id: "b2", level: "banner", severity: "error", message: "Error 2" });
     renderLayer();
-    expect(screen.getByTestId("notification-banner")).toHaveTextContent("Error 1");
+    expect(screen.getByTestId(TEST_ID_NOTIFICATION_BANNER)).toHaveTextContent("Error 1");
     fireEvent.click(screen.getByText("▶"));
-    expect(screen.getByTestId("notification-banner")).toHaveTextContent("Error 2");
+    expect(screen.getByTestId(TEST_ID_NOTIFICATION_BANNER)).toHaveTextContent("Error 2");
   });
 
   it("banner dismiss removes notification", () => {
     useStore.getState().addNotification({ id: "b1", level: "banner", severity: "error", message: "Error 1" });
     renderLayer();
-    fireEvent.click(screen.getByTestId("banner-dismiss"));
+    fireEvent.click(screen.getByTestId(TEST_ID_BANNER_DISMISS));
     expect(useStore.getState().notifications).toHaveLength(0);
   });
 });
@@ -73,7 +74,7 @@ describe("NotificationLayer - Modal", () => {
   it("modal requires acknowledgment", () => {
     useStore.getState().addNotification({ id: "m1", level: "modal", severity: "error", message: "Critical" });
     renderLayer();
-    expect(screen.getByTestId("notification-modal")).toBeInTheDocument();
+    expect(screen.getByTestId(TEST_ID_NOTIFICATION_MODAL)).toBeInTheDocument();
     fireEvent.click(screen.getByText("Acknowledge"));
     expect(useStore.getState().notifications).toHaveLength(0);
   });
@@ -81,10 +82,10 @@ describe("NotificationLayer - Modal", () => {
   it("modal auto-clears on resolution (removeNotification)", () => {
     useStore.getState().addNotification({ id: "m1", level: "modal", severity: "error", message: "OBS disconnected", errorCode: "OBS_UNREACHABLE" });
     renderLayer();
-    expect(screen.getByTestId("notification-modal")).toBeInTheDocument();
+    expect(screen.getByTestId(TEST_ID_NOTIFICATION_MODAL)).toBeInTheDocument();
     act(() => {
       useStore.getState().removeNotification("m1");
     });
-    expect(screen.queryByTestId("notification-modal")).not.toBeInTheDocument();
+    expect(screen.queryByTestId(TEST_ID_NOTIFICATION_MODAL)).not.toBeInTheDocument();
   });
 });

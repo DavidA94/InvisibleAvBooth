@@ -5,6 +5,7 @@ import { ProtectedRoutes } from "./ProtectedRoutes";
 import { useStore } from "../store";
 import { INITIAL_OBS_STATE } from "../store/obsSlice";
 import type { ReactNode } from "react";
+import { TEST_ID_CHANGE_PASSWORD_PAGE, TEST_ID_LOGIN_PAGE } from "../constants/testIds";
 
 function resetStore(): void {
   useStore.setState({
@@ -23,8 +24,8 @@ function renderWithRouter(initialPath: string, children: ReactNode) {
   return render(
     <MemoryRouter initialEntries={[initialPath]}>
       <Routes>
-        <Route path="/login" element={<div data-testid="login-page">Login</div>} />
-        <Route path="/change-password" element={<div data-testid="change-password-page">Change Password</div>} />
+        <Route path="/login" element={<div data-testid={TEST_ID_LOGIN_PAGE}>Login</div>} />
+        <Route path="/change-password" element={<div data-testid={TEST_ID_CHANGE_PASSWORD_PAGE}>Change Password</div>} />
         <Route path="/dashboards" element={<div data-testid="dashboards-page">Dashboards</div>} />
         <Route path="*" element={<ProtectedRoutes>{children}</ProtectedRoutes>} />
       </Routes>
@@ -35,14 +36,14 @@ function renderWithRouter(initialPath: string, children: ReactNode) {
 describe("ProtectedRoutes", () => {
   it("redirects unauthenticated user to /login", () => {
     renderWithRouter("/dashboard", <div data-testid="protected">Protected</div>);
-    expect(screen.getByTestId("login-page")).toBeInTheDocument();
+    expect(screen.getByTestId(TEST_ID_LOGIN_PAGE)).toBeInTheDocument();
     expect(screen.queryByTestId("protected")).not.toBeInTheDocument();
   });
 
   it("redirects requiresPasswordChange user to /change-password", () => {
     useStore.getState().setUser({ id: "u1", username: "admin", role: "ADMIN", requiresPasswordChange: true });
     renderWithRouter("/dashboard", <div data-testid="protected">Protected</div>);
-    expect(screen.getByTestId("change-password-page")).toBeInTheDocument();
+    expect(screen.getByTestId(TEST_ID_CHANGE_PASSWORD_PAGE)).toBeInTheDocument();
     expect(screen.queryByTestId("protected")).not.toBeInTheDocument();
   });
 

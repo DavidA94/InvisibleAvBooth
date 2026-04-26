@@ -191,6 +191,8 @@ Two distinct attributes are used — they serve different purposes and should no
 - Every interactive or stateful component must expose the appropriate `data-state` or `data-status` attribute so tests can assert on UI state without inspecting internals
 - `data-testid` is required on any element that a test needs to select and that cannot be reliably targeted by role or label alone
 - Values must be lowercase kebab-case strings: `"muted"`, `"pending"`, `"stream-live"`, not `"Muted"` or `"MUTED"`
+- **No abbreviations in `data-testid` values** — use full words: `"obs-stream-button"` not `"obs-stream-btn"`, `"edit-details-button"` not `"edit-details-btn"`
+- All `data-testid` values must be defined as constants in `constants/testIds.ts` with the `TEST_ID_` prefix (e.g., `export const TEST_ID_OBS_CONTROLS = "obs-controls";`). Components and tests must import and use these constants — never hardcode `data-testid` strings
 - Do not use `data-testid` for styling hooks — use class names for that
 - Do not overload a single attribute with multiple concerns — if a component has both a behavioral state and a device status, use both `data-state` and `data-status`
 

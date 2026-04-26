@@ -4,6 +4,7 @@ import { MemoryRouter } from "react-router";
 import { ChangePasswordPage } from "./ChangePasswordPage";
 import { useStore } from "../store";
 import { INITIAL_OBS_STATE } from "../store/obsSlice";
+import { TEST_ID_CHANGE_PASSWORD_ERROR, TEST_ID_CHANGE_PASSWORD_FORM, TEST_ID_NEW_PASSWORD_INPUT, TEST_ID_CONFIRM_PASSWORD_INPUT } from "../constants/testIds";
 
 const mockReplace = vi.fn();
 vi.mock("react-router", async () => {
@@ -45,9 +46,9 @@ describe("ChangePasswordPage", () => {
     mockFetch.mockResolvedValueOnce({ ok: true, json: async () => ({}) });
     renderPage();
 
-    ionInput("new-password-input", "newpass");
-    ionInput("confirm-password-input", "newpass");
-    fireEvent.submit(screen.getByTestId("change-password-form"));
+    ionInput(TEST_ID_NEW_PASSWORD_INPUT, "newpass");
+    ionInput(TEST_ID_CONFIRM_PASSWORD_INPUT, "newpass");
+    fireEvent.submit(screen.getByTestId(TEST_ID_CHANGE_PASSWORD_FORM));
 
     await waitFor(() => {
       expect(mockReplace).toHaveBeenCalledWith("/dashboards", { replace: true });
@@ -62,21 +63,21 @@ describe("ChangePasswordPage", () => {
     });
     renderPage();
 
-    ionInput("new-password-input", "pw");
-    ionInput("confirm-password-input", "pw");
-    fireEvent.submit(screen.getByTestId("change-password-form"));
+    ionInput(TEST_ID_NEW_PASSWORD_INPUT, "pw");
+    ionInput(TEST_ID_CONFIRM_PASSWORD_INPUT, "pw");
+    fireEvent.submit(screen.getByTestId(TEST_ID_CHANGE_PASSWORD_FORM));
 
     await waitFor(() => {
-      expect(screen.getByTestId("change-password-error")).toBeInTheDocument();
+      expect(screen.getByTestId(TEST_ID_CHANGE_PASSWORD_ERROR)).toBeInTheDocument();
     });
   });
 
   it("shows validation error for mismatched passwords", async () => {
     renderPage();
 
-    ionInput("new-password-input", "pass1");
-    ionInput("confirm-password-input", "pass2");
-    fireEvent.submit(screen.getByTestId("change-password-form"));
+    ionInput(TEST_ID_NEW_PASSWORD_INPUT, "pass1");
+    ionInput(TEST_ID_CONFIRM_PASSWORD_INPUT, "pass2");
+    fireEvent.submit(screen.getByTestId(TEST_ID_CHANGE_PASSWORD_FORM));
 
     await waitFor(() => {
       expect(screen.getByText("Passwords do not match")).toBeInTheDocument();

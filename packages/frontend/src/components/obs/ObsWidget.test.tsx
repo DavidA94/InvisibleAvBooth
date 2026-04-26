@@ -5,6 +5,7 @@ import { ObsWidget } from "./ObsWidget";
 import { useStore } from "../../store";
 import { INITIAL_OBS_STATE } from "../../store/obsSlice";
 import type { ObsState, CommandResult } from "../../types";
+import { TEST_ID_CONFIRMATION_CONFIRM_BUTTON, TEST_ID_MODAL_HEADER, TEST_ID_OBS_METADATA_PREVIEW, TEST_ID_OBS_RECORD_BUTTON, TEST_ID_OBS_STREAM_BUTTON, TEST_ID_OBS_WIDGET, TEST_ID_SESSION_MANIFEST_MODAL, TEST_ID_WIDGET_ERROR_OVERLAY } from "../../constants/testIds";
 
 const mockEmit = vi.fn();
 vi.mock("../../providers/SocketProvider", () => ({
@@ -42,8 +43,8 @@ describe("ObsWidget", () => {
         <ObsWidget />
       </IonApp>,
     );
-    expect(screen.getByTestId("obs-widget")).toBeInTheDocument();
-    expect(screen.queryByTestId("widget-error-overlay")).not.toBeInTheDocument();
+    expect(screen.getByTestId(TEST_ID_OBS_WIDGET)).toBeInTheDocument();
+    expect(screen.queryByTestId(TEST_ID_WIDGET_ERROR_OVERLAY)).not.toBeInTheDocument();
   });
 
   it("shows error overlay when disconnected", () => {
@@ -53,7 +54,7 @@ describe("ObsWidget", () => {
         <ObsWidget />
       </IonApp>,
     );
-    expect(screen.getByTestId("widget-error-overlay")).toBeInTheDocument();
+    expect(screen.getByTestId(TEST_ID_WIDGET_ERROR_OVERLAY)).toBeInTheDocument();
   });
 
   it("Start Stream opens confirmation modal", async () => {
@@ -62,9 +63,9 @@ describe("ObsWidget", () => {
         <ObsWidget />
       </IonApp>,
     );
-    fireEvent.click(screen.getByTestId("obs-stream-btn"));
+    fireEvent.click(screen.getByTestId(TEST_ID_OBS_STREAM_BUTTON));
     await waitFor(() => {
-      expect(screen.getByTestId("modal-header")).toHaveTextContent("Begin Stream");
+      expect(screen.getByTestId(TEST_ID_MODAL_HEADER)).toHaveTextContent("Begin Stream");
     });
   });
 
@@ -75,11 +76,11 @@ describe("ObsWidget", () => {
         <ObsWidget />
       </IonApp>,
     );
-    fireEvent.click(screen.getByTestId("obs-stream-btn"));
+    fireEvent.click(screen.getByTestId(TEST_ID_OBS_STREAM_BUTTON));
     await waitFor(() => {
-      expect(screen.getByTestId("confirmation-confirm-btn")).toBeInTheDocument();
+      expect(screen.getByTestId(TEST_ID_CONFIRMATION_CONFIRM_BUTTON)).toBeInTheDocument();
     });
-    fireEvent.click(screen.getByTestId("confirmation-confirm-btn"));
+    fireEvent.click(screen.getByTestId(TEST_ID_CONFIRMATION_CONFIRM_BUTTON));
     expect(mockEmit).toHaveBeenCalled();
   });
 
@@ -90,9 +91,9 @@ describe("ObsWidget", () => {
         <ObsWidget />
       </IonApp>,
     );
-    fireEvent.click(screen.getByTestId("obs-stream-btn"));
+    fireEvent.click(screen.getByTestId(TEST_ID_OBS_STREAM_BUTTON));
     await waitFor(() => {
-      expect(screen.getByTestId("modal-header")).toHaveTextContent("stop the stream");
+      expect(screen.getByTestId(TEST_ID_MODAL_HEADER)).toHaveTextContent("stop the stream");
     });
   });
 
@@ -103,9 +104,9 @@ describe("ObsWidget", () => {
         <ObsWidget />
       </IonApp>,
     );
-    fireEvent.click(screen.getByTestId("obs-record-btn"));
+    fireEvent.click(screen.getByTestId(TEST_ID_OBS_RECORD_BUTTON));
     await waitFor(() => {
-      expect(screen.getByTestId("modal-header")).toHaveTextContent("stop recording");
+      expect(screen.getByTestId(TEST_ID_MODAL_HEADER)).toHaveTextContent("stop recording");
     });
   });
 
@@ -116,8 +117,8 @@ describe("ObsWidget", () => {
         <ObsWidget />
       </IonApp>,
     );
-    fireEvent.click(screen.getByTestId("obs-stream-btn"));
-    expect(screen.getByTestId("session-manifest-modal")).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId(TEST_ID_OBS_STREAM_BUTTON));
+    expect(screen.getByTestId(TEST_ID_SESSION_MANIFEST_MODAL)).toBeInTheDocument();
   });
 
   it("shows metadata preview", () => {
@@ -126,6 +127,6 @@ describe("ObsWidget", () => {
         <ObsWidget />
       </IonApp>,
     );
-    expect(screen.getByTestId("obs-metadata-preview")).toHaveTextContent("Apr 19 – John – Grace");
+    expect(screen.getByTestId(TEST_ID_OBS_METADATA_PREVIEW)).toHaveTextContent("Apr 19 – John – Grace");
   });
 });

@@ -5,6 +5,7 @@ import { useNavigate, useParams } from "react-router";
 import type { GridManifest, GridCell, Role } from "../types";
 import { useStore } from "../store";
 import { ObsWidget } from "../components/obs/ObsWidget";
+import { TEST_ID_DASHBOARD_GRID, TEST_ID_DASHBOARD_LOADING, TEST_ID_DASHBOARD_REFRESHING } from "../constants/testIds";
 
 function useIsPortrait(): boolean {
   const [portrait, setPortrait] = useState(window.innerHeight > window.innerWidth);
@@ -102,7 +103,7 @@ export function Dashboard(): ReactNode {
     return (
       <IonPage>
         <IonContent className="ion-padding ion-text-center">
-          <div data-testid="dashboard-loading">
+          <div data-testid={TEST_ID_DASHBOARD_LOADING}>
             <IonSpinner />
             <p>Loading Dashboard</p>
           </div>
@@ -115,7 +116,7 @@ export function Dashboard(): ReactNode {
     return (
       <IonPage>
         <IonContent className="ion-padding ion-text-center">
-          <div data-testid="dashboard-refreshing">
+          <div data-testid={TEST_ID_DASHBOARD_REFRESHING}>
             <IonSpinner />
             <p>Refreshing Dashboard</p>
           </div>
@@ -134,7 +135,7 @@ export function Dashboard(): ReactNode {
     <IonPage>
       <IonContent>
         <div
-          data-testid="dashboard-grid"
+          data-testid={TEST_ID_DASHBOARD_GRID}
           className="dashboard-grid"
           style={{
             gridTemplateColumns: `repeat(${cols}, 1fr)`,

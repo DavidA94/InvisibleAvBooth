@@ -5,6 +5,7 @@ import { Dashboard } from "./Dashboard";
 import { useStore } from "../store";
 import { INITIAL_OBS_STATE } from "../store/obsSlice";
 import type { GridManifest } from "../types";
+import { TEST_ID_DASHBOARD_GRID, TEST_ID_DASHBOARD_LOADING, TEST_ID_DASHBOARD_REFRESHING } from "../constants/testIds";
 
 const mockReplace = vi.fn();
 vi.mock("react-router", async () => {
@@ -59,7 +60,7 @@ describe("Dashboard", () => {
   it("shows Loading spinner on first load", () => {
     mockFetch.mockReturnValueOnce(new Promise(() => {})); // Never resolves
     renderPage();
-    expect(screen.getByTestId("dashboard-loading")).toBeInTheDocument();
+    expect(screen.getByTestId(TEST_ID_DASHBOARD_LOADING)).toBeInTheDocument();
   });
 
   it("renders grid layout from fetched manifest", async () => {
@@ -69,7 +70,7 @@ describe("Dashboard", () => {
     });
     renderPage();
     await waitFor(() => {
-      expect(screen.getByTestId("dashboard-grid")).toBeInTheDocument();
+      expect(screen.getByTestId(TEST_ID_DASHBOARD_GRID)).toBeInTheDocument();
     });
     expect(screen.getByTestId("widget-obs")).toBeInTheDocument();
   });
@@ -79,7 +80,7 @@ describe("Dashboard", () => {
     mockFetch.mockRejectedValueOnce(new Error("network"));
     renderPage();
     await waitFor(() => {
-      expect(screen.getByTestId("dashboard-grid")).toBeInTheDocument();
+      expect(screen.getByTestId(TEST_ID_DASHBOARD_GRID)).toBeInTheDocument();
     });
     expect(screen.getByTestId("widget-obs")).toBeInTheDocument();
   });
@@ -107,7 +108,7 @@ describe("Dashboard", () => {
     });
 
     // Structural change detected — refreshing spinner should be visible
-    expect(screen.getByTestId("dashboard-refreshing")).toBeInTheDocument();
+    expect(screen.getByTestId(TEST_ID_DASHBOARD_REFRESHING)).toBeInTheDocument();
 
     // Advance past the 300ms setTimeout
     await act(async () => {
@@ -115,7 +116,7 @@ describe("Dashboard", () => {
     });
 
     // Grid should now be rendered with the fresh manifest
-    expect(screen.getByTestId("dashboard-grid")).toBeInTheDocument();
+    expect(screen.getByTestId(TEST_ID_DASHBOARD_GRID)).toBeInTheDocument();
     vi.useRealTimers();
   });
 });

@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { IonPage, IonContent, IonText, IonSpinner } from "@ionic/react";
 import { useNavigate } from "react-router";
 import { STORAGE_KEY_DASHBOARD_ID, STORAGE_KEY_DASHBOARD_NAME } from "../constants/storageKeys";
+import { TEST_ID_DASHBOARD_SELECTION_SCREEN, TEST_ID_DASHBOARD_OPTION, TEST_ID_NO_DASHBOARDS_SCREEN } from "../constants/testIds";
 
 interface DashboardSummary {
   id: string;
@@ -68,7 +69,7 @@ export function DashboardSelectionScreen(): ReactNode {
 
   if (dashboards.length === 0) {
     return (
-      <IonPage data-testid="no-dashboards-screen">
+      <IonPage data-testid={TEST_ID_NO_DASHBOARDS_SCREEN}>
         <IonContent className="ion-padding">
           <div className="centered-page text-center">
             <div>
@@ -84,7 +85,7 @@ export function DashboardSelectionScreen(): ReactNode {
   }
 
   return (
-    <IonPage data-testid="dashboard-selection-screen">
+    <IonPage data-testid={TEST_ID_DASHBOARD_SELECTION_SCREEN}>
       <IonContent className="ion-padding">
         <div className="centered-page">
           <div className="selection-container">
@@ -92,7 +93,7 @@ export function DashboardSelectionScreen(): ReactNode {
             {dashboards.map((d) => (
               <div
                 key={d.id}
-                data-testid="dashboard-option"
+                data-testid={TEST_ID_DASHBOARD_OPTION}
                 role="button"
                 tabIndex={0}
                 onClick={() => selectDashboard(d)}

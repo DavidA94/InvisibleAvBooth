@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { IonPopover } from "@ionic/react";
 import { useResizeObserver } from "../hooks/useResizeObserver";
+import { TEST_ID_WIDGET_CONTAINER, TEST_ID_WIDGET_TITLE_BAR, TEST_ID_CONNECTION_INDICATORS, TEST_ID_CONNECTION_POPOVER } from "../constants/testIds";
 
 export interface ConnectionStatus {
   label: string;
@@ -26,13 +27,13 @@ export function WidgetContainer({ title, connections, children }: WidgetContaine
   const [triggerId] = useState(() => `wc-indicators-${++instanceCounter}`);
 
   return (
-    <div data-testid="widget-container" className="widget-wrapper">
-      <div ref={titleBarRef} data-testid="widget-title-bar" className="widget-title-bar">
+    <div data-testid={TEST_ID_WIDGET_CONTAINER} className="widget-wrapper">
+      <div ref={titleBarRef} data-testid={TEST_ID_WIDGET_TITLE_BAR} className="widget-title-bar">
         <span className="text-bold">{title}</span>
         <span className="fill-remaining" />
         <span
           id={triggerId}
-          data-testid="connection-indicators"
+          data-testid={TEST_ID_CONNECTION_INDICATORS}
           role="button"
           tabIndex={0}
           onClick={() => setPopoverOpen(true)}
@@ -57,7 +58,7 @@ export function WidgetContainer({ title, connections, children }: WidgetContaine
           )}
         </span>
         <IonPopover
-          data-testid="connection-popover"
+          data-testid={TEST_ID_CONNECTION_POPOVER}
           isOpen={popoverOpen}
           onDidDismiss={() => setPopoverOpen(false)}
           trigger={triggerId}

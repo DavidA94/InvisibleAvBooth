@@ -3,6 +3,15 @@ import type { ReactNode } from "react";
 import { IonPage, IonContent, IonInput, IonButton, IonText, IonSpinner, IonCheckbox } from "@ionic/react";
 import { interpolateStreamTitle } from "@invisible-av-booth/shared";
 import { useStore } from "../store";
+import {
+  TEST_ID_ADMIN_DEVICES_PAGE, TEST_ID_CREATE_DEVICE_FORM, TEST_ID_CREATE_DEVICE_LABEL,
+  TEST_ID_CREATE_DEVICE_HOST, TEST_ID_CREATE_DEVICE_PORT, TEST_ID_CREATE_DEVICE_PASSWORD,
+  TEST_ID_CREATE_DEVICE_TEMPLATE, TEST_ID_CREATE_TEMPLATE_PREVIEW, TEST_ID_CREATE_DEVICE_SUBMIT,
+  TEST_ID_CREATE_DEVICE_ERROR, TEST_ID_DEVICE_LIST, TEST_ID_EDIT_DEVICE_LABEL,
+  TEST_ID_EDIT_DEVICE_HOST, TEST_ID_EDIT_DEVICE_PORT, TEST_ID_EDIT_DEVICE_PASSWORD,
+  TEST_ID_EDIT_DEVICE_TEMPLATE, TEST_ID_EDIT_TEMPLATE_PREVIEW, TEST_ID_EDIT_DEVICE_ENABLED,
+  TEST_ID_EDIT_DEVICE_SAVE, TEST_ID_EDIT_DEVICE_CANCEL, TEST_ID_EDIT_DEVICE_ERROR,
+} from "../constants/testIds";
 
 interface DeviceRecord {
   id: string;
@@ -169,7 +178,7 @@ export function AdminDeviceManagement(): ReactNode {
 
   if (loading) {
     return (
-      <IonPage data-testid="admin-devices-page">
+      <IonPage data-testid={TEST_ID_ADMIN_DEVICES_PAGE}>
         <IonContent className="ion-padding ion-text-center">
           <IonSpinner />
         </IonContent>
@@ -178,7 +187,7 @@ export function AdminDeviceManagement(): ReactNode {
   }
 
   return (
-    <IonPage data-testid="admin-devices-page">
+    <IonPage data-testid={TEST_ID_ADMIN_DEVICES_PAGE}>
       <IonContent className="ion-padding">
         <div className="form-container" style={{ maxWidth: "40rem" }}>
           <h2 className="text-center margin-bottom-spacious">Device Management</h2>
@@ -190,11 +199,11 @@ export function AdminDeviceManagement(): ReactNode {
           )}
 
           {/* Create device form */}
-          <div data-testid="create-device-form" className="surface" style={{ padding: "1rem", marginBottom: "1.5rem" }}>
+          <div data-testid={TEST_ID_CREATE_DEVICE_FORM} className="surface" style={{ padding: "1rem", marginBottom: "1.5rem" }}>
             <h3 className="margin-none margin-bottom-wide">Add OBS Connection</h3>
             <div className="form-layout">
               <IonInput
-                data-testid="create-device-label"
+                data-testid={TEST_ID_CREATE_DEVICE_LABEL}
                 label="Label"
                 labelPlacement="stacked"
                 fill="outline"
@@ -204,7 +213,7 @@ export function AdminDeviceManagement(): ReactNode {
               />
               <div className="manifest-scripture-row">
                 <IonInput
-                  data-testid="create-device-host"
+                  data-testid={TEST_ID_CREATE_DEVICE_HOST}
                   label="Host"
                   labelPlacement="stacked"
                   fill="outline"
@@ -214,7 +223,7 @@ export function AdminDeviceManagement(): ReactNode {
                   clearInput
                 />
                 <IonInput
-                  data-testid="create-device-port"
+                  data-testid={TEST_ID_CREATE_DEVICE_PORT}
                   label="Port"
                   labelPlacement="stacked"
                   fill="outline"
@@ -225,7 +234,7 @@ export function AdminDeviceManagement(): ReactNode {
                 />
               </div>
               <IonInput
-                data-testid="create-device-password"
+                data-testid={TEST_ID_CREATE_DEVICE_PASSWORD}
                 label="Password"
                 labelPlacement="stacked"
                 fill="outline"
@@ -235,7 +244,7 @@ export function AdminDeviceManagement(): ReactNode {
                 clearInput
               />
               <IonInput
-                data-testid="create-device-template"
+                data-testid={TEST_ID_CREATE_DEVICE_TEMPLATE}
                 label="Stream Title Template"
                 labelPlacement="stacked"
                 fill="outline"
@@ -243,17 +252,17 @@ export function AdminDeviceManagement(): ReactNode {
                 onIonInput={(e) => setCreateTemplate(e.detail.value ?? DEFAULT_TEMPLATE)}
                 clearInput
               />
-              <div data-testid="create-template-preview" className="manifest-preview">
+              <div data-testid={TEST_ID_CREATE_TEMPLATE_PREVIEW} className="manifest-preview">
                 <span className="text-muted">Preview</span>
                 <p className="text-bold margin-top-tight margin-none">{createPreview}</p>
               </div>
               {createError && (
-                <IonText color="danger" data-testid="create-device-error">
+                <IonText color="danger" data-testid={TEST_ID_CREATE_DEVICE_ERROR}>
                   <p className="margin-none text-secondary">{createError}</p>
                 </IonText>
               )}
               <IonButton
-                data-testid="create-device-submit"
+                data-testid={TEST_ID_CREATE_DEVICE_SUBMIT}
                 expand="block"
                 disabled={createPending || !createLabel || !createHost}
                 onClick={() => void handleCreate()}
@@ -264,13 +273,13 @@ export function AdminDeviceManagement(): ReactNode {
           </div>
 
           {/* Device list */}
-          <div data-testid="device-list">
+          <div data-testid={TEST_ID_DEVICE_LIST}>
             {devices.map((device) => (
               <div key={device.id} data-testid={`device-row-${device.id}`} className="surface" style={{ padding: "0.75rem", marginBottom: "0.5rem" }}>
                 {editingId === device.id ? (
                   <div className="form-layout">
                     <IonInput
-                      data-testid="edit-device-label"
+                      data-testid={TEST_ID_EDIT_DEVICE_LABEL}
                       label="Label"
                       labelPlacement="stacked"
                       fill="outline"
@@ -280,7 +289,7 @@ export function AdminDeviceManagement(): ReactNode {
                     />
                     <div className="manifest-scripture-row">
                       <IonInput
-                        data-testid="edit-device-host"
+                        data-testid={TEST_ID_EDIT_DEVICE_HOST}
                         label="Host"
                         labelPlacement="stacked"
                         fill="outline"
@@ -290,7 +299,7 @@ export function AdminDeviceManagement(): ReactNode {
                         clearInput
                       />
                       <IonInput
-                        data-testid="edit-device-port"
+                        data-testid={TEST_ID_EDIT_DEVICE_PORT}
                         label="Port"
                         labelPlacement="stacked"
                         fill="outline"
@@ -301,7 +310,7 @@ export function AdminDeviceManagement(): ReactNode {
                       />
                     </div>
                     <IonInput
-                      data-testid="edit-device-password"
+                      data-testid={TEST_ID_EDIT_DEVICE_PASSWORD}
                       label="New Password (leave blank to keep)"
                       labelPlacement="stacked"
                       fill="outline"
@@ -311,7 +320,7 @@ export function AdminDeviceManagement(): ReactNode {
                       clearInput
                     />
                     <IonInput
-                      data-testid="edit-device-template"
+                      data-testid={TEST_ID_EDIT_DEVICE_TEMPLATE}
                       label="Stream Title Template"
                       labelPlacement="stacked"
                       fill="outline"
@@ -319,28 +328,28 @@ export function AdminDeviceManagement(): ReactNode {
                       onIonInput={(e) => setEditTemplate(e.detail.value ?? DEFAULT_TEMPLATE)}
                       clearInput
                     />
-                    <div data-testid="edit-template-preview" className="manifest-preview">
+                    <div data-testid={TEST_ID_EDIT_TEMPLATE_PREVIEW} className="manifest-preview">
                       <span className="text-muted">Preview</span>
                       <p className="text-bold margin-top-tight margin-none">{editPreview}</p>
                     </div>
                     <label className="layout-row gap-standard">
                       <IonCheckbox
-                        data-testid="edit-device-enabled"
+                        data-testid={TEST_ID_EDIT_DEVICE_ENABLED}
                         checked={editEnabled}
                         onIonChange={(e) => setEditEnabled(e.detail.checked)}
                       />
                       Enabled
                     </label>
                     {editError && (
-                      <IonText color="danger" data-testid="edit-device-error">
+                      <IonText color="danger" data-testid={TEST_ID_EDIT_DEVICE_ERROR}>
                         <p className="margin-none text-secondary">{editError}</p>
                       </IonText>
                     )}
                     <div className="layout-row gap-standard">
-                      <IonButton data-testid="edit-device-save" size="small" disabled={editPending} onClick={() => void handleEdit()}>
+                      <IonButton data-testid={TEST_ID_EDIT_DEVICE_SAVE} size="small" disabled={editPending} onClick={() => void handleEdit()}>
                         {editPending ? <IonSpinner name="crescent" /> : "Save"}
                       </IonButton>
-                      <IonButton data-testid="edit-device-cancel" size="small" fill="outline" onClick={cancelEdit}>
+                      <IonButton data-testid={TEST_ID_EDIT_DEVICE_CANCEL} size="small" fill="outline" onClick={cancelEdit}>
                         Cancel
                       </IonButton>
                     </div>
@@ -352,11 +361,11 @@ export function AdminDeviceManagement(): ReactNode {
                     <span className="text-muted text-secondary">({device.deviceType})</span>
                     {!device.enabled && <span className="text-danger text-secondary">Disabled</span>}
                     <span className="fill-remaining" />
-                    <IonButton data-testid={`edit-device-btn-${device.id}`} size="small" fill="clear" onClick={() => startEdit(device)}>
+                    <IonButton data-testid={`edit-device-button-${device.id}`} size="small" fill="clear" onClick={() => startEdit(device)}>
                       Edit
                     </IonButton>
                     <IonButton
-                      data-testid={`delete-device-btn-${device.id}`}
+                      data-testid={`delete-device-button-${device.id}`}
                       size="small"
                       fill="clear"
                       color="danger"

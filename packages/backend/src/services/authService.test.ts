@@ -6,10 +6,7 @@ import type { JwtPayload } from "./authService.js";
 import jwt from "jsonwebtoken";
 
 // Use a real in-memory SQLite DB — simpler and more reliable than mocking.
-// bcrypt is the real implementation; tests use round=1 via env override isn't
-// possible here, so we accept slightly slower tests for correctness.
-// The AuthService uses BCRYPT_ROUNDS=12 internally; we can't override that
-// without dependency injection, so unit tests that call bcrypt are slightly slow.
+// BCRYPT_ROUNDS is set to 1 via vitest.config.ts env for fast test execution.
 
 function makeDatabase() {
   const database = new Database(":memory:");
@@ -237,6 +234,18 @@ describe("AuthService.updateUser", () => {
     const result = await service.updateUser(bob.value.id, { username: "alice" }, adminActor);
     expect(result.success).toBe(false);
     if (!result.success) expect(result.error.code).toBe("USERNAME_TAKEN");
+  });
+
+  it("rejects self-role-change", async () => {
+    const database = makeDatabase();
+    const service = makeService(database);
+    const created = await service.createUser({ username: "selfadmin", password: "p", role: "ADMIN" }, adminActor);
+    expect(created.success).toBe(true);
+    if (!created.success) return;
+    const selfActor: JwtPayload = { sub: created.value.id, username: "selfadmin", role: "ADMIN", iat: 0, exp: 9999999999 };
+    const result = await service.updateUser(created.value.id, { role: "AvVolunteer" }, selfActor);
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error.code).toBe("SELF_ROLE_CHANGE");
   });
 });
 
