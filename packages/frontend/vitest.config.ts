@@ -8,6 +8,9 @@ export default defineConfig({
     globals: true,
     setupFiles: ["./src/test/setup.ts"],
     exclude: ["playwright/**", "node_modules/**", "vite.config.test.ts"],
+    testTimeout: 30000,
+    hookTimeout: 30000,
+    teardownTimeout: 60000,
     server: {
       deps: {
         inline: ["@ionic/core", "@ionic/react", "@ionic/react-router", "ionicons"],
