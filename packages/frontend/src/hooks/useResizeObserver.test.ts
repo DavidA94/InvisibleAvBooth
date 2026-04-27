@@ -10,14 +10,14 @@ type ResizeCallback = (entries: ResizeObserverEntry[]) => void;
 let observerCallback: ResizeCallback | null = null;
 const mockDisconnect = vi.fn();
 
-const MockResizeObserver = vi.fn().mockImplementation((callback: ResizeCallback) => {
-  observerCallback = callback;
-  return {
-    observe: vi.fn(),
-    disconnect: mockDisconnect,
-    unobserve: vi.fn(),
-  };
-});
+class MockResizeObserver {
+  constructor(callback: ResizeCallback) {
+    observerCallback = callback;
+  }
+  observe = vi.fn();
+  disconnect = mockDisconnect;
+  unobserve = vi.fn();
+}
 
 vi.stubGlobal("ResizeObserver", MockResizeObserver);
 
