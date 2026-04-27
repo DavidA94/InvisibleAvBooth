@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import type { ReactNode } from "react";
 import { useIonToast } from "@ionic/react";
 import { useStore } from "../store";
+import { useShallow } from "zustand/react/shallow";
 import { TEST_ID_NOTIFICATION_BANNER, TEST_ID_BANNER_COUNTER, TEST_ID_BANNER_DISMISS, TEST_ID_NOTIFICATION_MODAL } from "../constants/testIds";
 import type { Notification } from "../types";
 
@@ -22,7 +23,7 @@ export function NotificationLayer(): ReactNode {
 
 function ToastManager(): ReactNode {
   const [present, dismiss] = useIonToast();
-  const toasts: Notification[] = useStore((s) => s.notifications.filter((n) => n.level === "toast"));
+  const toasts: Notification[] = useStore(useShallow((s) => s.notifications.filter((n) => n.level === "toast")));
 
   // Track the ID of the actively rendering toast to prevent duplicate presents
   const hasActiveToast = useRef<boolean | null>(false);
@@ -66,7 +67,7 @@ function ToastManager(): ReactNode {
 // ── Banner ────────────────────────────────────────────────────────────────────
 
 function BannerManager(): ReactNode {
-  const banners = useStore((s) => s.notifications.filter((n) => n.level === "banner"));
+  const banners = useStore(useShallow((s) => s.notifications.filter((n) => n.level === "banner")));
   const [index, setIndex] = useState(0);
   const current = banners[index % banners.length];
 
@@ -103,7 +104,7 @@ function BannerManager(): ReactNode {
 // ── Modal ─────────────────────────────────────────────────────────────────────
 
 function ModalManager(): ReactNode {
-  const modals = useStore((s) => s.notifications.filter((n) => n.level === "modal"));
+  const modals = useStore(useShallow((s) => s.notifications.filter((n) => n.level === "modal")));
   const current = modals[0];
 
   if (!current) return null;

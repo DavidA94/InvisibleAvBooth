@@ -97,8 +97,10 @@ describe("ObsControls", () => {
         onStopRecording={vi.fn()}
       />,
     );
-    expect(screen.getByTestId(TEST_ID_OBS_STREAM_BUTTON)).toHaveAttribute("disabled", "true");
-    expect(screen.getByTestId(TEST_ID_OBS_RECORD_BUTTON)).toHaveAttribute("disabled", "true");
+    const streamButton = screen.getByTestId(TEST_ID_OBS_STREAM_BUTTON);
+    const recordButton = screen.getByTestId(TEST_ID_OBS_RECORD_BUTTON);
+    expect((streamButton as HTMLElement & { disabled: boolean }).disabled).toBe(true);
+    expect((recordButton as HTMLElement & { disabled: boolean }).disabled).toBe(true);
   });
 
   it("shows disabled reason as subtext in button", () => {
