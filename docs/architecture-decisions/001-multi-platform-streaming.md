@@ -142,10 +142,10 @@ The YouTube Data API has a default daily quota of 10,000 units. Key costs:
 | `liveBroadcasts.insert`          | ~1,600 units | 1 per service                                |
 | `liveStreams.insert`             | ~50 units    | 1 per service                                |
 | `liveBroadcasts.bind`            | ~50 units    | 1 per service                                |
-| `liveStreams.list` (health poll) | ~1 unit      | ~240 per 2-hour service (every 30s)          |
+| `liveStreams.list` (health poll) | ~1 unit      | ~360 per 2-hour service (every 20s)          |
 | `liveBroadcasts.transition`      | ~50 units    | 0 (using `enableAutoStart`/`enableAutoStop`) |
 
-A typical single-service day uses ~2,000 units. The default 10,000 quota supports 4-5 broadcast creations per day, which is sufficient for 1-2 services plus a few false starts or test runs. If higher usage is needed, quota increases can be requested from the Google Cloud Console.
+A typical single-service day uses ~2,100 units. The default 10,000 quota supports 4 broadcast creations per day, which is sufficient for 1-2 services plus a few false starts or test runs. If higher usage is needed, quota increases can be requested from the Google Cloud Console.
 
 ---
 

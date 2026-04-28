@@ -177,7 +177,7 @@ See `docs/architecture-decisions/001-multi-platform-streaming.md` for the archit
 
 #### Acceptance Criteria
 
-1. WHILE a platform stream is active, THE Backend SHALL poll the platform's API at a regular interval (configurable, default: 30 seconds) to retrieve stream health information.
+1. WHILE a platform stream is active, THE Backend SHALL poll the platform's API at a regular interval (configurable, default: 20 seconds) to retrieve stream health information. The 20-second default is the fastest safe interval for Facebook's Graph API rate limit (~200 calls per user per hour = one call every 18 seconds). YouTube's API could support faster polling, but a single interval for all platforms keeps the implementation simple and avoids per-platform configuration complexity.
 2. FOR YouTube, THE Backend SHALL retrieve the `liveStream` resource's `status.healthStatus` field, which includes stream health indicators (good, ok, bad, noData).
 3. FOR Facebook, THE Backend SHALL retrieve the `LiveVideo` resource's `status` and `ingest_streams` fields for health information.
 4. THE Backend SHALL broadcast stream health updates to all connected clients via Socket.io.

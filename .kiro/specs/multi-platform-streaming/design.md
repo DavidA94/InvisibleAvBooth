@@ -329,7 +329,7 @@ async startAll(): Promise<void> {
 
 **OBS stream stop when all platforms idle (Req 7.7)**: After each platform transitions to "Idle" or "Error", `StreamingPlatformService` checks if any platforms remain in an active state ("Streaming", "Starting", "Stopping", "No Source", "Recovering"). If none do and OBS is still streaming to the relay, it calls `ObsService.stopStream()`.
 
-**Health polling (Req 8.1)**: While any platform is in "Streaming" state, a `setInterval` polls each platform's API every 30 seconds. Results are emitted via `bus:platform:health:updated`. The interval is cleared when no platforms are streaming.
+**Health polling (Req 8.1)**: While any platform is in "Streaming" state, a `setInterval` polls each platform's API every 20 seconds. Results are emitted via `bus:platform:health:updated`. The interval is cleared when no platforms are streaming.
 
 **Token lifecycle**: On startup, `validateTokensOnStartup()` makes a lightweight API call per enabled platform. For YouTube, it also checks token expiry and refreshes proactively if within 5 minutes. For Facebook, it validates Page access. Failures emit Banner notifications. A background timer checks YouTube token expiry every minute and refreshes proactively.
 
