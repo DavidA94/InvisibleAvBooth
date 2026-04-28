@@ -1584,7 +1584,7 @@ function createVerseTextResolver(database: Database): (ref: ScriptureReference) 
 | Platform broadcast creation timed out (30s) | Banner | error | No |
 | FFmpeg forwarder crashed (auto-recovering) | Banner | warning | Yes — on successful recovery |
 | FFmpeg recovery failed / broadcast ended | Banner | error | No — volunteer restarts from ManageStreamsModal |
-| Platform stream quality poor | Banner | warning | Yes — when health improves |
+| Platform stream quality poor | Banner | warning | Yes — auto-clears when health returns to good or ok |
 | Platform token expired / revoked | Banner | error | No — admin must reconnect |
 | Facebook Page inaccessible | Banner | error | No — admin must reconnect |
 | Relay failed to start | Banner | error | No — requires server restart |
