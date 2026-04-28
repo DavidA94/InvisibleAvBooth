@@ -1,60 +1,61 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import type { ReactNode } from "react";
-import { IonPage, IonContent, IonInput, IonButton, IonText, IonSpinner, IonCheckbox } from "@ionic/react";
-import { interpolateStreamTitle } from "@invisible-av-booth/shared";
-import { useStore } from "../store";
+import { IonPage, IonContent, IonButton, IonSpinner } from "@ionic/react";
+import { addOutline } from "ionicons/icons";
+import { IonIcon } from "@ionic/react";
+import { ConfirmationModal } from "../components/ConfirmationModal";
 import {
-  TEST_ID_ADMIN_DEVICES_PAGE, TEST_ID_CREATE_DEVICE_FORM, TEST_ID_CREATE_DEVICE_LABEL,
-  TEST_ID_CREATE_DEVICE_HOST, TEST_ID_CREATE_DEVICE_PORT, TEST_ID_CREATE_DEVICE_PASSWORD,
-  TEST_ID_CREATE_DEVICE_TEMPLATE, TEST_ID_CREATE_TEMPLATE_PREVIEW, TEST_ID_CREATE_DEVICE_SUBMIT,
-  TEST_ID_CREATE_DEVICE_ERROR, TEST_ID_DEVICE_LIST, TEST_ID_EDIT_DEVICE_LABEL,
-  TEST_ID_EDIT_DEVICE_HOST, TEST_ID_EDIT_DEVICE_PORT, TEST_ID_EDIT_DEVICE_PASSWORD,
-  TEST_ID_EDIT_DEVICE_TEMPLATE, TEST_ID_EDIT_TEMPLATE_PREVIEW, TEST_ID_EDIT_DEVICE_ENABLED,
-  TEST_ID_EDIT_DEVICE_SAVE, TEST_ID_EDIT_DEVICE_CANCEL, TEST_ID_EDIT_DEVICE_ERROR,
+  DEVICE_TYPE_REGISTRY, DEVICE_TYPE_KEYS, getDeviceTypeDisplayName,
+} from "./deviceForms/deviceTypeRegistry";
+import type { DeviceRecord, DirtyCheck } from "./deviceForms/deviceTypeRegistry";
+import {
+  TEST_ID_ADMIN_DEVICES_PAGE, TEST_ID_DEVICE_LIST, TEST_ID_DEVICE_LIST_ITEM,
+  TEST_ID_ADD_DEVICE_BUTTON, TEST_ID_ADD_DEVICE_POPOVER, TEST_ID_ADD_DEVICE_TYPE_OPTION,
+  TEST_ID_DEVICE_DETAIL_PANEL, TEST_ID_DEVICE_DETAIL_EMPTY, TEST_ID_DEVICE_LIST_DELETE_BUTTON,
 } from "../constants/testIds";
 
-interface DeviceRecord {
-  id: string;
-  deviceType: string;
-  label: string;
-  host: string;
-  port: number;
-  metadata: Record<string, string>;
-  features: Record<string, boolean>;
-  enabled: boolean;
-  createdAt: string;
+interface PanelState {
+  mode: "empty" | "create" | "edit";
+  deviceType?: string;
+  deviceId?: string;
 }
-
-const DEFAULT_TEMPLATE = "{Date} – {Speaker} – {Title}";
 
 export function AdminDeviceManagement(): ReactNode {
   const [devices, setDevices] = useState<DeviceRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [panel, setPanel] = useState<PanelState>({ mode: "empty" });
+  const [popoverOpen, setPopoverOpen] = useState(false);
 
-  // Create form
-  const [createLabel, setCreateLabel] = useState("");
-  const [createHost, setCreateHost] = useState("");
-  const [createPort, setCreatePort] = useState("4455");
-  const [createPassword, setCreatePassword] = useState("");
-  const [createTemplate, setCreateTemplate] = useState(DEFAULT_TEMPLATE);
-  const [createPending, setCreatePending] = useState(false);
-  const [createError, setCreateError] = useState("");
+  // Unsaved changes guard
+  const dirtyCheckRef = useRef<DirtyCheck>({ isDirty: () => false });
+  const [pendingNavigation, setPendingNavigation] = useState<PanelState | null>(null);
+  const [deleteConfirmDevice, setDeleteConfirmDevice] = useState<DeviceRecord | null>(null);
 
-  // Edit state
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editLabel, setEditLabel] = useState("");
-  const [editHost, setEditHost] = useState("");
-  const [editPort, setEditPort] = useState("");
-  const [editPassword, setEditPassword] = useState("");
-  const [editTemplate, setEditTemplate] = useState("");
-  const [editEnabled, setEditEnabled] = useState(true);
-  const [editPending, setEditPending] = useState(false);
-  const [editError, setEditError] = useState("");
+  const registerDirtyCheck = useCallback((check: DirtyCheck) => {
+    dirtyCheckRef.current = check;
+  }, []);
 
-  const [deletePendingId, setDeletePendingId] = useState<string | null>(null);
+  const navigatePanel = useCallback((next: PanelState): void => {
+    if (dirtyCheckRef.current.isDirty()) {
+      setPendingNavigation(next);
+    } else {
+      setPanel(next);
+      dirtyCheckRef.current = { isDirty: () => false };
+    }
+  }, []);
 
-  const manifest = useStore((s) => s.manifest);
+  const confirmNavigation = useCallback((): void => {
+    if (pendingNavigation) {
+      setPanel(pendingNavigation);
+      setPendingNavigation(null);
+      dirtyCheckRef.current = { isDirty: () => false };
+    }
+  }, [pendingNavigation]);
+
+  const cancelNavigation = useCallback((): void => {
+    setPendingNavigation(null);
+  }, []);
 
   const fetchDevices = useCallback(async (): Promise<void> => {
     try {
@@ -73,108 +74,55 @@ export function AdminDeviceManagement(): ReactNode {
     void fetchDevices();
   }, [fetchDevices]);
 
-  const createPreview = useMemo(() => interpolateStreamTitle(manifest, createTemplate), [manifest, createTemplate]);
-  const editPreview = useMemo(() => interpolateStreamTitle(manifest, editTemplate), [manifest, editTemplate]);
+  const handleSaved = useCallback((): void => {
+    dirtyCheckRef.current = { isDirty: () => false };
+    setPanel({ mode: "empty" });
+    void fetchDevices();
+  }, [fetchDevices]);
 
-  const handleCreate = async (): Promise<void> => {
-    setCreateError("");
-    setCreatePending(true);
+  const handleDeleted = useCallback((): void => {
+    dirtyCheckRef.current = { isDirty: () => false };
+    setPanel({ mode: "empty" });
+    void fetchDevices();
+  }, [fetchDevices]);
+
+  const handleListDelete = async (device: DeviceRecord): Promise<void> => {
     try {
-      const response = await fetch("/api/admin/devices", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          deviceType: "obs",
-          label: createLabel,
-          host: createHost,
-          port: Number(createPort),
-          password: createPassword || undefined,
-          metadata: { streamTitleTemplate: createTemplate },
-        }),
-      });
-      if (!response.ok) {
-        const data = (await response.json()) as { error?: string };
-        setCreateError(data.error ?? "Create failed");
-        return;
-      }
-      setCreateLabel("");
-      setCreateHost("");
-      setCreatePort("4455");
-      setCreatePassword("");
-      setCreateTemplate(DEFAULT_TEMPLATE);
-      void fetchDevices();
-    } catch {
-      setCreateError("Network error");
-    } finally {
-      setCreatePending(false);
-    }
-  };
-
-  const startEdit = (device: DeviceRecord): void => {
-    setEditingId(device.id);
-    setEditLabel(device.label);
-    setEditHost(device.host);
-    setEditPort(String(device.port));
-    setEditPassword("");
-    setEditTemplate(device.metadata["streamTitleTemplate"] ?? DEFAULT_TEMPLATE);
-    setEditEnabled(device.enabled);
-    setEditError("");
-  };
-
-  const cancelEdit = (): void => {
-    setEditingId(null);
-    setEditError("");
-  };
-
-  const handleEdit = async (): Promise<void> => {
-    if (!editingId) return;
-    setEditError("");
-    setEditPending(true);
-    try {
-      const body: Record<string, unknown> = {
-        label: editLabel,
-        host: editHost,
-        port: Number(editPort),
-        enabled: editEnabled,
-        metadata: { streamTitleTemplate: editTemplate },
-      };
-      if (editPassword) body["password"] = editPassword;
-      const response = await fetch(`/api/admin/devices/${editingId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(body),
-      });
-      if (!response.ok) {
-        const data = (await response.json()) as { error?: string };
-        setEditError(data.error ?? "Update failed");
-        return;
-      }
-      setEditingId(null);
-      void fetchDevices();
-    } catch {
-      setEditError("Network error");
-    } finally {
-      setEditPending(false);
-    }
-  };
-
-  const handleDelete = async (deviceId: string): Promise<void> => {
-    setDeletePendingId(deviceId);
-    try {
-      const response = await fetch(`/api/admin/devices/${deviceId}`, { method: "DELETE", credentials: "include" });
+      const response = await fetch(`/api/admin/devices/${device.id}`, { method: "DELETE", credentials: "include" });
       if (!response.ok) {
         const data = (await response.json()) as { error?: string };
         setError(data.error ?? "Delete failed");
+      }
+      if (panel.mode === "edit" && panel.deviceId === device.id) {
+        dirtyCheckRef.current = { isDirty: () => false };
+        setPanel({ mode: "empty" });
       }
       void fetchDevices();
     } catch {
       setError("Network error");
     } finally {
-      setDeletePendingId(null);
+      setDeleteConfirmDevice(null);
     }
   };
+
+  const handleAddDeviceType = (deviceType: string): void => {
+    setPopoverOpen(false);
+    navigatePanel({ mode: "create", deviceType });
+  };
+
+  const handleSelectDevice = (device: DeviceRecord): void => {
+    navigatePanel({ mode: "edit", deviceId: device.id, deviceType: device.deviceType });
+  };
+
+  // Sort devices by device type, then by label
+  const sortedDevices = [...devices].sort((a, b) => {
+    const typeCompare = a.deviceType.localeCompare(b.deviceType);
+    if (typeCompare !== 0) return typeCompare;
+    return a.label.localeCompare(b.label);
+  });
+
+  const selectedDevice = panel.mode === "edit" ? devices.find((d) => d.id === panel.deviceId) ?? null : null;
+  const FormComponent = panel.deviceType ? DEVICE_TYPE_REGISTRY[panel.deviceType]?.formComponent : undefined;
 
   if (loading) {
     return (
@@ -189,198 +137,130 @@ export function AdminDeviceManagement(): ReactNode {
   return (
     <IonPage data-testid={TEST_ID_ADMIN_DEVICES_PAGE}>
       <IonContent className="ion-padding">
-        <div className="form-container" style={{ maxWidth: "40rem" }}>
-          <h2 className="text-center margin-bottom-spacious">Device Management</h2>
+        <h2 className="text-center margin-bottom-spacious">Device Management</h2>
 
-          {error && (
-            <IonText color="danger">
-              <p className="margin-none text-secondary margin-bottom-wide">{error}</p>
-            </IonText>
-          )}
+        {error && (
+          <p className="text-danger text-secondary text-center margin-bottom-wide">{error}</p>
+        )}
 
-          {/* Create device form */}
-          <div data-testid={TEST_ID_CREATE_DEVICE_FORM} className="surface" style={{ padding: "1rem", marginBottom: "1.5rem" }}>
-            <h3 className="margin-none margin-bottom-wide">Add OBS Connection</h3>
-            <div className="form-layout">
-              <IonInput
-                data-testid={TEST_ID_CREATE_DEVICE_LABEL}
-                label="Label"
-                labelPlacement="stacked"
-                fill="outline"
-                value={createLabel}
-                onIonInput={(e) => setCreateLabel(e.detail.value ?? "")}
-                clearInput
-              />
-              <div className="manifest-scripture-row">
-                <IonInput
-                  data-testid={TEST_ID_CREATE_DEVICE_HOST}
-                  label="Host"
-                  labelPlacement="stacked"
-                  fill="outline"
-                  value={createHost}
-                  onIonInput={(e) => setCreateHost(e.detail.value ?? "")}
-                  className="fill-remaining"
-                  clearInput
-                />
-                <IonInput
-                  data-testid={TEST_ID_CREATE_DEVICE_PORT}
-                  label="Port"
-                  labelPlacement="stacked"
-                  fill="outline"
-                  type="number"
-                  value={createPort}
-                  onIonInput={(e) => setCreatePort(e.detail.value ?? "4455")}
-                  style={{ maxWidth: "6rem" }}
-                />
-              </div>
-              <IonInput
-                data-testid={TEST_ID_CREATE_DEVICE_PASSWORD}
-                label="Password"
-                labelPlacement="stacked"
-                fill="outline"
-                type="password"
-                value={createPassword}
-                onIonInput={(e) => setCreatePassword(e.detail.value ?? "")}
-                clearInput
-              />
-              <IonInput
-                data-testid={TEST_ID_CREATE_DEVICE_TEMPLATE}
-                label="Stream Title Template"
-                labelPlacement="stacked"
-                fill="outline"
-                value={createTemplate}
-                onIonInput={(e) => setCreateTemplate(e.detail.value ?? DEFAULT_TEMPLATE)}
-                clearInput
-              />
-              <div data-testid={TEST_ID_CREATE_TEMPLATE_PREVIEW} className="manifest-preview">
-                <span className="text-muted">Preview</span>
-                <p className="text-bold margin-top-tight margin-none">{createPreview}</p>
-              </div>
-              {createError && (
-                <IonText color="danger" data-testid={TEST_ID_CREATE_DEVICE_ERROR}>
-                  <p className="margin-none text-secondary">{createError}</p>
-                </IonText>
-              )}
+        <div className="device-management-layout">
+          {/* Left panel — device list */}
+          <div className="device-management-list-panel">
+            <div className="position-relative">
               <IonButton
-                data-testid={TEST_ID_CREATE_DEVICE_SUBMIT}
+                data-testid={TEST_ID_ADD_DEVICE_BUTTON}
                 expand="block"
-                disabled={createPending || !createLabel || !createHost}
-                onClick={() => void handleCreate()}
+                style={{ minHeight: "3rem" }}
+                onClick={() => setPopoverOpen((prev) => !prev)}
               >
-                {createPending ? <IonSpinner name="crescent" /> : "Add Device"}
+                <IonIcon icon={addOutline} slot="start" />
+                Add Device
               </IonButton>
+
+              {popoverOpen && (
+                <div data-testid={TEST_ID_ADD_DEVICE_POPOVER} className="add-device-dropdown surface-raised">
+                  {DEVICE_TYPE_KEYS.map((key) => (
+                    <button
+                      key={key}
+                      data-testid={`${TEST_ID_ADD_DEVICE_TYPE_OPTION}-${key}`}
+                      className="button-unstyled add-device-dropdown-option"
+                      type="button"
+                      onClick={() => handleAddDeviceType(key)}
+                    >
+                      {DEVICE_TYPE_REGISTRY[key]!.displayName}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div data-testid={TEST_ID_DEVICE_LIST} className="device-list-scroll">
+              {sortedDevices.map((device) => (
+                <div
+                  key={device.id}
+                  data-testid={`${TEST_ID_DEVICE_LIST_ITEM}-${device.id}`}
+                  className={`device-list-item surface ${panel.mode === "edit" && panel.deviceId === device.id ? "device-list-item-selected" : ""}`}
+                  onClick={() => handleSelectDevice(device)}
+                  onKeyDown={(e) => e.key === "Enter" && handleSelectDevice(device)}
+                  role="button"
+                  tabIndex={0}
+                >
+                  <div className="fill-remaining">
+                    <div className="text-bold">{device.label}</div>
+                    <div className="text-muted text-caption">
+                      {getDeviceTypeDisplayName(device.deviceType)}
+                      {!device.enabled && <span className="text-danger margin-left-tight"> · Disabled</span>}
+                    </div>
+                  </div>
+                  <IonButton
+                    data-testid={`${TEST_ID_DEVICE_LIST_DELETE_BUTTON}-${device.id}`}
+                    size="small"
+                    fill="clear"
+                    color="danger"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setDeleteConfirmDevice(device);
+                    }}
+                  >
+                    Delete
+                  </IonButton>
+                </div>
+              ))}
+              {devices.length === 0 && <p className="text-muted text-center">No devices configured</p>}
             </div>
           </div>
 
-          {/* Device list */}
-          <div data-testid={TEST_ID_DEVICE_LIST}>
-            {devices.map((device) => (
-              <div key={device.id} data-testid={`device-row-${device.id}`} className="surface" style={{ padding: "0.75rem", marginBottom: "0.5rem" }}>
-                {editingId === device.id ? (
-                  <div className="form-layout">
-                    <IonInput
-                      data-testid={TEST_ID_EDIT_DEVICE_LABEL}
-                      label="Label"
-                      labelPlacement="stacked"
-                      fill="outline"
-                      value={editLabel}
-                      onIonInput={(e) => setEditLabel(e.detail.value ?? "")}
-                      clearInput
-                    />
-                    <div className="manifest-scripture-row">
-                      <IonInput
-                        data-testid={TEST_ID_EDIT_DEVICE_HOST}
-                        label="Host"
-                        labelPlacement="stacked"
-                        fill="outline"
-                        value={editHost}
-                        onIonInput={(e) => setEditHost(e.detail.value ?? "")}
-                        className="fill-remaining"
-                        clearInput
-                      />
-                      <IonInput
-                        data-testid={TEST_ID_EDIT_DEVICE_PORT}
-                        label="Port"
-                        labelPlacement="stacked"
-                        fill="outline"
-                        type="number"
-                        value={editPort}
-                        onIonInput={(e) => setEditPort(e.detail.value ?? "")}
-                        style={{ maxWidth: "6rem" }}
-                      />
-                    </div>
-                    <IonInput
-                      data-testid={TEST_ID_EDIT_DEVICE_PASSWORD}
-                      label="New Password (leave blank to keep)"
-                      labelPlacement="stacked"
-                      fill="outline"
-                      type="password"
-                      value={editPassword}
-                      onIonInput={(e) => setEditPassword(e.detail.value ?? "")}
-                      clearInput
-                    />
-                    <IonInput
-                      data-testid={TEST_ID_EDIT_DEVICE_TEMPLATE}
-                      label="Stream Title Template"
-                      labelPlacement="stacked"
-                      fill="outline"
-                      value={editTemplate}
-                      onIonInput={(e) => setEditTemplate(e.detail.value ?? DEFAULT_TEMPLATE)}
-                      clearInput
-                    />
-                    <div data-testid={TEST_ID_EDIT_TEMPLATE_PREVIEW} className="manifest-preview">
-                      <span className="text-muted">Preview</span>
-                      <p className="text-bold margin-top-tight margin-none">{editPreview}</p>
-                    </div>
-                    <label className="layout-row gap-standard">
-                      <IonCheckbox
-                        data-testid={TEST_ID_EDIT_DEVICE_ENABLED}
-                        checked={editEnabled}
-                        onIonChange={(e) => setEditEnabled(e.detail.checked)}
-                      />
-                      Enabled
-                    </label>
-                    {editError && (
-                      <IonText color="danger" data-testid={TEST_ID_EDIT_DEVICE_ERROR}>
-                        <p className="margin-none text-secondary">{editError}</p>
-                      </IonText>
-                    )}
-                    <div className="layout-row gap-standard">
-                      <IonButton data-testid={TEST_ID_EDIT_DEVICE_SAVE} size="small" disabled={editPending} onClick={() => void handleEdit()}>
-                        {editPending ? <IonSpinner name="crescent" /> : "Save"}
-                      </IonButton>
-                      <IonButton data-testid={TEST_ID_EDIT_DEVICE_CANCEL} size="small" fill="outline" onClick={cancelEdit}>
-                        Cancel
-                      </IonButton>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="layout-row gap-standard">
-                    <strong>{device.label}</strong>
-                    <span className="text-muted text-secondary">{device.host}:{device.port}</span>
-                    <span className="text-muted text-secondary">({device.deviceType})</span>
-                    {!device.enabled && <span className="text-danger text-secondary">Disabled</span>}
-                    <span className="fill-remaining" />
-                    <IonButton data-testid={`edit-device-button-${device.id}`} size="small" fill="clear" onClick={() => startEdit(device)}>
-                      Edit
-                    </IonButton>
-                    <IonButton
-                      data-testid={`delete-device-button-${device.id}`}
-                      size="small"
-                      fill="clear"
-                      color="danger"
-                      disabled={deletePendingId === device.id}
-                      onClick={() => void handleDelete(device.id)}
-                    >
-                      {deletePendingId === device.id ? <IonSpinner name="crescent" /> : "Delete"}
-                    </IonButton>
-                  </div>
-                )}
+          {/* Right panel — form */}
+          <div data-testid={TEST_ID_DEVICE_DETAIL_PANEL} className="device-management-detail-panel surface">
+            {panel.mode === "empty" && (
+              <div data-testid={TEST_ID_DEVICE_DETAIL_EMPTY} className="layout-centered full-height">
+                <p className="text-muted">Select a device or add a new one</p>
               </div>
-            ))}
-            {devices.length === 0 && <p className="text-muted text-center">No devices configured</p>}
+            )}
+            {panel.mode === "create" && FormComponent && (
+              <FormComponent
+                key={`create-${panel.deviceType}`}
+                device={null}
+                onSaved={handleSaved}
+                onDeleted={handleDeleted}
+                registerDirtyCheck={registerDirtyCheck}
+              />
+            )}
+            {panel.mode === "edit" && FormComponent && selectedDevice && (
+              <FormComponent
+                key={`edit-${selectedDevice.id}`}
+                device={selectedDevice}
+                onSaved={handleSaved}
+                onDeleted={handleDeleted}
+                registerDirtyCheck={registerDirtyCheck}
+              />
+            )}
           </div>
         </div>
+
+        {/* Unsaved changes confirmation */}
+        <ConfirmationModal
+          isOpen={pendingNavigation !== null}
+          title="Unsaved Changes"
+          body="You have unsaved changes. Are you sure you want to leave?"
+          confirmLabel="Discard"
+          cancelLabel="Stay"
+          confirmVariant="danger"
+          onConfirm={confirmNavigation}
+          onCancel={cancelNavigation}
+        />
+
+        {/* List delete confirmation */}
+        <ConfirmationModal
+          isOpen={deleteConfirmDevice !== null}
+          title="Delete Device"
+          body={`Are you sure you want to delete "${deleteConfirmDevice?.label ?? ""}"? This cannot be undone.`}
+          confirmLabel="Delete"
+          cancelLabel="Cancel"
+          confirmVariant="danger"
+          onConfirm={() => deleteConfirmDevice && void handleListDelete(deleteConfirmDevice)}
+          onCancel={() => setDeleteConfirmDevice(null)}
+        />
       </IonContent>
     </IonPage>
   );

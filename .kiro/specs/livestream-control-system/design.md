@@ -783,11 +783,15 @@ Sub-components and save behavior are unchanged: Save emits `cts:session:manifest
 
 #### AdminUserManagement
 
-A dedicated page (not a dashboard widget) accessible only to ADMIN users. Reached via a separate route (`/admin/users`). Provides a list of all users with their roles, and forms to create, edit (username, password, role), and delete users. Communicates exclusively via REST endpoints authenticated with the ADMIN JWT. Not part of the widget grid.
+A dedicated page accessible only to ADMIN users. Reached via route `/admin/users`. Uses the same two-panel layout as `AdminDeviceManagement`: the left panel displays a scrollable list of users sorted by role (Admin → AV Power User → AV Volunteer) then username, each showing the username as the primary title and the role display name as a sublabel. An "Add User" button at the top opens the create form in the right panel. Clicking a user opens the edit form.
+
+Delete is available both from the list (per-item Delete button) and from the edit form, both requiring confirmation. The current user's own Delete button is greyed out with a tooltip popover ("You cannot delete your own account") — the backend also rejects self-deletion with a 403. The role dropdown is disabled when editing the current user, with an explanation message ("You cannot change your own role") — the backend also rejects self-role-change with a 403. Navigating away from a form with unsaved changes triggers a confirmation modal with the same a→b→a snapshot-based dirty check used on the device page. Communicates exclusively via REST endpoints authenticated with the ADMIN JWT. Not part of the widget grid.
 
 #### AdminDeviceManagement
 
-A dedicated page accessible only to ADMIN users. Reached via route `/admin/devices`. Allows adding, editing, and deleting device connections (OBS host, port, password). Communicates via REST endpoints requiring ADMIN role. Not part of the widget grid. See "Device Connection Configuration" section for the data model.
+A dedicated page accessible only to ADMIN users. Reached via route `/admin/devices`. Uses a two-panel layout: the left panel displays a scrollable list of configured devices sorted by device type, each showing the device label as the primary title and the device type display name as a sublabel. An "Add Device" button at the top of the list opens a dropdown with available device types (currently OBS). The right panel shows either an empty state ("Select a device or add a new one"), a create form for a new device, or an edit form for an existing device. Each device type provides its own form component via a device type registry (`deviceTypeRegistry.ts`), making it simple to add new device types — add one form component and one registry entry.
+
+Navigating away from a form with unsaved changes triggers a confirmation modal. The dirty check compares current form values against the initial snapshot, so reverting a value (a→b→a) is correctly detected as "no change." Delete is available both from the list (via a per-item Delete button) and from the edit form, both requiring confirmation. Communicates via REST endpoints requiring ADMIN role. Not part of the widget grid. See "Device Connection Configuration" section for the data model.
 
 #### useObsState (hook)
 
@@ -1227,8 +1231,8 @@ All steps are documented in `docs/setup.md`, which also lists all admin-accessib
 
 | Route              | Access                                       | Purpose                                                         |
 | ------------------ | -------------------------------------------- | --------------------------------------------------------------- |
-| `/admin/users`     | ADMIN only                                   | Create, edit, delete user accounts and assign roles             |
-| `/admin/devices`   | ADMIN only                                   | Add, edit, delete device connections (OBS host, port, password) |
+| `/admin/users`     | ADMIN only                                   | Two-panel user management: list + detail form (self-delete and self-role-change prevented) |
+| `/admin/devices`   | ADMIN only                                   | Two-panel device management: list + detail form (supports multiple device types via registry) |
 | `/change-password` | Any user with `requiresPasswordChange: true` | Mandatory password change on first login                        |
 
 These routes are not linked from the main dashboard UI. Navigate to them directly by URL.
@@ -1289,7 +1293,7 @@ Both maps are stored as JSON strings in the database and decoded by the DAO laye
 
 **`DEVICE_SECRET_KEY` format**: The variable must be a 64-character lowercase hex string (representing 32 bytes). On startup, the backend validates the format and length before proceeding. If the value is present but invalid (wrong length, non-hex characters), the backend refuses to start with a clear error message: `DEVICE_SECRET_KEY must be a 64-character hex string (32 bytes). Generate one with: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`. A 32-byte key is required by AES-256; accepting shorter strings and silently padding or hashing them would create a false sense of security.
 
-`ObsService` reads its connection config from the `device_connections` table on startup and on each reconnect attempt. The `AdminDeviceManagement` page (`/admin/devices`) allows ADMIN users to add, edit, and delete device connections. Password fields are write-only in the UI — existing encrypted values are never sent to the frontend.
+`ObsService` reads its connection config from the `device_connections` table on startup and on each reconnect attempt. The `AdminDeviceManagement` page (`/admin/devices`) allows ADMIN users to add, edit, and delete device connections via a two-panel layout. The left panel lists all devices sorted by type, with an "Add Device" dropdown for creating new connections. The right panel renders a device-type-specific form component (e.g., `ObsDeviceForm` for OBS). New device types are added by creating a form component and registering it in `deviceTypeRegistry.ts`. Password fields are write-only in the UI — existing encrypted values are never sent to the frontend. Navigating away from a form with unsaved changes triggers a confirmation modal; the dirty check uses snapshot comparison so reverting a value (a→b→a) is not flagged as a change.
 
 When editing an OBS device connection, the page exposes an additional 'Stream Title Template' text field (default: `{Date} – {Speaker} – {Title}`). Supported tokens: `{Date}`, `{Speaker}`, `{Title}`, `{Scripture}`. The field shows a live preview using the current SessionManifest values. This value is stored as `metadata.streamTitleTemplate` on the device connection record and read by `ObsService` on initialisation.
 

@@ -6,8 +6,9 @@ import { authenticate } from "../middleware/auth.js";
 const IS_PRODUCTION = process.env["NODE_ENV"] === "production";
 const USER_COOKIE = "user_info";
 
-function setUserInfoCookie(response: Response, user: { username: string; role: string }, maxAge: number): void {
-  response.cookie(USER_COOKIE, JSON.stringify({ username: user.username, role: user.role }), {
+function setUserInfoCookie(response: Response, user: { id?: string; sub?: string; username: string; role: string }, maxAge: number): void {
+  const id = user.id ?? user.sub ?? "";
+  response.cookie(USER_COOKIE, JSON.stringify({ id, username: user.username, role: user.role }), {
     httpOnly: false,
     secure: IS_PRODUCTION,
     sameSite: "lax",

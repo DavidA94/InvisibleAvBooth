@@ -93,13 +93,26 @@ export const TEST_ID_SCRIPTURE_VERSE_END_SELECT = "scripture-verse-end-select";
 
 // ── Admin User Management ──────────────────────────────────────────────────────
 export const TEST_ID_ADMIN_USERS_PAGE = "admin-users-page";
+export const TEST_ID_USER_LIST = "user-list";
+export const TEST_ID_USER_LIST_ITEM = "user-list-item";
+export const TEST_ID_ADD_USER_BUTTON = "add-user-button";
+export const TEST_ID_USER_DETAIL_PANEL = "user-detail-panel";
+export const TEST_ID_USER_DETAIL_EMPTY = "user-detail-empty";
+export const TEST_ID_USER_LIST_DELETE_BUTTON = "user-list-delete-button";
+export const TEST_ID_USER_FORM_USERNAME = "user-form-username";
+export const TEST_ID_USER_FORM_PASSWORD = "user-form-password";
+export const TEST_ID_USER_FORM_ROLE_SELECT = "user-form-role-select";
+export const TEST_ID_USER_FORM_SAVE = "user-form-save";
+export const TEST_ID_USER_FORM_DELETE = "user-form-delete";
+export const TEST_ID_USER_FORM_ERROR = "user-form-error";
+
+// Legacy aliases — kept for backward compatibility
 export const TEST_ID_CREATE_USER_FORM = "create-user-form";
 export const TEST_ID_CREATE_USERNAME = "create-username";
 export const TEST_ID_CREATE_PASSWORD = "create-password";
 export const TEST_ID_CREATE_ROLE_SELECT = "create-role-select";
 export const TEST_ID_CREATE_USER_SUBMIT = "create-user-submit";
 export const TEST_ID_CREATE_USER_ERROR = "create-user-error";
-export const TEST_ID_USER_LIST = "user-list";
 export const TEST_ID_EDIT_USERNAME = "edit-username";
 export const TEST_ID_EDIT_PASSWORD = "edit-password";
 export const TEST_ID_EDIT_ROLE_SELECT = "edit-role-select";
@@ -109,6 +122,28 @@ export const TEST_ID_EDIT_USER_ERROR = "edit-user-error";
 
 // ── Admin Device Management ────────────────────────────────────────────────────
 export const TEST_ID_ADMIN_DEVICES_PAGE = "admin-devices-page";
+export const TEST_ID_DEVICE_LIST = "device-list";
+export const TEST_ID_DEVICE_LIST_ITEM = "device-list-item";
+export const TEST_ID_ADD_DEVICE_BUTTON = "add-device-button";
+export const TEST_ID_ADD_DEVICE_POPOVER = "add-device-popover";
+export const TEST_ID_ADD_DEVICE_TYPE_OPTION = "add-device-type-option";
+export const TEST_ID_DEVICE_DETAIL_PANEL = "device-detail-panel";
+export const TEST_ID_DEVICE_DETAIL_EMPTY = "device-detail-empty";
+export const TEST_ID_DEVICE_LIST_DELETE_BUTTON = "device-list-delete-button";
+
+// ── Device Form (shared across device types) ──────────────────────────────────
+export const TEST_ID_DEVICE_FORM_LABEL = "device-form-label";
+export const TEST_ID_DEVICE_FORM_HOST = "device-form-host";
+export const TEST_ID_DEVICE_FORM_PORT = "device-form-port";
+export const TEST_ID_DEVICE_FORM_PASSWORD = "device-form-password";
+export const TEST_ID_DEVICE_FORM_TEMPLATE = "device-form-template";
+export const TEST_ID_DEVICE_FORM_TEMPLATE_PREVIEW = "device-form-template-preview";
+export const TEST_ID_DEVICE_FORM_ENABLED = "device-form-enabled";
+export const TEST_ID_DEVICE_FORM_SAVE = "device-form-save";
+export const TEST_ID_DEVICE_FORM_DELETE = "device-form-delete";
+export const TEST_ID_DEVICE_FORM_ERROR = "device-form-error";
+
+// Legacy aliases — kept for backward compatibility with existing tests
 export const TEST_ID_CREATE_DEVICE_FORM = "create-device-form";
 export const TEST_ID_CREATE_DEVICE_LABEL = "create-device-label";
 export const TEST_ID_CREATE_DEVICE_HOST = "create-device-host";
@@ -118,7 +153,6 @@ export const TEST_ID_CREATE_DEVICE_TEMPLATE = "create-device-template";
 export const TEST_ID_CREATE_TEMPLATE_PREVIEW = "create-template-preview";
 export const TEST_ID_CREATE_DEVICE_SUBMIT = "create-device-submit";
 export const TEST_ID_CREATE_DEVICE_ERROR = "create-device-error";
-export const TEST_ID_DEVICE_LIST = "device-list";
 export const TEST_ID_EDIT_DEVICE_LABEL = "edit-device-label";
 export const TEST_ID_EDIT_DEVICE_HOST = "edit-device-host";
 export const TEST_ID_EDIT_DEVICE_PORT = "edit-device-port";

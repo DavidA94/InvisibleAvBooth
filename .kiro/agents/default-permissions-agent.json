@@ -1,8 +1,8 @@
 {
   "name": "default-permissions-agent",
   "prompt": "See steering docs for how you operate",
-  "tools": ["read", "write", "shell"],
-  "allowedTools": ["read", "shell"],
+  "tools": ["read", "write", "shell", "glob", "grep", "code", "web_search", "web_fetch", "use_aws", "knowledge", "subagent", "todo_list", "introspect"],
+  "allowedTools": ["read", "shell", "glob", "grep", "code", "web_search", "web_fetch", "knowledge", "subagent", "todo_list", "introspect"],
   "toolsSettings": {
     "write": {
       "allowedPaths": ["/mnt/c/Users/David/Documents/Programming/HTML/InvisibleAvBooth/**/*"]

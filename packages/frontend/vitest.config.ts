@@ -11,6 +11,7 @@ export default defineConfig({
     testTimeout: 30000,
     hookTimeout: 30000,
     teardownTimeout: 60000,
+    pool: "vmThreads",
     server: {
       deps: {
         inline: ["@ionic/core", "@ionic/react", "@ionic/react-router", "ionicons"],
