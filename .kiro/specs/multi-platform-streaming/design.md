@@ -858,6 +858,8 @@ The OAuth callback endpoints are unauthenticated because the browser redirects f
 
 **OAuth `state` parameter**: When the admin initiates the OAuth flow, the backend generates a cryptographically random `state` string, stores it in a short-lived database row (`oauth_states` table: `state TEXT PRIMARY KEY, platformType TEXT, createdAt TEXT`) with a 5-minute TTL, and includes it in the authorization URL. The callback endpoint validates the `state` against the database, deletes the row, and rejects the callback if the state is missing, expired, or already consumed. This survives backend restarts (unlike in-memory storage) and prevents replay attacks (single-use).
 
+**OAuth localhost constraint**: The OAuth redirect URIs are registered as `http://localhost:{PORT}/api/auth/callback/{platform}` in the Google Cloud Console and Facebook Developer portal. This means the OAuth consent flow must be initiated from a browser on the machine running the backend — the redirect lands on `localhost`, which only resolves to the backend if the browser is on the same machine. This is a one-time admin setup task. After tokens are stored, all other operations (admin config, volunteer streaming) work from any device on the LAN. This constraint avoids the need for a public domain, HTTPS certificates, or tunnel services in a church LAN deployment.
+
 `GET /api/platforms/health` is used by the OBS widget's platform readiness icons (Req 8.11). It returns a lightweight summary without exposing tokens:
 
 ```typescript
