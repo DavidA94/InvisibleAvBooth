@@ -195,6 +195,8 @@ On first login after bootstrap, the JWT contains `requiresPasswordChange: true`.
 
 #### SessionManifestService
 
+> **Note**: The multi-platform-streaming spec modifies this service significantly. The `template` constructor parameter is removed; templates are read from the database via `MetadataTemplateDao`. The event payload is extended with `interpolatedDescription` and `manifestReady`. `clear()` preserves template selections. See multi-platform-streaming design doc.
+
 Maintains the in-memory SessionManifest and coordinates updates.
 
 ```typescript
@@ -571,6 +573,8 @@ Renders the responsive grid for the active dashboard. Fetches `GridManifest` fro
 The OBS control widget. Default footprint: **3×2** (3 columns × 2 rows).
 
 The widget is always rendered inside a `WidgetContainer` that the widget itself creates, passing `title="OBS"` and its own connection state. The OBS widget maintains one connection entry: `{ label: "OBS", healthy: obsState.connected }`. The container's title bar handles connection status display. The widget itself owns only its content area.
+
+> **Note**: The multi-platform-streaming spec expands the connection list to three entries (`"OBS"`, `"Relay"`, `"Stream"`) and replaces the boolean `healthy` field with a four-value `status` field. The "Start Stream" button is replaced by "Manage Streams". See multi-platform-streaming design doc.
 
 Visual layout (content area, inside WidgetContainer):
 

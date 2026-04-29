@@ -165,9 +165,9 @@ type RelayState = "healthy" | "unhealthy" | "inactive";
 ffmpeg -i rtmp://localhost:{RELAY_PORT}/live/stream -c copy -f flv {platformRtmpUrl}
 ```
 
-`RelayService` tracks active forwarders in a `Map<string, ChildProcess>` keyed by `platformId`. When a process exits unexpectedly, it emits `bus:forwarder:exited` with the platform ID and exit code. The auto-recovery logic (Req 5.4) lives in `StreamingPlatformService`, not here — `RelayService` only reports the exit.
+`RelayService` tracks active forwarders in a `Map<string, ChildProcess>` keyed by `platformId`. When a process exits unexpectedly, it emits `bus:forwarder:exited` with the platform ID and exit code. FFmpeg's stderr is consumed via a stream handler (not buffered to completion) to prevent pipe backpressure from stalling the FFmpeg process; only the last 50 lines are retained for error reporting in Banner notifications. The auto-recovery logic (Req 5.4) lives in `StreamingPlatformService`, not here — `RelayService` only reports the exit.
 
-**Relay crash recovery**: If `node-media-server` crashes during operation, `RelayService` attempts restart up to 3 times with 5-second delays. On success, emits a self-clearing Banner via `bus:relay:state:changed`. On exhaustion, emits persistent `"unhealthy"` state.
+**Relay crash recovery**: If `node-media-server` crashes during operation, `RelayService` attempts restart up to 3 times with 5-second delays. On success, emits a self-clearing Banner via `bus:relay:state:changed`. OBS's built-in reconnect logic will re-establish the connection to the relay once it is back. After a successful relay restart, `StreamingPlatformService` checks for any platforms that were in "Streaming" state — their FFmpeg forwarders will have exited when the relay crashed, so the service respawns them (this is distinct from the "No Source" auto-recovery suppression, which only applies to OBS disconnects). On exhaustion, emits persistent `"unhealthy"` state.
 
 **Cleanup on shutdown**: `RelayService.stop()` is called from signal handlers (`SIGTERM`, `SIGINT`) registered in `index.ts`. It kills all FFmpeg child processes and stops the relay.
 
@@ -487,6 +487,8 @@ export function interpolateTemplate(
 ```
 
 The backend passes a resolver that queries the KJV table. The frontend passes no resolver — `{verseText}` tokens in the frontend preview are replaced with the formatted scripture reference followed by `(full text included on stream)` (e.g., `John 3:16 (full text included on stream)`), since the frontend does not have access to the KJV database. The full verse text is only visible in the backend-computed `interpolatedDescription` that is broadcast to clients.
+
+**`SessionManifestFields` vs `SessionManifest` type split**: The shared `SessionManifestFields` type in `packages/shared/src/interpolation.ts` is NOT extended with template IDs — it contains only the fields needed for interpolation (`speaker`, `title`, `scripture`). The full `SessionManifest` type (with `titleTemplateId` and `descriptionTemplateId`) is defined in the backend and frontend type files. The shared interpolation function accepts `SessionManifestFields`, not the full `SessionManifest`.
 
 ---
 
@@ -881,7 +883,7 @@ interface PlatformHealthResponse {
 
 ### Modified Types (`packages/frontend/src/types.ts`)
 
-**`ObsCommandType` reduction**: The original `ObsCommandType` included `"startStream" | "stopStream" | "startRecording" | "stopRecording"`. With multi-platform streaming, `startStream` and `stopStream` are removed — they are called internally by `StreamingPlatformService`, not by the frontend. The frontend type becomes `"startRecording" | "stopRecording"`.
+**`ObsCommandType` reduction**: The original `ObsCommandType` included `"startStream" | "stopStream" | "startRecording" | "stopRecording"`. With multi-platform streaming, `startStream` and `stopStream` are removed from the frontend-facing type — they are called internally by `StreamingPlatformService`, not by the frontend. The shared package retains all four values (the backend still uses them internally); the frontend re-exports only `"startRecording" | "stopRecording"`.
 
 ```typescript
 // Extended SessionManifest — adds template selection
@@ -911,6 +913,7 @@ export type PlatformHealth = "good" | "ok" | "bad" | "noData";
 export type RelayState = "healthy" | "unhealthy" | "inactive";
 
 // Modified ConnectionStatus — boolean healthy → four-value status
+// Currently defined in WidgetContainer.tsx; as part of this migration, move to types.ts
 export interface ConnectionStatus {
   label: string;
   status: "healthy" | "degraded" | "unhealthy" | "inactive";
@@ -1515,6 +1518,9 @@ export function interpolateTemplate(
   verseTextResolver?: (ref: ScriptureReference) => string,
 ): string {
   // ... existing token replacements for {Date}, {Speaker}, {Title}, {Scripture}
+  // Note: formatScripture() must be updated to handle verse 0 per Req 3.3:
+  // - verse 0 with no verseEnd → chapter only (e.g., "Psalm 23")
+  // - verse 0 with verseEnd → range starting at 1 (e.g., "Psalm 23:1-2")
 
   // {verseText} — requires database access, backend-only
   result = result.replace(/\{verseText\}/g, () => {

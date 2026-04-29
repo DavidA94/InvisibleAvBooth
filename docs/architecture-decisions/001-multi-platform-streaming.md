@@ -86,7 +86,7 @@ OBS → node-media-server (localhost:1935)
 
 Use the hybrid approach (Option E):
 
-1. **node-media-server** runs as a separate Node.js process alongside the backend, listening on a configurable local port (default `1935`). Its only job is to accept the RTMP stream from OBS and make it available for local consumers.
+1. **node-media-server** runs within the backend Node.js process (started by `RelayService` on backend startup), listening on a configurable local port (default `1935`). Its only job is to accept the RTMP stream from OBS and make it available for local consumers.
 
 2. **FFmpeg** is spawned as one child process per active streaming destination. Each process reads from the local RTMP server and forwards to the platform's ingest URL using `-c copy` (no re-encoding). The backend manages the lifecycle of these processes.
 
