@@ -24,7 +24,7 @@ This is an extension document — it references and builds on the original desig
 - **`ConnectionStatus` interface**: The boolean `healthy` field is replaced by `status: "healthy" | "degraded" | "unhealthy" | "inactive"`. All existing usages must be migrated. The `WidgetContainer` component, its CSS dot classes, and the popover text all change. Supersedes original Req 16.3 and 16.5 (which reference the boolean model).
 - **`SessionManifest` interface**: Two new fields added: `titleTemplateId?: string` and `descriptionTemplateId?: string`. The backend `SessionManifestEventMap` payload gains `interpolatedDescription: string` and `manifestReady: boolean`.
 - **`SessionManifestService` constructor**: No longer accepts a template string. Reads templates from the database via a DAO.
-- **`interpolateStreamTitle` in `packages/shared`**: Renamed to `interpolateTemplate`. Reworked to support multiple templates and the `{verseText}` token. Function signature changes.
+- **`interpolateStreamTitle` in `packages/shared`**: Renamed to `interpolateTemplate`. Reworked to support multiple templates and the `{verseText}` token. Function signature changes. The export in `packages/shared/src/index.ts` must be updated from `interpolateStreamTitle` to `interpolateTemplate`. All import sites across the monorepo must be updated (find-and-replace rename, not a deprecation).
 - **OBS widget connection list**: Expands from one entry (`"OBS"`) to three (`"OBS"`, `"Relay"`, `"Stream"`).
 - **ADMIN post-login navigation**: Redirects to `/admin` instead of the Dashboard Selection Screen. Supersedes original Req 5.3 for ADMIN users.
 - **OBS safe-start sequence**: Original Req 8.2 (update OBS metadata → start stream) is superseded. Metadata is now set via platform APIs, not OBS. OBS stream settings always point at the relay. Original design Property 9 (safe-start ordering) is superseded.
@@ -417,7 +417,9 @@ The existing `SessionManifestService` is modified to support multiple templates 
 2. `update()` now reads the selected `titleTemplateId` and `descriptionTemplateId` from the manifest, fetches the corresponding format strings from the database, and interpolates both.
 3. The `BUS_SESSION_MANIFEST_UPDATED` event payload gains `interpolatedDescription: string`.
 4. `{verseText}` interpolation requires a KJV database query — this is performed in the backend only (not in `packages/shared`).
-5. `clear()` resets session data fields (`speaker`, `title`, `scripture`) to `undefined` but preserves `titleTemplateId` and `descriptionTemplateId` — template selections are structural configuration, not per-service session data.
+5. `clear()` resets session data fields (`speaker`, `title`, `scripture`) to `undefined` but preserves `titleTemplateId` and `descriptionTemplateId` — template selections are structural configuration, not per-service session data. The current code treats an empty patch `{}` as a clear command (in `SessionManifestModule`). With template IDs in the manifest, this convention still works — `clear()` explicitly resets only the session data fields, leaving template IDs untouched. No change to the empty-patch-means-clear convention is needed.
+6. `getTemplate()` is removed — the module no longer does its own interpolation. `emitInitialState()` calls `getInterpolated()` instead.
+7. `ObsService` no longer subscribes to `BUS_SESSION_MANIFEST_UPDATED` — the `cachedStreamTitle` field, `manifestHandler`, and the EventBus subscription are removed. `ObsService` no longer needs the interpolated title because metadata is set via platform APIs, not via OBS `SetStreamServiceSettings`. The `updateStreamMetadata()` method is retained but not called during the stream start flow.
 
 ```typescript
 // Modified constructor
@@ -562,11 +564,16 @@ interface UpdateTemplateRequest {
 
 1. `startStream()` no longer calls `updateStreamMetadata()` via `SetStreamServiceSettings`. Metadata is set via platform APIs, not OBS. The safe-start sequence is replaced by the relay-aware flow.
 2. On connect, `ObsService` configures OBS to stream to `rtmp://localhost:{RELAY_PORT}/live/stream` via `SetStreamServiceSettings`. Before starting the stream, it verifies the settings haven't been changed externally and auto-corrects if needed.
-3. `startStream()` and `stopStream()` are now called by `StreamingPlatformService` as part of the platform start/stop orchestration — they are no longer triggered directly by the OBS widget's stream button (which is replaced by "Manage Streams").
+3. `startStream()` and `stopStream()` are now called by `StreamingPlatformService` as part of the platform start/stop orchestration — they are no longer triggered directly by the OBS widget's stream button (which is replaced by "Manage Streams"). `StreamingPlatformService` receives `ObsService` via constructor injection in `index.ts` (not via the `getObsService()` singleton factory — the factory is used only by `index.ts` itself).
 4. Recording controls (`startRecording`, `stopRecording`) remain unchanged and are still triggered directly from the OBS widget.
 
 ```typescript
 // New method — called on every OBS connection
+// Note: the existing code uses streamServiceType: "rtmp_common" for metadata updates
+// (named services like YouTube/Twitch). The relay config uses "rtmp_custom" because
+// we're pointing OBS at a custom RTMP URL (the local relay), not a named service.
+// This is a deliberate service type change — OBS switches from a named streaming
+// service to a custom RTMP endpoint.
 private async configureRelayTarget(): Promise<void> {
   const relayUrl = `rtmp://localhost:${process.env["RELAY_PORT"] ?? "1935"}/live/stream`;
   await this.obs.call("SetStreamServiceSettings", {
@@ -665,7 +672,7 @@ export const BUS_PLATFORM_READINESS_CHANGED = "bus:platform:readiness:changed" a
 
 ### Shared Socket.io Event Constants
 
-Added to `packages/shared/src/socketEvents.ts`:
+Added to `packages/shared/src/constants/socketEvents.ts`:
 
 ```typescript
 // Client → Server
@@ -677,6 +684,8 @@ export const STC_PLATFORM_HEALTH = "stc:platform:health" as const;
 export const STC_RELAY_STATE = "stc:relay:state" as const;
 export const STC_PLATFORM_READINESS = "stc:platform:readiness" as const; // token health for widget readiness icons
 ```
+
+**Known inconsistency**: The existing `notification` Socket.io event (used by `NotificationLayer`) is hardcoded as a string `"notification"` in `SocketProvider.tsx` and `ObsModule.ts` — it does not follow the `STC_*` constant convention. This predates the multi-platform spec and is not addressed here. New events follow the constant convention.
 
 ### EventMap Extension
 
@@ -829,6 +838,8 @@ Two routers serve template data at different paths with different auth requireme
 **Admin CRUD** — `createAdminTemplateRouter(database: Database, authService: AuthService): Router`
 
 Mounted at `/api/admin/templates`. Requires ADMIN role.
+
+**URL constants**: Following the existing pattern in `packages/shared/src/constants/urls.ts`, add constants for all new routes: `URL_ADMIN_TEMPLATES`, `URL_ADMIN_TEMPLATE_BY_ID`, `URL_ADMIN_TEMPLATES_VALIDATE`, `URL_TEMPLATES` (volunteer read), `URL_ADMIN_PLATFORMS`, `URL_ADMIN_PLATFORM_BY_TYPE`, `URL_PLATFORMS_HEALTH`, `URL_AUTH_CALLBACK_YOUTUBE`, `URL_AUTH_CALLBACK_FACEBOOK`.
 
 | Method | Path | Description |
 |---|---|---|
