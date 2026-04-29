@@ -111,8 +111,8 @@ graph TD
 | OBS → Relay | RTMP | `rtmp://localhost:{RELAY_PORT}/live/stream` |
 | Relay → Platform ingest | RTMP via FFmpeg | `-c copy`, no re-encoding |
 | Frontend ↔ Backend (platform state) | Socket.io | New `stc:platform:state` and `cts:platform:command` events |
-| Frontend → Backend (templates) | REST | `GET/POST/PUT/DELETE /admin/templates` |
-| Frontend → Backend (platform config) | REST | `/admin/platforms/*` |
+| Frontend → Backend (templates) | REST | `GET/POST/PUT/DELETE /api/admin/templates` |
+| Frontend → Backend (platform config) | REST | `/api/admin/platforms/*` |
 | Frontend → Backend (OAuth callbacks) | REST | `GET /api/auth/callback/{youtube,facebook}` |
 
 ### Key Architectural Decisions
@@ -828,15 +828,15 @@ Two routers serve template data at different paths with different auth requireme
 
 **Admin CRUD** — `createAdminTemplateRouter(database: Database, authService: AuthService): Router`
 
-Mounted at `/admin/templates`. Requires ADMIN role.
+Mounted at `/api/admin/templates`. Requires ADMIN role.
 
 | Method | Path | Description |
 |---|---|---|
-| `GET` | `/admin/templates` | List all templates (unfiltered, for admin management page) |
-| `POST` | `/admin/templates` | Create template (runs validation) |
-| `PUT` | `/admin/templates/:id` | Update template (runs validation) |
-| `DELETE` | `/admin/templates/:id` | Delete template (guards last title template) |
-| `POST` | `/admin/templates/validate` | Validate without saving — returns blockers and warnings |
+| `GET` | `/api/admin/templates` | List all templates (unfiltered, for admin management page) |
+| `POST` | `/api/admin/templates` | Create template (runs validation) |
+| `PUT` | `/api/admin/templates/:id` | Update template (runs validation) |
+| `DELETE` | `/api/admin/templates/:id` | Delete template (guards last title template) |
+| `POST` | `/api/admin/templates/validate` | Validate without saving — returns blockers and warnings |
 
 **Volunteer read** — `createTemplateRouter(database: Database, authService: AuthService): Router`
 
@@ -848,7 +848,7 @@ Mounted at `/api/templates`. Requires authentication (any role). Used by `Sessio
 
 The backend reads the user's role from the JWT payload and filters templates where `roleMinimum` is at or below that role in the hierarchy. The `category` query parameter is optional — if omitted, both categories are returned.
 
-**Validation endpoint**: `POST /admin/templates/validate` accepts the same body as create/update but returns validation results without persisting. Response:
+**Validation endpoint**: `POST /api/admin/templates/validate` accepts the same body as create/update but returns validation results without persisting. Response:
 
 ```typescript
 interface ValidationResult {
@@ -870,10 +870,10 @@ interface ValidationIssue {
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| `GET` | `/admin/platforms` | ADMIN | List all platform configs (tokens excluded) |
-| `GET` | `/admin/platforms/:platformType` | ADMIN | Get single platform config |
-| `PUT` | `/admin/platforms/:platformType` | ADMIN | Update platform config (enable/disable, privacy, etc.) |
-| `DELETE` | `/admin/platforms/:platformType` | ADMIN | Disconnect platform (revoke + delete tokens) |
+| `GET` | `/api/admin/platforms` | ADMIN | List all platform configs (tokens excluded) |
+| `GET` | `/api/admin/platforms/:platformType` | ADMIN | Get single platform config |
+| `PUT` | `/api/admin/platforms/:platformType` | ADMIN | Update platform config (enable/disable, privacy, etc.) |
+| `DELETE` | `/api/admin/platforms/:platformType` | ADMIN | Disconnect platform (revoke + delete tokens) |
 | `GET` | `/api/auth/callback/youtube` | Unauthenticated | OAuth callback — exchanges code for tokens |
 | `GET` | `/api/auth/callback/facebook` | Unauthenticated | OAuth callback — exchanges code for tokens |
 | `GET` | `/api/platforms/health` | Authenticated | Platform readiness (token validity, page access) for widget icons |
@@ -1502,16 +1502,16 @@ For description templates, the Template field is a multi-line `<textarea>` inste
 
 | Endpoint | Role | Description |
 |---|---|---|
-| `GET /admin/templates` | ADMIN | List all templates (unfiltered) |
-| `POST /admin/templates` | ADMIN | Create template |
-| `PUT /admin/templates/:id` | ADMIN | Update template |
-| `DELETE /admin/templates/:id` | ADMIN | Delete template |
-| `POST /admin/templates/validate` | ADMIN | Validate template without saving |
+| `GET /api/admin/templates` | ADMIN | List all templates (unfiltered) |
+| `POST /api/admin/templates` | ADMIN | Create template |
+| `PUT /api/admin/templates/:id` | ADMIN | Update template |
+| `DELETE /api/admin/templates/:id` | ADMIN | Delete template |
+| `POST /api/admin/templates/validate` | ADMIN | Validate template without saving |
 | `GET /api/templates?category=` | Authenticated | List templates filtered by user's role (from JWT) |
-| `GET /admin/platforms` | ADMIN | List platform configs |
-| `GET /admin/platforms/:platformType` | ADMIN | Get single platform config |
-| `PUT /admin/platforms/:platformType` | ADMIN | Update platform config |
-| `DELETE /admin/platforms/:platformType` | ADMIN | Disconnect platform |
+| `GET /api/admin/platforms` | ADMIN | List platform configs |
+| `GET /api/admin/platforms/:platformType` | ADMIN | Get single platform config |
+| `PUT /api/admin/platforms/:platformType` | ADMIN | Update platform config |
+| `DELETE /api/admin/platforms/:platformType` | ADMIN | Disconnect platform |
 | `GET /api/auth/callback/youtube` | Unauthenticated | YouTube OAuth callback |
 | `GET /api/auth/callback/facebook` | Unauthenticated | Facebook OAuth callback |
 | `GET /api/platforms/health` | Authenticated | Platform readiness for widget icons |
