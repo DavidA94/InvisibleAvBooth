@@ -1,0 +1,18 @@
+# Development Caddyfile — proxies to Vite dev server + Express backend.
+# Usage: sudo caddy start --config Caddyfile.dev
+#
+# Prerequisites:
+#   bash scripts/generate-cert.sh   # one-time cert generation
+
+invisible.av, localhost {
+	tls certs/localhost.crt certs/localhost.key
+
+	@backend path /api/* /socket.io/*
+	handle @backend {
+		reverse_proxy localhost:3001
+	}
+
+	handle {
+		reverse_proxy localhost:5173
+	}
+}

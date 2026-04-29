@@ -1,0 +1,21 @@
+# Production Caddyfile — serves static frontend + proxies to Express backend.
+# Usage: sudo caddy start --config Caddyfile
+#
+# Prerequisites:
+#   bash scripts/generate-cert.sh   # one-time cert generation
+#   npm run build                   # build frontend
+
+invisible.av, localhost {
+	tls certs/localhost.crt certs/localhost.key
+
+	@backend path /api/* /socket.io/*
+	handle @backend {
+		reverse_proxy localhost:3001
+	}
+
+	handle {
+		root * packages/frontend/dist
+		try_files {path} /index.html
+		file_server
+	}
+}

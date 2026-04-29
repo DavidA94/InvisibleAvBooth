@@ -29,7 +29,7 @@ if (!/^[0-9a-f]{64}$/.test(secretKey)) {
   process.exit(1);
 }
 
-const PORT = parseInt(process.env["PORT"] ?? "3000", 10);
+const PORT = parseInt(process.env["PORT"] ?? "3001", 10);
 
 const database = getDatabase();
 const authService = new AuthService(database);

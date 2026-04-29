@@ -156,3 +156,4 @@ packages/frontend/test-results/
 
 # Vitest coverage output
 coverage/
+certs/

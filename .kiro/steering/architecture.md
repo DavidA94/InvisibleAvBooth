@@ -7,9 +7,12 @@ inclusion: always
 ## 0. Technology Stack
 
 - **Language:** TypeScript throughout — backend and frontend, no plain JS in `packages/`
-- **Backend:** Node.js (`packages/backend`)
-- **Frontend:** React + Ionic React (`packages/frontend`) — Ionic provides the touch-first component library; themed via CSS custom properties in `src/theme/variables.css`. **Zustand** is used for all frontend state management (slice pattern — auth, OBS state, session manifest, notifications — see design doc).
-- **Structure:** Monorepo with a shared root ESLint + Prettier config and a `tsconfig.base.json`. Includes `packages/shared` for constants shared between frontend and backend (currently `BIBLE_BOOKS` — the `bookId` → display name mapping for KJV scripture references). `packages/shared` is a local workspace package (`@invisible-av-booth/shared`) with its own `tsconfig.json` extending `tsconfig.base.json`, consumed via TypeScript project references — no separate build step required.
+- **Backend:** Node.js (`packages/backend`), Express v5 HTTP framework, Socket.io for real-time bidirectional communication
+- **Frontend:** React + Ionic React (`packages/frontend`) — Ionic provides the touch-first component library; themed via CSS custom properties in `src/theme/variables.css`. **Zustand** is used for all frontend state management (slice pattern — auth, OBS state, session manifest, notifications — see design doc). **react-router** v7 for client-side routing. **react-select** for styled dropdowns.
+- **Database:** SQLite via `better-sqlite3` — single-file embedded database (`data/app.db`), no external server required. WAL mode for concurrent read performance.
+- **Authentication:** JWT issued as HttpOnly cookies (`token`), bcrypt for password hashing, role-based access control (ADMIN > AvPowerUser > AvVolunteer). A non-HttpOnly `user_info` cookie (`{ id, username, role }`) is set alongside the JWT so the frontend can hydrate auth state without decoding the token.
+- **Device Integration:** obs-websocket-js for OBS Studio communication. Device passwords encrypted at rest with AES-256-GCM via `DEVICE_SECRET_KEY` environment variable.
+- **Structure:** Monorepo with a shared root ESLint + Prettier config and a `tsconfig.base.json`. Includes `packages/shared` (`@invisible-av-booth/shared`) for constants, types, and utilities shared between frontend and backend — socket event names (`CTS_*`/`STC_*`), REST URL constants, shared TypeScript types (`ObsState`, `Notification`, `GridManifest`, etc.), `BIBLE_BOOKS` data, and interpolation/scripture utilities. Consumed via TypeScript project references — no separate build step required.
 - **Code style:** See `code-style.md` for naming conventions, formatting rules, and TypeScript patterns
 
 ---
@@ -71,7 +74,8 @@ The system provides **modular control of livestream operations** for a church en
 
 ## 3. Interfaces & Boundaries
 
-- **Frontend ↔ Backend:** JSON-based commands and status updates; backend mediates all device communication.
+- **Reverse Proxy (Caddy):** All traffic flows through Caddy on port 443 (HTTPS). Caddy routes `/api/*` and `/socket.io/*` to the Express backend on port 3001; all other requests go to the frontend (Vite dev server in development, static files in production). This eliminates CORS, simplifies cookie scoping, and ensures the frontend never needs to know the backend's port. See `Caddyfile` (production) and `Caddyfile.dev` (development).
+- **Frontend ↔ Backend:** JSON-based commands and status updates over REST and Socket.io; backend mediates all device communication. All requests use relative URLs (`/api/...`, `/socket.io/...`) — Caddy handles routing to the correct server.
 - **Backend ↔ Devices:** Handles all network/API calls to devices and reconciling reported states.
 - **Widget Responsibilities:**
   - Display device state and updates.
@@ -121,6 +125,37 @@ The backend uses **winston** with two simultaneous transports: structured JSON t
 Log levels are `DEBUG / INFO / WARN / ERROR`. `DEBUG` is off by default and enabled via `LOG_LEVEL=debug`. All entries include a timestamp, source, level, message, and optional structured context. Any entry triggered by a user action includes the `userId`.
 
 See `logging.md` for the full logging philosophy and conventions.
+
+---
+
+## 7. Event Naming Convention & Socket Module Pattern
+
+### Event Name Prefixes
+
+All event names in the system use a prefix that identifies the communication boundary:
+
+| Prefix | Boundary | Direction | Example |
+|--------|----------|-----------|---------|
+| `bus:` | Internal EventBus (backend only) | Service → Service | `bus:obs:state:changed`, `bus:session:manifest:updated` |
+| `stc:` | Socket.io server-to-client | Backend → Frontend | `stc:obs:state`, `stc:session:manifest:updated` |
+| `cts:` | Socket.io client-to-server | Frontend → Backend | `cts:obs:command`, `cts:request:initial:state` |
+
+All event name constants are defined in `packages/shared/src/constants/socketEvents.ts` and exported from `@invisible-av-booth/shared`. Both frontend and backend import these constants — event names are never hardcoded as strings.
+
+**Exception:** The `notification` socket event does not follow the `stc:` convention. This is a known inconsistency from the initial implementation.
+
+### Socket Module Pattern
+
+Both backend and frontend use a modular pattern for organizing socket event handlers by domain.
+
+**Backend** (`src/gateway/modules/`): Each module implements the `SocketModule` interface:
+- `register(io)` — called once at startup; wires EventBus events to Socket.io broadcasts
+- `registerSocket(auth)` — called per authenticated connection; registers per-socket `cts:` handlers
+- `emitInitialState(auth)` — called when a client emits `cts:request:initial:state` (on connect and reconnect)
+
+**Frontend** (`src/providers/socketModules/`): Each module exports a function that registers `socket.on()` listeners and wires incoming events to Zustand store actions. `SocketProvider` calls all modules on connect and cleans up on disconnect.
+
+To add a new domain (e.g., audio mixer): create one backend module and one frontend module, register them in `socketGateway.ts` and `SocketProvider.tsx` respectively. No existing modules need modification.
 
 ---
 
