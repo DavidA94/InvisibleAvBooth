@@ -31,6 +31,7 @@ This is an extension document — it references and builds on the original desig
 - **Start Stream button disabled logic**: Original Req 8.12 (disabled unless speaker or title present) is superseded by `manifestReady` boolean computed from selected template tokens.
 - **`ObsCommand` frontend scope**: `startStream` and `stopStream` are no longer triggered by the frontend via `CTS_OBS_COMMAND`. They are called internally by `StreamingPlatformService`. The frontend `ObsCommand` type retains only `startRecording` and `stopRecording`. Original `CTS_OBS_COMMAND` handler in `ObsModule` must be updated accordingly.
 - **`ObsService.updateStreamMetadata()`**: No longer called during the stream start flow. Retained for potential future use but not part of the multi-platform streaming path.
+- **`formatScripture()` in `packages/shared`**: Updated to handle verse 0 per Req 3.3 — verse 0 with no verseEnd displays as chapter only (e.g., "Psalm 23"); verse 0 with verseEnd displays range starting at 1 (e.g., "Psalm 23:1-2"). This is a behavioral change to a shared function used by both frontend and backend.
 
 ---
 
@@ -153,7 +154,7 @@ type RelayState = "healthy" | "unhealthy" | "inactive";
 // unhealthy: relay failed to start or crashed and recovery failed
 ```
 
-**Relay lifecycle**: Started in `index.ts` on backend startup, before `ObsService.connect()`. If the relay fails to start (port conflict), `RelayService` emits `bus:relay:state:changed` with `"unhealthy"` and logs a clear error. The relay runs for the lifetime of the backend process.
+**Relay lifecycle**: Started in `index.ts` on backend startup, before `ObsService.connect()`. If the relay fails to start (port conflict), `RelayService` emits `bus:relay:state:changed` with `"unhealthy"` and logs a clear error. The relay runs for the lifetime of the backend process. `node-media-server` is configured to bind to `127.0.0.1` only (not `0.0.0.0`) since OBS runs on the same machine — this prevents other devices on the LAN from publishing to the relay. A `prePublish` hook rejects any stream path other than `/live/stream` and rejects a second concurrent publisher if one is already connected, logging a warning for rejected attempts.
 
 **OBS connection detection**: `node-media-server` emits `postPublish` and `donePublish` events when a publisher connects/disconnects. `RelayService` subscribes to these and emits `bus:relay:state:changed` accordingly. This is the mechanism for the "No Source" detection specified in Req 5.10.
 
@@ -342,9 +343,11 @@ async startAll(): Promise<void> {
 
 **OBS stream stop when all platforms idle (Req 7.7)**: After each platform transitions to "Idle" or "Error", `StreamingPlatformService` checks if any platforms remain in an active state ("Streaming", "Starting", "Stopping", "No Source", "Recovering"). If none do and OBS is still streaming to the relay, it calls `ObsService.stopStream()`.
 
-**Health polling (Req 8.1)**: While any platform is in "Streaming" state, a `setInterval` polls each platform's API every 20 seconds. Results are emitted via `bus:platform:health:updated`. The interval is cleared when no platforms are streaming.
+**Health polling (Req 8.1)**: While any platform is in "Streaming" state, a `setInterval` polls each platform's API every 20 seconds. Results are emitted via `bus:platform:health:updated`. The interval is cleared when no platforms are streaming. The polling callback is wrapped in a try/catch to ensure the interval is never killed by an unhandled exception. A single poll failure logs a warning and retains the previous health value (no UI change). After 3 consecutive poll failures for a platform, health transitions to `noData` and a Banner is emitted: "{Platform} health data unavailable." Health polling is paused for platforms in "No Source" state (saves API quota; health data is stale anyway).
 
-**Token lifecycle**: On startup, `validateTokensOnStartup()` makes a lightweight API call per enabled platform. For YouTube, it also checks token expiry and refreshes proactively if within 5 minutes. For Facebook, it validates Page access. Failures emit Banner notifications. A background timer checks YouTube token expiry every minute and refreshes proactively.
+**Token lifecycle**: On startup, `validateTokensOnStartup()` makes a lightweight API call per enabled platform. For YouTube, it also checks token expiry and refreshes proactively if within 5 minutes. For Facebook, it validates Page access. Failures emit Banner notifications. A background timer checks YouTube token expiry every minute and refreshes proactively. A separate background timer validates the Facebook Page token every 6 hours (lightweight Graph API call) — if the token has been invalidated between backend restarts (e.g., admin changed Facebook password), the Banner fires immediately rather than waiting for the next stream start attempt.
+
+**YouTube broadcast counter**: The service tracks the number of YouTube broadcast creations per calendar day (in memory, reset on date change). After 5 creations in a single day, a warning Banner is emitted: "YouTube has been restarted {N} times today — daily limit may be reached soon." When a `QUOTA_EXCEEDED` error is received, YouTube streaming is disabled for the session (no retry) and the existing quota exhaustion Banner fires.
 
 ---
 
@@ -638,6 +641,8 @@ CREATE TABLE IF NOT EXISTS oauth_states (
 2. Description "None" template: `{ name: "None", category: "description", roleMinimum: "AvVolunteer", formatString: "" }`
 
 This runs in `index.ts` after `applySchema()`, following the same pattern as `authService.bootstrapIfEmpty()`.
+
+**Migration from `streamTitleTemplate`**: Existing deployments may have OBS device connections with `metadata.streamTitleTemplate`. This field is abandoned — the default seed template (`"{Date} – {Speaker} – {Title}"`) replaces it. No automated migration is performed. The "Stream Title Template" field in the OBS device admin form (`AdminDeviceManagement`) is removed as part of this spec. If an admin had customized the template, they must recreate it in the new template management page (`/admin/templates`).
 
 ---
 

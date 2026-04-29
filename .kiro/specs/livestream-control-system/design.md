@@ -354,6 +354,8 @@ Tapping the indicators section always opens an Ionic popover listing each connec
 ```
 
 ```typescript
+// Superseded by multi-platform-streaming: healthy boolean replaced by
+// status: "healthy" | "degraded" | "unhealthy" | "inactive"
 interface ConnectionStatus {
   label: string; // e.g., "OBS"
   healthy: boolean;
@@ -1126,6 +1128,8 @@ When `!obsState.connected`, the `WidgetErrorOverlay` covers the entire `ObsContr
 
 ### ObsCommand
 
+> *Modified by multi-platform-streaming: the frontend-facing `ObsCommandType` retains only `startRecording` and `stopRecording`. `startStream`/`stopStream` are called internally by `StreamingPlatformService`. The shared package retains all four values for backend use.*
+
 ```typescript
 type ObsCommandType = "startStream" | "stopStream" | "startRecording" | "stopRecording";
 
@@ -1716,6 +1720,8 @@ _For any_ OBS device connection record where `metadata.streamTitleTemplate` is a
 
 ### Property 20: Scripture interpolation format
 
+> *Extended by multi-platform-streaming Req 3.3: adds verse 0 handling — verse 0 with no verseEnd displays as chapter only; verse 0 with verseEnd displays range starting at 1.*
+
 _For any_ valid `ScriptureReference` with a known `bookId`, the interpolated `{Scripture}` token SHALL produce a string in the format `<BookName> <Chapter>:<Verse>` for single verses and `<BookName> <Chapter>:<Verse>-<EndVerse>` for ranges, where `<BookName>` is the display name resolved from `bookId` via `BIBLE_BOOKS`. If `scripture` is absent from the SessionManifest, the token SHALL be replaced with `[No Scripture]` and SHALL NOT produce an empty string or a raw token.
 
 **Validates: Requirements 9.5, 19.7**
@@ -1868,6 +1874,8 @@ type ObsErrorCode =
 
 ### Safe-Start Sequence Error Handling
 
+> *Superseded by multi-platform-streaming: metadata is set via platform APIs, not OBS. The safe-start sequence is replaced by the relay-aware platform start flow with parallel broadcast creation, shared OBS start prerequisite, and per-platform error handling. See multi-platform-streaming design doc.*
+
 The OBS safe-start sequence (Requirement 8.2) has two failure points:
 
 1. **Metadata update fails** → emit `METADATA_UPDATE_FAILED` Banner; do NOT proceed to start stream. Stream state is unchanged. The Banner auto-clears when the user retries.
@@ -1920,6 +1928,8 @@ When Socket.io successfully reconnects:
 **No manual retry needed**: Socket.io's built-in reconnection handles this automatically. There is no "Retry Connection" button for tablet network loss — that affordance is only shown for OBS reconnection exhaustion, which is a different failure mode requiring explicit backend action.
 
 ### Safe-Start Race Condition
+
+> *Superseded by multi-platform-streaming: the OBS safe-start sequence no longer exists. OBS streams to the relay; metadata is set via platform APIs. See multi-platform-streaming design doc.*
 
 The OBS safe-start sequence (metadata update → stream start) can be interrupted by an OBS disconnect between the two steps. If obs-websocket fires a disconnect event after the metadata update succeeds but before the stream start command is issued:
 
