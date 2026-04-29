@@ -231,7 +231,7 @@ See `docs/architecture-decisions/001-multi-platform-streaming.md` for the archit
 1. THE Frontend SHALL provide an Admin Index Page at `/admin` accessible only to authenticated ADMIN users.
 2. THE Admin Index Page SHALL display links to all admin management sections: User Management (`/admin/users`), Device Management (`/admin/devices`), Streaming Platforms (`/admin/platforms/youtube`, `/admin/platforms/facebook`), Metadata Templates (`/admin/templates`), and the Dashboard Chooser.
 3. WHEN an ADMIN user logs in (and has completed any required password change), THE Frontend SHALL navigate to `/admin` instead of the Dashboard Selection Screen. Non-ADMIN users continue to navigate to the Dashboard Selection Screen.
-4. THE `GlobalTitleBar` dashboard navigation label SHALL link to `/admin` for ADMIN users instead of the Dashboard Selection Screen.
+4. THE `GlobalTitleBar` SHALL display an "Admin Pages" link (visible only to ADMIN users) after the dashboard navigation label, linking to `/admin`. The dashboard navigation label continues to link to the Dashboard Selection Screen for all users — it is NOT changed to link to `/admin`. The word "CHANGE" next to the dashboard name SHALL be defined as a UI constant to prevent drift.
 
 ---
 

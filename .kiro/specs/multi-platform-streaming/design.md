@@ -29,9 +29,10 @@ This is an extension document — it references and builds on the original desig
 - **ADMIN post-login navigation**: Redirects to `/admin` instead of the Dashboard Selection Screen. Supersedes original Req 5.3 for ADMIN users.
 - **OBS safe-start sequence**: Original Req 8.2 (update OBS metadata → start stream) is superseded. Metadata is now set via platform APIs, not OBS. OBS stream settings always point at the relay. Original design Property 9 (safe-start ordering) is superseded.
 - **Start Stream button disabled logic**: Original Req 8.12 (disabled unless speaker or title present) is superseded by `manifestReady` boolean computed from selected template tokens.
-- **`ObsCommand` frontend scope**: `startStream` and `stopStream` are no longer triggered by the frontend via `CTS_OBS_COMMAND`. They are called internally by `StreamingPlatformService`. The frontend `ObsCommand` type retains only `startRecording` and `stopRecording`. Original `CTS_OBS_COMMAND` handler in `ObsModule` must be updated accordingly.
+- **`ObsCommand` frontend scope**: `startStream` and `stopStream` are no longer triggered by the frontend via `CTS_OBS_COMMAND`. They are called internally by `StreamingPlatformService` via direct method calls (not via the EventBus or Socket.io). The `ObsModule` Socket.io handler must remove the `startStream`/`stopStream` cases and return an error if received: "Use Manage Streams to start/stop streaming." The frontend `ObsCommand` type retains only `startRecording` and `stopRecording`. Original `CTS_OBS_COMMAND` handler in `ObsModule` must be updated accordingly.
 - **`ObsService.updateStreamMetadata()`**: No longer called during the stream start flow. Retained for potential future use but not part of the multi-platform streaming path.
 - **`formatScripture()` in `packages/shared`**: Updated to handle verse 0 per Req 3.3 — verse 0 with no verseEnd displays as chapter only (e.g., "Psalm 23"); verse 0 with verseEnd displays range starting at 1 (e.g., "Psalm 23:1-2"). This is a behavioral change to a shared function used by both frontend and backend.
+- **`Result<T, E>` type extraction**: The `Result<T, E>` type is currently defined independently in three backend service files (`authService.ts`, `obsService.ts`, `sessionManifestService.ts`). As part of this spec, extract it to `packages/shared/src/types/Result.ts` and re-export from the shared index. All existing and new services import from shared. The type definition is: `export type Result<T, E> = { success: true; value: T } | { success: false; error: E };`
 
 ---
 
@@ -564,7 +565,7 @@ interface UpdateTemplateRequest {
 
 1. `startStream()` no longer calls `updateStreamMetadata()` via `SetStreamServiceSettings`. Metadata is set via platform APIs, not OBS. The safe-start sequence is replaced by the relay-aware flow.
 2. On connect, `ObsService` configures OBS to stream to `rtmp://localhost:{RELAY_PORT}/live/stream` via `SetStreamServiceSettings`. Before starting the stream, it verifies the settings haven't been changed externally and auto-corrects if needed.
-3. `startStream()` and `stopStream()` are now called by `StreamingPlatformService` as part of the platform start/stop orchestration — they are no longer triggered directly by the OBS widget's stream button (which is replaced by "Manage Streams"). `StreamingPlatformService` receives `ObsService` via constructor injection in `index.ts` (not via the `getObsService()` singleton factory — the factory is used only by `index.ts` itself).
+3. `startStream()` and `stopStream()` are now called by `StreamingPlatformService` as part of the platform start/stop orchestration — they are no longer triggered directly by the OBS widget's stream button (which is replaced by "Manage Streams"). `StreamingPlatformService` receives `ObsService` via constructor injection in `index.ts`. The `getObsService()` singleton factory exists for test convenience only — `index.ts` constructs `ObsService` directly and passes the instance to dependents. A JSDoc comment should be added to `getObsService()`: `/** Singleton factory for test convenience. Production code in index.ts constructs ObsService directly. */`
 4. Recording controls (`startRecording`, `stopRecording`) remain unchanged and are still triggered directly from the OBS widget.
 5. The `BUS_SESSION_MANIFEST_UPDATED` subscription, `cachedStreamTitle` field, and `manifestHandler` are removed — `ObsService` no longer needs the interpolated title. The `destroy()` method must also remove the corresponding `unsubscribe` call.
 6. `updateStreamMetadata()` is retained but carries a hazard: it uses `streamServiceType: "rtmp_common"`, which would overwrite the relay's `"rtmp_custom"` settings if called. A guard comment must be added to the method warning that it is incompatible with the relay configuration and must not be called while the relay is active.
@@ -1543,7 +1544,24 @@ The original spec's Flow 7 (auto-select single dashboard) is modified for ADMIN 
 
 Non-ADMIN users are unaffected — they continue to navigate to the Dashboard Selection Screen.
 
-The `GlobalTitleBar` dashboard navigation label links to `/admin` for ADMIN users instead of `/dashboards`.
+The `GlobalTitleBar` dashboard navigation label always links to the Dashboard Selection Screen (not `/admin`). For ADMIN users, an additional "Admin Pages" link is added after the dashboard label, linking to `/admin`. The dashboard label always uses the word "CHANGE" — defined as a constant to prevent drift.
+
+**GlobalTitleBar layout — ADMIN user with dashboard loaded:**
+```
+Main Dashboard (CHANGE) | Admin Pages          John Smith (ADMIN) | LOGOUT
+```
+
+**GlobalTitleBar layout — ADMIN user, no dashboard loaded (on admin pages or selection screen):**
+```
+No Dashboard Selected (CHANGE) | Admin Pages   John Smith (ADMIN) | LOGOUT
+```
+
+**GlobalTitleBar layout — non-ADMIN user (unchanged from original spec):**
+```
+Main Dashboard (CHANGE)                        John Smith (AvVolunteer) | LOGOUT
+```
+
+"Admin Pages" is visible only to ADMIN users. Non-ADMIN users see the existing layout.
 
 **ADMIN redirect sites**: The following files currently redirect all users to `/dashboards` and must be updated to redirect ADMIN users to `/admin` instead: `LoginPage.tsx` (post-login redirect), `ProtectedRoutes.tsx` (unauthenticated fallback), `ChangePasswordPage.tsx` (post-password-change redirect), and the catch-all route in `App.tsx` (`<Route path="*" element={<Navigate to="/dashboards" />} />`). The `ProtectedRoutes.tsx` ADMIN guard (`location.pathname.startsWith("/admin")`) already correctly protects the new `/admin/*` routes — no change needed there.
 
