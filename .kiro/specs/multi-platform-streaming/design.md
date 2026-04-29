@@ -776,11 +776,13 @@ The frontend sends only the command type and platform ID. The backend reads the 
 
 ```typescript
 type PlatformCommand =
-  | { type: "startAll" }
-  | { type: "startPlatform"; platformId: string }
+  | { type: "startAll"; privacyOverrides?: Record<string, "public" | "unlisted" | "private"> }
+  | { type: "startPlatform"; platformId: string; privacyOverride?: "public" | "unlisted" | "private" }
   | { type: "stopAll" }
   | { type: "stopPlatform"; platformId: string };
 ```
+
+`privacyOverrides` is a map of `platformId` → privacy value, sent only when an ADMIN or AvPowerUser changes the dropdown from the default. If absent or if a platform has no entry, the admin-configured default from `platformMetadata` is used. The backend validates that the requesting user has ADMIN or AvPowerUser role before accepting an override — AvVolunteer commands with overrides are rejected.
 
 ### Modified SessionManifestModule
 
@@ -925,8 +927,8 @@ export interface MetadataTemplate {
 
 // New — platform command sent via Socket.io (backend reads its own manifest)
 export type PlatformCommand =
-  | { type: "startAll" }
-  | { type: "startPlatform"; platformId: string }
+  | { type: "startAll"; privacyOverrides?: Record<string, "public" | "unlisted" | "private"> }
+  | { type: "startPlatform"; platformId: string; privacyOverride?: "public" | "unlisted" | "private" }
   | { type: "stopAll" }
   | { type: "stopPlatform"; platformId: string };
 
@@ -1318,6 +1320,8 @@ A full-screen Ionic modal opened from the "Manage Streams" button. Displays per-
 ```
 
 Each platform row uses the `platform-row` class and meets WCAG 2.5.5 touch target minimums for the action button (`button-touch-target`).
+
+**YouTube privacy override**: For ADMIN and AvPowerUser users, the YouTube row includes a privacy dropdown (`public` / `unlisted` / `private`) defaulting to the admin-configured value from `platformMetadata.privacy`. The selected value is sent with the start command and used for that broadcast only — it does not persist back to the admin configuration. For AvVolunteer users, the privacy is displayed as read-only text (e.g., "YouTube (Unlisted)"). The Facebook row shows a greyed-out privacy indicator; tapping the wrapping `<div>` (not the disabled element itself) opens an Ionic popover: "Facebook does not support privacy settings for Page live videos."
 
 **Status display per platform state**:
 
