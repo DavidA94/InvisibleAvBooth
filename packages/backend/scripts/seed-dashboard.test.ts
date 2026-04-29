@@ -28,7 +28,7 @@ function seed(database: Database.Database): void {
       .prepare(
         "INSERT INTO widget_configurations (id, dashboardId, widgetId, title, col, row, colSpan, rowSpan, roleMinimum, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
       )
-      .run(`${DASHBOARD_ID}-${WIDGET_ID}`, DASHBOARD_ID, WIDGET_ID, "OBS", 0, 0, 2, 2, "AvVolunteer", new Date().toISOString());
+      .run(`${DASHBOARD_ID}-${WIDGET_ID}`, DASHBOARD_ID, WIDGET_ID, "OBS", 0, 0, 3, 2, "AvVolunteer", new Date().toISOString());
   }
 }
 
@@ -77,6 +77,6 @@ describe("seed-dashboard", () => {
       colSpan: number;
       rowSpan: number;
     };
-    expect(row).toMatchObject({ col: 0, row: 0, colSpan: 2, rowSpan: 2 });
+    expect(row).toMatchObject({ col: 0, row: 0, colSpan: 3, rowSpan: 2 });
   });
 });

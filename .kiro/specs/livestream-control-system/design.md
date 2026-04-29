@@ -144,7 +144,7 @@ interface AuthService {
   updateUser(id: string, data: UpdateUserRequest, actor: JwtPayload): Promise<Result<User, AuthError>>;
   deleteUser(id: string, actor: JwtPayload): Promise<Result<void, AuthError>>;
   listUsers(actor: JwtPayload): Promise<Result<User[], AuthError>>;
-  changePassword(id: string, newPassword: string, actor: JwtPayload): Promise<Result<void, AuthError>>;
+  changePassword(id: string, newPassword: string, actor: JwtPayload): Promise<Result<{ token: string }, AuthError>>;
 }
 
 interface User {
@@ -188,6 +188,8 @@ Role hierarchy for `requireRole`: `ADMIN > AvPowerUser > AvVolunteer`. All user 
 **Password strength**: No minimum length or complexity requirements are enforced. This is an accepted risk — the system is deployed in a controlled, trusted environment (church internal network) and the operational overhead of password policy enforcement is not justified. Admins are expected to set reasonable passwords. This decision should be revisited if the system is ever exposed to a public network.
 
 **JWT as HttpOnly Cookie**: On successful login, the JWT is issued as an `HttpOnly`, `Secure`, `SameSite=Lax` cookie — never stored in localStorage or sessionStorage. `SameSite=Lax` is used rather than `Strict` so that bookmarked URLs and links from other origins navigate correctly without forcing re-login. `Lax` still blocks cross-site POST requests, so CSRF protection is intact — the only thing `Strict` adds over `Lax` is blocking top-level GET navigations from external origins, which is the exact scenario volunteers are likely to encounter (bookmarks, links in a church communication). The browser sends the cookie automatically on every request; no manual `Authorization` header management is needed in the frontend. Default expiry is 8 hours (covers a full service day). A "Remember me" option on the login form sets expiry to 30 days.
+
+**`user_info` cookie**: Alongside the HttpOnly JWT, the backend sets a non-HttpOnly `user_info` cookie containing `{ id, username, role }` as JSON. The frontend reads this cookie on page load (via `readUserFromCookie` in the auth Zustand slice) to hydrate auth state without decoding the JWT. This allows the frontend to know the current user's identity and role immediately — before any API call — which is needed for route guards, self-detection on admin pages, and role-based UI. The `user_info` cookie has the same expiry and `SameSite` settings as the JWT cookie.
 
 On first login after bootstrap, the JWT contains `requiresPasswordChange: true`. The frontend intercepts this flag and redirects to `/change-password` before allowing dashboard access. After the password is changed, a new JWT is issued without the flag.
 
@@ -284,7 +286,7 @@ Note: `interpolatedStreamTitle` is the single source of truth for the pre-comput
 
 #### SocketGateway
 
-Manages all Socket.io connections. Validates JWT on connection handshake, subscribes to EventBus events, and broadcasts to connected clients.
+Manages all Socket.io connections. Validates JWT on connection handshake, subscribes to EventBus events, and broadcasts to connected clients. Event handling is organized into domain-specific socket modules (`src/gateway/modules/`) — each module implements the `SocketModule` interface with `register()`, `registerSocket()`, and `emitInitialState()` lifecycle methods. See architecture doc Section 7 for the full pattern. The frontend uses a parallel modular pattern in `src/providers/socketModules/`.
 
 **JWT validation on reconnect**: Socket.io auto-reconnects silently after network drops. On each reconnect, the SocketGateway re-validates the JWT cookie. If the token has expired during the session, the reconnect handshake is rejected and the SocketGateway emits a `notification` event of level `modal` / severity `error` with a message prompting re-login. This prevents the frontend from silently operating with stale state after a token expiry — the volunteer sees a clear re-login prompt rather than a frozen UI.
 
@@ -293,10 +295,10 @@ Manages all Socket.io connections. Validates JWT on connection handshake, subscr
 ```typescript
 // Socket.io event names (server → client)
 type ServerToClientEvents = {
-  "bus:session:manifest:updated": (payload: { manifest: SessionManifest; interpolatedStreamTitle: string }) => void;
+  "stc:session:manifest:updated": (payload: { manifest: SessionManifest; interpolatedStreamTitle: string }) => void;
   "stc:obs:state": (state: ObsState) => void;
-  "bus:obs:error": (error: ObsErrorEvent) => void;
-  "bus:obs:error:resolved": (payload: { errorCode: string }) => void;
+  "stc:obs:error": (error: ObsErrorEvent) => void;
+  "stc:obs:error:resolved": (payload: { errorCode: string }) => void;
   "stc:device:capabilities": (payload: { deviceId: string; capabilities: CapabilitiesObject }) => void;
   notification: (notification: Notification) => void;
 };
@@ -306,6 +308,7 @@ type ClientToServerEvents = {
   "cts:obs:command": (command: ObsCommand, ack: (result: CommandResult) => void) => void;
   "cts:session:manifest:update": (patch: Partial<SessionManifest>, ack: (result: CommandResult) => void) => void;
   "cts:obs:reconnect": (ack: (result: CommandResult) => void) => void; // available to all authenticated roles
+  "cts:request:initial:state": () => void; // emitted on connect and reconnect to request current state
 };
 ```
 
@@ -565,7 +568,7 @@ Renders the responsive grid for the active dashboard. Fetches `GridManifest` fro
 
 #### ObsWidget
 
-The OBS control widget. Default footprint: **2×2** (2 columns × 2 rows). This fits comfortably in both the 10×6 landscape and 6×10 portrait grids while leaving room for future widgets.
+The OBS control widget. Default footprint: **3×2** (3 columns × 2 rows).
 
 The widget is always rendered inside a `WidgetContainer` that the widget itself creates, passing `title="OBS"` and its own connection state. The OBS widget maintains one connection entry: `{ label: "OBS", healthy: obsState.connected }`. The container's title bar handles connection status display. The widget itself owns only its content area.
 
@@ -647,7 +650,7 @@ On Save, the frontend emits `cts:session:manifest:update` via Socket.io with a 5
 Sub-components:
 
 ```
-ObsWidget (2×2)
+ObsWidget (3×2)
 └── WidgetContainer (title: "OBS", connections: [{ label: "OBS", healthy: obsState.connected }])
     ├── ObsStatusBar          — stream status dot, timecode, recording indicator, Edit Details (pencil) button
     ├── ObsMetadataPreview    — interpolated title with placeholders, or "No session details set"; tap-to-expand popover
@@ -741,7 +744,7 @@ Example usage — OBS widget wraps the entire controls section when OBS is disco
 
 #### NotificationLayer
 
-Renders Toast, Banner, and Modal notifications. Subscribes to a `useNotifications` hook that receives notification events from the Socket.io connection.
+Renders Toast, Banner, and Modal notifications. Reads notification state directly from the Zustand store via `useStore` selectors, filtering by notification level (toast, banner, modal). Socket.io notification events are wired to the store by the `notificationSocketModule`.
 
 #### SessionManifestModal
 
@@ -775,7 +778,7 @@ CREATE TABLE IF NOT EXISTS `kjv` (
 
 The `BIBLE_BOOKS` frontend constant is a `Record<number, string>` keyed by `bookId` (1–66), mapping each numeric ID to its display name string using Roman numeral forms for numbered books. This constant is the sole source of book name display strings in the frontend — no book names are hardcoded elsewhere.
 
-The backend requires the same lookup to resolve `bookId` to a display name during `{Scripture}` template interpolation. Rather than duplicating the constant, this lookup lives in `packages/shared/bibleBooks.ts` — a shared module imported by both `packages/frontend` and `packages/backend`. This is the only shared constant between the two packages; no other logic is shared at this layer.
+The backend requires the same lookup to resolve `bookId` to a display name during `{Scripture}` template interpolation. Rather than duplicating the constant, this lookup lives in `packages/shared/bibleBooks.ts` — a shared module imported by both `packages/frontend` and `packages/backend`. The shared package (`@invisible-av-booth/shared`) also exports socket event constants, URL constants, shared types, and interpolation/scripture utilities used by both packages.
 
 **`packages/shared` configuration**: `packages/shared` is a local TypeScript workspace package with its own `package.json` (name: `@invisible-av-booth/shared`) and `tsconfig.json` (extending `tsconfig.base.json`). Both `packages/frontend` and `packages/backend` declare it as a workspace dependency and reference it via TypeScript project references. No separate build step is required — both consumers compile the shared source directly. This is the standard pattern for constants-only shared packages in TypeScript monorepos. If additional shared types are needed in the future (e.g., the Socket.io event type maps), they belong here.
 
@@ -885,7 +888,7 @@ interface ObsSlice {
 }
 ```
 
-**`sessionManifestSlice`** — updated by the `bus:session:manifest:updated` Socket.io event. Available to any widget that needs session metadata (e.g., a future lyrics widget, a lower-thirds widget).
+**`sessionManifestSlice`** — updated by the `stc:session:manifest:updated` Socket.io event. Available to any widget that needs session metadata (e.g., a future lyrics widget, a lower-thirds widget).
 
 ```typescript
 interface SessionManifestSlice {
@@ -939,9 +942,9 @@ function useAuth() {
 
 ```typescript
 socket.on("stc:obs:state", (state) => useStore.getState().setObsState(state));
-socket.on("bus:session:manifest:updated", ({ manifest, interpolatedStreamTitle }) => useStore.getState().setManifest(manifest, interpolatedStreamTitle));
+socket.on("stc:session:manifest:updated", ({ manifest, interpolatedStreamTitle }) => useStore.getState().setManifest(manifest, interpolatedStreamTitle));
 socket.on("notification", (n) => useStore.getState().addNotification(n));
-socket.on("bus:obs:error:resolved", ({ errorCode }) => useStore.getState().removeNotification(errorCode));
+socket.on("stc:obs:error:resolved", ({ errorCode }) => useStore.getState().removeNotification(errorCode));
 ```
 
 `SocketProvider` is the only place that touches the socket directly. All other components interact with device state through store hooks.
@@ -980,7 +983,7 @@ No changes to existing slices, no changes to existing widgets.
 
 ```typescript
 // Returned in Socket.io acknowledgment callbacks
-type CommandResult = { success: true } | { success: false; errorCode: string; message: string };
+type CommandResult = { success: true } | { success: false; error: string };
 
 // Typed error for AuthService failures
 class AuthError extends Error {
@@ -1371,7 +1374,7 @@ Example seed output (the actual values are defined in the script):
 { id: "default", name: "Main Dashboard", description: "Standard volunteer control surface", allowedRoles: '["AvVolunteer","AvPowerUser","ADMIN"]' }
 
 // widget_configurations row
-{ dashboardId: "default", widgetId: "obs", title: "OBS", col: 0, row: 0, colSpan: 2, rowSpan: 2, roleMinimum: "AvVolunteer" }
+{ dashboardId: "default", widgetId: "obs", title: "OBS", col: 0, row: 0, colSpan: 3, rowSpan: 2, roleMinimum: "AvVolunteer" }
 ```
 
 The `DEFAULT_GRID_MANIFEST` frontend constant mirrors the expected seed output and is used only as a last-resort fallback when both the API and the localStorage cache are unavailable:
@@ -1385,7 +1388,7 @@ const DEFAULT_GRID_MANIFEST: GridManifest = {
       title: "OBS",
       col: 0,
       row: 0,
-      colSpan: 2,
+      colSpan: 3,
       rowSpan: 2,
       roleMinimum: "AvVolunteer",
     },
@@ -1404,7 +1407,7 @@ The OBS widget occupies col 0, row 0, spanning 2 columns × 2 rows with title "O
 | `/login`           | Unauthenticated                                  | Login page with username, password, and "Remember me" |
 | `/change-password` | Authenticated (requiresPasswordChange)           | Mandatory password change on first login              |
 | `/dashboards`      | All authenticated                                | Dashboard Selection Screen                            |
-| `/dashboard`       | All authenticated (dashboard ID in localStorage) | Active dashboard — the widget grid                    |
+| `/dashboard/:id`   | All authenticated                                | Active dashboard — the widget grid                    |
 | `/admin/users`     | ADMIN only                                       | User management page                                  |
 | `/admin/devices`   | ADMIN only                                       | Device connection management page                     |
 
@@ -1412,16 +1415,18 @@ REST endpoints:
 
 | Endpoint                                            | Role              | Description                                                                              |
 | --------------------------------------------------- | ----------------- | ---------------------------------------------------------------------------------------- |
-| `POST /auth/login`                                  | Unauthenticated   | Authenticate with username + password; sets JWT cookie                                   |
-| `POST /auth/logout`                                 | All authenticated | Clears JWT cookie                                                                        |
+| `POST /api/auth/login`                              | Unauthenticated   | Authenticate with username + password; sets JWT and user_info cookies                    |
+| `POST /api/auth/logout`                             | All authenticated | Clears JWT and user_info cookies                                                         |
+| `POST /api/auth/change-password`                    | All authenticated | Self-service password change; re-issues JWT with cleared requiresPasswordChange           |
 | `GET /api/dashboards`                               | All authenticated | Returns dashboards accessible to the user's role (name, description, id)                 |
 | `GET /api/dashboards/:id/layout`                    | All authenticated | Returns `GridManifest` for the specified dashboard                                       |
 | `GET /api/session/manifest`                         | All authenticated | Returns the current in-memory SessionManifest                                            |
 | `GET /api/kjv/validate`                             | All authenticated | Validates a scripture reference against the KJV database                                 |
-| `GET/POST/PUT/DELETE /admin/users`                  | ADMIN only        | User account CRUD                                                                        |
-| `GET/POST/PUT/DELETE /admin/devices`                | ADMIN only        | Device connection CRUD                                                                   |
-| `GET/POST/PUT/DELETE /admin/dashboards`             | ADMIN only        | Dashboard CRUD                                                                           |
-| `GET/POST/PUT/DELETE /admin/dashboards/:id/widgets` | ADMIN only        | Widget configuration CRUD for a dashboard                                                |
+| `GET/POST/PUT/DELETE /api/admin/users`              | ADMIN only        | User account CRUD                                                                        |
+| `POST /api/admin/users/:id/change-password`         | ADMIN only        | Admin resets another user's password                                                     |
+| `GET/POST/PUT/DELETE /api/admin/devices`            | ADMIN only        | Device connection CRUD                                                                   |
+| `GET/POST/PUT/DELETE /api/admin/dashboards`         | ADMIN only        | Dashboard CRUD                                                                           |
+| `GET/POST/PUT/DELETE /api/admin/dashboards/:id/widgets` | ADMIN only    | Widget configuration CRUD for a dashboard                                                |
 | `POST /api/logs`                                    | All authenticated | Accepts a batch of frontend log entries; written to `logs/app.log` by the backend logger |
 
 ### `GET /api/kjv/validate` Contract
@@ -1773,6 +1778,7 @@ type ClientToServerEvents = {
   "cts:obs:command": (command: ObsCommand, ack: (result: CommandResult) => void) => void;
   "cts:session:manifest:update": (patch: Partial<SessionManifest>, ack: (result: CommandResult) => void) => void;
   "cts:obs:reconnect": (ack: (result: CommandResult) => void) => void;
+  "cts:request:initial:state": () => void;
 };
 ```
 
@@ -1866,7 +1872,7 @@ When obs-websocket fires a disconnect event and `commandedState.streaming === tr
 1. Backend emits `bus:obs:error` with code `OBS_UNREACHABLE`, `autoResolve: true`, and a `context: { streaming: boolean; recording: boolean }` field reflecting which operations were active at disconnect
 2. SocketGateway broadcasts a Modal notification to all clients with a message that names the affected operations and communicates uncertainty — the tablet may have lost its connection while OBS remains healthy (see Error Notification Mapping)
 3. When OBS reconnects, `ObsService` queries the current stream/recording state from obs-websocket and emits an `stc:obs:state` update reflecting actual OBS state
-4. SocketGateway broadcasts `bus:obs:error:resolved`; frontend dismisses Modal and shows a Toast
+4. SocketGateway broadcasts `stc:obs:error:resolved`; frontend dismisses Modal and shows a Toast
 5. The widget reconciles to the actual OBS state — if OBS stopped streaming during the disconnect, `obsState.streaming` will be `false` and the volunteer must manually restart the stream
 6. IF `commandedState.streaming` was `true` at disconnect and `obsState.streaming` is `false` after reconciliation, THE SocketGateway SHALL emit an additional Banner notification: `"Stream did not resume after reconnect. Tap Start Stream to go live again."` This Banner is manually dismissable and auto-clears when `obsState.streaming` becomes `true`.
 
@@ -1981,11 +1987,11 @@ The `WebSocketRoute` handle returned from socket helpers allows mid-test server 
 
 ```ts
 const ws = await routeObsSocket(page);
-ws.send(JSON.stringify({ event: "bus:obs:error", data: { code: "OBS_UNREACHABLE", retryExhausted: false } }));
+ws.send(JSON.stringify({ event: "stc:obs:error", data: { code: "OBS_UNREACHABLE", retryExhausted: false } }));
 await expect(page.getByTestId("error-modal")).toBeVisible();
 
 // Simulate retry exhaustion
-ws.send(JSON.stringify({ event: "bus:obs:error", data: { code: "OBS_UNREACHABLE", retryExhausted: true } }));
+ws.send(JSON.stringify({ event: "stc:obs:error", data: { code: "OBS_UNREACHABLE", retryExhausted: true } }));
 await expect(page.getByRole("button", { name: /retry connection/i })).toBeVisible();
 ```
 

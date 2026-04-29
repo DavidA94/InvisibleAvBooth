@@ -1230,7 +1230,7 @@ The distinction between the two `inactive` cases requires checking whether any p
 - **Stopping** (stop sequence in progress): "Stopping…" replaces the normal stream status
 
 ```
-ObsWidget (2×2)
+ObsWidget (3×2)
 └── WidgetContainer (title: "OBS", connections: [OBS, Relay, Stream])
     ├── ObsStatusBar          — stream status dot, timecode, recording indicator, Edit Details button
     ├── ObsMetadataPreview    — interpolated title + description preview (modified)

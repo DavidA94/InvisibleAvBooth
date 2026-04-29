@@ -27,7 +27,7 @@ vi.stubGlobal("fetch", mockFetch);
 
 const TEST_MANIFEST: GridManifest = {
   version: 1,
-  cells: [{ widgetId: "obs", title: "OBS", col: 0, row: 0, colSpan: 2, rowSpan: 2, roleMinimum: "AvVolunteer" }],
+  cells: [{ widgetId: "obs", title: "OBS", col: 0, row: 0, colSpan: 3, rowSpan: 2, roleMinimum: "AvVolunteer" }],
 };
 
 beforeEach(() => {
@@ -89,11 +89,11 @@ describe("Dashboard", () => {
     vi.useFakeTimers();
     const cachedManifest: GridManifest = {
       version: 1,
-      cells: [{ widgetId: "obs", title: "OBS", col: 0, row: 0, colSpan: 2, rowSpan: 2, roleMinimum: "AvVolunteer" }],
+      cells: [{ widgetId: "obs", title: "OBS", col: 0, row: 0, colSpan: 3, rowSpan: 2, roleMinimum: "AvVolunteer" }],
     };
     const freshManifest: GridManifest = {
       version: 1,
-      cells: [{ widgetId: "obs", title: "OBS", col: 1, row: 0, colSpan: 2, rowSpan: 2, roleMinimum: "AvVolunteer" }],
+      cells: [{ widgetId: "obs", title: "OBS", col: 1, row: 0, colSpan: 3, rowSpan: 2, roleMinimum: "AvVolunteer" }],
     };
     localStorage.setItem("dashboardLayout:d1", JSON.stringify(cachedManifest));
     mockFetch.mockResolvedValueOnce({
