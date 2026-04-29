@@ -71,10 +71,6 @@ describe("register", () => {
 describe("registerSocket", () => {
   it.each`
     command             | errorMessage           | successState
-    ${"startStream"}    | ${undefined}           | ${"successful"}
-    ${"startStream"}    | ${"StartStreamBad"}    | ${"unsuccessful"}
-    ${"stopStream"}     | ${undefined}           | ${"successful"}
-    ${"stopStream"}     | ${"StopStreamBad"}     | ${"unsuccessful"}
     ${"startRecording"} | ${undefined}           | ${"successful"}
     ${"startRecording"} | ${"startRecordingBad"} | ${"unsuccessful"}
     ${"stopRecording"}  | ${undefined}           | ${"successful"}
@@ -109,6 +105,28 @@ describe("registerSocket", () => {
     }
     // @ts-expect-error TS doesn't understand that we can reference function calls like this
     expect(obsService[command]).toHaveBeenCalledOnce();
+  });
+
+  it.each(["startStream", "stopStream"])("rejects %s command with error", async (command) => {
+    const obsService: ObsService = makeMockObsService();
+    const module: ObsModule = new ObsModule(obsService);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Type is too complex to bother with
+    let callback: any;
+    socketOnMock.mockImplementation((event, func) => {
+      if (event === CTS_OBS_COMMAND) {
+        callback = func;
+      }
+    });
+    const auth: AuthenticatedSocket = { socket: socketMock, jwtPayload: fakeUser };
+
+    module.registerSocket(auth);
+
+    const ackCallback = vi.fn();
+    await callback({ type: command }, ackCallback);
+    expect(ackCallback).toHaveBeenCalledWith({ success: false, error: "Streaming is managed by the platform service" });
+    expect(obsService.startStream).not.toHaveBeenCalled();
+    expect(obsService.stopStream).not.toHaveBeenCalled();
   });
 
   it.each([true, false])(`registerSocket will attempt a reconnect when ${CTS_OBS_RECONNECT} is received with success=%s`, async (success) => {

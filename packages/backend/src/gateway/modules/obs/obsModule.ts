@@ -45,15 +45,17 @@ export class ObsModule implements SocketModule {
       const baseLogPayload = { userId: jwtPayload.sub, context: { type: command.type } };
       logger.info("OBS command received", baseLogPayload);
 
+      // Streaming is managed by StreamingPlatformService via the relay —
+      // direct socket commands for start/stop stream are no longer accepted.
+      if (command.type === "startStream" || command.type === "stopStream") {
+        logger.warn("Rejected direct stream command — use StreamingPlatformService", baseLogPayload);
+        ack({ success: false, error: "Streaming is managed by the platform service" });
+        return;
+      }
+
       try {
         let result: Result<ObsState, ObsError>;
         switch (command.type) {
-          case "startStream":
-            result = await this.obsService.startStream();
-            break;
-          case "stopStream":
-            result = await this.obsService.stopStream();
-            break;
           case "startRecording":
             result = await this.obsService.startRecording();
             break;

@@ -68,7 +68,7 @@ beforeAll(async () => {
 
   mockObs = makeMockObs();
   obsService = new ObsService(database, { initialDelayMs: 10, maxDelayMs: 100, maxAttempts: 2, backoffFactor: 1, jitterMs: 0 }, mockObs as never);
-  manifestService = new SessionManifestService();
+  manifestService = new SessionManifestService(database);
 
   httpServer = createServer();
   new SocketGateway(httpServer, authService, [new ObsModule(obsService), new SessionManifestModule(manifestService)]);

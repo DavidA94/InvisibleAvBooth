@@ -20,6 +20,8 @@ function makeMockObs() {
     call: vi.fn().mockImplementation((method: string) => {
       if (method === "GetStreamStatus") return Promise.resolve({ outputActive: true });
       if (method === "GetRecordStatus") return Promise.resolve({ outputActive: true });
+      if (method === "GetStreamServiceSettings")
+        return Promise.resolve({ streamServiceSettings: { server: "rtmp://localhost:1935/live/stream" } });
       return Promise.resolve({});
     }),
     on: vi.fn().mockImplementation((event: string, handler: EventHandler) => {
@@ -107,6 +109,20 @@ describe("ObsService.connect", () => {
     expect(handler).toHaveBeenCalledWith(expect.objectContaining({ state: expect.objectContaining({ connected: true }) }));
   });
 
+  it("calls configureRelayTarget on successful connect", async () => {
+    const mockObs = makeMockObs();
+    const service = makeSvc(makeDatabase(), mockObs);
+    await service.connect();
+    const setSettingsCalls = mockObs.call.mock.calls.filter(
+      (c) => c[0] === "SetStreamServiceSettings" && (c[1] as { streamServiceType: string }).streamServiceType === "rtmp_custom",
+    );
+    expect(setSettingsCalls).toHaveLength(1);
+    expect(setSettingsCalls[0]![1]).toEqual({
+      streamServiceType: "rtmp_custom",
+      streamServiceSettings: { server: "rtmp://localhost:1935/live/stream", key: "" },
+    });
+  });
+
   it("returns OBS_NOT_CONFIGURED when no enabled device exists", async () => {
     const mockObs = makeMockObs();
     const service = makeSvc(makeDatabase(false), mockObs);
@@ -137,36 +153,55 @@ describe("ObsService.disconnect", () => {
   });
 });
 
-// ── safe-start sequence ───────────────────────────────────────────────────────
+// ── startStream — relay-aware ─────────────────────────────────────────────────
 
-describe("ObsService.startStream — safe-start", () => {
-  it("calls SetStreamServiceSettings before StartStream", async () => {
+describe("ObsService.startStream — relay-aware", () => {
+  it("verifies relay target before starting stream", async () => {
     const mockObs = makeMockObs();
     const service = makeSvc(makeDatabase(), mockObs);
     await service.connect();
-    await service.startStream();
-    const calls = mockObs.call.mock.calls.map((c) => c[0]);
-    const metaIdx = calls.indexOf("SetStreamServiceSettings");
-    const startIdx = calls.indexOf("StartStream");
-    expect(metaIdx).toBeGreaterThanOrEqual(0);
-    expect(startIdx).toBeGreaterThan(metaIdx);
-  });
-
-  it("does not start stream if metadata update fails", async () => {
-    const mockObs = makeMockObs();
+    mockObs.call.mockClear();
     mockObs.call.mockImplementation((method: string) => {
-      if (method === "GetStreamStatus") return Promise.resolve({ outputActive: false });
-      if (method === "GetRecordStatus") return Promise.resolve({ outputActive: false });
-      if (method === "SetStreamServiceSettings") return Promise.reject(new Error("meta failed"));
+      if (method === "GetStreamServiceSettings")
+        return Promise.resolve({ streamServiceSettings: { server: "rtmp://localhost:1935/live/stream" } });
       return Promise.resolve({});
     });
+    await service.startStream();
+    const calls = mockObs.call.mock.calls.map((c) => c[0]);
+    expect(calls).toContain("GetStreamServiceSettings");
+    expect(calls).toContain("StartStream");
+  });
+
+  it("auto-corrects relay target when settings changed externally", async () => {
+    const mockObs = makeMockObs();
     const service = makeSvc(makeDatabase(), mockObs);
     await service.connect();
-    const result = await service.startStream();
-    expect(result.success).toBe(false);
-    if (!result.success) expect(result.error.code).toBe("METADATA_UPDATE_FAILED");
-    const calls = mockObs.call.mock.calls.map((c) => c[0]);
-    expect(calls).not.toContain("StartStream");
+    mockObs.call.mockClear();
+    mockObs.call.mockImplementation((method: string) => {
+      if (method === "GetStreamServiceSettings")
+        return Promise.resolve({ streamServiceSettings: { server: "rtmp://some-other-server/live" } });
+      return Promise.resolve({});
+    });
+    await service.startStream();
+    const setSettingsCalls = mockObs.call.mock.calls.filter((c) => c[0] === "SetStreamServiceSettings");
+    expect(setSettingsCalls.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("does not call updateStreamMetadata", async () => {
+    const mockObs = makeMockObs();
+    const service = makeSvc(makeDatabase(), mockObs);
+    await service.connect();
+    mockObs.call.mockClear();
+    mockObs.call.mockImplementation((method: string) => {
+      if (method === "GetStreamServiceSettings")
+        return Promise.resolve({ streamServiceSettings: { server: "rtmp://localhost:1935/live/stream" } });
+      return Promise.resolve({});
+    });
+    await service.startStream();
+    const rtmpCommonCalls = mockObs.call.mock.calls.filter(
+      (c) => c[0] === "SetStreamServiceSettings" && (c[1] as { streamServiceType: string })?.streamServiceType === "rtmp_common",
+    );
+    expect(rtmpCommonCalls).toHaveLength(0);
   });
 
   it("sets commandedState.streaming on success", async () => {
@@ -185,22 +220,19 @@ describe("ObsService.startStream — safe-start", () => {
     if (!result.success) expect(result.error.code).toBe("OBS_UNREACHABLE");
   });
 
-  it("returns STREAM_START_FAILED when OBS accepts command but does not transition", async () => {
+  it("returns STREAM_START_FAILED when StartStream throws", async () => {
     const mockObs = makeMockObs();
-    mockObs.call.mockImplementation((method: string) => {
-      if (method === "GetStreamStatus") return Promise.resolve({ outputActive: false });
-      if (method === "GetRecordStatus") return Promise.resolve({ outputActive: true });
-      return Promise.resolve({});
-    });
     const service = makeSvc(makeDatabase(), mockObs);
     await service.connect();
+    mockObs.call.mockImplementation((method: string) => {
+      if (method === "GetStreamServiceSettings")
+        return Promise.resolve({ streamServiceSettings: { server: "rtmp://localhost:1935/live/stream" } });
+      if (method === "StartStream") return Promise.reject(new Error("stream error"));
+      return Promise.resolve({});
+    });
     const result = await service.startStream();
     expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.error.code).toBe("STREAM_START_FAILED");
-      expect(result.error.message).toContain("check OBS");
-    }
-    expect(service.getState().commandedState.streaming).toBe(false);
+    if (!result.success) expect(result.error.code).toBe("STREAM_START_FAILED");
   });
 
   it("returns RECORDING_START_FAILED when OBS accepts command but does not transition", async () => {

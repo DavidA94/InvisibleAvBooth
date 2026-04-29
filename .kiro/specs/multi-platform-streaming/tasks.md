@@ -89,15 +89,15 @@ These tasks modify existing code and must be completed first. They establish the
 - [ ] Property-based test (P26): template auto-select determinism — 0-5 templates per category with various roleMinimum values via fast-check (in frontend test, but the `computeManifestReady` logic is backend — test it here)
 
 ### Task 11: Modify `ObsService` for relay-aware streaming
-- [ ] Add `configureRelayTarget()` method using `streamServiceType: "rtmp_custom"`
-- [ ] Call `configureRelayTarget()` on every OBS connection
-- [ ] Modify `startStream()`: remove `updateStreamMetadata()` call, add relay target verification and auto-correction
-- [ ] Remove `BUS_SESSION_MANIFEST_UPDATED` subscription, `cachedStreamTitle`, `manifestHandler`
-- [ ] Update `destroy()` to remove the unsubscribe call
-- [ ] Add hazard comment to `updateStreamMetadata()` about `rtmp_common` vs `rtmp_custom` conflict
-- [ ] Add JSDoc to `getObsService()`: "Singleton factory for test convenience. Production code in index.ts constructs ObsService directly."
-- [ ] Update `ObsModule`: remove `startStream`/`stopStream` from Socket.io handler, return error if received
-- [ ] Update all existing tests
+- [x] Add `configureRelayTarget()` method using `streamServiceType: "rtmp_custom"`
+- [x] Call `configureRelayTarget()` on every OBS connection
+- [x] Modify `startStream()`: remove `updateStreamMetadata()` call, add relay target verification and auto-correction
+- [x] Remove `BUS_SESSION_MANIFEST_UPDATED` subscription, `cachedStreamTitle`, `manifestHandler`
+- [x] Update `destroy()` to remove the unsubscribe call
+- [x] Add hazard comment to `updateStreamMetadata()` about `rtmp_common` vs `rtmp_custom` conflict
+- [x] Add JSDoc to `getObsService()`: "Singleton factory for test convenience. Production code in index.ts constructs ObsService directly."
+- [x] Update `ObsModule`: remove `startStream`/`stopStream` from Socket.io handler, return error if received
+- [x] Update all existing tests
 
 ### Task 12: Implement `RelayService`
 - [ ] Create `packages/backend/src/services/relayService.ts`

@@ -1,4 +1,4 @@
-import { BUS_OBS_STATE_CHANGED, BUS_OBS_ERROR, BUS_SESSION_MANIFEST_UPDATED } from "../eventBus/types.js";
+import { BUS_OBS_STATE_CHANGED, BUS_OBS_ERROR } from "../eventBus/types.js";
 import OBSWebSocket from "obs-websocket-js";
 import type { Database } from "better-sqlite3";
 import { eventBus } from "../eventBus/eventBus.js";
@@ -46,11 +46,9 @@ export class ObsService {
     recording: false,
     commandedState: { streaming: false, recording: false },
   };
-  private cachedStreamTitle = "";
   private retryAttempt = 0;
   private retryTimer: ReturnType<typeof setTimeout> | null = null;
   private retryExhausted = false;
-  private readonly manifestHandler: (payload: { interpolatedStreamTitle: string }) => void;
 
   constructor(
     private readonly database: Database,
@@ -58,16 +56,9 @@ export class ObsService {
     obsClient?: OBSWebSocket,
   ) {
     this.obs = obsClient ?? new OBSWebSocket();
-
-    // Cache the latest interpolated stream title for use in the safe-start sequence.
-    this.manifestHandler = ({ interpolatedStreamTitle }) => {
-      this.cachedStreamTitle = interpolatedStreamTitle;
-    };
-    eventBus.subscribe(BUS_SESSION_MANIFEST_UPDATED, this.manifestHandler);
   }
 
   destroy(): void {
-    eventBus.unsubscribe(BUS_SESSION_MANIFEST_UPDATED, this.manifestHandler);
     if (this.retryTimer) clearTimeout(this.retryTimer);
   }
 
@@ -100,6 +91,10 @@ export class ObsService {
         streaming: streamStatus.outputActive,
         recording: recordStatus.outputActive,
       });
+
+      // Point OBS at the local RTMP relay so all streams flow through our
+      // relay infrastructure rather than directly to a single platform.
+      await this.configureRelayTarget();
 
       // Remove any existing listeners before adding new ones to prevent
       // duplicate handlers after reconnection.
@@ -140,34 +135,23 @@ export class ObsService {
     }
   }
 
-  // Safe-start: update metadata first, then start stream.
+  // Relay-aware start: verify OBS is pointed at the local relay, then start.
   async startStream(): Promise<Result<ObsState, ObsError>> {
     if (!this.state.connected) {
       return { success: false, error: new ObsError("OBS_UNREACHABLE", "OBS is not connected") };
     }
 
-    // Step 1: update stream metadata
-    const metaResult = await this.updateStreamMetadata(this.cachedStreamTitle);
-    if (!metaResult.success) return metaResult;
+    // Verify relay target — auto-correct if someone changed it in OBS UI.
+    const settings = (await this.obs.call("GetStreamServiceSettings")) as { streamServiceSettings: { server?: string } };
+    const expected = `rtmp://localhost:${process.env["RELAY_PORT"] ?? "1935"}/live/stream`;
+    if (settings.streamServiceSettings.server !== expected) {
+      logger.warn("OBS stream settings changed externally — auto-correcting");
+      await this.configureRelayTarget();
+    }
 
-    // Step 2: start stream
     try {
       await this.obs.call("StartStream");
       this.state.commandedState.streaming = true;
-
-      // Verify OBS actually transitioned — obs-websocket may accept the call
-      // but fail silently (e.g., broadcast not configured).
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      const status = (await this.obs.call("GetStreamStatus")) as { outputActive: boolean };
-      if (!status.outputActive) {
-        this.state.commandedState.streaming = false;
-        eventBus.emit(BUS_OBS_STATE_CHANGED, { state: this.getState() });
-        eventBus.emit(BUS_OBS_ERROR, {
-          error: new ObsError("STREAM_START_FAILED", "Stream failed to start — check OBS broadcast settings") as ObsError & { code: "STREAM_START_FAILED" },
-        });
-        return { success: false, error: new ObsError("STREAM_START_FAILED", "Stream failed to start — check OBS broadcast settings") };
-      }
-
       this.state.streaming = true;
       eventBus.emit(BUS_OBS_STATE_CHANGED, { state: this.getState() });
       return { success: true, value: this.getState() };
@@ -243,6 +227,7 @@ export class ObsService {
     }
   }
 
+  /** @deprecated HAZARD: Uses streamServiceType "rtmp_common" which overwrites relay's "rtmp_custom" settings. Do not call while relay is active. */
   async updateStreamMetadata(title: string): Promise<Result<void, ObsError>> {
     try {
       await this.obs.call("SetStreamServiceSettings", {
@@ -267,6 +252,14 @@ export class ObsService {
       this.retryTimer = null;
     }
     return this.connect();
+  }
+
+  private async configureRelayTarget(): Promise<void> {
+    const relayUrl = `rtmp://localhost:${process.env["RELAY_PORT"] ?? "1935"}/live/stream`;
+    await this.obs.call("SetStreamServiceSettings", {
+      streamServiceType: "rtmp_custom",
+      streamServiceSettings: { server: relayUrl, key: "" },
+    });
   }
 
   private loadConfig(): DeviceRow | null {
@@ -321,6 +314,7 @@ export class ObsService {
 // Singleton factory — used by index.ts. Tests inject their own instance.
 let _obsService: ObsService | null = null;
 
+/** Singleton factory for test convenience. Production code in index.ts constructs ObsService directly. */
 export function getObsService(database: Database): ObsService {
   if (!_obsService) _obsService = new ObsService(database);
   return _obsService;
