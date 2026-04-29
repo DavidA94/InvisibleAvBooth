@@ -61,19 +61,21 @@ These tasks modify existing code and must be completed first. They establish the
 - [ ] Create `packages/backend/src/dao/metadataTemplateDao.ts` as a class with `Database` constructor
 - [ ] Implement: `getAll`, `getById`, `getByCategory`, `getByCategoryAndRole` (role hierarchy filtering via SQL IN clause), `create`, `update`, `delete`, `countByCategoryAndRole`, `titleTemplateCount`
 - [ ] Guard: reject deletion of last title template, reject deletion/edit of "None" template
-- [ ] Write unit tests with in-memory SQLite
+- [ ] Unit tests (`metadataTemplateDao.test.ts`, co-located): CRUD operations, role filtering for all role × roleMinimum combinations, last-template guard, None template guard — fresh in-memory SQLite per test
+- [ ] Property-based test (P25): template role visibility filtering — all role × roleMinimum combinations via fast-check
 
 ### Task 8: Implement template validation logic
 - [ ] Create `packages/backend/src/validation/templateValidation.ts`
 - [ ] Implement checks: (a) unknown tokens — BLOCKER, (b) duplicate format string (whitespace-collapsed) — BLOCKER, (c) duplicate name — BLOCKER, (d) AvVolunteer multiple — WARNING
 - [ ] Return `ValidationResult` with `blockers` and `warnings` arrays
-- [ ] Write unit tests including edge cases (whitespace collapsing, self-exclusion on edit)
+- [ ] Unit tests (`templateValidation.test.ts`, co-located): each check type, whitespace collapsing edge cases, self-exclusion on edit, combined blockers + warnings
+- [ ] Property-based test (P27): validate-then-save gate — arbitrary template names, format strings, roles via fast-check
 
 ### Task 9: Implement template REST routes
 - [ ] Create `createAdminTemplateRouter` mounted at `/api/admin/templates` (ADMIN only): GET all, POST create, PUT update, DELETE, POST validate
 - [ ] Create `createTemplateRouter` mounted at `/api/templates` (authenticated, any role): GET filtered by JWT role
 - [ ] Wire both routers in `index.ts`
-- [ ] Write integration tests
+- [ ] Integration tests (`adminTemplateRoutes.integration.test.ts`, `templateRoutes.integration.test.ts`, co-located): happy path + key failures for each endpoint — real SQLite, real auth middleware, real validation logic. Test role filtering returns correct templates per role. Test last-template deletion guard. Test validation endpoint returns blockers/warnings without persisting.
 
 ### Task 10: Modify `SessionManifestService` for multi-template interpolation
 - [ ] Change constructor to accept `Database`, create `MetadataTemplateDao` internally
@@ -84,6 +86,7 @@ These tasks modify existing code and must be completed first. They establish the
 - [ ] Create `verseTextResolver` that queries KJV table
 - [ ] Update `index.ts` to pass `database` to constructor
 - [ ] Update all existing tests, add new tests for multi-template interpolation and `manifestReady`
+- [ ] Property-based test (P26): template auto-select determinism — 0-5 templates per category with various roleMinimum values via fast-check (in frontend test, but the `computeManifestReady` logic is backend — test it here)
 
 ### Task 11: Modify `ObsService` for relay-aware streaming
 - [ ] Add `configureRelayTarget()` method using `streamServiceType: "rtmp_custom"`
@@ -108,14 +111,14 @@ These tasks modify existing code and must be completed first. They establish the
 - [ ] Emit `BUS_RELAY_STATE_CHANGED` and `BUS_FORWARDER_EXITED` events
 - [ ] Verify FFmpeg availability on startup, emit Banner if not found
 - [ ] Register `SIGTERM`/`SIGINT` signal handlers in `index.ts` for cleanup
-- [ ] Write unit tests with mocked `node-media-server` and `child_process`
+- [ ] Write unit tests (`relayService.test.ts`, co-located) with mocked `node-media-server` and `child_process`: relay start/stop, OBS connect/disconnect detection via postPublish/donePublish, FFmpeg spawn/kill, crash recovery (3 attempts), prePublish rejection, stderr consumption
 
 ### Task 13: Implement `StreamingPlatformClient` interface and YouTube/Facebook clients
 - [ ] Create `packages/backend/src/platforms/platformClient.ts` with `StreamingPlatformClient` interface
 - [ ] Create `packages/backend/src/platforms/youtubeClient.ts`: broadcast CRUD via `googleapis`, token refresh, health polling, `enableAutoStart`/`enableAutoStop`, privacy setting, live status polling
 - [ ] Create `packages/backend/src/platforms/facebookClient.ts`: broadcast CRUD via Graph API HTTPS calls, Page token validation
 - [ ] Create `PlatformConfig` type and DAO for `streaming_platforms` table (decrypt tokens via `crypto.ts`)
-- [ ] Write unit tests with mocked API responses
+- [ ] Write unit tests (`youtubeClient.test.ts`, `facebookClient.test.ts`, co-located) with mocked API responses: broadcast create/end, token refresh, health polling, error codes (QUOTA_EXCEEDED, TOKEN_EXPIRED, etc.)
 
 ### Task 14: Implement `StreamingPlatformService`
 - [ ] Create `packages/backend/src/services/streamingPlatformService.ts`
@@ -133,8 +136,14 @@ These tasks modify existing code and must be completed first. They establish the
 - [ ] Implement YouTube broadcast counter with warning after 5 creations/day
 - [ ] Implement `endBroadcast` "already ended" handling (treat as success)
 - [ ] Emit `BUS_PLATFORM_STATE_CHANGED`, `BUS_PLATFORM_HEALTH_UPDATED`, `BUS_PLATFORM_READINESS_CHANGED`
-- [ ] Write unit tests for state machine, orchestration, recovery, health polling
-- [ ] Write property-based tests for P22-P30
+- [ ] Write unit tests (`streamingPlatformService.test.ts`, co-located) for state machine transitions, orchestration, recovery, health polling — mock RelayService, ObsService, and platform clients at their abstraction boundaries
+- [ ] Property-based tests (co-located in same test file via fast-check):
+  - [ ] P22: parallel start step (c) executes exactly once — 1-5 platforms, step (c) success/failure
+  - [ ] P23: auto-recovery suppressed during No Source — FFmpeg exit events during various platform states
+  - [ ] P24: valid state machine transitions — arbitrary sequences of start/stop/disconnect/reconnect events
+  - [ ] P28: OBS stops when all idle — arbitrary sequences of platform state transitions
+  - [ ] P29: sub-label priority ordering — all combinations of relay/OBS/template/metadata states (frontend logic, but the `manifestReady` computation is backend)
+  - [ ] P30: best-effort cleanup on restart from Error — end-broadcast success/failure × new broadcast success/failure
 
 ### Task 15: Implement `StreamingPlatformModule` (Socket.io gateway)
 - [ ] Create `packages/backend/src/gateway/modules/platform/streamingPlatformModule.ts`
@@ -144,7 +153,8 @@ These tasks modify existing code and must be completed first. They establish the
 - [ ] Validate ADMIN/AvPowerUser role for privacy overrides
 - [ ] Emit initial state including platform readiness on client connect
 - [ ] Register module in `index.ts` SocketGateway constructor
-- [ ] Write unit tests
+- [ ] Unit tests (`streamingPlatformModule.test.ts`, co-located): event forwarding, command handling, initial state emission, privacy override role validation — mock StreamingPlatformService and RelayService
+- [ ] Integration test (`streamingPlatformModule.integration.test.ts`): real Socket.io server on random port, real Socket.io client, verify full command → service → event → broadcast path
 
 ### Task 16: Implement OAuth callback routes and state management
 - [ ] Create `packages/backend/src/routes/platformRoutes.ts`
@@ -153,13 +163,13 @@ These tasks modify existing code and must be completed first. They establish the
 - [ ] Implement `GET /api/admin/platforms` (list), `GET /api/admin/platforms/:platformType`, `PUT`, `DELETE`
 - [ ] Implement `GET /api/platforms/health` (authenticated, any role)
 - [ ] Wire routes in `index.ts`
-- [ ] Write integration tests
+- [ ] Integration tests (`platformRoutes.integration.test.ts`, co-located): OAuth callback with valid/invalid/expired state parameter, platform CRUD endpoints, health endpoint role filtering — real SQLite, real auth middleware
 
 ### Task 17: Update `SessionManifestModule` for extended payload
 - [ ] Update `emitInitialState()` to call `this.manifestService.getInterpolated()` instead of computing interpolation locally
 - [ ] Remove `interpolateStreamTitle` import and `getTemplate()` call
 - [ ] Update `register()` to forward the extended payload (now includes `interpolatedDescription` and `manifestReady`)
-- [ ] Update tests
+- [ ] Update tests (`sessionManifestModule.test.ts`): verify extended payload, verify `getInterpolated()` is called instead of local interpolation
 
 ---
 
@@ -170,20 +180,21 @@ These tasks modify existing code and must be completed first. They establish the
 - [ ] Include `platformStates`, `relayState`, `platformReadiness` with initial values
 - [ ] Include all setters: `setPlatformState`, `setRelayState`, `setPlatformHealth`, `setPlatformReadiness`
 - [ ] Add to `AppStore` composition in `store/index.ts`
-- [ ] Write tests
+- [ ] Unit tests (`platformSlice.test.ts`, co-located): state transitions, initial values, Map operations
 
 ### Task 19: Create `platformSocketModule` and update `SocketProvider`
 - [ ] Create `packages/frontend/src/providers/socketModules/platformSocketModule.ts`
 - [ ] Register listeners for `STC_PLATFORM_STATE`, `STC_PLATFORM_HEALTH`, `STC_RELAY_STATE`, `STC_PLATFORM_READINESS`
 - [ ] Register in `SocketProvider.tsx`
 - [ ] Update existing `STC_SESSION_MANIFEST_UPDATED` handler to pass `interpolatedDescription` and `manifestReady`
-- [ ] Write tests
+- [ ] Unit tests (`platformSocketModule.test.ts`, co-located): verify each event listener updates the correct store slice
+- [ ] Update `SocketProvider.test.tsx` for extended manifest handler
 
 ### Task 20: Create `usePlatformState` hook
 - [ ] Create `packages/frontend/src/hooks/usePlatformState.ts`
 - [ ] Derive `isAnyStarting`, `isAnyStopping`, `isAnyStreaming` from platform states
 - [ ] Implement `sendCommand` wrapper for `CTS_PLATFORM_COMMAND` Socket.io emit
-- [ ] Write tests
+- [ ] Unit tests (`usePlatformState.test.ts`, co-located): derived booleans from various platform state combinations, sendCommand emits correct event
 
 ---
 
@@ -202,7 +213,8 @@ These tasks modify existing code and must be completed first. They establish the
 - [ ] Update `ObsStatusBar` to read platform state for "Going Live…" / "Stopping…" states
 - [ ] Update `ObsMetadataPreview`: add description preview row, increase height to `4.5rem`
 - [ ] Remove `streamTitleTemplate` field from `ObsDeviceForm.tsx`
-- [ ] Update all tests, remove dead code tests
+- [ ] Unit tests (`ObsWidget.test.tsx`, `ObsControls.test.tsx`, co-located): three connection indicators with four-state dots, Manage Streams button sub-label priority for all 4 levels, tap-to-open for priorities 3/4, Toast for priorities 1/2, Starting spinner, description preview row, platform readiness icons. Remove all dead stream start/stop tests.
+- [ ] Property-based test (P29, in `ObsWidget.test.tsx`): sub-label priority ordering — all combinations of relay/OBS/template/metadata states via fast-check
 
 ### Task 22: Create `ManageStreamsModal`
 - [ ] Create `packages/frontend/src/components/obs/ManageStreamsModal.tsx`
@@ -214,7 +226,7 @@ These tasks modify existing code and must be completed first. They establish the
 - [ ] Implement "No streaming platforms configured" empty state
 - [ ] Modal dismissable during operations, stays open after completion
 - [ ] Add CSS classes: `platform-row`, `platform-status`
-- [ ] Write tests
+- [ ] Unit tests (`ManageStreamsModal.test.tsx`, co-located): platform row rendering per all 7 statuses, Start All/Stop All disabled states, confirmation modals for each action, privacy dropdown role visibility, Facebook popover, empty state message, dismissable during operations, stays open after completion
 
 ### Task 23: Modify `SessionManifestModal` for template selection
 - [ ] Add template dropdowns (Title Format, Description Format) above metadata fields
@@ -226,14 +238,15 @@ These tasks modify existing code and must be completed first. They establish the
 - [ ] Update live preview to use `interpolateTemplate()` with selected template's formatString
 - [ ] Add description preview block below title preview
 - [ ] Update `clear()` behavior: preserve template selections
-- [ ] Write tests
+- [ ] Unit tests (`SessionManifestModal.test.tsx`, update existing): template dropdown rendering, auto-select logic for all template count scenarios, dynamic field rendering based on token union, stale template handling, localStorage persistence and retrieval, live preview with `interpolateTemplate` and selected formatString
+- [ ] Property-based test (P26, in `SessionManifestModal.test.tsx`): template auto-select determinism — 0-5 templates per category with various roleMinimum values via fast-check
 
 ### Task 24: Create `AdminIndexPage`
 - [ ] Create `packages/frontend/src/pages/AdminIndexPage.tsx`
 - [ ] Display card grid linking to all admin sections
 - [ ] Add route `/admin` to `App.tsx`
 - [ ] Update ADMIN post-login redirects in `LoginPage.tsx`, `ProtectedRoutes.tsx`, `ChangePasswordPage.tsx`, `App.tsx` catch-all
-- [ ] Write tests
+- [ ] Unit tests (`AdminIndexPage.test.tsx`, co-located): card rendering, link targets, ADMIN-only access
 
 ### Task 25: Update `GlobalTitleBar` for ADMIN users
 - [ ] Add "Admin Pages" link visible only to ADMIN users, after dashboard label
@@ -241,7 +254,7 @@ These tasks modify existing code and must be completed first. They establish the
 - [ ] Define "CHANGE" as a UI constant
 - [ ] Layout: `<Dashboard> (CHANGE) | Admin Pages ... <User> (<Role>) | LOGOUT`
 - [ ] When no dashboard: `No Dashboard Selected (CHANGE) | Admin Pages ...`
-- [ ] Write tests
+- [ ] Unit tests (`GlobalTitleBar.test.tsx`, update existing): ADMIN sees "Admin Pages" link, non-ADMIN does not, dashboard label always links to `/dashboards`, "CHANGE" text present
 
 ### Task 26: Create `AdminTemplatesPage`
 - [ ] Create `packages/frontend/src/pages/AdminTemplatesPage.tsx`
@@ -254,7 +267,7 @@ These tasks modify existing code and must be completed first. They establish the
 - [ ] Validation display: red blockers, amber warnings
 - [ ] Add route `/admin/templates` to `App.tsx`
 - [ ] Add CSS classes: `template-lists`, `template-list`, `template-list-scroll`, `template-item`
-- [ ] Write tests
+- [ ] Unit tests (`AdminTemplatesPage.test.tsx`, co-located): list rendering with role badges, create/edit modal validate-then-save flow (Validate → edit → revert to Validate → Save), delete confirmation with format string display, "None" template non-editable, blocker/warning display
 
 ### Task 27: Create YouTube and Facebook platform admin pages
 - [ ] Create `packages/frontend/src/pages/platforms/YouTubePlatformConfig.tsx`
@@ -264,11 +277,11 @@ These tasks modify existing code and must be completed first. They establish the
 - [ ] YouTube: Privacy setting dropdown
 - [ ] Facebook: Page selector dropdown (auto-select if single page)
 - [ ] Add routes `/admin/platforms/youtube` and `/admin/platforms/facebook` to `App.tsx`
-- [ ] Write tests
+- [ ] Unit tests (`YouTubePlatformConfig.test.tsx`, `FacebookPlatformConfig.test.tsx`, co-located): connected/disconnected states, privacy dropdown (YouTube), page selector (Facebook), OAuth flow initiation
 
 ---
 
-## Phase 5: Documentation & Cleanup
+## Phase 5: Documentation & Integration Tests
 
 ### Task 28: Update `docs/setup.md`
 - [ ] Add FFmpeg prerequisite with minimum version recommendation
@@ -279,15 +292,21 @@ These tasks modify existing code and must be completed first. They establish the
 - [ ] Add new admin routes: `/admin`, `/admin/templates`, `/admin/platforms/youtube`, `/admin/platforms/facebook`
 - [ ] Document OBS codec requirement (H.264 + AAC for `-c copy` compatibility)
 
-### Task 29: Integration tests (Playwright)
-- [ ] `multi-platform-stream-start-flow.spec.ts`
-- [ ] `multi-platform-stream-stop-flow.spec.ts`
-- [ ] `multi-platform-individual-start-stop.spec.ts`
-- [ ] `multi-platform-obs-disconnect.spec.ts`
-- [ ] `multi-platform-ffmpeg-recovery.spec.ts`
-- [ ] `manage-streams-button-states.spec.ts`
-- [ ] `template-selection-flow.spec.ts`
-- [ ] `template-admin-crud.spec.ts`
-- [ ] `admin-index-navigation.spec.ts`
-- [ ] `connection-status-four-state.spec.ts`
-- [ ] Update existing Playwright fixtures with `interpolatedDescription` and `manifestReady` fields
+### Task 29: Playwright E2E tests and fixture updates
+- [ ] Create `packages/frontend/playwright/fixtures/payloads/platform.ts` — typed payload factories for `PlatformStreamState`, `RelayState`, `PlatformHealthSummary` with happy-path defaults and partial overrides
+- [ ] Create `packages/frontend/playwright/fixtures/payloads/template.ts` — typed payload factories for `MetadataTemplate` with happy-path defaults
+- [ ] Update `packages/frontend/playwright/fixtures/payloads/session.ts` — add `interpolatedDescription` and `manifestReady` fields to `SessionManifestPayload`
+- [ ] Create `packages/frontend/playwright/support/routes/platform.ts` — shared route handlers for `STC_PLATFORM_STATE`, `STC_PLATFORM_HEALTH`, `STC_RELAY_STATE`, `STC_PLATFORM_READINESS` WebSocket mocks and `GET /api/platforms/health` HTTP mock
+- [ ] Create `packages/frontend/playwright/support/routes/template.ts` — shared route handler for `GET /api/templates` HTTP mock
+- [ ] Write E2E test files (named by user flow, not by component):
+  - [ ] `multi-platform-stream-start-flow.spec.ts`
+  - [ ] `multi-platform-stream-stop-flow.spec.ts`
+  - [ ] `multi-platform-individual-start-stop.spec.ts`
+  - [ ] `multi-platform-obs-disconnect.spec.ts`
+  - [ ] `multi-platform-ffmpeg-recovery.spec.ts`
+  - [ ] `manage-streams-button-states.spec.ts`
+  - [ ] `template-selection-flow.spec.ts`
+  - [ ] `template-admin-crud.spec.ts`
+  - [ ] `admin-index-navigation.spec.ts`
+  - [ ] `connection-status-four-state.spec.ts`
+- [ ] Verify coverage thresholds pass (90% lines/statements, 85% branches per package)
