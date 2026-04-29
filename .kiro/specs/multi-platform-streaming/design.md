@@ -224,7 +224,7 @@ Manages platform configurations, OAuth token lifecycle, broadcast CRUD, health p
 interface StreamingPlatformService {
   // Platform configuration
   getEnabledPlatforms(): PlatformConfig[];
-  getPlatformHealth(): PlatformHealthMap;           // Token validity + page access for each platform
+  getPlatformHealth(): PlatformHealthSummary[];  // Token validity + page access for each platform
 
   // Broadcast lifecycle — reads manifest from SessionManifestService internally
   startAll(): Promise<void>;
@@ -566,6 +566,8 @@ interface UpdateTemplateRequest {
 2. On connect, `ObsService` configures OBS to stream to `rtmp://localhost:{RELAY_PORT}/live/stream` via `SetStreamServiceSettings`. Before starting the stream, it verifies the settings haven't been changed externally and auto-corrects if needed.
 3. `startStream()` and `stopStream()` are now called by `StreamingPlatformService` as part of the platform start/stop orchestration — they are no longer triggered directly by the OBS widget's stream button (which is replaced by "Manage Streams"). `StreamingPlatformService` receives `ObsService` via constructor injection in `index.ts` (not via the `getObsService()` singleton factory — the factory is used only by `index.ts` itself).
 4. Recording controls (`startRecording`, `stopRecording`) remain unchanged and are still triggered directly from the OBS widget.
+5. The `BUS_SESSION_MANIFEST_UPDATED` subscription, `cachedStreamTitle` field, and `manifestHandler` are removed — `ObsService` no longer needs the interpolated title. The `destroy()` method must also remove the corresponding `unsubscribe` call.
+6. `updateStreamMetadata()` is retained but carries a hazard: it uses `streamServiceType: "rtmp_common"`, which would overwrite the relay's `"rtmp_custom"` settings if called. A guard comment must be added to the method warning that it is incompatible with the relay configuration and must not be called while the relay is active.
 
 ```typescript
 // New method — called on every OBS connection
@@ -1241,9 +1243,11 @@ const relayStatus: ConnectionStatus["status"] = relayState; // "healthy" | "unhe
 
 ```typescript
 function deriveStreamStatus(platforms: Map<string, PlatformStreamState>): ConnectionStatus["status"] {
-  const streaming = [...platforms.values()].filter((p) => p.status === "streaming");
-  if (streaming.length === 0) return "inactive";
-  if (streaming.some((p) => p.health === "bad" || p.status === "no-source")) return "unhealthy";
+  const all = [...platforms.values()];
+  const streaming = all.filter((p) => p.status === "streaming");
+  if (streaming.length === 0 && !all.some((p) => p.status === "no-source")) return "inactive";
+  if (all.some((p) => p.status === "no-source")) return "unhealthy";
+  if (streaming.some((p) => p.health === "bad")) return "unhealthy";
   if (streaming.some((p) => p.health === "ok" || p.health === "noData")) return "degraded";
   return "healthy";
 }
@@ -1430,7 +1434,9 @@ Adds template selection dropdowns above the existing metadata fields.
 
 **Dynamic field rendering** (Req 4.3): After both templates are selected, compute the union of placeholder tokens across both format strings. Render one input per unique token (excluding `{Date}`). `{Scripture}` and `{verseText}` share the existing `ScriptureReferenceInput`.
 
-**Live preview in modal**: Both the title and description previews in the `SessionManifestModal` are computed locally using `interpolateTemplate()` from `packages/shared` — they update instantly as the volunteer types, without waiting for a backend round-trip. The `{verseText}` token uses the frontend fallback (`John 3:16 (full text included on stream)`). The backend-computed `interpolatedDescription` (with full verse text) is shown in the OBS widget preview and the Go Live confirmation modal — not inside the `SessionManifestModal`.
+**Live preview in modal**: Both the title and description previews in the `SessionManifestModal` are computed locally using `interpolateTemplate()` from `packages/shared` — they update instantly as the volunteer types, without waiting for a backend round-trip. The `{verseText}` token uses the frontend fallback (`John 3:16 (full text included on stream)`). The backend-computed `interpolatedDescription` (with full verse text) is shown in the OBS widget preview and the Go Live confirmation modal — not inside the `SessionManifestModal`. Note: the current `SessionManifestModal` calls `interpolateStreamTitle(draft)` with no template argument (relying on the default). After the rename to `interpolateTemplate`, the modal must pass the selected title template's `formatString` as the second argument — the default-template fallback is removed since templates come from the database.
+
+**ObsWidget dead code removal**: The following items in the current `ObsWidget.tsx` become dead code and must be removed: `showStartConfirm`, `showStopStreamConfirm`, `confirmStartStream`, `confirmStopStream`, `handleStartStream`, `handleStopStream`, the `hasMetadata` check, and the `streamDisabledReason` derivation. These are all replaced by the ManageStreamsModal flow and the `manifestReady` boolean from the store. The `ObsControls` props `onStartStream`, `onStopStream`, and `streamDisabledReason` are replaced by `onManageStreams` and the priority-based sub-label system.
 
 **Stale template handling** (Req 4.13): If a template ID in the manifest or localStorage references a template not in the fetched list (deleted or role changed), clear that selection and leave the dropdown unselected.
 
@@ -1538,6 +1544,8 @@ The original spec's Flow 7 (auto-select single dashboard) is modified for ADMIN 
 Non-ADMIN users are unaffected — they continue to navigate to the Dashboard Selection Screen.
 
 The `GlobalTitleBar` dashboard navigation label links to `/admin` for ADMIN users instead of `/dashboards`.
+
+**ADMIN redirect sites**: The following files currently redirect all users to `/dashboards` and must be updated to redirect ADMIN users to `/admin` instead: `LoginPage.tsx` (post-login redirect), `ProtectedRoutes.tsx` (unauthenticated fallback), `ChangePasswordPage.tsx` (post-password-change redirect), and the catch-all route in `App.tsx` (`<Route path="*" element={<Navigate to="/dashboards" />} />`). The `ProtectedRoutes.tsx` ADMIN guard (`location.pathname.startsWith("/admin")`) already correctly protects the new `/admin/*` routes — no change needed there.
 
 ---
 
