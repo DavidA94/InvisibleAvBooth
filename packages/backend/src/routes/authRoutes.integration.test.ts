@@ -23,7 +23,7 @@ function buildApp() {
   const mustBeAuthenticated = authenticate(authService);
   const mustHaveChangedPassword = requirePasswordChanged();
   app.use("/api/admin/users", mustBeAuthenticated, mustHaveChangedPassword, createAdminUserRouter(authService));
-  app.use("/api/session", mustBeAuthenticated, mustHaveChangedPassword, createSessionRouter(new SessionManifestService()));
+  app.use("/api/session", mustBeAuthenticated, mustHaveChangedPassword, createSessionRouter(new SessionManifestService(database)));
   return { app, authService };
 }
 

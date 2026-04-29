@@ -49,6 +49,15 @@ export function applySchema(database: Database): void {
       UNIQUE(dashboardId, widgetId)
     );
 
+    CREATE TABLE IF NOT EXISTS metadata_templates (
+      id TEXT PRIMARY KEY NOT NULL,
+      name TEXT NOT NULL,
+      category TEXT NOT NULL CHECK(category IN ('title', 'description')),
+      formatString TEXT NOT NULL,
+      roleMinimum TEXT NOT NULL CHECK(roleMinimum IN ('ADMIN', 'AvPowerUser', 'AvVolunteer')),
+      createdAt TEXT NOT NULL
+    );
+
     CREATE TABLE IF NOT EXISTS kjv (
       BOOKID    INTEGER,
       CHAPTERNO INTEGER,

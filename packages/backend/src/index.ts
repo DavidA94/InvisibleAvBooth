@@ -35,7 +35,7 @@ const database = getDatabase();
 const authService = new AuthService(database);
 authService.bootstrapIfEmpty();
 
-const manifestService = new SessionManifestService();
+const manifestService = new SessionManifestService(database);
 const obsService = new ObsService(database);
 
 const app = express();
