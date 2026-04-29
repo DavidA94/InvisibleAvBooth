@@ -103,7 +103,7 @@ Use the hybrid approach (Option E):
 The existing `ObsService.startStream()` safe-start sequence changes significantly:
 
 - **Before:** Update OBS stream metadata → Start OBS stream (OBS streams directly to the configured platform)
-- **After:** Create platform broadcasts via APIs → Get RTMP ingest URLs → Ensure relay is running → Configure OBS to stream to local relay → Start OBS stream → Spawn per-destination FFmpeg processes → Transition platform broadcasts to live
+- **After:** Create platform broadcasts via APIs → Get RTMP ingest URLs → Ensure relay is running → Configure OBS to stream to local relay → Start OBS stream → Spawn per-destination FFmpeg processes (YouTube auto-transitions to live via `enableAutoStart`; no manual transition API call needed)
 
 `ObsService.updateStreamMetadata()` via `SetStreamServiceSettings` becomes irrelevant for platform metadata — titles and descriptions are set via each platform's API. OBS's stream settings are now always pointed at the local relay.
 

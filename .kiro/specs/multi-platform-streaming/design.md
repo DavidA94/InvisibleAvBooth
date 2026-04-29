@@ -279,7 +279,7 @@ interface StreamingPlatformService {
 | From | To | Trigger |
 |---|---|---|
 | Idle | Starting | User taps Start / Start All |
-| Starting | Streaming | Broadcast created + FFmpeg spawned + OBS streaming |
+| Starting | Streaming | Broadcast created + FFmpeg spawned + OBS streaming + platform confirms live |
 | Starting | Error | Timeout (30s) or API failure |
 | Streaming | Stopping | User taps Stop / Stop All |
 | Streaming | No Source | OBS disconnects from relay (publisher disconnect event) |
@@ -294,34 +294,47 @@ interface StreamingPlatformService {
 ```typescript
 // Simplified orchestration logic
 async startAll(): Promise<void> {
-  // Read interpolated strings from the backend's authoritative manifest
-  const { interpolatedStreamTitle, interpolatedDescription } = this.manifestService.getInterpolated();
+  if (this.operationInProgress) throw new Error("A streaming operation is already in progress");
+  this.operationInProgress = true;
+  try {
+    // Read interpolated strings from the backend's authoritative manifest
+    const { interpolatedStreamTitle, interpolatedDescription } = this.manifestService.getInterpolated();
 
-  const platforms = this.getEnabledPlatforms();
-  // Steps (a) and (b) run per-platform in parallel
-  const broadcasts = await Promise.allSettled(
-    platforms.map((p) => this.createBroadcast(p, interpolatedStreamTitle, interpolatedDescription))
-  );
-  // Step (c) runs once — shared prerequisite
-  const obsResult = await this.ensureObsStreamingToRelay();
-  if (!obsResult.success) {
-    // Step (c) failed — clean up any successfully created broadcasts
-    for (const result of broadcasts) {
-      if (result.status === "fulfilled") {
+    const platforms = this.getEnabledPlatforms();
+    // Steps (a) and (b) run per-platform in parallel
+    const broadcasts = await Promise.allSettled(
+      platforms.map((p) => this.createBroadcast(p, interpolatedStreamTitle, interpolatedDescription))
+    );
+
+    // Guard: if ALL broadcast creations failed, skip step (c) — don't start OBS for nothing
+    const successful = broadcasts.filter((r) => r.status === "fulfilled");
+    if (successful.length === 0) return; // errors already emitted per-platform
+
+    // Step (c) runs once — shared prerequisite with its own 10-second timeout
+    const obsResult = await this.ensureObsStreamingToRelay(10_000);
+    if (!obsResult.success) {
+      // Step (c) failed — clean up any successfully created broadcasts
+      for (const result of successful) {
         this.endBroadcastBestEffort(result.value.platformId, result.value.broadcastId);
         this.transitionPlatform(result.value.platformId, "error", "Could not start OBS stream");
       }
+      return;
     }
-    return;
-  }
-  // Step (d) runs per-platform for successful broadcasts
-  for (const result of broadcasts) {
-    if (result.status === "fulfilled") {
+    // Step (d) runs per-platform for successful broadcasts
+    for (const result of successful) {
       this.relayService.startForwarder(result.value.platformId, result.value.rtmpUrl);
+      // YouTube: poll lifeCycleStatus until "live" before transitioning to Streaming
+      // Facebook: transitions to Streaming immediately (goes live on data arrival)
     }
+  } finally {
+    this.operationInProgress = false;
   }
 }
 ```
+
+**Server-side operation lock**: `StreamingPlatformService` maintains an `operationInProgress` boolean flag. All command methods (`startAll`, `startPlatform`, `stopAll`, `stopPlatform`) check this flag and reject with "A streaming operation is already in progress" if set. This is defense-in-depth — the frontend disables buttons during operations, but the backend must not trust the frontend. The flag is cleared in a `finally` block to prevent deadlocks.
+
+**Step (c) dedicated timeout**: `ensureObsStreamingToRelay()` has its own 10-second timeout, separate from the per-platform 30-second timeout (Req 6.9). If OBS fails to start streaming within 10 seconds, all successfully created broadcasts are cleaned up immediately rather than letting each platform's 30-second timer expire independently. The error message is specific: "OBS stream start timed out."
 
 **Auto-recovery (Req 5.4)**: `StreamingPlatformService` subscribes to `bus:forwarder:exited`. When an FFmpeg process exits while the platform is in "Streaming" state, it runs the recovery sequence: wait 2s → respawn → wait 5s → poll API to verify broadcast is alive. If the platform is in "No Source" state, auto-recovery is suppressed — the exit is expected and recovery is deferred until OBS reconnects.
 
@@ -383,7 +396,9 @@ type PlatformErrorCode =
   | "NETWORK_ERROR";
 ```
 
-**YouTube client specifics**: Uses `googleapis` npm package. Creates `liveBroadcast` + `liveStream`, binds them, sets `enableAutoStart: true` and `enableAutoStop: true`. Privacy setting read from `platformMetadata.privacy`.
+**YouTube client specifics**: Uses `googleapis` npm package. Creates `liveBroadcast` + `liveStream`, binds them, sets `enableAutoStart: true` and `enableAutoStop: true`. Privacy setting read from `platformMetadata.privacy`. After FFmpeg is spawned, the backend polls `liveBroadcasts.list` for `status.lifeCycleStatus === "live"` before transitioning the platform from "Starting" to "Streaming" — this ensures the volunteer sees "Streaming" only when YouTube has actually gone live to viewers. The platform shows "Waiting for YouTube to go live…" during this window. Facebook goes live immediately when data arrives, so no polling is needed.
+
+**`endBroadcast` "already ended" handling**: When stopping a platform, if the YouTube API returns an error indicating the broadcast is already complete/ended (e.g., `enableAutoStop` fired before the explicit API call), the backend treats this as success — logs it as INFO and transitions to Idle without emitting the "Check YouTube manually" warning Banner. The warning is only emitted for unexpected errors (network failure, auth error, etc.).
 
 **Facebook client specifics**: Uses direct HTTPS calls to the Graph API. Creates a `LiveVideo` on the configured Page. Page ID read from `platformMetadata.pageId`.
 
@@ -608,7 +623,7 @@ CREATE TABLE IF NOT EXISTS oauth_states (
 );
 ```
 
-**`oauth_states`**: Short-lived CSRF protection for OAuth flows. Rows are created when the admin initiates an OAuth redirect and consumed (deleted) when the callback is received. A cleanup query deletes rows older than 5 minutes on each callback — no background timer needed.
+**`oauth_states`**: Short-lived CSRF protection for OAuth flows. Rows are created when the admin initiates an OAuth redirect and consumed (deleted) when the callback is received. A cleanup query deletes rows older than 5 minutes on each callback and on backend startup — this prevents stale rows from accumulating if an admin initiates OAuth but never completes it.
 
 **`streaming_platforms.platformMetadata`** is a JSON string decoded by the DAO. Contents vary by platform:
 
@@ -887,6 +902,9 @@ interface PlatformHealthResponse {
 
 ```typescript
 // Extended SessionManifest — adds template selection
+// Note: the current frontend types.ts aliases SessionManifestFields as SessionManifest.
+// This alias must be replaced with the interface below, since SessionManifestFields (shared)
+// does not include template IDs. The shared type stays interpolation-only.
 export interface SessionManifest {
   speaker?: string;
   title?: string;
@@ -1604,6 +1622,7 @@ function createVerseTextResolver(database: Database): (ref: ScriptureReference) 
 | Platform broadcast ended during OBS disconnect | Banner | error | No — volunteer creates new broadcast |
 | Stop broadcast API failed after 3 retries | Banner | warning | No — "Check {platform} manually" |
 | YouTube daily quota exhausted | Banner | error | No — "YouTube daily limit reached — streaming to YouTube is unavailable until tomorrow. Facebook is unaffected." |
+| FFmpeg not installed | Banner | error | No — "FFmpeg is not installed — streaming is unavailable. Contact an administrator." |
 
 ---
 

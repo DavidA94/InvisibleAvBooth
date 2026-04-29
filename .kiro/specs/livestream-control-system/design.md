@@ -1622,6 +1622,8 @@ _For any_ sequence of OBS commands, after each command completes (success or fai
 
 ### Property 9: Safe-start sequence ordering
 
+> *Superseded by multi-platform-streaming: metadata is set via platform APIs, not OBS. The safe-start sequence is replaced by the relay-aware platform start flow. See multi-platform-streaming design doc.*
+
 _For any_ Start Stream command, the backend SHALL always attempt to update OBS stream metadata before issuing the stream start command, and SHALL NOT issue the stream start command if the metadata update step fails.
 
 **Validates: Requirements 8.2, 8.7**
@@ -1670,6 +1672,8 @@ _For any_ SessionManifest state, if either `obsState.streaming` or `obsState.rec
 
 ### Property 15: Start Stream disabled without required manifest fields
 
+> *Superseded by multi-platform-streaming Req 12.4: replaced by `manifestReady` boolean computed from selected template tokens. The "Manage Streams" button uses a priority-ordered sub-label system.*
+
 _For any_ SessionManifest where both `speaker` and `title` are absent (undefined or empty), the Start Stream button SHALL be disabled and SHALL NOT issue a stream start command.
 
 **Validates: Requirements 8.11**
@@ -1701,6 +1705,8 @@ _For any_ `ConfirmationModal` instance, tapping the cancel action SHALL call `on
 ---
 
 ### Property 19: streamTitleTemplate fallback
+
+> *Superseded by multi-platform-streaming Req 3: `streamTitleTemplate` is replaced by the `metadata_templates` table. Templates are read from the database via `MetadataTemplateDao`.*
 
 _For any_ OBS device connection record where `metadata.streamTitleTemplate` is absent or empty, `ObsService` SHALL use the default template `"{Date} – {Speaker} – {Title}"` for interpolation and SHALL NOT produce an error or empty string.
 
