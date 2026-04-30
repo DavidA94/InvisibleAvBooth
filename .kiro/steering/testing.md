@@ -20,10 +20,10 @@ Tests are part of every story's definition of done — not a separate phase. Uni
 | ------------------- | ------------------------------ | -------------------------------------------------------------------------- |
 | Unit & component    | Vitest + React Testing Library | Logic, hooks, components — both packages                                   |
 | Property-based      | Vitest + fast-check            | Correctness properties (a form of unit test, not a separate layer)         |
-| Backend integration | Vitest                         | Full path from REST/Socket.io API boundary → real SQLite + mocked hardware |
+| Backend E2E         | Vitest                         | Full server with fake devices — REST/Socket.io API → services → SQLite     |
 | Frontend E2E        | Playwright                     | Full user flows in the browser, mocked backend (HTTP + WebSocket)          |
 
-**Why two integration layers**: Backend integration tests (Vitest) verify that routes, services, and the database work together correctly — no browser involved. Frontend E2E tests (Playwright) verify that the UI drives the correct HTTP and WebSocket calls and responds correctly to server events — no real backend involved. These are complementary, not redundant.
+**Why two E2E layers**: Backend E2E tests (Vitest) verify that routes, services, the database, and socket events work together correctly with fake device clients — no browser involved. Frontend E2E tests (Playwright) verify that the UI drives the correct HTTP and WebSocket calls and responds correctly to server events — no real backend involved. These are complementary, not redundant. Both run via `npm run test:e2e` in their respective packages and are included in root `npm run ci`.
 
 ---
 
@@ -57,36 +57,85 @@ Each package manages its own `vitest.config.ts`. Test files live alongside the c
 
 ---
 
-## Backend Integration Tests (Vitest)
+## Backend E2E Tests (Vitest)
 
-Backend integration tests exercise the full path from the API boundary (REST endpoint or Socket.io event) through services and down to the database or mocked hardware. No browser is involved.
+Backend e2e tests exercise the full path from the API boundary (REST endpoint or Socket.io event) through services and down to the database, using fake device clients with configurable responses. No browser or real hardware is involved.
 
-### Boundaries
+### Architecture
 
-- **Real**: SQLite database (in-memory or temp file), EventBus, all service logic
-- **Mocked**: External hardware clients (obs-websocket), bcrypt timing (use synchronous mock to keep tests fast), file system side effects where needed
+The tests use a shared `buildApp()` factory (`src/app.ts`) that assembles the full Express + Socket.io application. This is the same factory used by `index.ts` in production, ensuring test and production wiring never drift apart. Tests inject fakes for external dependencies:
+
+| Dependency | Production | Test |
+|------------|-----------|------|
+| OBS WebSocket | `obs-websocket-js` | `createFakeObs()` — mock with event simulation and stateful recording tracking |
+| Platform APIs (YouTube/Facebook) | `YouTubeClient` / `FacebookClient` | `FakePlatformClient` — enqueueable responses and call recording |
+| RTMP relay (node-media-server) | Real NMS instance | `createFakeNms()` — no-op |
+| FFmpeg forwarders | `child_process.spawn` | `createFakeSpawn()` — emits `close` immediately |
+| Database | File-backed SQLite | In-memory SQLite (`:memory:`) with identical schema |
+
+### Fake Response Sequencing
+
+`FakePlatformClient` supports enqueueable responses so tests can configure multi-step scenarios:
+
+```typescript
+// First call succeeds, second call throws
+fakePlatformClient
+  .enqueue("createBroadcast", { broadcastId: "b1", ... })
+  .enqueue("createBroadcast", new PlatformError("BROADCAST_CREATE_FAILED", "quota exceeded"));
+```
+
+When no response is enqueued, the fake returns a sensible default. Errors are thrown when an `Error` instance is enqueued.
+
+### Test Harness
+
+All e2e tests use a shared harness (`tests/integration/harness.ts`) that provides:
+
+- `buildTestServer(opts?)` — creates an in-memory DB, applies schema, optionally seeds KJV data or platform configs, wires up the full app with fakes, and listens on an ephemeral port. Returns the app context, fakes, port, and a supertest agent.
+- `resetServer(server)` — truncates all tables and resets fakes between tests. Does not restart the server or re-register event bus listeners (~1ms).
+- `destroyServer(server)` — tears down the server, services, and event bus listeners.
+- `loginAs(agent, authService, username, password, role)` — creates a user, logs in, changes password, and returns the auth cookie.
+- `loginAsAdmin(agent, authService)` — shorthand for creating and logging in as an ADMIN.
+- `loginRaw(agent, authService, ...)` — logs in without changing password, for testing password-change enforcement.
 
 ### Structure
 
-Integration test files live alongside the route or gateway they test:
+E2e test files live in `tests/integration/`, separate from unit tests in `src/`:
 
 ```
 packages/backend/
   src/
+    app.ts                              ← shared buildApp() factory
     routes/
       authRoutes.ts
-      authRoutes.integration.test.ts   ← or authRoutes.test.ts if no unit test exists for the same file
-    gateway/
-      socketGateway.ts
-      socketGateway.integration.test.ts
+      authRoutes.test.ts                ← unit test
+  tests/
+    integration/
+      fakes.ts                          ← FakePlatformClient, createFakeObs, etc.
+      harness.ts                        ← buildTestServer, resetServer, login helpers
+      routes/
+        auth.test.ts                    ← e2e: full server, real DB, fake devices
+        admin-users.test.ts
+        edge-cases.test.ts              ← expired JWTs, 403 sweep, password enforcement
+        ...
+      gateway/
+        socket.test.ts                  ← Socket.io e2e: OBS commands, manifest, auth
+        streaming.test.ts               ← streaming lifecycle, recording, no_source
 ```
+
+### Execution
+
+- **Config:** `vitest.integration.config.ts` — separate from unit test config
+- **Script:** `npm run test:e2e` (backend package), also run by root `npm run ci`
+- **Parallelism:** `fileParallelism: false` — tests run sequentially because the `eventBus` is a module-level singleton shared across files in the same thread pool
+- **Lifecycle:** One server per test file (`beforeAll`), table truncation between tests (`beforeEach`), full teardown (`afterAll`)
 
 ### Conventions
 
-- Each backend story closes with an integration test that covers the happy path and key failure cases end-to-end
-- Use a fresh in-memory SQLite database per test file (or per test if state isolation requires it)
-- Mock obs-websocket at the client constructor boundary — never mock internal OBS service logic
-- Integration tests for Socket.io use a real Socket.io server bound to a random port; connect a real Socket.io client in the test
+- Each test is independent — `resetServer()` between tests ensures no state leakage
+- Tests verify the full wiring path: HTTP request → middleware → route → service → database → response, or socket event → gateway → module → service → event bus → broadcast
+- Streaming lifecycle tests use `afterEach` cleanup to ensure the platform state machine returns to idle, preventing cross-test contamination
+- Socket tests extract the raw JWT from the auth cookie for `socket.io-client` auth; cookie-based socket auth is also tested separately
+- `BCRYPT_ROUNDS=1` in test env keeps password hashing fast (~1ms vs ~200ms)
 
 ---
 
