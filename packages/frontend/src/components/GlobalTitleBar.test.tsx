@@ -44,17 +44,17 @@ describe("GlobalTitleBar", () => {
     expect(screen.getByTestId(TEST_ID_TITLE_BAR_ROLE)).toHaveTextContent("(AvVolunteer)");
   });
 
-  it("shows 'No Dashboard Selected' with (choose) when no dashboard name", () => {
+  it("shows 'No Dashboard Selected' with (CHANGE) when no dashboard name", () => {
     renderBar("/dashboards");
     expect(screen.getByText("No Dashboard Selected")).toBeInTheDocument();
-    expect(screen.getByText("(choose)")).toBeInTheDocument();
+    expect(screen.getByText("(CHANGE)")).toBeInTheDocument();
   });
 
-  it("shows dashboard name with (change) when on a dashboard", () => {
+  it("shows dashboard name with (CHANGE) when on a dashboard", () => {
     localStorage.setItem("dashboardName", "Main Dashboard");
     renderBar("/dashboard/default");
     expect(screen.getByText("Main Dashboard")).toBeInTheDocument();
-    expect(screen.getByText("(change)")).toBeInTheDocument();
+    expect(screen.getByText("(CHANGE)")).toBeInTheDocument();
   });
 
   it("reduced variant on /change-password hides role and nav", () => {

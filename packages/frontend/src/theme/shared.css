@@ -311,8 +311,50 @@
 }
 
 .title-bar-link {
-  --padding-start: 0;
-  --padding-end: 0;
+  color: var(--color-text-muted);
+  text-decoration: none;
+  font-size: 0.85rem;
+  margin-left: 0.4rem;
+}
+
+.title-bar-link:hover {
+  color: var(--color-text);
+  text-decoration: underline;
+}
+
+.title-bar-separator {
+  color: var(--color-border);
+  margin: 0 0.5rem;
+}
+
+/* Admin index page */
+.admin-index-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+  gap: 1rem;
+  padding: 1.5rem;
+  max-width: 50rem;
+}
+
+.admin-index-card {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem 1rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+  color: var(--color-text);
+  text-decoration: none;
+  font-size: 1.1rem;
+  font-weight: 600;
+  text-align: center;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.admin-index-card:hover {
+  background: var(--color-surface-raised);
+  border-color: var(--color-primary);
 }
 
 /* Widget container */

@@ -9,6 +9,8 @@ import { ObsStatusBar } from "./ObsStatusBar";
 import { ObsMetadataPreview } from "./ObsMetadataPreview";
 import { ObsControls } from "./ObsControls";
 import { useObsState } from "../../hooks/useObsState";
+import { useSocket } from "../../providers/SocketProvider";
+import { CTS_OBS_RECONNECT } from "@invisible-av-booth/shared";
 import { TEST_ID_OBS_WIDGET } from "../../constants/testIds";
 import { useStore } from "../../store";
 
@@ -16,6 +18,7 @@ export function ObsWidget(): ReactNode {
   const { state: obsState, isPending, sendCommand } = useObsState();
   const interpolatedStreamTitle = useStore((s) => s.interpolatedStreamTitle);
   const manifest = useStore((s) => s.manifest);
+  const socket = useSocket();
 
   const [showManifestModal, setShowManifestModal] = useState(false);
   const [showManageStreams, setShowManageStreams] = useState(false);
@@ -54,11 +57,12 @@ export function ObsWidget(): ReactNode {
 
   const handleReconnect = useCallback((): void => {
     setReconnecting(true);
+    socket?.emit(CTS_OBS_RECONNECT);
     setTimeout(() => setReconnecting(false), 3000);
-  }, []);
+  }, [socket]);
 
   return (
-    <WidgetContainer title="OBS" connections={[{ label: "OBS", healthy: obsState.connected }]}>
+    <WidgetContainer title="OBS" connections={[{ label: "OBS", status: obsState.connected ? "healthy" : "unhealthy" }]}>
       <div data-testid={TEST_ID_OBS_WIDGET} className="layout-column full-height">
         <ObsStatusBar obsState={obsState} />
         <ObsMetadataPreview interpolatedStreamTitle={interpolatedStreamTitle} onEditDetails={() => setShowManifestModal(true)} />
