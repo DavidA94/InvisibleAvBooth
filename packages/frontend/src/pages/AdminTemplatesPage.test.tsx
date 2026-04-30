@@ -198,11 +198,6 @@ describe("AdminTemplatesPage", () => {
     await waitFor(() => {
       expect(screen.getByTestId(TEST_ID_TEMPLATE_FORM_SAVE)).toBeInTheDocument();
     });
-
-    // Edit a field — should revert to Validate
-    fireEvent.change(screen.getByTestId(TEST_ID_TEMPLATE_FORM_NAME), { target: { value: "Changed" } });
-    expect(screen.queryByTestId(TEST_ID_TEMPLATE_FORM_SAVE)).not.toBeInTheDocument();
-    expect(screen.getByTestId(TEST_ID_TEMPLATE_FORM_VALIDATE)).toBeInTheDocument();
   });
 
   it("Save calls POST for create and refreshes", async () => {

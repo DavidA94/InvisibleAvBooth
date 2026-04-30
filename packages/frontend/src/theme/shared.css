@@ -348,6 +348,50 @@
   font-size: 1rem;
 }
 
+/* Template management */
+.tpl-two-column {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  max-width: 60rem;
+  margin: 0 auto;
+}
+
+.tpl-column-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.tpl-column-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.tpl-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.625rem 0.75rem;
+  background: var(--color-surface);
+  border-radius: 0.375rem;
+}
+
+.tpl-form-grid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.75rem 1rem;
+  align-items: center;
+}
+
+.tpl-form-label {
+  text-align: right;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
 /* Widget container */
 .widget-wrapper {
   display: flex;
