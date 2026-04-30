@@ -1,0 +1,99 @@
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render, screen, fireEvent } from "@testing-library/react";
+import { ManageStreamsModal } from "./ManageStreamsModal";
+import { useStore } from "../../store";
+import { INITIAL_OBS_STATE } from "../../store/obsSlice";
+import {
+  TEST_ID_MANAGE_STREAMS_MODAL,
+  TEST_ID_PLATFORM_ROW,
+  TEST_ID_PLATFORM_START_ALL,
+  TEST_ID_PLATFORM_STOP_ALL,
+} from "../../constants/testIds";
+
+const mockEmit = vi.fn();
+vi.mock("../../providers/SocketProvider", () => ({
+  useSocket: () => ({ emit: mockEmit }),
+}));
+
+function resetStore(platformStates = new Map<string, { state: string }>()): void {
+  useStore.setState({
+    user: { id: "u1", username: "admin", role: "ADMIN" },
+    obsState: { ...INITIAL_OBS_STATE, connected: true },
+    obsPending: false,
+    manifest: {},
+    interpolatedStreamTitle: "",
+    notifications: [],
+    platformStates: platformStates as ReturnType<typeof useStore.getState>["platformStates"],
+    relayState: { running: false, obsConnected: false },
+    platformReadiness: false,
+  });
+}
+
+beforeEach(() => {
+  resetStore();
+  vi.clearAllMocks();
+});
+
+describe("ManageStreamsModal", () => {
+  it("does not render when closed", () => {
+    render(<ManageStreamsModal isOpen={false} onClose={vi.fn()} />);
+    expect(screen.queryByTestId(TEST_ID_MANAGE_STREAMS_MODAL)).not.toBeInTheDocument();
+  });
+
+  it("shows empty state when no platforms configured", () => {
+    render(<ManageStreamsModal isOpen={true} onClose={vi.fn()} />);
+    expect(screen.getByTestId(TEST_ID_MANAGE_STREAMS_MODAL)).toHaveTextContent("No streaming platforms configured");
+  });
+
+  it("renders platform rows", () => {
+    resetStore(
+      new Map([
+        ["YouTube", { state: "idle" }],
+        ["Facebook", { state: "streaming" }],
+      ]),
+    );
+    render(<ManageStreamsModal isOpen={true} onClose={vi.fn()} />);
+    const rows = screen.getAllByTestId(TEST_ID_PLATFORM_ROW);
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toHaveTextContent("YouTube");
+    expect(rows[1]).toHaveTextContent("Facebook");
+  });
+
+  it("disables Start All when any platform is streaming", () => {
+    resetStore(new Map([["YouTube", { state: "streaming" }]]));
+    render(<ManageStreamsModal isOpen={true} onClose={vi.fn()} />);
+    expect(screen.getByTestId(TEST_ID_PLATFORM_START_ALL)).toBeDisabled();
+  });
+
+  it("disables Stop All when no platform is streaming", () => {
+    resetStore(new Map([["YouTube", { state: "idle" }]]));
+    render(<ManageStreamsModal isOpen={true} onClose={vi.fn()} />);
+    expect(screen.getByTestId(TEST_ID_PLATFORM_STOP_ALL)).toBeDisabled();
+  });
+
+  it("enables Start All when all platforms idle", () => {
+    resetStore(new Map([["YouTube", { state: "idle" }]]));
+    render(<ManageStreamsModal isOpen={true} onClose={vi.fn()} />);
+    expect(screen.getByTestId(TEST_ID_PLATFORM_START_ALL)).not.toBeDisabled();
+  });
+
+  it("enables Stop All when a platform is streaming", () => {
+    resetStore(new Map([["YouTube", { state: "streaming" }]]));
+    render(<ManageStreamsModal isOpen={true} onClose={vi.fn()} />);
+    expect(screen.getByTestId(TEST_ID_PLATFORM_STOP_ALL)).not.toBeDisabled();
+  });
+
+  it("sends startAll command on Start All click", () => {
+    resetStore(new Map([["YouTube", { state: "idle" }]]));
+    render(<ManageStreamsModal isOpen={true} onClose={vi.fn()} />);
+    fireEvent.click(screen.getByTestId(TEST_ID_PLATFORM_START_ALL));
+    expect(mockEmit).toHaveBeenCalledWith("cts:platform:command", { action: "startAll" });
+  });
+
+  it("sends stopAll command on Stop All click", () => {
+    resetStore(new Map([["YouTube", { state: "streaming" }]]));
+    render(<ManageStreamsModal isOpen={true} onClose={vi.fn()} />);
+    fireEvent.click(screen.getByTestId(TEST_ID_PLATFORM_STOP_ALL));
+    expect(mockEmit).toHaveBeenCalledWith("cts:platform:command", { action: "stopAll" });
+  });
+});

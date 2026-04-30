@@ -5,7 +5,16 @@ import { ObsWidget } from "./ObsWidget";
 import { useStore } from "../../store";
 import { INITIAL_OBS_STATE } from "../../store/obsSlice";
 import type { ObsState, CommandResult } from "../../types";
-import { TEST_ID_CONFIRMATION_CONFIRM_BUTTON, TEST_ID_MODAL_HEADER, TEST_ID_OBS_METADATA_PREVIEW, TEST_ID_OBS_RECORD_BUTTON, TEST_ID_OBS_STREAM_BUTTON, TEST_ID_OBS_WIDGET, TEST_ID_SESSION_MANIFEST_MODAL, TEST_ID_WIDGET_ERROR_OVERLAY } from "../../constants/testIds";
+import {
+  TEST_ID_CONFIRMATION_CONFIRM_BUTTON,
+  TEST_ID_MANAGE_STREAMS_BUTTON,
+  TEST_ID_MANAGE_STREAMS_MODAL,
+  TEST_ID_MODAL_HEADER,
+  TEST_ID_OBS_METADATA_PREVIEW,
+  TEST_ID_OBS_RECORD_BUTTON,
+  TEST_ID_OBS_WIDGET,
+  TEST_ID_WIDGET_ERROR_OVERLAY,
+} from "../../constants/testIds";
 
 const mockEmit = vi.fn();
 vi.mock("../../providers/SocketProvider", () => ({
@@ -17,7 +26,6 @@ vi.mock("../../hooks/useResizeObserver", () => ({
 }));
 
 const connectedState: ObsState = { ...INITIAL_OBS_STATE, connected: true };
-const liveState: ObsState = { ...connectedState, streaming: true, commandedState: { streaming: true, recording: false } };
 const recordingState: ObsState = { ...connectedState, recording: true, commandedState: { streaming: false, recording: true } };
 
 function resetStore(obsState = connectedState): void {
@@ -28,6 +36,9 @@ function resetStore(obsState = connectedState): void {
     manifest: { speaker: "John", title: "Grace" },
     interpolatedStreamTitle: "Apr 19 – John – Grace",
     notifications: [],
+    platformStates: new Map(),
+    relayState: { running: false, obsConnected: false },
+    platformReadiness: false,
   });
 }
 
@@ -57,44 +68,23 @@ describe("ObsWidget", () => {
     expect(screen.getByTestId(TEST_ID_WIDGET_ERROR_OVERLAY)).toBeInTheDocument();
   });
 
-  it("Start Stream opens confirmation modal", async () => {
+  it("shows Manage Streams button", () => {
     render(
       <IonApp>
         <ObsWidget />
       </IonApp>,
     );
-    fireEvent.click(screen.getByTestId(TEST_ID_OBS_STREAM_BUTTON));
-    await waitFor(() => {
-      expect(screen.getByTestId(TEST_ID_MODAL_HEADER)).toHaveTextContent("Begin Stream");
-    });
+    expect(screen.getByTestId(TEST_ID_MANAGE_STREAMS_BUTTON)).toHaveTextContent("Manage Streams");
   });
 
-  it("Start Stream confirmation sends command", async () => {
-    mockEmit.mockImplementation((_e: string, _c: unknown, ack: (r: CommandResult) => void) => ack({ success: true }));
+  it("Manage Streams button opens ManageStreamsModal", () => {
     render(
       <IonApp>
         <ObsWidget />
       </IonApp>,
     );
-    fireEvent.click(screen.getByTestId(TEST_ID_OBS_STREAM_BUTTON));
-    await waitFor(() => {
-      expect(screen.getByTestId(TEST_ID_CONFIRMATION_CONFIRM_BUTTON)).toBeInTheDocument();
-    });
-    fireEvent.click(screen.getByTestId(TEST_ID_CONFIRMATION_CONFIRM_BUTTON));
-    expect(mockEmit).toHaveBeenCalled();
-  });
-
-  it("Stop Stream opens danger confirmation", async () => {
-    resetStore(liveState);
-    render(
-      <IonApp>
-        <ObsWidget />
-      </IonApp>,
-    );
-    fireEvent.click(screen.getByTestId(TEST_ID_OBS_STREAM_BUTTON));
-    await waitFor(() => {
-      expect(screen.getByTestId(TEST_ID_MODAL_HEADER)).toHaveTextContent("stop the stream");
-    });
+    fireEvent.click(screen.getByTestId(TEST_ID_MANAGE_STREAMS_BUTTON));
+    expect(screen.getByTestId(TEST_ID_MANAGE_STREAMS_MODAL)).toBeInTheDocument();
   });
 
   it("Stop Recording opens danger confirmation", async () => {
@@ -110,15 +100,20 @@ describe("ObsWidget", () => {
     });
   });
 
-  it("disabled Start Stream opens manifest modal when metadata missing", () => {
-    useStore.setState({ manifest: {}, interpolatedStreamTitle: "" });
+  it("Stop Recording confirmation sends command", async () => {
+    mockEmit.mockImplementation((_e: string, _c: unknown, ack: (r: CommandResult) => void) => ack({ success: true }));
+    resetStore(recordingState);
     render(
       <IonApp>
         <ObsWidget />
       </IonApp>,
     );
-    fireEvent.click(screen.getByTestId(TEST_ID_OBS_STREAM_BUTTON));
-    expect(screen.getByTestId(TEST_ID_SESSION_MANIFEST_MODAL)).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId(TEST_ID_OBS_RECORD_BUTTON));
+    await waitFor(() => {
+      expect(screen.getByTestId(TEST_ID_CONFIRMATION_CONFIRM_BUTTON)).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByTestId(TEST_ID_CONFIRMATION_CONFIRM_BUTTON));
+    expect(mockEmit).toHaveBeenCalled();
   });
 
   it("shows metadata preview", () => {
