@@ -11,6 +11,7 @@ import { ObsControls } from "./ObsControls";
 import { useObsState } from "../../hooks/useObsState";
 import { useSocket } from "../../providers/SocketProvider";
 import { CTS_OBS_RECONNECT } from "@invisible-av-booth/shared";
+import { logger } from "../../logger";
 import { TEST_ID_OBS_WIDGET } from "../../constants/testIds";
 import { useStore } from "../../store";
 
@@ -56,6 +57,7 @@ export function ObsWidget(): ReactNode {
   }, [runCommand]);
 
   const handleReconnect = useCallback((): void => {
+    logger.info("OBS reconnect requested by user");
     setReconnecting(true);
     socket?.emit(CTS_OBS_RECONNECT);
     setTimeout(() => setReconnecting(false), 3000);

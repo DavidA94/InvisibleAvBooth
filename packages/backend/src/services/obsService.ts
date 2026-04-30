@@ -95,7 +95,11 @@ export class ObsService {
 
       // Point OBS at the local RTMP relay so all streams flow through our
       // relay infrastructure rather than directly to a single platform.
-      await this.configureRelayTarget();
+      try {
+        await this.configureRelayTarget();
+      } catch (err) {
+        logger.warn("Failed to configure relay target — OBS connection still active", { error: String(err) });
+      }
 
       // Remove any existing listeners before adding new ones to prevent
       // duplicate handlers after reconnection.
