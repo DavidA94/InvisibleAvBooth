@@ -4,7 +4,13 @@ import { MemoryRouter } from "react-router";
 import { GlobalTitleBar } from "./GlobalTitleBar";
 import { useStore } from "../store";
 import { INITIAL_OBS_STATE } from "../store/obsSlice";
-import { TEST_ID_TITLE_BAR_DASHBOARD_NAV, TEST_ID_TITLE_BAR_LOGOUT_BUTTON, TEST_ID_TITLE_BAR_ROLE, TEST_ID_TITLE_BAR_USERNAME } from "../constants/testIds";
+import {
+  TEST_ID_TITLE_BAR_DASHBOARD_NAV,
+  TEST_ID_TITLE_BAR_LOGOUT_BUTTON,
+  TEST_ID_TITLE_BAR_ROLE,
+  TEST_ID_TITLE_BAR_USERNAME,
+  TEST_ID_TITLE_BAR_ADMIN_LINK,
+} from "../constants/testIds";
 
 vi.mock("react-router", async () => {
   const actual = await vi.importActual("react-router");
@@ -62,5 +68,24 @@ describe("GlobalTitleBar", () => {
     renderBar();
     const logoutBtn = screen.getByTestId(TEST_ID_TITLE_BAR_LOGOUT_BUTTON);
     expect(logoutBtn).toBeInTheDocument();
+  });
+
+  it("shows Admin Pages link for ADMIN users", () => {
+    useStore.setState({ user: { id: "u1", username: "Admin", role: "ADMIN" } });
+    renderBar();
+    expect(screen.getByTestId(TEST_ID_TITLE_BAR_ADMIN_LINK)).toBeInTheDocument();
+    expect(screen.getByTestId(TEST_ID_TITLE_BAR_ADMIN_LINK)).toHaveTextContent("Admin Pages");
+  });
+
+  it("does not show Admin Pages link for non-ADMIN users", () => {
+    useStore.setState({ user: { id: "u1", username: "John", role: "AvVolunteer" } });
+    renderBar();
+    expect(screen.queryByTestId(TEST_ID_TITLE_BAR_ADMIN_LINK)).not.toBeInTheDocument();
+  });
+
+  it("does not show Admin Pages link for AvPowerUser", () => {
+    useStore.setState({ user: { id: "u1", username: "Jane", role: "AvPowerUser" } });
+    renderBar();
+    expect(screen.queryByTestId(TEST_ID_TITLE_BAR_ADMIN_LINK)).not.toBeInTheDocument();
   });
 });
