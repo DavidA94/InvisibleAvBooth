@@ -9,14 +9,17 @@ import { ObsStatusBar } from "./ObsStatusBar";
 import { ObsMetadataPreview } from "./ObsMetadataPreview";
 import { ObsControls } from "./ObsControls";
 import { useObsState } from "../../hooks/useObsState";
+import { usePlatformState } from "../../hooks/usePlatformState";
 import { useSocket } from "../../providers/SocketProvider";
 import { CTS_OBS_RECONNECT } from "@invisible-av-booth/shared";
 import { logger } from "../../logger";
 import { TEST_ID_OBS_WIDGET } from "../../constants/testIds";
 import { useStore } from "../../store";
+import type { ConnectionStatus } from "../../types";
 
 export function ObsWidget(): ReactNode {
   const { state: obsState, isPending, sendCommand } = useObsState();
+  const { relayState, isAnyStreaming } = usePlatformState();
   const interpolatedStreamTitle = useStore((s) => s.interpolatedStreamTitle);
   const manifest = useStore((s) => s.manifest);
   const socket = useSocket();
@@ -63,8 +66,14 @@ export function ObsWidget(): ReactNode {
     setTimeout(() => setReconnecting(false), 3000);
   }, [socket]);
 
+  const connections: ConnectionStatus[] = [
+    { label: "OBS", status: obsState.connected ? "healthy" : "unhealthy" },
+    { label: "Relay", status: relayState.running ? (relayState.obsConnected ? "healthy" : "degraded") : "inactive" },
+    { label: "Stream", status: isAnyStreaming ? "healthy" : "inactive" },
+  ];
+
   return (
-    <WidgetContainer title="OBS" connections={[{ label: "OBS", status: obsState.connected ? "healthy" : "unhealthy" }]}>
+    <WidgetContainer title="OBS" connections={connections}>
       <div data-testid={TEST_ID_OBS_WIDGET} className="layout-column full-height">
         <ObsStatusBar obsState={obsState} />
         <ObsMetadataPreview interpolatedStreamTitle={interpolatedStreamTitle} onEditDetails={() => setShowManifestModal(true)} />

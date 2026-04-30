@@ -12,7 +12,7 @@ beforeEach(() => {
   mockWidth = 300;
 });
 
-const connections = [{ label: "OBS", healthy: true }];
+const connections = [{ label: "OBS", status: "healthy" as const }];
 
 describe("WidgetContainer", () => {
   it("renders title", () => {
@@ -49,7 +49,7 @@ describe("WidgetContainer", () => {
 
   it("healthy dot has correct class", () => {
     render(
-      <WidgetContainer title="Test" connections={[{ label: "OBS", healthy: true }]}>
+      <WidgetContainer title="Test" connections={[{ label: "OBS", status: "healthy" as const }]}>
         content
       </WidgetContainer>,
     );
@@ -59,7 +59,7 @@ describe("WidgetContainer", () => {
 
   it("unhealthy dot has correct class", () => {
     render(
-      <WidgetContainer title="Test" connections={[{ label: "OBS", healthy: false }]}>
+      <WidgetContainer title="Test" connections={[{ label: "OBS", status: "unhealthy" as const }]}>
         content
       </WidgetContainer>,
     );
