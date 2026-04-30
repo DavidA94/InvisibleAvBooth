@@ -49,6 +49,34 @@ export function applySchema(database: Database): void {
       UNIQUE(dashboardId, widgetId)
     );
 
+    CREATE TABLE IF NOT EXISTS metadata_templates (
+      id TEXT PRIMARY KEY NOT NULL,
+      name TEXT NOT NULL,
+      category TEXT NOT NULL CHECK(category IN ('title', 'description')),
+      formatString TEXT NOT NULL,
+      roleMinimum TEXT NOT NULL CHECK(roleMinimum IN ('ADMIN', 'AvPowerUser', 'AvVolunteer')),
+      createdAt TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS streaming_platforms (
+      id TEXT PRIMARY KEY NOT NULL,
+      platformType TEXT NOT NULL CHECK(platformType IN ('youtube', 'facebook')),
+      label TEXT NOT NULL,
+      enabled INTEGER NOT NULL DEFAULT 1,
+      encryptedAccessToken TEXT NOT NULL,
+      encryptedRefreshToken TEXT,
+      tokenExpiresAt TEXT,
+      metadata TEXT NOT NULL DEFAULT '{}',
+      createdAt TEXT NOT NULL,
+      UNIQUE(platformType, label)
+    );
+
+    CREATE TABLE IF NOT EXISTS oauth_states (
+      state TEXT PRIMARY KEY NOT NULL,
+      platformType TEXT NOT NULL,
+      createdAt TEXT NOT NULL
+    );
+
     CREATE TABLE IF NOT EXISTS kjv (
       BOOKID    INTEGER,
       CHAPTERNO INTEGER,

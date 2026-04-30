@@ -11,8 +11,7 @@ import { SessionManifestService } from "../services/sessionManifestService.js";
 import { SocketGateway } from "./socketGateway.js";
 import { SessionManifestModule } from "./modules/sessionManifest/sessionManifestModule.js";
 import { eventBus } from "../eventBus/eventBus.js";
-import type { ObsState } from "./modules/obs/types.js";
-import { CTS_OBS_COMMAND, CTS_SESSION_MANIFEST_UPDATE, STC_OBS_ERROR, STC_OBS_STATE } from "@invisible-av-booth/shared";
+import { CTS_OBS_COMMAND, CTS_SESSION_MANIFEST_UPDATE, STC_OBS_ERROR } from "@invisible-av-booth/shared";
 import { ObsModule } from "./modules/obs/obsModule.js";
 
 // ── Mock OBSWebSocket ─────────────────────────────────────────────────────────
@@ -106,36 +105,27 @@ function connectClient(): Promise<ClientSocket> {
 // ── obs:command → OBS → obs:state broadcast ───────────────────────────────────
 
 describe("OBS control integration", () => {
-  it("startStream command triggers safe-start and broadcasts obs:state", async () => {
+  it("startStream command is rejected — streaming managed by platform service", async () => {
     const client = await connectClient();
 
-    const stateUpdate = new Promise<ObsState>((resolve) => {
-      client.on(STC_OBS_STATE, (state) => {
-        if ((state as ObsState).commandedState?.streaming) resolve(state as ObsState);
-      });
+    const result = await new Promise<{ success: boolean; error?: string }>((resolve) => {
+      client.emit(CTS_OBS_COMMAND, { type: "startStream" }, (r: { success: boolean; error?: string }) => resolve(r));
     });
 
-    await new Promise<void>((resolve) => {
-      client.emit(CTS_OBS_COMMAND, { type: "startStream" }, () => resolve());
-    });
-
-    const state = await stateUpdate;
-    expect(state.commandedState.streaming).toBe(true);
-    // Verify safe-start order: metadata update before StartStream
-    const calls = mockObs.call.mock.calls.map((c) => c[0]);
-    expect(calls.indexOf("SetStreamServiceSettings")).toBeLessThan(calls.indexOf("StartStream"));
-
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("platform service");
     client.close();
   });
 
-  it("stopStream command broadcasts updated state", async () => {
+  it("stopStream command is rejected — streaming managed by platform service", async () => {
     const client = await connectClient();
 
-    await new Promise<void>((resolve) => {
-      client.emit(CTS_OBS_COMMAND, { type: "stopStream" }, () => resolve());
+    const result = await new Promise<{ success: boolean; error?: string }>((resolve) => {
+      client.emit(CTS_OBS_COMMAND, { type: "stopStream" }, (r: { success: boolean; error?: string }) => resolve(r));
     });
 
-    expect(mockObs.call).toHaveBeenCalledWith("StopStream");
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("platform service");
     client.close();
   });
 

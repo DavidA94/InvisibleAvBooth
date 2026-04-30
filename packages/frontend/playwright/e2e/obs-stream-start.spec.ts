@@ -2,14 +2,15 @@ import { test, expect } from "@playwright/test";
 import { routeAuthLogin, routeAuthCheck } from "../support/routes/auth";
 import { routeSocketIo, routeDashboardApi } from "../support/routes/obs";
 import { sessionManifestFilled } from "../fixtures/payloads/session";
-import { obsStateLive } from "../fixtures/payloads/obs";
+import { routeTemplatesApi } from "../support/routes/template";
 
 test.describe("OBS stream start flow", () => {
-  test("login → dashboard → metadata present → Start Stream → confirm → stream live", async ({ page }) => {
+  test("login → dashboard → metadata present → Manage Streams button visible", async ({ page }) => {
     await routeAuthLogin(page);
     await routeAuthCheck(page);
     await routeDashboardApi(page);
-    const socket = await routeSocketIo(page, undefined, sessionManifestFilled());
+    await routeTemplatesApi(page);
+    await routeSocketIo(page, undefined, sessionManifestFilled());
 
     // Login
     await page.goto("/login");
@@ -21,23 +22,11 @@ test.describe("OBS stream start flow", () => {
     await expect(page.getByTestId("dashboard-grid")).toBeVisible({ timeout: 15000 });
     await expect(page.getByTestId("obs-widget")).toBeVisible({ timeout: 5000 });
 
-    // Wait for OBS to show as connected (socket sends initial state)
-    await expect(page.getByTestId("stream-status")).toBeVisible({ timeout: 10000 });
+    // Manage Streams button should be visible (replaced Start Stream)
+    await expect(page.getByTestId("manage-streams-button")).toBeVisible({ timeout: 5000 });
 
-    // Metadata should be present — Start Stream should be available
-    await page.getByTestId("obs-stream-btn").click();
-
-    // Confirmation modal should appear
-    await expect(page.getByTestId("confirmation-confirm-btn")).toBeVisible();
-    await page.getByTestId("confirmation-confirm-btn").click();
-
-    // Wait for the command to be processed
-    await page.waitForTimeout(500);
-
-    // Simulate server pushing live state
-    socket.sendObsState(obsStateLive());
-
-    // Verify stream is live
-    await expect(page.getByTestId("stream-status")).toContainText("LIVE", { timeout: 10000 });
+    // Click opens the Manage Streams modal
+    await page.getByTestId("manage-streams-button").click();
+    await expect(page.getByTestId("manage-streams-modal")).toBeVisible({ timeout: 5000 });
   });
 });

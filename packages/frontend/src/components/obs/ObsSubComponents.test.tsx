@@ -5,7 +5,7 @@ import { ObsMetadataPreview } from "./ObsMetadataPreview";
 import { ObsControls } from "./ObsControls";
 import { INITIAL_OBS_STATE } from "../../store/obsSlice";
 import type { ObsState } from "../../types";
-import { TEST_ID_EDIT_DETAILS_BUTTON, TEST_ID_OBS_METADATA_PREVIEW, TEST_ID_OBS_RECORD_BUTTON, TEST_ID_OBS_STREAM_BUTTON, TEST_ID_RECORDING_INDICATOR, TEST_ID_STREAM_DISABLED_REASON, TEST_ID_STREAM_STATUS, TEST_ID_STREAM_TIMECODE } from "../../constants/testIds";
+import { TEST_ID_EDIT_DETAILS_BUTTON, TEST_ID_MANAGE_STREAMS_BUTTON, TEST_ID_OBS_METADATA_PREVIEW, TEST_ID_OBS_RECORD_BUTTON, TEST_ID_RECORDING_INDICATOR, TEST_ID_STREAM_STATUS, TEST_ID_STREAM_TIMECODE } from "../../constants/testIds";
 
 const liveState: ObsState = {
   ...INITIAL_OBS_STATE,
@@ -58,32 +58,34 @@ describe("ObsMetadataPreview", () => {
 });
 
 describe("ObsControls", () => {
-  it("shows Start Stream when not streaming", () => {
+  it("shows Manage Streams button", () => {
     render(
       <ObsControls
         obsState={INITIAL_OBS_STATE}
         isPending={false}
-        onStartStream={vi.fn()}
-        onStopStream={vi.fn()}
+        manifestReady={true}
+        onManageStreams={vi.fn()}
         onStartRecording={vi.fn()}
         onStopRecording={vi.fn()}
       />,
     );
-    expect(screen.getByTestId(TEST_ID_OBS_STREAM_BUTTON)).toHaveTextContent("Start Stream");
+    expect(screen.getByTestId(TEST_ID_MANAGE_STREAMS_BUTTON)).toHaveTextContent("Manage Streams");
   });
 
-  it("shows Stop Stream when streaming", () => {
+  it("calls onManageStreams when clicked", () => {
+    const onManage = vi.fn();
     render(
       <ObsControls
-        obsState={liveState}
+        obsState={INITIAL_OBS_STATE}
         isPending={false}
-        onStartStream={vi.fn()}
-        onStopStream={vi.fn()}
+        manifestReady={true}
+        onManageStreams={onManage}
         onStartRecording={vi.fn()}
         onStopRecording={vi.fn()}
       />,
     );
-    expect(screen.getByTestId(TEST_ID_OBS_STREAM_BUTTON)).toHaveTextContent("Stop Stream");
+    fireEvent.click(screen.getByTestId(TEST_ID_MANAGE_STREAMS_BUTTON));
+    expect(onManage).toHaveBeenCalledOnce();
   });
 
   it("disables buttons when pending", () => {
@@ -91,30 +93,43 @@ describe("ObsControls", () => {
       <ObsControls
         obsState={INITIAL_OBS_STATE}
         isPending={true}
-        onStartStream={vi.fn()}
-        onStopStream={vi.fn()}
+        manifestReady={true}
+        onManageStreams={vi.fn()}
         onStartRecording={vi.fn()}
         onStopRecording={vi.fn()}
       />,
     );
-    const streamButton = screen.getByTestId(TEST_ID_OBS_STREAM_BUTTON);
+    const manageButton = screen.getByTestId(TEST_ID_MANAGE_STREAMS_BUTTON);
     const recordButton = screen.getByTestId(TEST_ID_OBS_RECORD_BUTTON);
-    expect((streamButton as HTMLElement & { disabled: boolean }).disabled).toBe(true);
+    expect((manageButton as HTMLElement & { disabled: boolean }).disabled).toBe(true);
     expect((recordButton as HTMLElement & { disabled: boolean }).disabled).toBe(true);
   });
 
-  it("shows disabled reason as subtext in button", () => {
+  it("shows sub-label when manifest not ready", () => {
     render(
       <ObsControls
         obsState={INITIAL_OBS_STATE}
         isPending={false}
-        streamDisabledReason="Enter metadata"
-        onStartStream={vi.fn()}
-        onStopStream={vi.fn()}
+        manifestReady={false}
+        onManageStreams={vi.fn()}
         onStartRecording={vi.fn()}
         onStopRecording={vi.fn()}
       />,
     );
-    expect(screen.getByTestId(TEST_ID_STREAM_DISABLED_REASON)).toHaveTextContent("Enter metadata");
+    expect(screen.getByTestId(TEST_ID_MANAGE_STREAMS_BUTTON)).toHaveTextContent("Enter metadata");
+  });
+
+  it("does not show sub-label when manifest ready", () => {
+    render(
+      <ObsControls
+        obsState={INITIAL_OBS_STATE}
+        isPending={false}
+        manifestReady={true}
+        onManageStreams={vi.fn()}
+        onStartRecording={vi.fn()}
+        onStopRecording={vi.fn()}
+      />,
+    );
+    expect(screen.getByTestId(TEST_ID_MANAGE_STREAMS_BUTTON)).not.toHaveTextContent("Enter metadata");
   });
 });

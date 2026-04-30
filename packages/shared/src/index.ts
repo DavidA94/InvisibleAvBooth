@@ -22,7 +22,7 @@ export type {
 } from "./types.js";
 
 // Interpolation
-export { interpolateStreamTitle, formatScripture } from "./interpolation.js";
+export { interpolateTemplate, interpolateStreamTitle, formatScripture } from "./interpolation.js";
 export type { ScriptureReference, SessionManifestFields } from "./interpolation.js";
 
 // Scripture lookup

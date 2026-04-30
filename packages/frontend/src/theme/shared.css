@@ -310,9 +310,86 @@
   gap: 0.375rem;
 }
 
-.title-bar-link {
-  --padding-start: 0;
-  --padding-end: 0;
+.title-bar-nav-link {
+  --padding-start: 0.25rem;
+  --padding-end: 0.25rem;
+}
+
+.title-bar-separator {
+  color: var(--color-border);
+  margin: 0 0.15rem;
+}
+
+/* Admin index page */
+/* Admin index page */
+.admin-index-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 2rem 1rem;
+}
+
+.admin-index-heading {
+  color: var(--color-text);
+  margin-bottom: 1.5rem;
+}
+
+.admin-index-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  width: 100%;
+  max-width: 30rem;
+}
+
+.admin-index-button {
+  --border-radius: 0.5rem;
+  min-height: 3rem;
+  font-size: 1rem;
+}
+
+/* Template management */
+.tpl-two-column {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  max-width: 60rem;
+  margin: 0 auto;
+}
+
+.tpl-column-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.tpl-column-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.tpl-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.625rem 0.75rem;
+  background: var(--color-surface);
+  border-radius: 0.375rem;
+}
+
+.tpl-form-grid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.75rem 1rem;
+  align-items: center;
+}
+
+.tpl-form-label {
+  text-align: right;
+  color: var(--color-text-muted);
+  white-space: nowrap;
 }
 
 /* Widget container */
@@ -437,23 +514,6 @@
 }
 
 /* Notification modal */
-.notification-modal-card {
-  background: var(--color-surface);
-  border-radius: 0.5rem;
-  padding: 1.5rem;
-  max-width: 24rem;
-  text-align: center;
-}
-
-.notification-modal-button {
-  background: var(--color-primary);
-  color: var(--color-text);
-  border: none;
-  border-radius: 0.375rem;
-  padding: 0.5rem 1.5rem;
-  cursor: pointer;
-}
-
 /* Session manifest modal */
 .manifest-footer {
   display: flex;
@@ -464,6 +524,18 @@
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+}
+
+.manifest-template-row {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.manifest-template-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
 }
 
 .manifest-preview {

@@ -67,11 +67,13 @@ export async function routeSocketIo(
       if (text.includes('"cts:request:initial:state"')) {
         ws.send(`42["stc:obs:state",${JSON.stringify(currentObsState)}]`);
         ws.send(`42["stc:session:manifest:updated",${JSON.stringify(currentManifest)}]`);
+        ws.send(`42["stc:relay:state",${JSON.stringify({ running: false, obsConnected: false })}]`);
+        ws.send(`42["stc:platform:readiness",${JSON.stringify({ platforms: [] })}]`);
         return;
       }
 
       // Ack commands with success
-      if (text.includes('"cts:obs:command"') || text.includes('"cts:session:manifest:update"')) {
+      if (text.includes('"cts:obs:command"') || text.includes('"cts:session:manifest:update"') || text.includes('"cts:platform:command"')) {
         const match = text.match(/^(\d+)/);
         if (match) {
           ws.send(`${match[1]}[{"success":true}]`);

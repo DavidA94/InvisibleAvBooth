@@ -1,27 +1,39 @@
+import type { Database } from "better-sqlite3";
 import { BUS_OBS_STATE_CHANGED, BUS_SESSION_MANIFEST_UPDATED } from "../eventBus/types.js";
-import { interpolateStreamTitle } from "@invisible-av-booth/shared";
+import { interpolateTemplate } from "@invisible-av-booth/shared";
+import type { ScriptureReference } from "@invisible-av-booth/shared";
 import { eventBus } from "../eventBus/eventBus.js";
 import type { SessionManifest } from "../gateway/modules/sessionManifest/types.js";
 import type { ObsState } from "../gateway/modules/obs/types.js";
 import type { JwtPayload } from "../services/authService.js";
+import { MetadataTemplateDao } from "../dao/metadataTemplateDao.js";
 import { logger } from "../logger.js";
 
 export type { SessionManifest };
-
 export type ValidationError = { code: "CLEAR_BLOCKED_WHILE_LIVE"; message: string };
 export type Result<T, E> = { success: true; value: T } | { success: false; error: E };
-
 export const DEFAULT_STREAM_TITLE_TEMPLATE = "{Date} – {Speaker} – {Title}";
+
+export interface InterpolatedState {
+  interpolatedStreamTitle: string;
+  interpolatedDescription: string;
+  manifestReady: boolean;
+}
 
 export class SessionManifestService {
   private manifest: SessionManifest = {};
   private obsStreaming = false;
   private obsRecording = false;
-  private template: string;
+  private readonly dao: MetadataTemplateDao;
+  private readonly database: Database;
+  private cachedInterpolatedTitle = "";
+  private cachedInterpolatedDescription = "";
+  private cachedManifestReady = false;
   private readonly obsStateHandler: (payload: { state: ObsState }) => void;
 
-  constructor(template = DEFAULT_STREAM_TITLE_TEMPLATE) {
-    this.template = template;
+  constructor(database: Database) {
+    this.database = database;
+    this.dao = new MetadataTemplateDao(database);
 
     this.obsStateHandler = ({ state }: { state: ObsState }) => {
       this.obsStreaming = state.streaming;
@@ -38,17 +50,23 @@ export class SessionManifestService {
     return { ...this.manifest };
   }
 
-  getTemplate(): string {
-    return this.template;
+  getInterpolated(): InterpolatedState {
+    return {
+      interpolatedStreamTitle: this.cachedInterpolatedTitle,
+      interpolatedDescription: this.cachedInterpolatedDescription,
+      manifestReady: this.cachedManifestReady,
+    };
   }
 
   update(patch: Partial<SessionManifest>, actor: JwtPayload): Result<SessionManifest, never> {
     this.manifest = { ...this.manifest, ...patch };
-    const interpolatedStreamTitle = interpolateStreamTitle(this.manifest, this.template);
+    this.recompute();
 
     eventBus.emit(BUS_SESSION_MANIFEST_UPDATED, {
       manifest: { ...this.manifest },
-      interpolatedStreamTitle,
+      interpolatedStreamTitle: this.cachedInterpolatedTitle,
+      interpolatedDescription: this.cachedInterpolatedDescription,
+      manifestReady: this.cachedManifestReady,
     });
 
     logger.info("Session manifest updated", { userId: actor.sub });
@@ -63,15 +81,93 @@ export class SessionManifestService {
       };
     }
 
-    this.manifest = {};
-    const interpolatedStreamTitle = interpolateStreamTitle({}, this.template);
+    // Preserve template selections across clear — the operator chose these templates
+    // for the session and likely wants to keep them for the next service.
+    const preserved: SessionManifest = {};
+    if (this.manifest.titleTemplateId) preserved.titleTemplateId = this.manifest.titleTemplateId;
+    if (this.manifest.descriptionTemplateId) preserved.descriptionTemplateId = this.manifest.descriptionTemplateId;
+    this.manifest = preserved;
+    this.recompute();
 
     eventBus.emit(BUS_SESSION_MANIFEST_UPDATED, {
-      manifest: {},
-      interpolatedStreamTitle,
+      manifest: { ...this.manifest },
+      interpolatedStreamTitle: this.cachedInterpolatedTitle,
+      interpolatedDescription: this.cachedInterpolatedDescription,
+      manifestReady: this.cachedManifestReady,
     });
 
     logger.info("Session manifest cleared", { userId: actor.sub });
     return { success: true, value: undefined };
+  }
+
+  /**
+   * Recomputes cached interpolated values from current manifest and DAO templates.
+   * Called after every manifest mutation.
+   */
+  private recompute(): void {
+    const resolver = this.createVerseTextResolver();
+
+    const titleTemplate = this.manifest.titleTemplateId ? this.dao.getById(this.manifest.titleTemplateId) : null;
+    const descriptionTemplate = this.manifest.descriptionTemplateId
+      ? this.dao.getById(this.manifest.descriptionTemplateId)
+      : null;
+
+    const titleFormat = titleTemplate?.formatString ?? DEFAULT_STREAM_TITLE_TEMPLATE;
+    const descriptionFormat = descriptionTemplate?.formatString ?? "";
+
+    this.cachedInterpolatedTitle = interpolateTemplate(this.manifest, titleFormat, resolver);
+    this.cachedInterpolatedDescription = descriptionFormat
+      ? interpolateTemplate(this.manifest, descriptionFormat, resolver)
+      : "";
+    this.cachedManifestReady = this.computeManifestReady(titleFormat, descriptionFormat);
+  }
+
+  /**
+   * manifestReady is true when a title template is selected AND every token
+   * referenced in both templates has a non-empty value in the manifest.
+   * {Date} is always satisfied (auto-filled). {verseText} is satisfied when scripture is set.
+   */
+  private computeManifestReady(titleFormat: string, descriptionFormat: string): boolean {
+    if (!this.manifest.titleTemplateId) return false;
+
+    const combined = titleFormat + descriptionFormat;
+    const tokenPattern = /\{(\w+)\}/g;
+    let match: RegExpExecArray | null;
+
+    while ((match = tokenPattern.exec(combined)) !== null) {
+      const token = match[1]!;
+      if (token === "Date") continue;
+      if (token === "Speaker" && !this.manifest.speaker?.trim()) return false;
+      if (token === "Title" && !this.manifest.title?.trim()) return false;
+      if (token === "Scripture" && !this.manifest.scripture) return false;
+      if (token === "verseText" && !this.manifest.scripture) return false;
+    }
+
+    return true;
+  }
+
+  /**
+   * Returns a resolver function that queries the KJV table for verse text.
+   * Used by interpolateTemplate to expand {verseText} tokens.
+   */
+  private createVerseTextResolver(): (ref: ScriptureReference) => string {
+    return (ref: ScriptureReference): string => {
+      if (ref.verseEnd) {
+        const rows = this.database
+          .prepare("SELECT VERSETEXT FROM kjv WHERE BOOKID = ? AND CHAPTERNO = ? AND VERSENO BETWEEN ? AND ? ORDER BY VERSENO")
+          .all(ref.bookId, ref.chapter, ref.verse || 1, ref.verseEnd) as { VERSETEXT: string }[];
+        return rows.map((row) => row.VERSETEXT).join(" ");
+      }
+      if (ref.verse === 0) {
+        const rows = this.database
+          .prepare("SELECT VERSETEXT FROM kjv WHERE BOOKID = ? AND CHAPTERNO = ? ORDER BY VERSENO")
+          .all(ref.bookId, ref.chapter) as { VERSETEXT: string }[];
+        return rows.map((row) => row.VERSETEXT).join(" ");
+      }
+      const row = this.database
+        .prepare("SELECT VERSETEXT FROM kjv WHERE BOOKID = ? AND CHAPTERNO = ? AND VERSENO = ?")
+        .get(ref.bookId, ref.chapter, ref.verse) as { VERSETEXT: string } | undefined;
+      return row?.VERSETEXT ?? "[Verse not found]";
+    };
   }
 }

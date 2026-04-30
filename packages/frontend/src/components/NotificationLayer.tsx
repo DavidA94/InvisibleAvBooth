@@ -5,6 +5,7 @@ import { useStore } from "../store";
 import { useShallow } from "zustand/react/shallow";
 import { TEST_ID_NOTIFICATION_BANNER, TEST_ID_BANNER_COUNTER, TEST_ID_BANNER_DISMISS, TEST_ID_NOTIFICATION_MODAL } from "../constants/testIds";
 import type { Notification } from "../types";
+import { Modal } from "./Modal";
 
 const ANIMATION_DELAY = 500;
 const TOAST_DURATION = 5000;
@@ -107,16 +108,24 @@ function ModalManager(): ReactNode {
   const modals = useStore(useShallow((s) => s.notifications.filter((n) => n.level === "modal")));
   const current = modals[0];
 
-  if (!current) return null;
+  const handleAcknowledge = useCallback(() => {
+    if (current) useStore.getState().removeNotification(current.id);
+  }, [current]);
 
   return (
-    <div data-testid={TEST_ID_NOTIFICATION_MODAL} className="overlay-backdrop" style={{ zIndex: 10001 }}>
-      <div className="notification-modal-card">
-        <p className="margin-none text-bold text-danger margin-bottom-wide">{current.message}</p>
-        <button onClick={() => useStore.getState().removeNotification(current.id)} className="notification-modal-button">
-          Acknowledge
-        </button>
-      </div>
-    </div>
+    <Modal
+      isOpen={!!current}
+      onClose={handleAcknowledge}
+      header="Error"
+      footer={
+        <div data-testid={TEST_ID_NOTIFICATION_MODAL} style={{ display: "flex", justifyContent: "flex-end" }}>
+          <button onClick={handleAcknowledge} className="button-primary button-padding-standard text-bold">
+            Acknowledge
+          </button>
+        </div>
+      }
+    >
+      <p className="margin-none text-bold text-danger">{current?.message}</p>
+    </Modal>
   );
 }

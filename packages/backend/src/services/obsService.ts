@@ -70,6 +70,7 @@ export class ObsService {
     const config = this.loadConfig();
     if (!config) {
       const err = new ObsError("OBS_NOT_CONFIGURED", "No enabled OBS device connection found");
+      logger.warn("OBS connect failed: no enabled OBS device in device_connections table");
       eventBus.emit(BUS_OBS_ERROR, { error: err as ObsError & { code: "OBS_NOT_CONFIGURED" } });
       return { success: false, error: err };
     }
@@ -94,7 +95,11 @@ export class ObsService {
 
       // Point OBS at the local RTMP relay so all streams flow through our
       // relay infrastructure rather than directly to a single platform.
-      await this.configureRelayTarget();
+      try {
+        await this.configureRelayTarget();
+      } catch (err) {
+        logger.warn("Failed to configure relay target — OBS connection still active", { error: String(err) });
+      }
 
       // Remove any existing listeners before adding new ones to prevent
       // duplicate handlers after reconnection.

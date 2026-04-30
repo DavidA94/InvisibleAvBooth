@@ -74,6 +74,11 @@ export const TEST_ID_STREAM_TIMECODE = "stream-timecode";
 export const TEST_ID_RECORDING_INDICATOR = "recording-indicator";
 export const TEST_ID_STREAM_DISABLED_REASON = "stream-disabled-reason";
 export const TEST_ID_EDIT_DETAILS_BUTTON = "edit-details-button";
+export const TEST_ID_MANAGE_STREAMS_BUTTON = "manage-streams-button";
+export const TEST_ID_MANAGE_STREAMS_MODAL = "manage-streams-modal";
+export const TEST_ID_PLATFORM_START_ALL = "platform-start-all";
+export const TEST_ID_PLATFORM_STOP_ALL = "platform-stop-all";
+export const TEST_ID_PLATFORM_ROW = "platform-row";
 
 // ── Session Manifest Modal ─────────────────────────────────────────────────────
 export const TEST_ID_SESSION_MANIFEST_MODAL = "session-manifest-modal";
@@ -90,6 +95,10 @@ export const TEST_ID_SCRIPTURE_BOOK_SELECT = "scripture-book-select";
 export const TEST_ID_SCRIPTURE_CHAPTER_SELECT = "scripture-chapter-select";
 export const TEST_ID_SCRIPTURE_VERSE_SELECT = "scripture-verse-select";
 export const TEST_ID_SCRIPTURE_VERSE_END_SELECT = "scripture-verse-end-select";
+
+// ── Admin Index ────────────────────────────────────────────────────────────────
+export const TEST_ID_ADMIN_INDEX_PAGE = "admin-index-page";
+export const TEST_ID_TITLE_BAR_ADMIN_LINK = "title-bar-admin-link";
 
 // ── Admin User Management ──────────────────────────────────────────────────────
 export const TEST_ID_ADMIN_USERS_PAGE = "admin-users-page";
@@ -163,3 +172,34 @@ export const TEST_ID_EDIT_DEVICE_ENABLED = "edit-device-enabled";
 export const TEST_ID_EDIT_DEVICE_SAVE = "edit-device-save";
 export const TEST_ID_EDIT_DEVICE_CANCEL = "edit-device-cancel";
 export const TEST_ID_EDIT_DEVICE_ERROR = "edit-device-error";
+
+// ── Session Manifest Modal — Template Dropdowns ────────────────────────────────
+export const TEST_ID_MANIFEST_TITLE_TEMPLATE = "manifest-title-template";
+export const TEST_ID_MANIFEST_DESCRIPTION_TEMPLATE = "manifest-description-template";
+export const TEST_ID_MANIFEST_DESCRIPTION_PREVIEW = "manifest-description-preview";
+
+// ── Admin Templates Page ───────────────────────────────────────────────────────
+export const TEST_ID_ADMIN_TEMPLATES_PAGE = "admin-templates-page";
+export const TEST_ID_TITLE_TEMPLATE_LIST = "title-template-list";
+export const TEST_ID_DESCRIPTION_TEMPLATE_LIST = "description-template-list";
+export const TEST_ID_TEMPLATE_ITEM = "template-item";
+export const TEST_ID_TEMPLATE_EDIT_BUTTON = "template-edit-button";
+export const TEST_ID_TEMPLATE_DELETE_BUTTON = "template-delete-button";
+export const TEST_ID_ADD_TITLE_TEMPLATE_BUTTON = "add-title-template-button";
+export const TEST_ID_ADD_DESCRIPTION_TEMPLATE_BUTTON = "add-description-template-button";
+export const TEST_ID_TEMPLATE_FORM_NAME = "template-form-name";
+export const TEST_ID_TEMPLATE_FORM_FORMAT = "template-form-format";
+export const TEST_ID_TEMPLATE_FORM_ROLE = "template-form-role";
+export const TEST_ID_TEMPLATE_FORM_VALIDATE = "template-form-validate";
+export const TEST_ID_TEMPLATE_FORM_SAVE = "template-form-save";
+export const TEST_ID_TEMPLATE_FORM_CANCEL = "template-form-cancel";
+export const TEST_ID_TEMPLATE_FORM_ERROR = "template-form-error";
+export const TEST_ID_TEMPLATE_VALIDATION_BLOCKERS = "template-validation-blockers";
+export const TEST_ID_TEMPLATE_VALIDATION_WARNINGS = "template-validation-warnings";
+
+// ── Platform Config Pages ──────────────────────────────────────────────────────
+export const TEST_ID_YOUTUBE_CONFIG_PAGE = "youtube-config-page";
+export const TEST_ID_FACEBOOK_CONFIG_PAGE = "facebook-config-page";
+export const TEST_ID_PLATFORM_CONNECT_BUTTON = "platform-connect-button";
+export const TEST_ID_PLATFORM_DISCONNECT_BUTTON = "platform-disconnect-button";
+export const TEST_ID_PLATFORM_ACCOUNT_DISPLAY = "platform-account-display";

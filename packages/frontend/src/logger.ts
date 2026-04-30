@@ -18,6 +18,10 @@ let buffer: LogEntry[] = [];
 let flushTimer: ReturnType<typeof setInterval> | null = null;
 
 function enqueue(level: LogEntry["level"], message: string, meta?: { userId?: string; context?: Record<string, unknown> }): void {
+  // Always log to console in development for immediate visibility
+  const consoleFn = level === "error" ? console.error : level === "warn" ? console.warn : level === "debug" ? console.debug : console.info;
+  consoleFn(`[${level.toUpperCase()}] ${message}`, meta?.context ?? "");
+
   buffer.push({
     timestamp: new Date().toISOString(),
     level,

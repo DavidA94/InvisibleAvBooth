@@ -4,29 +4,35 @@ import { WidgetContainer } from "../WidgetContainer";
 import { WidgetErrorOverlay } from "../WidgetErrorOverlay";
 import { ConfirmationModal } from "../ConfirmationModal";
 import { SessionManifestModal } from "../SessionManifestModal";
+import { ManageStreamsModal } from "./ManageStreamsModal";
 import { ObsStatusBar } from "./ObsStatusBar";
 import { ObsMetadataPreview } from "./ObsMetadataPreview";
 import { ObsControls } from "./ObsControls";
 import { useObsState } from "../../hooks/useObsState";
+import { usePlatformState } from "../../hooks/usePlatformState";
+import { useSocket } from "../../providers/SocketProvider";
+import { CTS_OBS_RECONNECT } from "@invisible-av-booth/shared";
+import { logger } from "../../logger";
 import { TEST_ID_OBS_WIDGET } from "../../constants/testIds";
 import { useStore } from "../../store";
+import type { ConnectionStatus } from "../../types";
 
 export function ObsWidget(): ReactNode {
   const { state: obsState, isPending, sendCommand } = useObsState();
+  const { relayState, isAnyStreaming } = usePlatformState();
   const interpolatedStreamTitle = useStore((s) => s.interpolatedStreamTitle);
   const manifest = useStore((s) => s.manifest);
+  const socket = useSocket();
 
   const [showManifestModal, setShowManifestModal] = useState(false);
-  const [showStartConfirm, setShowStartConfirm] = useState(false);
-  const [showStopStreamConfirm, setShowStopStreamConfirm] = useState(false);
+  const [showManageStreams, setShowManageStreams] = useState(false);
   const [showStopRecordConfirm, setShowStopRecordConfirm] = useState(false);
   const [reconnecting, setReconnecting] = useState(false);
 
-  const hasMetadata = !!(manifest.speaker || manifest.title);
-  const streamDisabledReason = !hasMetadata ? "Enter metadata" : undefined;
+  const manifestReady = !!(manifest.speaker || manifest.title);
 
   const runCommand = useCallback(
-    async (type: "startStream" | "stopStream" | "startRecording" | "stopRecording"): Promise<void> => {
+    async (type: "startRecording" | "stopRecording"): Promise<void> => {
       const result = await sendCommand({ type });
       if (!result.success) {
         useStore.getState().addNotification({
@@ -39,28 +45,6 @@ export function ObsWidget(): ReactNode {
     },
     [sendCommand],
   );
-
-  const handleStartStream = useCallback((): void => {
-    if (!hasMetadata) {
-      setShowManifestModal(true);
-      return;
-    }
-    setShowStartConfirm(true);
-  }, [hasMetadata]);
-
-  const confirmStartStream = useCallback((): void => {
-    setShowStartConfirm(false);
-    void runCommand("startStream");
-  }, [runCommand]);
-
-  const handleStopStream = useCallback((): void => {
-    setShowStopStreamConfirm(true);
-  }, []);
-
-  const confirmStopStream = useCallback((): void => {
-    setShowStopStreamConfirm(false);
-    void runCommand("stopStream");
-  }, [runCommand]);
 
   const handleStartRecording = useCallback((): void => {
     void runCommand("startRecording");
@@ -76,12 +60,20 @@ export function ObsWidget(): ReactNode {
   }, [runCommand]);
 
   const handleReconnect = useCallback((): void => {
+    logger.info("OBS reconnect requested by user");
     setReconnecting(true);
+    socket?.emit(CTS_OBS_RECONNECT);
     setTimeout(() => setReconnecting(false), 3000);
-  }, []);
+  }, [socket]);
+
+  const connections: ConnectionStatus[] = [
+    { label: "OBS", status: obsState.connected ? "healthy" : "unhealthy" },
+    { label: "Relay", status: relayState.running ? (relayState.obsConnected ? "healthy" : "degraded") : "inactive" },
+    { label: "Stream", status: isAnyStreaming ? "healthy" : "inactive" },
+  ];
 
   return (
-    <WidgetContainer title="OBS" connections={[{ label: "OBS", healthy: obsState.connected }]}>
+    <WidgetContainer title="OBS" connections={connections}>
       <div data-testid={TEST_ID_OBS_WIDGET} className="layout-column full-height">
         <ObsStatusBar obsState={obsState} />
         <ObsMetadataPreview interpolatedStreamTitle={interpolatedStreamTitle} onEditDetails={() => setShowManifestModal(true)} />
@@ -96,42 +88,16 @@ export function ObsWidget(): ReactNode {
           <ObsControls
             obsState={obsState}
             isPending={isPending}
-            onStartStream={handleStartStream}
-            onStopStream={handleStopStream}
+            manifestReady={manifestReady}
+            onManageStreams={() => setShowManageStreams(true)}
             onStartRecording={handleStartRecording}
             onStopRecording={handleStopRecording}
-            {...(streamDisabledReason ? { streamDisabledReason } : {})}
           />
         </WidgetErrorOverlay>
       </div>
 
       <SessionManifestModal isOpen={showManifestModal} onClose={() => setShowManifestModal(false)} />
-
-      <ConfirmationModal
-        isOpen={showStartConfirm}
-        title="Begin Stream"
-        body={
-          <div>
-            <p className="text-muted margin-bottom-narrow">Stream title</p>
-            <div className="stream-confirm-preview">{interpolatedStreamTitle}</div>
-          </div>
-        }
-        confirmLabel="Start Stream"
-        cancelLabel="Cancel"
-        confirmVariant="primary"
-        onConfirm={confirmStartStream}
-        onCancel={() => setShowStartConfirm(false)}
-      />
-
-      <ConfirmationModal
-        isOpen={showStopStreamConfirm}
-        title="Are you sure you want to stop the stream?"
-        confirmLabel="Stop Streaming"
-        cancelLabel="Continue Streaming"
-        confirmVariant="danger"
-        onConfirm={confirmStopStream}
-        onCancel={() => setShowStopStreamConfirm(false)}
-      />
+      <ManageStreamsModal isOpen={showManageStreams} onClose={() => setShowManageStreams(false)} />
 
       <ConfirmationModal
         isOpen={showStopRecordConfirm}

@@ -4,8 +4,9 @@
 
 - Node.js 20+
 - [Caddy](https://caddyserver.com/docs/install) — reverse proxy for HTTPS and unified routing
+- [FFmpeg](https://ffmpeg.org/download.html) — required for multi-platform streaming relay (minimum version 4.4 recommended; must be on PATH)
 - `bibledb_kjv.sql` in the repo root (not committed — obtain separately)
-- OBS Studio installed with stream settings configured (Settings → Stream → Service, Server, and Stream Key). The backend controls OBS start/stop and metadata, but the stream destination must be configured in OBS directly.
+- OBS Studio installed with **H.264 video codec and AAC audio codec** configured (required for `-c copy` compatibility with the RTMP relay)
 
 ---
 
@@ -122,6 +123,16 @@ Copy `.env.example` to `.env` in `packages/backend/` and set the value:
 DEVICE_SECRET_KEY=<64-character hex string>
 ```
 
+Optional environment variables:
+
+```
+RELAY_PORT=1935          # RTMP relay port (default: 1935)
+YOUTUBE_CLIENT_ID=       # Google Cloud Console OAuth client ID
+YOUTUBE_CLIENT_SECRET=   # Google Cloud Console OAuth client secret
+FACEBOOK_APP_ID=         # Facebook Developer portal app ID
+FACEBOOK_APP_SECRET=     # Facebook Developer portal app secret
+```
+
 The `.env` file must be in `packages/backend/` — that is the working directory when the server runs. It is gitignored and loaded automatically on startup. Never commit it.
 
 ---
@@ -210,12 +221,16 @@ Caddy serves the built static files from `packages/frontend/dist` and proxies AP
 
 ## Admin Routes
 
-All admin routes require an authenticated ADMIN JWT cookie. Navigate to these by URL — they are not linked from the dashboard UI.
+All admin routes require an authenticated ADMIN JWT cookie. Navigate via the **Admin Pages** link in the title bar (visible to ADMIN users only).
 
-| Route              | Description                                                                       |
-| ------------------ | --------------------------------------------------------------------------------- |
-| `/admin/users`     | Two-panel user management: list + detail form (self-delete/role-change prevented) |
-| `/admin/devices`   | Two-panel device management: list + detail form (supports multiple device types)  |
+| Route                        | Description                                                                       |
+| ---------------------------- | --------------------------------------------------------------------------------- |
+| `/admin`                     | Admin index — card grid linking to all admin sections                             |
+| `/admin/users`               | Two-panel user management: list + detail form (self-delete/role-change prevented) |
+| `/admin/devices`             | Two-panel device management: list + detail form (supports multiple device types)  |
+| `/admin/templates`           | Metadata template management: title and description templates with validation     |
+| `/admin/platforms/youtube`   | YouTube streaming platform configuration and OAuth connection                     |
+| `/admin/platforms/facebook`  | Facebook streaming platform configuration and OAuth connection                    |
 
 Full REST API:
 
@@ -242,6 +257,34 @@ Full REST API:
 | `/api/admin/dashboards/:id/widgets/:wid` | GET    | Get a widget                 |
 | `/api/admin/dashboards/:id/widgets/:wid` | PUT    | Update a widget              |
 | `/api/admin/dashboards/:id/widgets/:wid` | DELETE | Delete a widget              |
+
+---
+
+## YouTube OAuth Setup (optional)
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Create a project (or select an existing one)
+3. Enable the **YouTube Data API v3**
+4. Go to **Credentials** → **Create Credentials** → **OAuth client ID**
+5. Application type: **Web application**
+6. Add authorized redirect URI: `https://localhost/api/auth/callback/youtube`
+7. Copy the Client ID and Client Secret to your `.env` file
+8. In the app, go to `/admin/platforms/youtube` and click **Connect**
+
+> **Note:** The redirect URI must use `localhost`. The OAuth flow redirects back to the backend, which runs behind Caddy on localhost.
+
+---
+
+## Facebook OAuth Setup (optional)
+
+1. Go to [Facebook Developer Portal](https://developers.facebook.com/)
+2. Create an app (type: **Business**)
+3. Add the **Facebook Login** product
+4. Under Facebook Login → Settings, add valid OAuth redirect URI: `https://localhost/api/auth/callback/facebook`
+5. Copy the App ID and App Secret to your `.env` file
+6. In the app, go to `/admin/platforms/facebook` and click **Connect**
+
+> **Note:** The Facebook Page you want to stream to must be managed by the Facebook account that authorizes the app.
 
 ---
 
