@@ -77,9 +77,9 @@ export function WidgetContainer({ title, connections, children }: WidgetContaine
         >
           <div className="padding-standard">
             {connections.map((c) => (
-              <div key={c.label} className="layout-row gap-standard margin-bottom-tight">
+              <div key={c.label} className="popover-status-row">
                 <span data-status={c.status} className={DOT_CLASS[c.status]}>●</span>
-                <span>{c.label}</span>
+                <span className="popover-status-label">{c.label}</span>
                 <span className="text-muted">{STATUS_LABEL[c.status]}</span>
               </div>
             ))}

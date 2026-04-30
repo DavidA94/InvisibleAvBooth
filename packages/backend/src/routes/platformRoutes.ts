@@ -59,9 +59,26 @@ export function createPlatformRouter(database: Database, authService: AuthServic
   // ── OAuth state management helpers ────────────────────────────────────────
 
   router.post("/admin/platforms/:platformType/oauth-start", requireRole(authService, "ADMIN"), (req, res) => {
+    const platformType = req.params["platformType"]!;
     const state = randomBytes(32).toString("hex");
-    database.prepare("INSERT INTO oauth_states (state, platformType, createdAt) VALUES (?, ?, ?)").run(state, req.params["platformType"], new Date().toISOString());
-    res.json({ state });
+    database.prepare("INSERT INTO oauth_states (state, platformType, createdAt) VALUES (?, ?, ?)").run(state, platformType, new Date().toISOString());
+
+    let authUrl: string;
+    if (platformType === "youtube") {
+      const clientId = process.env["YOUTUBE_CLIENT_ID"] ?? "";
+      const redirectUri = encodeURIComponent("https://localhost/api/auth/callback/youtube");
+      authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=https://www.googleapis.com/auth/youtube&state=${state}&access_type=offline&prompt=consent`;
+    } else {
+      const appId = process.env["FACEBOOK_APP_ID"] ?? "";
+      const redirectUri = encodeURIComponent("https://localhost/api/auth/callback/facebook");
+      authUrl = `https://www.facebook.com/v19.0/dialog/oauth?client_id=${appId}&redirect_uri=${redirectUri}&state=${state}&scope=pages_manage_posts,pages_read_engagement`;
+    }
+
+    if (!authUrl.includes("client_id=&") && authUrl.includes("client_id=")) {
+      res.json({ state, authUrl });
+    } else {
+      res.status(400).json({ error: `${platformType === "youtube" ? "YOUTUBE_CLIENT_ID" : "FACEBOOK_APP_ID"} not configured in .env` });
+    }
   });
 
   return router;

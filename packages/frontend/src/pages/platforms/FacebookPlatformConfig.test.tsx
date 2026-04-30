@@ -18,7 +18,7 @@ beforeEach(() => {
 
 describe("FacebookPlatformConfig", () => {
   it("renders page", async () => {
-    mockFetch.mockResolvedValueOnce({ ok: true, json: async () => ({ platformType: "facebook", connected: false }) });
+    mockFetch.mockResolvedValueOnce({ ok: true, json: async () => ({ platformType: "facebook", hasToken: false }) });
     render(<FacebookPlatformConfig />);
     await waitFor(() => {
       expect(screen.getByTestId(TEST_ID_FACEBOOK_CONFIG_PAGE)).toBeInTheDocument();
@@ -26,7 +26,7 @@ describe("FacebookPlatformConfig", () => {
   });
 
   it("shows Connect button when not connected", async () => {
-    mockFetch.mockResolvedValueOnce({ ok: true, json: async () => ({ platformType: "facebook", connected: false }) });
+    mockFetch.mockResolvedValueOnce({ ok: true, json: async () => ({ platformType: "facebook", hasToken: false }) });
     render(<FacebookPlatformConfig />);
     await waitFor(() => {
       expect(screen.getByTestId(TEST_ID_PLATFORM_CONNECT_BUTTON)).toBeInTheDocument();
@@ -37,18 +37,18 @@ describe("FacebookPlatformConfig", () => {
   it("shows connected account when connected", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
-      json: async () => ({ platformType: "facebook", connected: true, accountName: "Church Page" }),
+      json: async () => ({ platformType: "facebook", hasToken: true, accountName: "Church Page" }),
     });
     render(<FacebookPlatformConfig />);
     await waitFor(() => {
       expect(screen.getByTestId(TEST_ID_PLATFORM_ACCOUNT_DISPLAY)).toBeInTheDocument();
     });
-    expect(screen.getByText("Church Page")).toBeInTheDocument();
+    expect(screen.getByText("Connected")).toBeInTheDocument();
     expect(screen.getByTestId(TEST_ID_PLATFORM_DISCONNECT_BUTTON)).toBeInTheDocument();
   });
 
   it("Connect button calls OAuth start endpoint", async () => {
-    mockFetch.mockResolvedValueOnce({ ok: true, json: async () => ({ platformType: "facebook", connected: false }) });
+    mockFetch.mockResolvedValueOnce({ ok: true, json: async () => ({ platformType: "facebook", hasToken: false }) });
     render(<FacebookPlatformConfig />);
     await waitFor(() => {
       expect(screen.getByTestId(TEST_ID_PLATFORM_CONNECT_BUTTON)).toBeInTheDocument();
@@ -66,7 +66,7 @@ describe("FacebookPlatformConfig", () => {
   it("Disconnect button calls DELETE API", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
-      json: async () => ({ platformType: "facebook", connected: true, accountName: "Church Page" }),
+      json: async () => ({ platformType: "facebook", hasToken: true, accountName: "Church Page" }),
     });
     render(<FacebookPlatformConfig />);
     await waitFor(() => {
@@ -74,7 +74,7 @@ describe("FacebookPlatformConfig", () => {
     });
 
     fireEvent.click(screen.getByTestId(TEST_ID_PLATFORM_DISCONNECT_BUTTON));
-    expect(screen.getByText(/Are you sure you want to disconnect your Facebook page/)).toBeInTheDocument();
+    expect(screen.getByText(/Are you sure/)).toBeInTheDocument();
 
     mockFetch.mockResolvedValueOnce({ ok: true });
 

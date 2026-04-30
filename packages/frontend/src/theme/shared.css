@@ -393,6 +393,19 @@
 }
 
 /* Widget container */
+/* Health popover grid */
+.popover-status-row {
+  display: grid;
+  grid-template-columns: 1rem auto auto;
+  gap: 0.25rem 0.5rem;
+  align-items: center;
+  margin-bottom: 0.25rem;
+}
+
+.popover-status-label {
+  text-align: right;
+}
+
 .widget-wrapper {
   display: flex;
   flex-direction: column;
@@ -740,4 +753,17 @@
 
 .tooltip-wrapper:hover::after {
   opacity: 1;
+}
+
+/* Platform config pages */
+.platform-config-wrapper {
+  max-width: 30rem;
+  margin: 0 auto;
+}
+
+.platform-status-box {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+  padding: 1.25rem;
 }

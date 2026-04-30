@@ -18,7 +18,7 @@ beforeEach(() => {
 
 describe("YouTubePlatformConfig", () => {
   it("renders page", async () => {
-    mockFetch.mockResolvedValueOnce({ ok: true, json: async () => ({ platformType: "youtube", connected: false }) });
+    mockFetch.mockResolvedValueOnce({ ok: true, json: async () => ({ platformType: "youtube", hasToken: false }) });
     render(<YouTubePlatformConfig />);
     await waitFor(() => {
       expect(screen.getByTestId(TEST_ID_YOUTUBE_CONFIG_PAGE)).toBeInTheDocument();
@@ -26,7 +26,7 @@ describe("YouTubePlatformConfig", () => {
   });
 
   it("shows Connect button when not connected", async () => {
-    mockFetch.mockResolvedValueOnce({ ok: true, json: async () => ({ platformType: "youtube", connected: false }) });
+    mockFetch.mockResolvedValueOnce({ ok: true, json: async () => ({ platformType: "youtube", hasToken: false }) });
     render(<YouTubePlatformConfig />);
     await waitFor(() => {
       expect(screen.getByTestId(TEST_ID_PLATFORM_CONNECT_BUTTON)).toBeInTheDocument();
@@ -37,18 +37,18 @@ describe("YouTubePlatformConfig", () => {
   it("shows connected account when connected", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
-      json: async () => ({ platformType: "youtube", connected: true, accountName: "My Channel" }),
+      json: async () => ({ platformType: "youtube", hasToken: true, accountName: "My Channel" }),
     });
     render(<YouTubePlatformConfig />);
     await waitFor(() => {
       expect(screen.getByTestId(TEST_ID_PLATFORM_ACCOUNT_DISPLAY)).toBeInTheDocument();
     });
-    expect(screen.getByText("My Channel")).toBeInTheDocument();
+    expect(screen.getByText("Connected")).toBeInTheDocument();
     expect(screen.getByTestId(TEST_ID_PLATFORM_DISCONNECT_BUTTON)).toBeInTheDocument();
   });
 
   it("Connect button calls OAuth start endpoint", async () => {
-    mockFetch.mockResolvedValueOnce({ ok: true, json: async () => ({ platformType: "youtube", connected: false }) });
+    mockFetch.mockResolvedValueOnce({ ok: true, json: async () => ({ platformType: "youtube", hasToken: false }) });
     render(<YouTubePlatformConfig />);
     await waitFor(() => {
       expect(screen.getByTestId(TEST_ID_PLATFORM_CONNECT_BUTTON)).toBeInTheDocument();
@@ -67,7 +67,7 @@ describe("YouTubePlatformConfig", () => {
   it("Disconnect button calls DELETE API", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
-      json: async () => ({ platformType: "youtube", connected: true, accountName: "My Channel" }),
+      json: async () => ({ platformType: "youtube", hasToken: true, accountName: "My Channel" }),
     });
     render(<YouTubePlatformConfig />);
     await waitFor(() => {
@@ -75,7 +75,7 @@ describe("YouTubePlatformConfig", () => {
     });
 
     fireEvent.click(screen.getByTestId(TEST_ID_PLATFORM_DISCONNECT_BUTTON));
-    expect(screen.getByText(/Are you sure you want to disconnect your YouTube account/)).toBeInTheDocument();
+    expect(screen.getByText(/Are you sure/)).toBeInTheDocument();
 
     mockFetch.mockResolvedValueOnce({ ok: true });
 

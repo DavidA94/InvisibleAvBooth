@@ -46,7 +46,7 @@ export function LoginPage(): ReactNode {
           navigate("/change-password", { replace: true });
         } else {
           sessionStorage.setItem("initialAuth", "true");
-          navigate("/dashboards", { replace: true });
+          navigate(authUser.role === "ADMIN" ? "/admin" : "/dashboards", { replace: true });
         }
       }
     } catch {
