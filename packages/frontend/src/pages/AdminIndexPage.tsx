@@ -1,4 +1,5 @@
-import type { ReactNode, MouseEvent } from "react";
+import type { ReactNode } from "react";
+import { IonButton } from "@ionic/react";
 import { useNavigate } from "react-router";
 import { TEST_ID_ADMIN_INDEX_PAGE } from "../constants/testIds";
 
@@ -13,24 +14,23 @@ const ADMIN_SECTIONS = [
 export function AdminIndexPage(): ReactNode {
   const navigate = useNavigate();
 
-  function handleClick(e: MouseEvent, path: string): void {
-    if (e.ctrlKey || e.metaKey) return;
-    e.preventDefault();
-    navigate(path);
-  }
-
   return (
-    <div data-testid={TEST_ID_ADMIN_INDEX_PAGE} className="admin-index-grid">
-      {ADMIN_SECTIONS.map((section) => (
-        <a
-          key={section.path}
-          href={section.path}
-          className="admin-index-card"
-          onClick={(e) => handleClick(e, section.path)}
-        >
-          {section.label}
-        </a>
-      ))}
+    <div data-testid={TEST_ID_ADMIN_INDEX_PAGE} className="admin-index-wrapper">
+      <h2 className="admin-index-heading">Admin Pages</h2>
+      <div className="admin-index-grid">
+        {ADMIN_SECTIONS.map((section) => (
+          <IonButton
+            key={section.path}
+            href={section.path}
+            expand="block"
+            fill="outline"
+            className="admin-index-button"
+            onClick={(e) => { e.preventDefault(); navigate(section.path); }}
+          >
+            {section.label}
+          </IonButton>
+        ))}
+      </div>
     </div>
   );
 }

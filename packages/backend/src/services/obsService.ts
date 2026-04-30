@@ -70,6 +70,7 @@ export class ObsService {
     const config = this.loadConfig();
     if (!config) {
       const err = new ObsError("OBS_NOT_CONFIGURED", "No enabled OBS device connection found");
+      logger.warn("OBS connect failed: no enabled OBS device in device_connections table");
       eventBus.emit(BUS_OBS_ERROR, { error: err as ObsError & { code: "OBS_NOT_CONFIGURED" } });
       return { success: false, error: err };
     }

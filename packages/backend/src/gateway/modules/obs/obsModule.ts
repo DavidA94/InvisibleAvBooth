@@ -74,10 +74,10 @@ export class ObsModule implements SocketModule {
       }
     });
 
-    socket.on(CTS_OBS_RECONNECT, async (ack: (result: CommandResult) => void) => {
+    socket.on(CTS_OBS_RECONNECT, async (ack?: (result: CommandResult) => void) => {
       logger.info("OBS reconnect requested", { userId: jwtPayload.sub });
       const result = await this.obsService.reconnect();
-      ack(result.success ? { success: true } : { success: false, error: result.error.message });
+      ack?.(result.success ? { success: true } : { success: false, error: result.error.message });
     });
   }
 
