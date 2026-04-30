@@ -14,7 +14,7 @@ function makeMockManifestService(): SessionManifestService {
   return {
     get: vi.fn().mockReturnValue({ speaker: "John" }),
     update: vi.fn().mockReturnValue({ success: true, value: { speaker: "John" } }),
-    getTemplate: vi.fn().mockReturnValue("{Date} – {Speaker} – {Title}"),
+    getInterpolated: vi.fn().mockReturnValue({ interpolatedStreamTitle: "2026-04-29 – John – [No Title]", interpolatedDescription: "", manifestReady: false }),
   } as unknown as SessionManifestService;
 }
 

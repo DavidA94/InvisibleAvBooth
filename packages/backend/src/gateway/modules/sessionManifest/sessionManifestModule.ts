@@ -4,7 +4,7 @@ import type { SocketModule, AuthenticatedSocket } from "../socketModule.js";
 import type { SessionManifestService, SessionManifest } from "../../../services/sessionManifestService.js";
 import { logger } from "../../../logger.js";
 import { BUS_SESSION_MANIFEST_UPDATED } from "../../../eventBus/types.js";
-import { CTS_SESSION_MANIFEST_UPDATE, STC_SESSION_MANIFEST_UPDATED, interpolateStreamTitle } from "@invisible-av-booth/shared";
+import { CTS_SESSION_MANIFEST_UPDATE, STC_SESSION_MANIFEST_UPDATED } from "@invisible-av-booth/shared";
 
 interface CommandResult {
   success: boolean;
@@ -39,9 +39,10 @@ export class SessionManifestModule implements SocketModule {
 
   emitInitialState(auth: AuthenticatedSocket): void {
     const manifest = this.manifestService.get();
+    const { interpolatedStreamTitle } = this.manifestService.getInterpolated();
     auth.socket.emit(STC_SESSION_MANIFEST_UPDATED, {
       manifest,
-      interpolatedStreamTitle: interpolateStreamTitle(manifest, this.manifestService.getTemplate()),
+      interpolatedStreamTitle,
     });
   }
 }
