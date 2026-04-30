@@ -1,7 +1,9 @@
 import { useState, useEffect, useMemo } from "react";
 import type { ReactNode } from "react";
 import { IonInput, IonText } from "@ionic/react";
+import Select from "react-select";
 import { CTS_SESSION_MANIFEST_UPDATE, interpolateTemplate } from "@invisible-av-booth/shared";
+import { darkSelectStyles } from "../theme/selectStyles";
 import { useStore } from "../store";
 import { useSocket } from "../providers/SocketProvider";
 import { Modal } from "./Modal";
@@ -30,9 +32,20 @@ interface Template {
   formatString: string;
 }
 
+type TemplateOption = { value: string; label: string };
+
 interface SessionManifestModalProps {
   isOpen: boolean;
   onClose: () => void;
+}
+
+/** Extract token names from a format string */
+function extractTokens(formatString: string): Set<string> {
+  const tokens = new Set<string>();
+  for (const match of formatString.matchAll(/\{(\w+)\}/g)) {
+    tokens.add(match[1]!);
+  }
+  return tokens;
 }
 
 export function SessionManifestModal({ isOpen, onClose }: SessionManifestModalProps): ReactNode {
@@ -53,7 +66,6 @@ export function SessionManifestModal({ isOpen, onClose }: SessionManifestModalPr
   const [titleTemplateId, setTitleTemplateId] = useState<string>("");
   const [descriptionTemplateId, setDescriptionTemplateId] = useState<string>("");
 
-  // Fetch templates when modal opens
   useEffect(() => {
     if (!isOpen) return;
     let cancelled = false;
@@ -63,53 +75,56 @@ export function SessionManifestModal({ isOpen, onClose }: SessionManifestModalPr
         if (response.ok && !cancelled) {
           const data = (await response.json()) as Template[];
           setTemplates(data);
-
-          // Auto-select: if only one template in a category, select it
           const titleList = data.filter((t) => t.category === "title");
-          const descriptionList = data.filter((t) => t.category === "description");
-
-          if (titleList.length === 1 && !titleTemplateId) {
-            setTitleTemplateId(titleList[0]!.id);
-          }
-          if (descriptionList.length === 1 && !descriptionTemplateId) {
-            setDescriptionTemplateId(descriptionList[0]!.id);
-          }
+          const descList = data.filter((t) => t.category === "description");
+          if (titleList.length === 1 && !titleTemplateId) setTitleTemplateId(titleList[0]!.id);
+          if (descList.length === 1 && !descriptionTemplateId) setDescriptionTemplateId(descList[0]!.id);
         }
-      } catch {
-        // Templates are optional — modal still works without them
-      }
+      } catch { /* templates optional */ }
     })();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const titleTemplates = useMemo(() => templates.filter((t) => t.category === "title"), [templates]);
   const descriptionTemplates = useMemo(() => templates.filter((t) => t.category === "description"), [templates]);
 
+  const titleOptions: TemplateOption[] = useMemo(() => titleTemplates.map((t) => ({ value: t.id, label: t.name })), [titleTemplates]);
+  const descOptions: TemplateOption[] = useMemo(() => descriptionTemplates.map((t) => ({ value: t.id, label: t.name })), [descriptionTemplates]);
+
   const selectedTitleTemplate = useMemo(() => titleTemplates.find((t) => t.id === titleTemplateId), [titleTemplates, titleTemplateId]);
-  const selectedDescriptionTemplate = useMemo(
-    () => descriptionTemplates.find((t) => t.id === descriptionTemplateId),
-    [descriptionTemplates, descriptionTemplateId],
-  );
+  const selectedDescTemplate = useMemo(() => descriptionTemplates.find((t) => t.id === descriptionTemplateId), [descriptionTemplates, descriptionTemplateId]);
+
+  // Determine which fields are needed by the selected templates
+  const requiredTokens = useMemo(() => {
+    const tokens = new Set<string>();
+    if (selectedTitleTemplate) for (const t of extractTokens(selectedTitleTemplate.formatString)) tokens.add(t);
+    if (selectedDescTemplate && selectedDescTemplate.formatString) for (const t of extractTokens(selectedDescTemplate.formatString)) tokens.add(t);
+    return tokens;
+  }, [selectedTitleTemplate, selectedDescTemplate]);
+
+  const needsSpeaker = requiredTokens.has("Speaker");
+  const needsTitle = requiredTokens.has("Title");
+  const needsScripture = requiredTokens.has("Scripture") || requiredTokens.has("verseText");
+  const hasAnyTemplate = !!titleTemplateId;
 
   const draftManifest = useMemo((): Partial<SessionManifest> => {
     const draft: Partial<SessionManifest> = {};
     if (speaker) draft.speaker = speaker;
     if (title) draft.title = title;
     if (bookId && chapter && verse) {
-      const reference: ScriptureReference = { bookId, chapter, verse };
-      if (verseEnd) reference.verseEnd = verseEnd;
-      draft.scripture = reference;
+      const ref: ScriptureReference = { bookId, chapter, verse };
+      if (verseEnd) ref.verseEnd = verseEnd;
+      draft.scripture = ref;
     }
     return draft;
   }, [speaker, title, bookId, chapter, verse, verseEnd]);
 
   const titlePreview = useMemo(() => interpolateTemplate(draftManifest, selectedTitleTemplate?.formatString), [draftManifest, selectedTitleTemplate]);
 
+  const descHasContent = selectedDescTemplate && selectedDescTemplate.name !== "None" && selectedDescTemplate.formatString;
   const descriptionPreview = useMemo(
-    () => (selectedDescriptionTemplate ? interpolateTemplate(draftManifest, selectedDescriptionTemplate.formatString) : ""),
-    [draftManifest, selectedDescriptionTemplate],
+    () => (descHasContent ? interpolateTemplate(draftManifest, selectedDescTemplate!.formatString) : ""),
+    [draftManifest, descHasContent, selectedDescTemplate],
   );
 
   useEffect(() => {
@@ -122,38 +137,21 @@ export function SessionManifestModal({ isOpen, onClose }: SessionManifestModalPr
         setVerse(storeManifest.scripture.verse);
         setVerseEnd(storeManifest.scripture.verseEnd ?? null);
       } else {
-        setBookId(null);
-        setChapter(null);
-        setVerse(null);
-        setVerseEnd(null);
+        setBookId(null); setChapter(null); setVerse(null); setVerseEnd(null);
       }
       setError("");
     }
   }, [isOpen, storeManifest]);
 
-  const buildManifest = (): Partial<SessionManifest> & { titleTemplateId?: string; descriptionTemplateId?: string } => {
-    const patch: Partial<SessionManifest> & { titleTemplateId?: string; descriptionTemplateId?: string } = {};
-    if (speaker) patch.speaker = speaker;
-    if (title) patch.title = title;
-    if (bookId && chapter && verse) {
-      const reference: ScriptureReference = { bookId, chapter, verse };
-      if (verseEnd) reference.verseEnd = verseEnd;
-      patch.scripture = reference;
-    }
-    if (titleTemplateId) patch.titleTemplateId = titleTemplateId;
-    if (descriptionTemplateId) patch.descriptionTemplateId = descriptionTemplateId;
-    return patch;
-  };
-
   const handleSave = (): void => {
     if (!socket) return;
     setSaving(true);
     setError("");
-    const timeout = setTimeout(() => {
-      setSaving(false);
-      setError("Save failed \u2014 check your connection and try again.");
-    }, ACK_TIMEOUT);
-    socket.emit(CTS_SESSION_MANIFEST_UPDATE, buildManifest(), (result: CommandResult) => {
+    const patch: Partial<SessionManifest> = { ...draftManifest };
+    if (titleTemplateId) patch.titleTemplateId = titleTemplateId;
+    if (descriptionTemplateId) patch.descriptionTemplateId = descriptionTemplateId;
+    const timeout = setTimeout(() => { setSaving(false); setError("Save failed — check your connection and try again."); }, ACK_TIMEOUT);
+    socket.emit(CTS_SESSION_MANIFEST_UPDATE, patch, (result: CommandResult) => {
       clearTimeout(timeout);
       setSaving(false);
       if (result.success) onClose();
@@ -162,39 +160,20 @@ export function SessionManifestModal({ isOpen, onClose }: SessionManifestModalPr
   };
 
   const handleClear = (): void => {
-    setSpeaker("");
-    setTitle("");
-    setBookId(null);
-    setChapter(null);
-    setVerse(null);
-    setVerseEnd(null);
-    setError("");
-    // Template selections are preserved on clear per design
+    setSpeaker(""); setTitle(""); setBookId(null); setChapter(null); setVerse(null); setVerseEnd(null); setError("");
   };
 
   const isLive = obsState.streaming || obsState.recording;
 
   const footer = (
     <div className="manifest-footer">
-      <button
-        data-testid={TEST_ID_MANIFEST_CLEAR}
-        onClick={handleClear}
-        disabled={saving || isLive}
-        className={`button-ghost-danger button-padding-compact ${saving || isLive ? "opacity-disabled" : ""}`}
-      >
+      <button data-testid={TEST_ID_MANIFEST_CLEAR} onClick={handleClear} disabled={saving || isLive} className={`button-ghost-danger button-padding-compact ${saving || isLive ? "opacity-disabled" : ""}`}>
         Clear All
       </button>
       <span className="fill-remaining" />
-      <button data-testid={TEST_ID_MANIFEST_CANCEL} onClick={onClose} disabled={saving} className="button-outline button-padding-standard">
-        Cancel
-      </button>
-      <button
-        data-testid={TEST_ID_MANIFEST_SAVE}
-        onClick={handleSave}
-        disabled={saving}
-        className={`button-primary text-bold button-padding-standard ${saving ? "opacity-disabled" : ""}`}
-      >
-        {saving ? "Saving\u2026" : "Save"}
+      <button data-testid={TEST_ID_MANIFEST_CANCEL} onClick={onClose} disabled={saving} className="button-outline button-padding-standard">Cancel</button>
+      <button data-testid={TEST_ID_MANIFEST_SAVE} onClick={handleSave} disabled={saving} className={`button-primary text-bold button-padding-standard ${saving ? "opacity-disabled" : ""}`}>
+        {saving ? "Saving…" : "Save"}
       </button>
     </div>
   );
@@ -202,89 +181,78 @@ export function SessionManifestModal({ isOpen, onClose }: SessionManifestModalPr
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="small" header="Session Details" footer={footer}>
       <div data-testid={TEST_ID_SESSION_MANIFEST_MODAL} className="manifest-form">
-        {titleTemplates.length > 0 && (
-          <div className="manifest-field">
-            <label className="text-muted text-caption" htmlFor="title-template-select">
-              Title Format
-            </label>
-            <select
-              id="title-template-select"
-              data-testid={TEST_ID_MANIFEST_TITLE_TEMPLATE}
-              value={titleTemplateId}
-              onChange={(event) => setTitleTemplateId(event.target.value)}
-              className="manifest-select"
-            >
-              <option value="">{"\u2014 Select \u2014"}</option>
-              {titleTemplates.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
+        {/* Template dropdowns — side by side */}
+        {(titleTemplates.length > 0 || descriptionTemplates.length > 0) && (
+          <div className="manifest-template-row">
+            {titleTemplates.length > 0 && (
+              <div className="manifest-template-col" data-testid={TEST_ID_MANIFEST_TITLE_TEMPLATE}>
+                <label className="text-muted text-caption">Title Format</label>
+                <Select<TemplateOption>
+                  options={titleOptions}
+                  value={titleOptions.find((o) => o.value === titleTemplateId) ?? null}
+                  onChange={(opt) => setTitleTemplateId(opt?.value ?? "")}
+                  placeholder="— Select —"
+                  styles={darkSelectStyles<TemplateOption>()}
+                  isClearable
+                />
+              </div>
+            )}
+            {descriptionTemplates.length > 0 && (
+              <div className="manifest-template-col" data-testid={TEST_ID_MANIFEST_DESCRIPTION_TEMPLATE}>
+                <label className="text-muted text-caption">Description Format</label>
+                <Select<TemplateOption>
+                  options={descOptions}
+                  value={descOptions.find((o) => o.value === descriptionTemplateId) ?? null}
+                  onChange={(opt) => setDescriptionTemplateId(opt?.value ?? "")}
+                  placeholder="— Select —"
+                  styles={darkSelectStyles<TemplateOption>()}
+                  isClearable
+                />
+              </div>
+            )}
           </div>
         )}
 
-        {descriptionTemplates.length > 0 && (
-          <div className="manifest-field">
-            <label className="text-muted text-caption" htmlFor="description-template-select">
-              Description Format
-            </label>
-            <select
-              id="description-template-select"
-              data-testid={TEST_ID_MANIFEST_DESCRIPTION_TEMPLATE}
-              value={descriptionTemplateId}
-              onChange={(event) => setDescriptionTemplateId(event.target.value)}
-              className="manifest-select"
-            >
-              <option value="">{"\u2014 Select \u2014"}</option>
-              {descriptionTemplates.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
+        {/* Only show fields required by selected templates */}
+        {hasAnyTemplate && (
+          <>
+            {needsSpeaker && (
+              <IonInput data-testid={TEST_ID_MANIFEST_SPEAKER} label="Speaker" labelPlacement="stacked" fill="outline" value={speaker} onIonInput={(e) => setSpeaker(e.detail.value ?? "")} clearInput />
+            )}
+            {needsTitle && (
+              <IonInput data-testid={TEST_ID_MANIFEST_TITLE} label="Sermon Title" labelPlacement="stacked" fill="outline" value={title} onIonInput={(e) => setTitle(e.detail.value ?? "")} clearInput />
+            )}
+            {needsScripture && (
+              <ScriptureReferenceInput bookId={bookId} chapter={chapter} verse={verse} verseEnd={verseEnd} onBookChange={setBookId} onChapterChange={setChapter} onVerseChange={setVerse} onVerseEndChange={setVerseEnd} />
+            )}
+          </>
+        )}
+
+        {!hasAnyTemplate && templates.length > 0 && (
+          <p className="text-muted" style={{ fontStyle: "italic", textAlign: "center", padding: "0.5rem 0" }}>
+            Select a title format to enter session details.
+          </p>
+        )}
+
+        {/* Title preview */}
+        {hasAnyTemplate && (
+          <div data-testid={TEST_ID_MANIFEST_PREVIEW} className="manifest-preview">
+            <span className="text-muted">Stream title preview</span>
+            <p className="text-bold margin-top-tight margin-none">{titlePreview}</p>
           </div>
         )}
 
-        <IonInput
-          data-testid={TEST_ID_MANIFEST_SPEAKER}
-          label="Speaker"
-          labelPlacement="stacked"
-          fill="outline"
-          value={speaker}
-          onIonInput={(event) => setSpeaker(event.detail.value ?? "")}
-          clearInput
-        />
-        <IonInput
-          data-testid={TEST_ID_MANIFEST_TITLE}
-          label="Sermon Title"
-          labelPlacement="stacked"
-          fill="outline"
-          value={title}
-          onIonInput={(event) => setTitle(event.detail.value ?? "")}
-          clearInput
-        />
-
-        <ScriptureReferenceInput
-          bookId={bookId}
-          chapter={chapter}
-          verse={verse}
-          verseEnd={verseEnd}
-          onBookChange={setBookId}
-          onChapterChange={setChapter}
-          onVerseChange={setVerse}
-          onVerseEndChange={setVerseEnd}
-        />
-
-        <div data-testid={TEST_ID_MANIFEST_PREVIEW} className="manifest-preview">
-          <span className="text-muted">Stream title preview</span>
-          <p className="text-bold margin-top-tight margin-none">{titlePreview}</p>
-        </div>
-
-        {descriptionPreview && (
+        {/* Description preview */}
+        {hasAnyTemplate && (
           <div data-testid={TEST_ID_MANIFEST_DESCRIPTION_PREVIEW} className="manifest-preview">
             <span className="text-muted">Description preview</span>
-            <p className="text-bold margin-top-tight margin-none">{descriptionPreview}</p>
+            {descHasContent ? (
+              <p className="text-bold margin-top-tight margin-none">{descriptionPreview}</p>
+            ) : (
+              <p className="margin-top-tight margin-none" style={{ fontStyle: "italic", color: "var(--color-text-muted)" }}>
+                No description template selected
+              </p>
+            )}
           </div>
         )}
 
