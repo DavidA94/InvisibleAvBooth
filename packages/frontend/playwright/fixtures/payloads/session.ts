@@ -3,22 +3,30 @@ export interface SessionManifestPayload {
     speaker?: string;
     title?: string;
     scripture?: { bookId: number; chapter: number; verse: number; verseEnd?: number };
+    titleTemplateId?: string;
+    descriptionTemplateId?: string;
   };
   interpolatedStreamTitle: string;
+  interpolatedDescription: string;
+  manifestReady: boolean;
 }
 
 export function sessionManifestDefault(overrides?: Partial<SessionManifestPayload>): SessionManifestPayload {
   return {
     manifest: {},
     interpolatedStreamTitle: "",
+    interpolatedDescription: "",
+    manifestReady: false,
     ...overrides,
   };
 }
 
 export function sessionManifestFilled(overrides?: Partial<SessionManifestPayload>): SessionManifestPayload {
   return {
-    manifest: { speaker: "John Smith", title: "Grace" },
+    manifest: { speaker: "John Smith", title: "Grace", titleTemplateId: "t1" },
     interpolatedStreamTitle: `${new Date().toISOString().slice(0, 10)} – John Smith – Grace`,
+    interpolatedDescription: "",
+    manifestReady: true,
     ...overrides,
   };
 }
