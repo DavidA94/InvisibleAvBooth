@@ -12,6 +12,7 @@
 export const CTS_OBS_COMMAND = "cts:obs:command" as const;
 export const CTS_OBS_RECONNECT = "cts:obs:reconnect" as const;
 export const CTS_SESSION_MANIFEST_UPDATE = "cts:session:manifest:update" as const;
+export const CTS_PLATFORM_COMMAND = "cts:platform:command" as const;
 export const CTS_REQUEST_INITIAL_STATE = "cts:request:initial:state" as const;
 
 // ── Server → Client ───────────────────────────────────────────────────────────
@@ -21,3 +22,7 @@ export const STC_OBS_ERROR = "stc:obs:error" as const;
 export const STC_OBS_ERROR_RESOLVED = "stc:obs:error:resolved" as const;
 export const STC_SESSION_MANIFEST_UPDATED = "stc:session:manifest:updated" as const;
 export const STC_DEVICE_CAPABILITIES = "stc:device:capabilities" as const;
+export const STC_PLATFORM_STATE = "stc:platform:state" as const;
+export const STC_PLATFORM_HEALTH = "stc:platform:health" as const;
+export const STC_RELAY_STATE = "stc:relay:state" as const;
+export const STC_PLATFORM_READINESS = "stc:platform:readiness" as const;

@@ -58,6 +58,25 @@ export function applySchema(database: Database): void {
       createdAt TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS streaming_platforms (
+      id TEXT PRIMARY KEY NOT NULL,
+      platformType TEXT NOT NULL CHECK(platformType IN ('youtube', 'facebook')),
+      label TEXT NOT NULL,
+      enabled INTEGER NOT NULL DEFAULT 1,
+      encryptedAccessToken TEXT NOT NULL,
+      encryptedRefreshToken TEXT,
+      tokenExpiresAt TEXT,
+      metadata TEXT NOT NULL DEFAULT '{}',
+      createdAt TEXT NOT NULL,
+      UNIQUE(platformType, label)
+    );
+
+    CREATE TABLE IF NOT EXISTS oauth_states (
+      state TEXT PRIMARY KEY NOT NULL,
+      platformType TEXT NOT NULL,
+      createdAt TEXT NOT NULL
+    );
+
     CREATE TABLE IF NOT EXISTS kjv (
       BOOKID    INTEGER,
       CHAPTERNO INTEGER,

@@ -1,0 +1,536 @@
+import { describe, it, expect, vi, afterEach } from "vitest";
+import { StreamingPlatformService } from "./streamingPlatformService.js";
+import { eventBus } from "../eventBus/eventBus.js";
+import {
+  BUS_PLATFORM_STATE_CHANGED,
+  BUS_PLATFORM_HEALTH_UPDATED,
+  BUS_PLATFORM_READINESS_CHANGED,
+  BUS_RELAY_STATE_CHANGED,
+  BUS_FORWARDER_EXITED,
+} from "../eventBus/types.js";
+import type { StreamingPlatformClient } from "../platforms/platformClient.js";
+import { PlatformError } from "../platforms/platformClient.js";
+import type { PlatformConfigDao } from "../platforms/platformConfigDao.js";
+import type { RelayService } from "./relayService.js";
+import type { ObsService } from "./obsService.js";
+import type { SessionManifestService, InterpolatedState } from "./sessionManifestService.js";
+import type { PlatformConfig, PlatformStreamState } from "../gateway/modules/platform/types.js";
+
+// ── Mock factories ───────────────────────────────────────────────────────────
+
+function makeMockClient(platformType: "youtube" | "facebook" = "youtube"): StreamingPlatformClient {
+  return {
+    createBroadcast: vi.fn().mockResolvedValue({
+      broadcastId: `broadcast-${platformType}`,
+      streamUrl: `rtmp://ingest.${platformType}.com/live`,
+      streamKey: "key123",
+    }),
+    endBroadcast: vi.fn().mockResolvedValue(undefined),
+    getBroadcastStatus: vi.fn().mockResolvedValue("live"),
+    pollHealth: vi.fn().mockResolvedValue({ healthy: true, streamHealth: "good" }),
+    refreshToken: vi.fn().mockResolvedValue({ accessToken: "new-token" }),
+    validateToken: vi.fn().mockResolvedValue(true),
+  };
+}
+
+function makeMockRelayService(): RelayService {
+  return {
+    start: vi.fn().mockResolvedValue(undefined),
+    stop: vi.fn(),
+    getRelayState: vi.fn().mockReturnValue({ running: true, obsConnected: true }),
+    startForwarder: vi.fn(),
+    stopForwarder: vi.fn(),
+    stopAllForwarders: vi.fn(),
+    isForwarderAlive: vi.fn().mockReturnValue(true),
+    simulateCrash: vi.fn().mockResolvedValue(undefined),
+  } as unknown as RelayService;
+}
+
+function makeMockObsService(): ObsService {
+  return {
+    getState: vi.fn().mockReturnValue({
+      connected: true,
+      streaming: false,
+      recording: false,
+      commandedState: { streaming: false, recording: false },
+    }),
+    startStream: vi.fn().mockResolvedValue({
+      success: true,
+      value: { connected: true, streaming: true, recording: false, commandedState: { streaming: true, recording: false } },
+    }),
+    stopStream: vi.fn().mockResolvedValue({
+      success: true,
+      value: { connected: true, streaming: false, recording: false, commandedState: { streaming: false, recording: false } },
+    }),
+  } as unknown as ObsService;
+}
+
+function makeMockManifestService(): SessionManifestService {
+  return {
+    getInterpolated: vi.fn().mockReturnValue({
+      interpolatedStreamTitle: "Test Stream",
+      interpolatedDescription: "Test Description",
+      manifestReady: true,
+    } satisfies InterpolatedState),
+  } as unknown as SessionManifestService;
+}
+
+function makeConfig(overrides: Partial<PlatformConfig> = {}): PlatformConfig {
+  return {
+    id: "yt-1",
+    platformType: "youtube",
+    label: "YouTube",
+    enabled: true,
+    accessToken: "token",
+    refreshToken: "refresh",
+    tokenExpiresAt: null,
+    metadata: { privacy: "public", channelId: "ch-1" },
+    createdAt: new Date().toISOString(),
+    ...overrides,
+  };
+}
+
+function makeMockConfigDao(configs: PlatformConfig[] = [makeConfig()]): PlatformConfigDao {
+  return {
+    getAll: vi.fn().mockReturnValue(configs),
+    getByType: vi.fn().mockImplementation((type: string) => configs.filter((c) => c.platformType === type)),
+    getById: vi.fn().mockImplementation((id: string) => configs.find((c) => c.id === id) ?? null),
+    upsert: vi.fn(),
+    delete: vi.fn().mockReturnValue(true),
+    updateTokens: vi.fn(),
+  } as unknown as PlatformConfigDao;
+}
+
+interface ServiceDeps {
+  clients: Map<string, StreamingPlatformClient>;
+  relay: RelayService;
+  obs: ObsService;
+  manifest: SessionManifestService;
+  configDao: PlatformConfigDao;
+}
+
+function makeService(overrides: Partial<ServiceDeps> = {}): { service: StreamingPlatformService; deps: ServiceDeps } {
+  const clients = overrides.clients ?? new Map([["youtube", makeMockClient("youtube")]]);
+  const relay = overrides.relay ?? makeMockRelayService();
+  const obs = overrides.obs ?? makeMockObsService();
+  const manifest = overrides.manifest ?? makeMockManifestService();
+  const configDao = overrides.configDao ?? makeMockConfigDao();
+
+  const deps = { clients, relay, obs, manifest, configDao };
+  const service = new StreamingPlatformService(clients, relay, obs, manifest, configDao);
+  return { service, deps };
+}
+
+// ── Tests ────────────────────────────────────────────────────────────────────
+
+describe("StreamingPlatformService", () => {
+  afterEach(() => {
+    eventBus.removeAllListeners();
+  });
+
+  describe("initial state", () => {
+    it("loads enabled platforms from config dao", () => {
+      const { service } = makeService();
+      const states = service.getPlatformStates();
+      expect(states.size).toBe(1);
+      expect(states.get("yt-1")?.status).toBe("idle");
+    });
+
+    it("skips disabled platforms", () => {
+      const { service } = makeService({ configDao: makeMockConfigDao([makeConfig({ enabled: false })]) });
+      expect(service.getPlatformStates().size).toBe(0);
+    });
+  });
+
+  describe("state machine transitions", () => {
+    it("transitions idle → starting → streaming on successful start", async () => {
+      const changes: PlatformStreamState[] = [];
+      eventBus.subscribe(BUS_PLATFORM_STATE_CHANGED, (payload) => changes.push(payload.state));
+
+      const { service } = makeService();
+      await service.startAll();
+
+      expect(changes.map((s) => s.status)).toContain("starting");
+      expect(changes.map((s) => s.status)).toContain("streaming");
+    });
+
+    it("transitions to error when broadcast creation fails", async () => {
+      const client = makeMockClient("youtube");
+      vi.mocked(client.createBroadcast).mockRejectedValue(new PlatformError("BROADCAST_CREATE_FAILED", "API error"));
+
+      const { service } = makeService({ clients: new Map([["youtube", client]]) });
+      await service.startAll();
+
+      expect(service.getPlatformStates().get("yt-1")?.status).toBe("error");
+    });
+
+    it("does not transition idle platforms on stopAll", async () => {
+      const changes: PlatformStreamState[] = [];
+      eventBus.subscribe(BUS_PLATFORM_STATE_CHANGED, (payload) => changes.push(payload.state));
+
+      const { service } = makeService();
+      await service.stopAll();
+      expect(changes.length).toBe(0);
+    });
+  });
+
+  describe("startAll orchestration", () => {
+    it("creates broadcasts in parallel and starts forwarders", async () => {
+      const ytConfig = makeConfig();
+      const fbConfig = makeConfig({
+        id: "fb-1",
+        platformType: "facebook",
+        label: "Facebook",
+        metadata: { pageId: "pg-1" },
+      });
+      const ytClient = makeMockClient("youtube");
+      const fbClient = makeMockClient("facebook");
+
+      const { deps } = makeService({
+        clients: new Map([
+          ["youtube", ytClient],
+          ["facebook", fbClient],
+        ]),
+        configDao: makeMockConfigDao([ytConfig, fbConfig]),
+      });
+
+      const service = new StreamingPlatformService(
+        new Map([
+          ["youtube", ytClient],
+          ["facebook", fbClient],
+        ]),
+        deps.relay,
+        deps.obs,
+        deps.manifest,
+        makeMockConfigDao([ytConfig, fbConfig]),
+      );
+
+      await service.startAll();
+
+      expect(ytClient.createBroadcast).toHaveBeenCalledOnce();
+      expect(fbClient.createBroadcast).toHaveBeenCalledOnce();
+      expect(vi.mocked(deps.relay.startForwarder)).toHaveBeenCalledTimes(2);
+      expect(vi.mocked(deps.obs.startStream)).toHaveBeenCalledOnce();
+
+      service.destroy();
+    });
+
+    it("skips OBS start if already streaming", async () => {
+      const obs = makeMockObsService();
+      vi.mocked(obs.getState).mockReturnValue({
+        connected: true,
+        streaming: true,
+        recording: false,
+        commandedState: { streaming: true, recording: false },
+      });
+
+      const { service } = makeService({ obs });
+      await service.startAll();
+
+      expect(vi.mocked(obs.startStream)).not.toHaveBeenCalled();
+    });
+
+    it("cleans up broadcasts when OBS start fails", async () => {
+      const obs = makeMockObsService();
+      vi.mocked(obs.startStream).mockResolvedValue({ success: false, error: { code: "OBS_UNREACHABLE", message: "timeout" } } as never);
+
+      const client = makeMockClient("youtube");
+      const { service } = makeService({ obs, clients: new Map([["youtube", client]]) });
+      await service.startAll();
+
+      expect(service.getPlatformStates().get("yt-1")?.status).toBe("error");
+      expect(client.endBroadcast).toHaveBeenCalled();
+    });
+
+    it("rejects concurrent operations", async () => {
+      const slowClient = makeMockClient("youtube");
+      vi.mocked(slowClient.createBroadcast).mockImplementation(
+        () =>
+          new Promise((resolve) =>
+            setTimeout(
+              () =>
+                resolve({
+                  broadcastId: "b1",
+                  streamUrl: "rtmp://test",
+                  streamKey: "key",
+                }),
+              100,
+            ),
+          ),
+      );
+
+      const { service } = makeService({ clients: new Map([["youtube", slowClient]]) });
+      const first = service.startAll();
+      await expect(service.startAll()).rejects.toThrow("A streaming operation is already in progress");
+      await first;
+    });
+
+    it("reads manifest from SessionManifestService", async () => {
+      const { service, deps } = makeService();
+      await service.startAll();
+      expect(vi.mocked(deps.manifest.getInterpolated)).toHaveBeenCalled();
+    });
+  });
+
+  describe("startPlatform", () => {
+    it("starts a single platform", async () => {
+      const { service, deps } = makeService();
+      await service.startPlatform("youtube");
+
+      expect(service.getPlatformStates().get("yt-1")?.status).toBe("streaming");
+      expect(vi.mocked(deps.relay.startForwarder)).toHaveBeenCalledOnce();
+    });
+
+    it("throws for unknown platform type", async () => {
+      const { service } = makeService();
+      await expect(service.startPlatform("twitch")).rejects.toThrow("Platform twitch not found");
+    });
+  });
+
+  describe("stopAll", () => {
+    it("stops all streaming platforms and transitions to idle", async () => {
+      const { service, deps } = makeService();
+      await service.startAll();
+      await service.stopAll();
+
+      expect(service.getPlatformStates().get("yt-1")?.status).toBe("idle");
+      expect(vi.mocked(deps.relay.stopForwarder)).toHaveBeenCalled();
+    });
+
+    it("ends broadcasts via platform client", async () => {
+      const client = makeMockClient("youtube");
+      const { service } = makeService({ clients: new Map([["youtube", client]]) });
+      await service.startAll();
+      await service.stopAll();
+
+      expect(client.endBroadcast).toHaveBeenCalled();
+    });
+
+    it("stops OBS stream when all platforms idle (Req 7.7)", async () => {
+      const obs = makeMockObsService();
+      vi.mocked(obs.getState).mockReturnValue({
+        connected: true,
+        streaming: true,
+        recording: false,
+        commandedState: { streaming: true, recording: false },
+      });
+
+      const { service } = makeService({ obs });
+      await service.startAll();
+      await service.stopAll();
+
+      expect(vi.mocked(obs.stopStream)).toHaveBeenCalled();
+    });
+
+    it("handles stop timeout gracefully", async () => {
+      vi.useFakeTimers();
+
+      const client = makeMockClient("youtube");
+      vi.mocked(client.endBroadcast).mockImplementation(() => new Promise(() => {}));
+
+      const { service } = makeService({ clients: new Map([["youtube", client]]) });
+      await service.startAll();
+
+      const stopPromise = service.stopAll();
+      await vi.advanceTimersByTimeAsync(30_001);
+      await stopPromise;
+
+      vi.useRealTimers();
+
+      expect(service.getPlatformStates().get("yt-1")?.status).toBe("idle");
+    });
+  });
+
+  describe("stopPlatform", () => {
+    it("stops a single platform", async () => {
+      const { service, deps } = makeService();
+      await service.startAll();
+      await service.stopPlatform("youtube");
+
+      expect(service.getPlatformStates().get("yt-1")?.status).toBe("idle");
+      expect(vi.mocked(deps.relay.stopForwarder)).toHaveBeenCalled();
+    });
+  });
+
+  describe("health polling", () => {
+    it("emits health updates for streaming platforms", async () => {
+      vi.useFakeTimers();
+
+      const updates: Array<{ platformId: string; health: string }> = [];
+      eventBus.subscribe(BUS_PLATFORM_HEALTH_UPDATED, (payload) => updates.push(payload));
+
+      const { service } = makeService();
+      await service.startAll();
+      await vi.advanceTimersByTimeAsync(20_001);
+
+      vi.useRealTimers();
+
+      expect(updates.length).toBeGreaterThanOrEqual(1);
+      expect(updates[0]?.health).toBe("good");
+    });
+
+    it("emits noData after 3 consecutive failures", async () => {
+      vi.useFakeTimers();
+
+      const client = makeMockClient("youtube");
+      vi.mocked(client.pollHealth).mockRejectedValue(new PlatformError("HEALTH_POLL_FAILED", "timeout"));
+
+      const updates: Array<{ platformId: string; health: string }> = [];
+      eventBus.subscribe(BUS_PLATFORM_HEALTH_UPDATED, (payload) => updates.push(payload));
+
+      const { service } = makeService({ clients: new Map([["youtube", client]]) });
+      await service.startAll();
+      await vi.advanceTimersByTimeAsync(20_001 * 3);
+
+      vi.useRealTimers();
+
+      expect(updates.some((u) => u.health === "noData")).toBe(true);
+    });
+
+    it("stops polling when all platforms stop", async () => {
+      vi.useFakeTimers();
+
+      const client = makeMockClient("youtube");
+      const { service } = makeService({ clients: new Map([["youtube", client]]) });
+      await service.startAll();
+      await service.stopAll();
+
+      vi.mocked(client.pollHealth).mockClear();
+      await vi.advanceTimersByTimeAsync(20_001);
+
+      vi.useRealTimers();
+
+      expect(client.pollHealth).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("forwarder exit / auto-recovery", () => {
+    it("respawns forwarder on unexpected exit during streaming", async () => {
+      vi.useFakeTimers();
+
+      const { service, deps } = makeService();
+      await service.startAll();
+
+      eventBus.emit(BUS_FORWARDER_EXITED, { platformId: "yt-1", code: 1, lastStderr: ["connection lost"] });
+      await vi.advanceTimersByTimeAsync(2_000 + 5_000 + 100);
+
+      vi.useRealTimers();
+
+      expect(vi.mocked(deps.relay.startForwarder)).toHaveBeenCalledTimes(2);
+    });
+
+    it("suppresses recovery during no_source state (Property 23)", async () => {
+      const { service, deps } = makeService();
+      await service.startAll();
+
+      eventBus.emit(BUS_RELAY_STATE_CHANGED, { running: true, obsConnected: false });
+
+      const callsBefore = vi.mocked(deps.relay.startForwarder).mock.calls.length;
+      eventBus.emit(BUS_FORWARDER_EXITED, { platformId: "yt-1", code: 1, lastStderr: [] });
+
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      expect(vi.mocked(deps.relay.startForwarder).mock.calls.length).toBe(callsBefore);
+    });
+  });
+
+  describe("relay state changes", () => {
+    it("transitions streaming platforms to no_source on OBS disconnect", async () => {
+      const { service } = makeService();
+      await service.startAll();
+
+      eventBus.emit(BUS_RELAY_STATE_CHANGED, { running: true, obsConnected: false });
+
+      expect(service.getPlatformStates().get("yt-1")?.status).toBe("no_source");
+    });
+
+    it("transitions no_source to recovering on OBS reconnect", async () => {
+      const changes: PlatformStreamState[] = [];
+      eventBus.subscribe(BUS_PLATFORM_STATE_CHANGED, (payload) => changes.push(payload.state));
+
+      const { service } = makeService();
+      await service.startAll();
+
+      eventBus.emit(BUS_RELAY_STATE_CHANGED, { running: true, obsConnected: false });
+      eventBus.emit(BUS_RELAY_STATE_CHANGED, { running: true, obsConnected: true });
+
+      expect(changes.map((s) => s.status)).toContain("recovering");
+    });
+
+    it("recovers to streaming when broadcast is still active", async () => {
+      const { service } = makeService();
+      await service.startAll();
+
+      eventBus.emit(BUS_RELAY_STATE_CHANGED, { running: true, obsConnected: false });
+      eventBus.emit(BUS_RELAY_STATE_CHANGED, { running: true, obsConnected: true });
+
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      expect(service.getPlatformStates().get("yt-1")?.status).toBe("streaming");
+    });
+
+    it("transitions to error when broadcast ended during disconnect", async () => {
+      const client = makeMockClient("youtube");
+      vi.mocked(client.pollHealth).mockRejectedValue(new PlatformError("HEALTH_POLL_FAILED", "broadcast ended"));
+
+      const { service } = makeService({ clients: new Map([["youtube", client]]) });
+      await service.startAll();
+
+      eventBus.emit(BUS_RELAY_STATE_CHANGED, { running: true, obsConnected: false });
+      eventBus.emit(BUS_RELAY_STATE_CHANGED, { running: true, obsConnected: true });
+
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      expect(service.getPlatformStates().get("yt-1")?.status).toBe("error");
+    });
+  });
+
+  describe("validateTokensOnStartup", () => {
+    it("emits readiness for all enabled platforms", async () => {
+      const events: Array<{ platforms: Array<{ healthy: boolean }> }> = [];
+      eventBus.subscribe(BUS_PLATFORM_READINESS_CHANGED, (payload) => events.push(payload));
+
+      const { service } = makeService();
+      await service.validateTokensOnStartup();
+
+      expect(events.length).toBe(1);
+      expect(events[0]!.platforms[0]!.healthy).toBe(true);
+    });
+
+    it("reports unhealthy when token validation fails", async () => {
+      const client = makeMockClient("youtube");
+      vi.mocked(client.validateToken).mockResolvedValue(false);
+
+      const events: Array<{ platforms: Array<{ healthy: boolean }> }> = [];
+      eventBus.subscribe(BUS_PLATFORM_READINESS_CHANGED, (payload) => events.push(payload));
+
+      const { service } = makeService({ clients: new Map([["youtube", client]]) });
+      await service.validateTokensOnStartup();
+
+      expect(events[0]!.platforms[0]!.healthy).toBe(false);
+    });
+  });
+
+  describe("getPlatformHealth", () => {
+    it("returns health summaries for all platforms", () => {
+      const { service } = makeService();
+      const health = service.getPlatformHealth();
+      expect(health.length).toBe(1);
+      expect(health[0]!.platformType).toBe("youtube");
+      expect(health[0]!.label).toBe("YouTube");
+      expect(health[0]!.privacy).toBe("public");
+    });
+  });
+
+  describe("destroy", () => {
+    it("cleans up timers and event subscriptions", async () => {
+      const { service } = makeService();
+      await service.startAll();
+      service.destroy();
+
+      // Emitting events after destroy should not cause errors
+      eventBus.emit(BUS_FORWARDER_EXITED, { platformId: "yt-1", code: 1, lastStderr: [] });
+      eventBus.emit(BUS_RELAY_STATE_CHANGED, { running: true, obsConnected: false });
+    });
+  });
+});
