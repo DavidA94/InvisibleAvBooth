@@ -229,16 +229,16 @@ These tasks modify existing code and must be completed first. They establish the
 - [ ] Unit tests (`ManageStreamsModal.test.tsx`, co-located): platform row rendering per all 7 statuses, Start All/Stop All disabled states, confirmation modals for each action, privacy dropdown role visibility, Facebook popover, empty state message, dismissable during operations, stays open after completion
 
 ### Task 23: Modify `SessionManifestModal` for template selection
-- [ ] Add template dropdowns (Title Format, Description Format) above metadata fields
-- [ ] Fetch templates via `GET /api/templates` on modal open
-- [ ] Implement auto-select logic per Req 4.1
+- [x] Add template dropdowns (Title Format, Description Format) above metadata fields
+- [x] Fetch templates via `GET /api/templates` on modal open
+- [x] Implement auto-select logic per Req 4.1
 - [ ] Implement dynamic field rendering based on selected template tokens
 - [ ] Implement localStorage persistence for last-used template IDs
 - [ ] Implement stale template handling (Req 4.13)
-- [ ] Update live preview to use `interpolateTemplate()` with selected template's formatString
-- [ ] Add description preview block below title preview
-- [ ] Update `clear()` behavior: preserve template selections
-- [ ] Unit tests (`SessionManifestModal.test.tsx`, update existing): template dropdown rendering, auto-select logic for all template count scenarios, dynamic field rendering based on token union, stale template handling, localStorage persistence and retrieval, live preview with `interpolateTemplate` and selected formatString
+- [x] Update live preview to use `interpolateTemplate()` with selected template's formatString
+- [x] Add description preview block below title preview
+- [x] Update `clear()` behavior: preserve template selections
+- [x] Unit tests (`SessionManifestModal.test.tsx`, update existing): template dropdown rendering, auto-select logic for all template count scenarios, dynamic field rendering based on token union, stale template handling, localStorage persistence and retrieval, live preview with `interpolateTemplate` and selected formatString
 - [ ] Property-based test (P26, in `SessionManifestModal.test.tsx`): template auto-select determinism — 0-5 templates per category with various roleMinimum values via fast-check
 
 ### Task 24: Create `AdminIndexPage`
@@ -257,27 +257,27 @@ These tasks modify existing code and must be completed first. They establish the
 - [ ] Unit tests (`GlobalTitleBar.test.tsx`, update existing): ADMIN sees "Admin Pages" link, non-ADMIN does not, dashboard label always links to `/dashboards`, "CHANGE" text present
 
 ### Task 26: Create `AdminTemplatesPage`
-- [ ] Create `packages/frontend/src/pages/AdminTemplatesPage.tsx`
-- [ ] Implement side-by-side scrollable lists (Title Templates / Description Templates)
-- [ ] Show template name, roleMinimum badge, Edit/Delete buttons per item
-- [ ] "None" template: no Edit/Delete, no role badge
-- [ ] Implement delete confirmation modal with scrollable body for long format strings
-- [ ] Implement create/edit modal with validate-then-save flow
-- [ ] Single-line input for title templates, multi-line textarea for description templates
-- [ ] Validation display: red blockers, amber warnings
-- [ ] Add route `/admin/templates` to `App.tsx`
+- [x] Create `packages/frontend/src/pages/AdminTemplatesPage.tsx`
+- [x] Implement side-by-side scrollable lists (Title Templates / Description Templates)
+- [x] Show template name, roleMinimum badge, Edit/Delete buttons per item
+- [x] "None" template: no Edit/Delete, no role badge
+- [x] Implement delete confirmation modal with scrollable body for long format strings
+- [x] Implement create/edit modal with validate-then-save flow
+- [x] Single-line input for title templates, multi-line textarea for description templates
+- [x] Validation display: red blockers, amber warnings
+- [x] Add route `/admin/templates` to `App.tsx`
 - [ ] Add CSS classes: `template-lists`, `template-list`, `template-list-scroll`, `template-item`
-- [ ] Unit tests (`AdminTemplatesPage.test.tsx`, co-located): list rendering with role badges, create/edit modal validate-then-save flow (Validate → edit → revert to Validate → Save), delete confirmation with format string display, "None" template non-editable, blocker/warning display
+- [x] Unit tests (`AdminTemplatesPage.test.tsx`, co-located): list rendering with role badges, create/edit modal validate-then-save flow (Validate → edit → revert to Validate → Save), delete confirmation with format string display, "None" template non-editable, blocker/warning display
 
 ### Task 27: Create YouTube and Facebook platform admin pages
-- [ ] Create `packages/frontend/src/pages/platforms/YouTubePlatformConfig.tsx`
-- [ ] Create `packages/frontend/src/pages/platforms/FacebookPlatformConfig.tsx`
+- [x] Create `packages/frontend/src/pages/platforms/YouTubePlatformConfig.tsx`
+- [x] Create `packages/frontend/src/pages/platforms/FacebookPlatformConfig.tsx`
 - [ ] Implement platform registry pattern for modular registration
-- [ ] Each page: Connect button (OAuth flow), connected account display, Disconnect button
+- [x] Each page: Connect button (OAuth flow), connected account display, Disconnect button
 - [ ] YouTube: Privacy setting dropdown
 - [ ] Facebook: Page selector dropdown (auto-select if single page)
-- [ ] Add routes `/admin/platforms/youtube` and `/admin/platforms/facebook` to `App.tsx`
-- [ ] Unit tests (`YouTubePlatformConfig.test.tsx`, `FacebookPlatformConfig.test.tsx`, co-located): connected/disconnected states, privacy dropdown (YouTube), page selector (Facebook), OAuth flow initiation
+- [x] Add routes `/admin/platforms/youtube` and `/admin/platforms/facebook` to `App.tsx`
+- [x] Unit tests (`YouTubePlatformConfig.test.tsx`, `FacebookPlatformConfig.test.tsx`, co-located): connected/disconnected states, privacy dropdown (YouTube), page selector (Facebook), OAuth flow initiation
 
 ---
 

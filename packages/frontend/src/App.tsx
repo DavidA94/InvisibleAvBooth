@@ -25,6 +25,9 @@ import { DashboardSelectionScreen } from "./pages/DashboardSelectionScreen";
 import { Dashboard } from "./pages/Dashboard";
 import { AdminUserManagement } from "./pages/AdminUserManagement";
 import { AdminDeviceManagement } from "./pages/AdminDeviceManagement";
+import { AdminTemplatesPage } from "./pages/AdminTemplatesPage";
+import { YouTubePlatformConfig } from "./pages/platforms/YouTubePlatformConfig";
+import { FacebookPlatformConfig } from "./pages/platforms/FacebookPlatformConfig";
 
 setupIonicReact({ mode: "md" });
 
@@ -49,6 +52,9 @@ export function App(): ReactNode {
                         <Route path="/dashboard/:id" element={<Dashboard />} />
                         <Route path="/admin/users" element={<AdminUserManagement />} />
                         <Route path="/admin/devices" element={<AdminDeviceManagement />} />
+                        <Route path="/admin/templates" element={<AdminTemplatesPage />} />
+                        <Route path="/admin/platforms/youtube" element={<YouTubePlatformConfig />} />
+                        <Route path="/admin/platforms/facebook" element={<FacebookPlatformConfig />} />
                         <Route path="*" element={<Navigate to="/dashboards" replace />} />
                       </Routes>
                     </div>
