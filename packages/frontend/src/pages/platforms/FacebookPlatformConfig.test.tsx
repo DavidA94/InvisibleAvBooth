@@ -1,3 +1,4 @@
+import { MemoryRouter } from "react-router";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, fireEvent, act } from "@testing-library/react";
 import { FacebookPlatformConfig } from "./FacebookPlatformConfig";
@@ -19,7 +20,7 @@ beforeEach(() => {
 describe("FacebookPlatformConfig", () => {
   it("renders page", async () => {
     mockFetch.mockResolvedValueOnce({ ok: true, json: async () => ({ platformType: "facebook", hasToken: false }) });
-    render(<FacebookPlatformConfig />);
+    render(<MemoryRouter><FacebookPlatformConfig /></MemoryRouter>);
     await waitFor(() => {
       expect(screen.getByTestId(TEST_ID_FACEBOOK_CONFIG_PAGE)).toBeInTheDocument();
     });
@@ -27,7 +28,7 @@ describe("FacebookPlatformConfig", () => {
 
   it("shows Connect button when not connected", async () => {
     mockFetch.mockResolvedValueOnce({ ok: true, json: async () => ({ platformType: "facebook", hasToken: false }) });
-    render(<FacebookPlatformConfig />);
+    render(<MemoryRouter><FacebookPlatformConfig /></MemoryRouter>);
     await waitFor(() => {
       expect(screen.getByTestId(TEST_ID_PLATFORM_CONNECT_BUTTON)).toBeInTheDocument();
     });
@@ -39,7 +40,7 @@ describe("FacebookPlatformConfig", () => {
       ok: true,
       json: async () => ({ platformType: "facebook", hasToken: true, accountName: "Church Page" }),
     });
-    render(<FacebookPlatformConfig />);
+    render(<MemoryRouter><FacebookPlatformConfig /></MemoryRouter>);
     await waitFor(() => {
       expect(screen.getByTestId(TEST_ID_PLATFORM_ACCOUNT_DISPLAY)).toBeInTheDocument();
     });
@@ -49,7 +50,7 @@ describe("FacebookPlatformConfig", () => {
 
   it("Connect button calls OAuth start endpoint", async () => {
     mockFetch.mockResolvedValueOnce({ ok: true, json: async () => ({ platformType: "facebook", hasToken: false }) });
-    render(<FacebookPlatformConfig />);
+    render(<MemoryRouter><FacebookPlatformConfig /></MemoryRouter>);
     await waitFor(() => {
       expect(screen.getByTestId(TEST_ID_PLATFORM_CONNECT_BUTTON)).toBeInTheDocument();
     });
@@ -68,7 +69,7 @@ describe("FacebookPlatformConfig", () => {
       ok: true,
       json: async () => ({ platformType: "facebook", hasToken: true, accountName: "Church Page" }),
     });
-    render(<FacebookPlatformConfig />);
+    render(<MemoryRouter><FacebookPlatformConfig /></MemoryRouter>);
     await waitFor(() => {
       expect(screen.getByTestId(TEST_ID_PLATFORM_DISCONNECT_BUTTON)).toBeInTheDocument();
     });
@@ -93,7 +94,7 @@ describe("FacebookPlatformConfig", () => {
 
   it("handles fetch error gracefully", async () => {
     mockFetch.mockResolvedValueOnce({ ok: false, status: 404 });
-    render(<FacebookPlatformConfig />);
+    render(<MemoryRouter><FacebookPlatformConfig /></MemoryRouter>);
     await waitFor(() => {
       expect(screen.getByTestId(TEST_ID_PLATFORM_CONNECT_BUTTON)).toBeInTheDocument();
     });

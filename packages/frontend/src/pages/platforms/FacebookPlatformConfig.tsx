@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import type { ReactNode } from "react";
 import { IonPage, IonContent, IonButton, IonSpinner } from "@ionic/react";
+import { useSearchParams } from "react-router";
 import { ConfirmationModal } from "../../components/ConfirmationModal";
 import { TEST_ID_FACEBOOK_CONFIG_PAGE, TEST_ID_PLATFORM_CONNECT_BUTTON, TEST_ID_PLATFORM_DISCONNECT_BUTTON, TEST_ID_PLATFORM_ACCOUNT_DISPLAY } from "../../constants/testIds";
 
@@ -11,6 +12,14 @@ export function FacebookPlatformConfig(): ReactNode {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [disconnectConfirm, setDisconnectConfirm] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  useEffect(() => {
+    const err = searchParams.get("error");
+    const connected = searchParams.get("connected");
+    if (err) { setError(`Connection failed: ${err.replace(/_/g, " ")}`); setSearchParams({}, { replace: true }); }
+    if (connected) { setSearchParams({}, { replace: true }); }
+  }, [searchParams, setSearchParams]);
 
   const fetchConfig = useCallback(async (): Promise<void> => {
     try {

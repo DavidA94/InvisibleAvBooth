@@ -90,20 +90,19 @@ function handleOAuthCallback(database: Database, platformType: string, state: st
   database.prepare("DELETE FROM oauth_states WHERE createdAt < ?").run(cutoff);
 
   if (!state || !code) {
-    res.status(400).json({ error: "Missing state or code parameter" });
+    res.redirect(`/admin/platforms/${platformType}?error=missing_params`);
     return;
   }
 
   const row = database.prepare("SELECT * FROM oauth_states WHERE state = ? AND platformType = ?").get(state, platformType) as { state: string; createdAt: string } | undefined;
   if (!row) {
-    res.status(400).json({ error: "Invalid or expired OAuth state" });
+    res.redirect(`/admin/platforms/${platformType}?error=invalid_state`);
     return;
   }
 
-  // Check TTL
   if (new Date(row.createdAt).getTime() < Date.now() - OAUTH_STATE_TTL_MS) {
     database.prepare("DELETE FROM oauth_states WHERE state = ?").run(state);
-    res.status(400).json({ error: "OAuth state expired" });
+    res.redirect(`/admin/platforms/${platformType}?error=expired`);
     return;
   }
 
@@ -112,9 +111,72 @@ function handleOAuthCallback(database: Database, platformType: string, state: st
 
   logger.info(`OAuth callback received for ${platformType}`, { context: { code: code.slice(0, 8) + "..." } });
 
-  // In a full implementation, exchange code for tokens here.
-  // For now, return success — token exchange will be implemented with the platform clients.
-  res.status(200).json({ success: true, platformType, message: "OAuth callback received. Token exchange pending." });
+  // Exchange code for tokens
+  void exchangeCodeForTokens(database, platformType, code).then((success) => {
+    if (success) {
+      res.redirect(`/admin/platforms/${platformType}?connected=true`);
+    } else {
+      res.redirect(`/admin/platforms/${platformType}?error=token_exchange_failed`);
+    }
+  });
+}
+
+async function exchangeCodeForTokens(database: Database, platformType: string, code: string): Promise<boolean> {
+  try {
+    const dao = new PlatformConfigDao(database);
+    let accessToken: string;
+    let refreshToken: string | undefined;
+    let tokenExpiresAt: string | undefined;
+    let label: string;
+    let metadata: Record<string, unknown> = {};
+
+    if (platformType === "youtube") {
+      const clientId = process.env["YOUTUBE_CLIENT_ID"] ?? "";
+      const clientSecret = process.env["YOUTUBE_CLIENT_SECRET"] ?? "";
+      const redirectUri = "https://localhost/api/auth/callback/youtube";
+
+      const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ code, client_id: clientId, client_secret: clientSecret, redirect_uri: redirectUri, grant_type: "authorization_code" }),
+      });
+
+      if (!tokenRes.ok) {
+        logger.error("YouTube token exchange failed", { context: { status: tokenRes.status } });
+        return false;
+      }
+
+      const tokenData = (await tokenRes.json()) as { access_token: string; refresh_token?: string; expires_in?: number };
+      accessToken = tokenData.access_token;
+      refreshToken = tokenData.refresh_token;
+      tokenExpiresAt = tokenData.expires_in ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString() : undefined;
+      label = "YouTube";
+      metadata = { privacy: "unlisted" };
+    } else {
+      const appId = process.env["FACEBOOK_APP_ID"] ?? "";
+      const appSecret = process.env["FACEBOOK_APP_SECRET"] ?? "";
+      const redirectUri = "https://localhost/api/auth/callback/facebook";
+
+      const tokenRes = await fetch(`https://graph.facebook.com/v19.0/oauth/access_token?client_id=${appId}&client_secret=${appSecret}&redirect_uri=${encodeURIComponent(redirectUri)}&code=${code}`);
+
+      if (!tokenRes.ok) {
+        logger.error("Facebook token exchange failed", { context: { status: tokenRes.status } });
+        return false;
+      }
+
+      const tokenData = (await tokenRes.json()) as { access_token: string; expires_in?: number };
+      accessToken = tokenData.access_token;
+      tokenExpiresAt = tokenData.expires_in ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString() : undefined;
+      label = "Facebook";
+    }
+
+    dao.upsert({ platformType: platformType as "youtube" | "facebook", label, accessToken, refreshToken, tokenExpiresAt, metadata, enabled: true });
+    logger.info(`${platformType} OAuth tokens saved successfully`);
+    return true;
+  } catch (err) {
+    logger.error(`${platformType} token exchange error`, { context: { error: String(err) } });
+    return false;
+  }
 }
 
 // Strip sensitive fields from platform config before sending to client

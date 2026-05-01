@@ -1,3 +1,4 @@
+import { MemoryRouter } from "react-router";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, fireEvent, act } from "@testing-library/react";
 import { YouTubePlatformConfig } from "./YouTubePlatformConfig";
@@ -19,7 +20,7 @@ beforeEach(() => {
 describe("YouTubePlatformConfig", () => {
   it("renders page", async () => {
     mockFetch.mockResolvedValueOnce({ ok: true, json: async () => ({ platformType: "youtube", hasToken: false }) });
-    render(<YouTubePlatformConfig />);
+    render(<MemoryRouter><YouTubePlatformConfig /></MemoryRouter>);
     await waitFor(() => {
       expect(screen.getByTestId(TEST_ID_YOUTUBE_CONFIG_PAGE)).toBeInTheDocument();
     });
@@ -27,7 +28,7 @@ describe("YouTubePlatformConfig", () => {
 
   it("shows Connect button when not connected", async () => {
     mockFetch.mockResolvedValueOnce({ ok: true, json: async () => ({ platformType: "youtube", hasToken: false }) });
-    render(<YouTubePlatformConfig />);
+    render(<MemoryRouter><YouTubePlatformConfig /></MemoryRouter>);
     await waitFor(() => {
       expect(screen.getByTestId(TEST_ID_PLATFORM_CONNECT_BUTTON)).toBeInTheDocument();
     });
@@ -39,7 +40,7 @@ describe("YouTubePlatformConfig", () => {
       ok: true,
       json: async () => ({ platformType: "youtube", hasToken: true, accountName: "My Channel" }),
     });
-    render(<YouTubePlatformConfig />);
+    render(<MemoryRouter><YouTubePlatformConfig /></MemoryRouter>);
     await waitFor(() => {
       expect(screen.getByTestId(TEST_ID_PLATFORM_ACCOUNT_DISPLAY)).toBeInTheDocument();
     });
@@ -49,7 +50,7 @@ describe("YouTubePlatformConfig", () => {
 
   it("Connect button calls OAuth start endpoint", async () => {
     mockFetch.mockResolvedValueOnce({ ok: true, json: async () => ({ platformType: "youtube", hasToken: false }) });
-    render(<YouTubePlatformConfig />);
+    render(<MemoryRouter><YouTubePlatformConfig /></MemoryRouter>);
     await waitFor(() => {
       expect(screen.getByTestId(TEST_ID_PLATFORM_CONNECT_BUTTON)).toBeInTheDocument();
     });
@@ -69,7 +70,7 @@ describe("YouTubePlatformConfig", () => {
       ok: true,
       json: async () => ({ platformType: "youtube", hasToken: true, accountName: "My Channel" }),
     });
-    render(<YouTubePlatformConfig />);
+    render(<MemoryRouter><YouTubePlatformConfig /></MemoryRouter>);
     await waitFor(() => {
       expect(screen.getByTestId(TEST_ID_PLATFORM_DISCONNECT_BUTTON)).toBeInTheDocument();
     });
@@ -95,7 +96,7 @@ describe("YouTubePlatformConfig", () => {
 
   it("handles fetch error gracefully", async () => {
     mockFetch.mockResolvedValueOnce({ ok: false, status: 404 });
-    render(<YouTubePlatformConfig />);
+    render(<MemoryRouter><YouTubePlatformConfig /></MemoryRouter>);
     await waitFor(() => {
       expect(screen.getByTestId(TEST_ID_PLATFORM_CONNECT_BUTTON)).toBeInTheDocument();
     });
