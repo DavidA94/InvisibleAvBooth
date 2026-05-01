@@ -267,11 +267,14 @@ Full REST API:
 3. Enable the **YouTube Data API v3**
 4. Go to **Credentials** → **Create Credentials** → **OAuth client ID**
 5. Application type: **Web application**
-6. Add authorized redirect URI: `https://localhost/api/auth/callback/youtube`
-7. Copy the Client ID and Client Secret to your `.env` file
-8. In the app, go to `/admin/platforms/youtube` and click **Connect**
+6. **Authorized JavaScript origins:** Leave blank. The OAuth flow is server-side — no browser-based JS client is used.
+7. **Authorized redirect URI:** `https://localhost/api/auth/callback/youtube`
+8. Copy the Client ID and Client Secret to your `.env` file
+9. In the app, go to `/admin/platforms/youtube` and click **Connect**
 
-> **Note:** The redirect URI must use `localhost`. The OAuth flow redirects back to the backend, which runs behind Caddy on localhost.
+> **Why `localhost`?** Google's OAuth console rejects non-public domains like `invisible.av`. Since the OAuth callback is handled by the backend (which runs behind Caddy), `localhost` works when the admin performs the one-time connection from a browser on the server machine. This is a setup-time action only — after tokens are stored, all streaming operations work from any device on the network (tablets, etc.) via `invisible.av`.
+>
+> **Using a real domain:** If you have a public domain (e.g., `av.yourchurch.org`), you can use that instead of `localhost`. Add it to the Caddyfile, update the redirect URI in Google Cloud Console, and set `APP_URL` in your `.env`. Caddy will auto-obtain a Let's Encrypt certificate for public domains.
 
 ---
 
@@ -279,12 +282,16 @@ Full REST API:
 
 1. Go to [Facebook Developer Portal](https://developers.facebook.com/)
 2. Create an app (type: **Business**)
-3. Add the **Facebook Login** product
+3. Add the **Facebook Login** product and the **Live Video API** product
 4. Under Facebook Login → Settings, add valid OAuth redirect URI: `https://localhost/api/auth/callback/facebook`
 5. Copy the App ID and App Secret to your `.env` file
 6. In the app, go to `/admin/platforms/facebook` and click **Connect**
 
-> **Note:** The Facebook Page you want to stream to must be managed by the Facebook account that authorizes the app.
+> **Why `localhost`?** Same reason as YouTube — Facebook rejects non-public domains. The admin must perform the one-time OAuth connection from a browser on the server machine. After tokens are stored, streaming works from any device.
+>
+> **Facebook Page selection:** After connecting, if the authorized Facebook account manages multiple Pages, you'll be prompted to select which Page to stream to. If only one Page is managed, it's auto-selected.
+>
+> **Using a real domain:** Same as YouTube — if you have a public domain, update the redirect URI in the Facebook Developer Portal and set `APP_URL` in your `.env`.
 
 ---
 
