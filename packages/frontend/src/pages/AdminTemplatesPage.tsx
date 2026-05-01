@@ -161,7 +161,7 @@ export function AdminTemplatesPage(): ReactNode {
   return (
     <IonPage data-testid={TEST_ID_ADMIN_TEMPLATES_PAGE}>
       <IonContent className="ion-padding">
-        <h2 className="text-center margin-bottom-spacious">Template Management</h2>
+        <h2 className="admin-page-title">Template Management</h2>
         {error && <p className="text-danger text-secondary text-center margin-bottom-wide">{error}</p>}
         <div className="tpl-two-column">
           {renderList("title", titleTemplates, TEST_ID_TITLE_TEMPLATE_LIST, TEST_ID_ADD_TITLE_TEMPLATE_BUTTON)}

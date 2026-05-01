@@ -378,7 +378,7 @@ export function AdminUserManagement(): ReactNode {
   return (
     <IonPage data-testid={TEST_ID_ADMIN_USERS_PAGE}>
       <IonContent className="ion-padding">
-        <h2 className="text-center margin-bottom-spacious">User Management</h2>
+        <h2 className="admin-page-title">User Management</h2>
 
         {error && (
           <p className="text-danger text-secondary text-center margin-bottom-wide">{error}</p>

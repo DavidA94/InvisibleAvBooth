@@ -16,7 +16,7 @@ export function AdminIndexPage(): ReactNode {
 
   return (
     <div data-testid={TEST_ID_ADMIN_INDEX_PAGE} className="admin-index-wrapper">
-      <h2 className="admin-index-heading">Admin Pages</h2>
+      <h2 className="admin-page-title">Admin Pages</h2>
       <div className="admin-index-grid">
         {ADMIN_SECTIONS.map((section) => (
           <IonButton

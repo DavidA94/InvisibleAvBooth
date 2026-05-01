@@ -53,7 +53,7 @@ export function FacebookPlatformConfig(): ReactNode {
     <IonPage data-testid={TEST_ID_FACEBOOK_CONFIG_PAGE}>
       <IonContent className="ion-padding">
         <div className="platform-config-wrapper">
-          <h2 className="text-center">Facebook Configuration</h2>
+          <h2 className="admin-page-title">Facebook Configuration</h2>
           {error && <p className="text-danger text-secondary text-center margin-bottom-wide">{error}</p>}
 
           <div className="text-center margin-bottom-spacious">
