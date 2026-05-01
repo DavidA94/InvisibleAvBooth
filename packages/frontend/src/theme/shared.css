@@ -322,13 +322,6 @@
 
 /* Admin index page */
 /* Admin index page */
-.admin-index-wrapper {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 2rem 1rem;
-}
-
 .admin-page-title {
   color: var(--color-text);
   text-align: center;
@@ -342,6 +335,7 @@
   gap: 0.75rem;
   width: 100%;
   max-width: 30rem;
+  margin: 0 auto;
 }
 
 .admin-index-button {

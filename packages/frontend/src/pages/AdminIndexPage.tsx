@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { IonButton } from "@ionic/react";
+import { IonPage, IonContent, IonButton } from "@ionic/react";
 import { useNavigate } from "react-router";
 import { TEST_ID_ADMIN_INDEX_PAGE } from "../constants/testIds";
 
@@ -15,9 +15,10 @@ export function AdminIndexPage(): ReactNode {
   const navigate = useNavigate();
 
   return (
-    <div data-testid={TEST_ID_ADMIN_INDEX_PAGE} className="admin-index-wrapper">
-      <h2 className="admin-page-title">Admin Pages</h2>
-      <div className="admin-index-grid">
+    <IonPage data-testid={TEST_ID_ADMIN_INDEX_PAGE}>
+      <IonContent className="ion-padding">
+        <h2 className="admin-page-title">Admin Pages</h2>
+        <div className="admin-index-grid">
         {ADMIN_SECTIONS.map((section) => (
           <IonButton
             key={section.path}
@@ -31,6 +32,7 @@ export function AdminIndexPage(): ReactNode {
           </IonButton>
         ))}
       </div>
-    </div>
+      </IonContent>
+    </IonPage>
   );
 }
