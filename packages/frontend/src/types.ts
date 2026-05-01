@@ -12,5 +12,17 @@ export type {
   GridManifest,
   GridCell,
   ScriptureReference,
-  SessionManifestFields as SessionManifest,
+  SessionManifestFields,
 } from "@invisible-av-booth/shared";
+
+import type { SessionManifestFields } from "@invisible-av-booth/shared";
+
+export interface SessionManifest extends SessionManifestFields {
+  titleTemplateId?: string;
+  descriptionTemplateId?: string;
+}
+
+export interface ConnectionStatus {
+  label: string;
+  status: "healthy" | "degraded" | "unhealthy" | "inactive";
+}

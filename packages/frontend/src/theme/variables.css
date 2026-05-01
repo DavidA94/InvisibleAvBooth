@@ -86,6 +86,14 @@ ion-input .input-password-toggle-icon {
   animation: pulse 1.5s infinite;
 }
 
+.widget-dot-degraded {
+  color: var(--color-warning);
+}
+
+.widget-dot-inactive {
+  color: var(--color-text-muted);
+}
+
 @keyframes pulse {
   0%,
   100% {

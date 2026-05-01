@@ -4,6 +4,8 @@ export interface SessionManifest {
   speaker?: string;
   title?: string;
   scripture?: ScriptureReference;
+  titleTemplateId?: string;
+  descriptionTemplateId?: string;
 }
 
 export interface ScriptureReference {
@@ -17,8 +19,8 @@ export interface ScriptureReference {
 export interface SessionManifestEventMap {
   [BUS_SESSION_MANIFEST_UPDATED]: {
     manifest: SessionManifest;
-    // interpolatedStreamTitle is pre-computed once so all subscribers
-    // (ObsService, SocketGateway) read the same value without re-interpolating.
     interpolatedStreamTitle: string;
+    interpolatedDescription: string;
+    manifestReady: boolean;
   };
 }
