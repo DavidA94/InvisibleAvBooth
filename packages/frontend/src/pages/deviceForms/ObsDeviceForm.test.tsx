@@ -1,12 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, act, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, act } from "@testing-library/react";
 import { ObsDeviceForm } from "./ObsDeviceForm";
-import { useStore } from "../../store";
-import { INITIAL_OBS_STATE } from "../../store/obsSlice";
 import type { DeviceRecord, DirtyCheck } from "./deviceTypeRegistry";
 import {
-  TEST_ID_DEVICE_FORM_LABEL, TEST_ID_DEVICE_FORM_HOST, TEST_ID_DEVICE_FORM_PORT,
-  TEST_ID_DEVICE_FORM_PASSWORD, TEST_ID_DEVICE_FORM_TEMPLATE, TEST_ID_DEVICE_FORM_TEMPLATE_PREVIEW,
+  TEST_ID_DEVICE_FORM_LABEL, TEST_ID_DEVICE_FORM_HOST,
+  TEST_ID_DEVICE_FORM_PASSWORD,
   TEST_ID_DEVICE_FORM_ENABLED, TEST_ID_DEVICE_FORM_SAVE, TEST_ID_DEVICE_FORM_DELETE,
   TEST_ID_DEVICE_FORM_ERROR, TEST_ID_CONFIRMATION_CONFIRM_BUTTON,
 } from "../../constants/testIds";
@@ -30,14 +28,6 @@ const noop = vi.fn();
 
 beforeEach(() => {
   vi.clearAllMocks();
-  useStore.setState({
-    user: { id: "u1", username: "admin", role: "ADMIN" },
-    obsState: INITIAL_OBS_STATE,
-    obsPending: false,
-    manifest: { speaker: "John", title: "Grace" },
-    interpolatedStreamTitle: "",
-    notifications: [],
-  });
 });
 
 function renderCreate(overrides?: { onSaved?: () => void; registerDirtyCheck?: (c: DirtyCheck) => void }): void {
@@ -108,11 +98,6 @@ describe("ObsDeviceForm — create mode", () => {
 
     expect(screen.getByTestId(TEST_ID_DEVICE_FORM_ERROR)).toHaveTextContent("Duplicate label");
   });
-
-  it("shows template preview with manifest data", () => {
-    renderCreate();
-    expect(screen.getByTestId(TEST_ID_DEVICE_FORM_TEMPLATE_PREVIEW)).toHaveTextContent("John");
-  });
 });
 
 describe("ObsDeviceForm — edit mode", () => {
@@ -156,12 +141,6 @@ describe("ObsDeviceForm — edit mode", () => {
 
     expect(mockFetch).toHaveBeenCalledWith("/api/admin/devices/d1", expect.objectContaining({ method: "DELETE" }));
     expect(onDeleted).toHaveBeenCalled();
-  });
-
-  it("shows template preview with device template", () => {
-    renderEdit();
-    // Device template is "{Date} – {Speaker}", manifest has speaker: "John"
-    expect(screen.getByTestId(TEST_ID_DEVICE_FORM_TEMPLATE_PREVIEW)).toHaveTextContent("John");
   });
 });
 

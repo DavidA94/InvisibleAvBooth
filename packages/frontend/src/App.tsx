@@ -29,8 +29,14 @@ import { AdminIndexPage } from "./pages/AdminIndexPage";
 import { AdminTemplatesPage } from "./pages/AdminTemplatesPage";
 import { YouTubePlatformConfig } from "./pages/platforms/YouTubePlatformConfig";
 import { FacebookPlatformConfig } from "./pages/platforms/FacebookPlatformConfig";
+import { useStore } from "./store";
 
 setupIonicReact({ mode: "md" });
+
+function RoleRedirect(): ReactNode {
+  const role = useStore((s) => s.user?.role);
+  return <Navigate to={role === "ADMIN" ? "/admin" : "/dashboards"} replace />;
+}
 
 export function App(): ReactNode {
   return (
@@ -57,7 +63,7 @@ export function App(): ReactNode {
                         <Route path="/admin/templates" element={<AdminTemplatesPage />} />
                         <Route path="/admin/platforms/youtube" element={<YouTubePlatformConfig />} />
                         <Route path="/admin/platforms/facebook" element={<FacebookPlatformConfig />} />
-                        <Route path="*" element={<Navigate to="/dashboards" replace />} />
+                        <Route path="*" element={<RoleRedirect />} />
                       </Routes>
                     </div>
                   </div>

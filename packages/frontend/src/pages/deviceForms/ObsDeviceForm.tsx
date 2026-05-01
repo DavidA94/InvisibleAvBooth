@@ -1,18 +1,15 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import type { ReactNode } from "react";
 import { IonInput, IonButton, IonText, IonSpinner, IonCheckbox } from "@ionic/react";
-import { interpolateStreamTitle } from "@invisible-av-booth/shared";
-import { useStore } from "../../store";
 import { ConfirmationModal } from "../../components/ConfirmationModal";
 import type { DeviceFormProps, DeviceRecord } from "./deviceTypeRegistry";
 import {
   TEST_ID_DEVICE_FORM_LABEL, TEST_ID_DEVICE_FORM_HOST, TEST_ID_DEVICE_FORM_PORT,
-  TEST_ID_DEVICE_FORM_PASSWORD, TEST_ID_DEVICE_FORM_TEMPLATE, TEST_ID_DEVICE_FORM_TEMPLATE_PREVIEW,
+  TEST_ID_DEVICE_FORM_PASSWORD,
   TEST_ID_DEVICE_FORM_ENABLED, TEST_ID_DEVICE_FORM_SAVE, TEST_ID_DEVICE_FORM_DELETE,
   TEST_ID_DEVICE_FORM_ERROR,
 } from "../../constants/testIds";
 
-const DEFAULT_TEMPLATE = "{Date} – {Speaker} – {Title}";
 const DEFAULT_PORT = "4455";
 
 interface ObsFormState {
@@ -20,7 +17,6 @@ interface ObsFormState {
   host: string;
   port: string;
   password: string;
-  template: string;
   enabled: boolean;
 }
 
@@ -31,11 +27,10 @@ function buildInitialState(device: DeviceRecord | null): ObsFormState {
       host: device.host,
       port: String(device.port),
       password: "",
-      template: device.metadata["streamTitleTemplate"] ?? DEFAULT_TEMPLATE,
       enabled: device.enabled,
     };
   }
-  return { label: "", host: "", port: DEFAULT_PORT, password: "", template: DEFAULT_TEMPLATE, enabled: true };
+  return { label: "", host: "", port: DEFAULT_PORT, password: "", enabled: true };
 }
 
 /**
@@ -46,7 +41,6 @@ function isFormDirty(current: ObsFormState, initial: ObsFormState, isEdit: boole
   if (current.label !== initial.label) return true;
   if (current.host !== initial.host) return true;
   if (current.port !== initial.port) return true;
-  if (current.template !== initial.template) return true;
   if (current.enabled !== initial.enabled) return true;
   if (!isEdit && current.password !== initial.password) return true;
   if (isEdit && current.password !== "") return true;
@@ -62,9 +56,6 @@ export function ObsDeviceForm({ device, onSaved, onDeleted, registerDirtyCheck }
   const [error, setError] = useState("");
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deletePending, setDeletePending] = useState(false);
-
-  const manifest = useStore((s) => s.manifest);
-  const preview = useMemo(() => interpolateStreamTitle(manifest, form.template), [manifest, form.template]);
 
   // Keep a ref to current form state so the dirty check closure always reads the latest value.
   const formRef = useRef(form);
@@ -94,7 +85,6 @@ export function ObsDeviceForm({ device, onSaved, onDeleted, registerDirtyCheck }
         label: form.label,
         host: form.host,
         port: Number(form.port),
-        metadata: { streamTitleTemplate: form.template },
       };
       if (isEdit) {
         body["enabled"] = form.enabled;
@@ -190,19 +180,6 @@ export function ObsDeviceForm({ device, onSaved, onDeleted, registerDirtyCheck }
         onIonInput={(e) => updateField("password", e.detail.value ?? "")}
         clearInput
       />
-      <IonInput
-        data-testid={TEST_ID_DEVICE_FORM_TEMPLATE}
-        label="Stream Title Template"
-        labelPlacement="stacked"
-        fill="outline"
-        value={form.template}
-        onIonInput={(e) => updateField("template", e.detail.value ?? DEFAULT_TEMPLATE)}
-        clearInput
-      />
-      <div data-testid={TEST_ID_DEVICE_FORM_TEMPLATE_PREVIEW} className="manifest-preview">
-        <span className="text-muted">Preview</span>
-        <p className="text-bold margin-top-tight margin-none">{preview}</p>
-      </div>
 
       {isEdit && (
         <label className="layout-row gap-standard">

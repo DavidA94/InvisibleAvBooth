@@ -4,7 +4,7 @@ import type { SessionManifest } from "../../types";
 import { useStore } from "../../store";
 
 export function registerSessionManifestSocketHandlers(socket: Socket): void {
-  socket.on(STC_SESSION_MANIFEST_UPDATED, (payload: { manifest: SessionManifest; interpolatedStreamTitle: string }) => {
-    useStore.getState().setManifest(payload.manifest, payload.interpolatedStreamTitle);
+  socket.on(STC_SESSION_MANIFEST_UPDATED, (payload: { manifest: SessionManifest; interpolatedStreamTitle: string; interpolatedDescription?: string; manifestReady?: boolean }) => {
+    useStore.getState().setManifest(payload.manifest, payload.interpolatedStreamTitle, payload.interpolatedDescription, payload.manifestReady);
   });
 }

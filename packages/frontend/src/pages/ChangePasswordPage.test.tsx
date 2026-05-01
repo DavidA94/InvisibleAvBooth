@@ -42,7 +42,7 @@ function ionInput(testId: string, value: string): void {
 }
 
 describe("ChangePasswordPage", () => {
-  it("success redirects to /dashboards and clears flag", async () => {
+  it("success redirects to /admin for ADMIN and clears flag", async () => {
     mockFetch.mockResolvedValueOnce({ ok: true, json: async () => ({}) });
     renderPage();
 
@@ -51,7 +51,7 @@ describe("ChangePasswordPage", () => {
     fireEvent.submit(screen.getByTestId(TEST_ID_CHANGE_PASSWORD_FORM));
 
     await waitFor(() => {
-      expect(mockReplace).toHaveBeenCalledWith("/dashboards", { replace: true });
+      expect(mockReplace).toHaveBeenCalledWith("/admin", { replace: true });
     });
     expect(useStore.getState().user?.requiresPasswordChange).toBe(false);
   });

@@ -91,6 +91,8 @@ describe("emitInitialState", () => {
     expect(socketEmitMock).toHaveBeenCalledWith(STC_SESSION_MANIFEST_UPDATED, {
       manifest: { speaker: "John" },
       interpolatedStreamTitle: expect.any(String),
+      interpolatedDescription: "",
+      manifestReady: false,
     });
   });
 });

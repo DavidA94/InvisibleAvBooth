@@ -39,6 +39,9 @@ interface SessionManifestModalProps {
   onClose: () => void;
 }
 
+const LS_TITLE_TEMPLATE_KEY = "manifest_titleTemplateId";
+const LS_DESC_TEMPLATE_KEY = "manifest_descriptionTemplateId";
+
 /** Extract token names from a format string */
 function extractTokens(formatString: string): Set<string> {
   const tokens = new Set<string>();
@@ -63,8 +66,20 @@ export function SessionManifestModal({ isOpen, onClose }: SessionManifestModalPr
   const [error, setError] = useState("");
 
   const [templates, setTemplates] = useState<Template[]>([]);
-  const [titleTemplateId, setTitleTemplateId] = useState<string>("");
-  const [descriptionTemplateId, setDescriptionTemplateId] = useState<string>("");
+  const [titleTemplateId, setTitleTemplateId] = useState<string>(() => localStorage.getItem(LS_TITLE_TEMPLATE_KEY) ?? "");
+  const [descriptionTemplateId, setDescriptionTemplateId] = useState<string>(() => localStorage.getItem(LS_DESC_TEMPLATE_KEY) ?? "");
+
+  const handleTitleTemplateChange = (id: string): void => {
+    setTitleTemplateId(id);
+    if (id) localStorage.setItem(LS_TITLE_TEMPLATE_KEY, id);
+    else localStorage.removeItem(LS_TITLE_TEMPLATE_KEY);
+  };
+
+  const handleDescriptionTemplateChange = (id: string): void => {
+    setDescriptionTemplateId(id);
+    if (id) localStorage.setItem(LS_DESC_TEMPLATE_KEY, id);
+    else localStorage.removeItem(LS_DESC_TEMPLATE_KEY);
+  };
 
   useEffect(() => {
     if (!isOpen) return;
@@ -190,7 +205,7 @@ export function SessionManifestModal({ isOpen, onClose }: SessionManifestModalPr
                 <Select<TemplateOption>
                   options={titleOptions}
                   value={titleOptions.find((o) => o.value === titleTemplateId) ?? null}
-                  onChange={(opt) => setTitleTemplateId(opt?.value ?? "")}
+                  onChange={(opt) => handleTitleTemplateChange(opt?.value ?? "")}
                   placeholder="— Select —"
                   styles={darkSelectStyles<TemplateOption>()}
                   isClearable
@@ -203,7 +218,7 @@ export function SessionManifestModal({ isOpen, onClose }: SessionManifestModalPr
                 <Select<TemplateOption>
                   options={descOptions}
                   value={descOptions.find((o) => o.value === descriptionTemplateId) ?? null}
-                  onChange={(opt) => setDescriptionTemplateId(opt?.value ?? "")}
+                  onChange={(opt) => handleDescriptionTemplateChange(opt?.value ?? "")}
                   placeholder="— Select —"
                   styles={darkSelectStyles<TemplateOption>()}
                   isClearable

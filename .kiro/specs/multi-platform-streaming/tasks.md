@@ -33,24 +33,24 @@ These are polish items from the original task spec that were deferred:
 - [ ] Platform readiness icons below button (Ionicons `logo-youtube`, `logo-facebook` with status dots)
 - [ ] `deriveStreamStatus` for aggregate Stream indicator
 - [ ] Relay popover text (4 states with context-aware inactive text)
-- [ ] Update `ObsStatusBar` for "Going Live…" / "Stopping…" states
-- [ ] Update `ObsMetadataPreview`: description preview row, height increase
-- [ ] Remove `streamTitleTemplate` field from `ObsDeviceForm.tsx`
+- [x] Update `ObsStatusBar` for "Going Live…" / "Stopping…" states
+- [x] Update `ObsMetadataPreview`: description preview row, height increase
+- [x] Remove `streamTitleTemplate` field from `ObsDeviceForm.tsx`
 - [ ] Property-based test P29
 
 ### Task 22 subtasks
 - [ ] Per-platform action buttons (individual Start/Stop)
-- [ ] Confirmation modals for Start All, Stop All, individual Start/Stop
+- [x] Confirmation modals for Start All, Stop All, individual Start/Stop
 - [ ] YouTube privacy override dropdown (ADMIN/AvPowerUser only)
 - [ ] Facebook privacy popover
 
 ### Task 23 subtasks
-- [ ] localStorage persistence for last-used template IDs
+- [x] localStorage persistence for last-used template IDs
 - [ ] Stale template handling (Req 4.13)
 - [ ] Property-based test P26
 
 ### Task 24 subtask
-- [ ] Update ADMIN post-login redirects in `ChangePasswordPage.tsx` and `App.tsx` catch-all (LoginPage done)
+- [x] Update ADMIN post-login redirects in `ChangePasswordPage.tsx` and `App.tsx` catch-all (LoginPage done)
 
 ### Task 27 subtasks
 - [ ] Platform registry pattern for modular registration

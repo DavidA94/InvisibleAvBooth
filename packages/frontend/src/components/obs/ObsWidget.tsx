@@ -21,15 +21,14 @@ export function ObsWidget(): ReactNode {
   const { state: obsState, isPending, sendCommand } = useObsState();
   const { relayState, isAnyStreaming } = usePlatformState();
   const interpolatedStreamTitle = useStore((s) => s.interpolatedStreamTitle);
-  const manifest = useStore((s) => s.manifest);
+  const interpolatedDescription = useStore((s) => s.interpolatedDescription);
+  const manifestReady = useStore((s) => s.manifestReady);
   const socket = useSocket();
 
   const [showManifestModal, setShowManifestModal] = useState(false);
   const [showManageStreams, setShowManageStreams] = useState(false);
   const [showStopRecordConfirm, setShowStopRecordConfirm] = useState(false);
   const [reconnecting, setReconnecting] = useState(false);
-
-  const manifestReady = !!(manifest.speaker || manifest.title);
 
   const runCommand = useCallback(
     async (type: "startRecording" | "stopRecording"): Promise<void> => {
@@ -76,7 +75,7 @@ export function ObsWidget(): ReactNode {
     <WidgetContainer title="OBS" connections={connections}>
       <div data-testid={TEST_ID_OBS_WIDGET} className="layout-column full-height">
         <ObsStatusBar obsState={obsState} />
-        <ObsMetadataPreview interpolatedStreamTitle={interpolatedStreamTitle} onEditDetails={() => setShowManifestModal(true)} />
+        <ObsMetadataPreview interpolatedStreamTitle={interpolatedStreamTitle} interpolatedDescription={interpolatedDescription} onEditDetails={() => setShowManifestModal(true)} />
         <WidgetErrorOverlay
           isVisible={!obsState.connected}
           message="OBS Disconnected"

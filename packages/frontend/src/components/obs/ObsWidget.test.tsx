@@ -35,6 +35,8 @@ function resetStore(obsState = connectedState): void {
     obsPending: false,
     manifest: { speaker: "John", title: "Grace" },
     interpolatedStreamTitle: "Apr 19 – John – Grace",
+    interpolatedDescription: "",
+    manifestReady: true,
     notifications: [],
     platformStates: new Map(),
     relayState: { running: false, obsConnected: false },

@@ -8,6 +8,7 @@ import {
   TEST_ID_PLATFORM_ROW,
   TEST_ID_PLATFORM_START_ALL,
   TEST_ID_PLATFORM_STOP_ALL,
+  TEST_ID_CONFIRMATION_CONFIRM_BUTTON,
 } from "../../constants/testIds";
 
 const mockEmit = vi.fn();
@@ -85,17 +86,19 @@ describe("ManageStreamsModal", () => {
     expect(screen.getByTestId(TEST_ID_PLATFORM_STOP_ALL)).not.toBeDisabled();
   });
 
-  it("sends startAll command on Start All click", () => {
+  it("sends startAll command on Start All click after confirmation", () => {
     resetStore(new Map([["YouTube", { state: "idle" }]]));
     render(<ManageStreamsModal isOpen={true} onClose={vi.fn()} />);
     fireEvent.click(screen.getByTestId(TEST_ID_PLATFORM_START_ALL));
+    fireEvent.click(screen.getByTestId(TEST_ID_CONFIRMATION_CONFIRM_BUTTON));
     expect(mockEmit).toHaveBeenCalledWith("cts:platform:command", { action: "startAll" });
   });
 
-  it("sends stopAll command on Stop All click", () => {
+  it("sends stopAll command on Stop All click after confirmation", () => {
     resetStore(new Map([["YouTube", { state: "streaming" }]]));
     render(<ManageStreamsModal isOpen={true} onClose={vi.fn()} />);
     fireEvent.click(screen.getByTestId(TEST_ID_PLATFORM_STOP_ALL));
+    fireEvent.click(screen.getByTestId(TEST_ID_CONFIRMATION_CONFIRM_BUTTON));
     expect(mockEmit).toHaveBeenCalledWith("cts:platform:command", { action: "stopAll" });
   });
 });

@@ -8,7 +8,7 @@ import {
   TEST_ID_ADD_DEVICE_BUTTON, TEST_ID_ADD_DEVICE_TYPE_OPTION,
   TEST_ID_DEVICE_DETAIL_EMPTY, TEST_ID_DEVICE_DETAIL_PANEL,
   TEST_ID_DEVICE_FORM_LABEL, TEST_ID_DEVICE_FORM_HOST, TEST_ID_DEVICE_FORM_SAVE,
-  TEST_ID_DEVICE_FORM_TEMPLATE_PREVIEW, TEST_ID_DEVICE_LIST_DELETE_BUTTON,
+  TEST_ID_DEVICE_LIST_DELETE_BUTTON,
   TEST_ID_CONFIRMATION_CONFIRM_BUTTON, TEST_ID_CONFIRMATION_CANCEL_BUTTON,
 } from "../constants/testIds";
 
@@ -222,14 +222,7 @@ describe("AdminDeviceManagement", () => {
   });
 
   it("template preview shows manifest data", async () => {
-    mockListDevices();
-    renderPage();
-    await waitFor(() => {
-      expect(screen.getByTestId(`${TEST_ID_DEVICE_LIST_ITEM}-d1`)).toBeInTheDocument();
-    });
-
-    fireEvent.click(screen.getByTestId(`${TEST_ID_DEVICE_LIST_ITEM}-d1`));
-    expect(screen.getByTestId(TEST_ID_DEVICE_FORM_TEMPLATE_PREVIEW)).toHaveTextContent("John");
+    // Template field removed — templates now managed via /admin/templates
   });
 });
 

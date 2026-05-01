@@ -39,10 +39,12 @@ export class SessionManifestModule implements SocketModule {
 
   emitInitialState(auth: AuthenticatedSocket): void {
     const manifest = this.manifestService.get();
-    const { interpolatedStreamTitle } = this.manifestService.getInterpolated();
+    const { interpolatedStreamTitle, interpolatedDescription, manifestReady } = this.manifestService.getInterpolated();
     auth.socket.emit(STC_SESSION_MANIFEST_UPDATED, {
       manifest,
       interpolatedStreamTitle,
+      interpolatedDescription,
+      manifestReady,
     });
   }
 }
