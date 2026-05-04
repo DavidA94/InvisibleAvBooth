@@ -33,10 +33,7 @@ describe("interpolateStreamTitle", () => {
   });
 
   it("interpolates scripture when present", () => {
-    const result = interpolateStreamTitle(
-      { speaker: "John", title: "Grace", scripture: { bookId: 43, chapter: 3, verse: 16 } },
-      "{Speaker} – {Scripture}",
-    );
+    const result = interpolateStreamTitle({ speaker: "John", title: "Grace", scripture: { bookId: 43, chapter: 3, verse: 16 } }, "{Speaker} – {Scripture}");
     expect(result).toBe("John – John 3:16");
   });
 

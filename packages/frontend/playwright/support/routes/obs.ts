@@ -10,11 +10,7 @@ export interface MockSocketHandle {
   sendRaw: (event: string, data: unknown) => void;
 }
 
-export async function routeSocketIo(
-  page: Page,
-  initialObs?: ObsStatePayload,
-  initialManifest?: SessionManifestPayload,
-): Promise<MockSocketHandle> {
+export async function routeSocketIo(page: Page, initialObs?: ObsStatePayload, initialManifest?: SessionManifestPayload): Promise<MockSocketHandle> {
   // Mutable state — updated by handle methods, read by cts:request:initial:state
   let currentObsState = initialObs ?? obsStateDefault();
   let currentManifest = initialManifest ?? sessionManifestDefault();

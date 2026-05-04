@@ -79,9 +79,7 @@ export function validateTemplate(input: ValidationInput, existing: ExistingTempl
 
   // (b) Duplicate format string (whitespace-collapsed, same category)
   const collapsed = collapseWhitespace(input.formatString);
-  const duplicateFormat = candidates.find(
-    (template) => template.category === input.category && collapseWhitespace(template.formatString) === collapsed,
-  );
+  const duplicateFormat = candidates.find((template) => template.category === input.category && collapseWhitespace(template.formatString) === collapsed);
   if (duplicateFormat) {
     blockers.push(`Duplicate format string in ${input.category} category (matches "${duplicateFormat.name}")`);
   }

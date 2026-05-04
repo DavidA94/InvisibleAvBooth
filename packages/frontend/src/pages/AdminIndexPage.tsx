@@ -19,19 +19,22 @@ export function AdminIndexPage(): ReactNode {
       <IonContent className="ion-padding">
         <h2 className="admin-page-title">Admin Pages</h2>
         <div className="admin-index-grid">
-        {ADMIN_SECTIONS.map((section) => (
-          <IonButton
-            key={section.path}
-            href={section.path}
-            expand="block"
-            fill="outline"
-            className="admin-index-button"
-            onClick={(e) => { e.preventDefault(); navigate(section.path); }}
-          >
-            {section.label}
-          </IonButton>
-        ))}
-      </div>
+          {ADMIN_SECTIONS.map((section) => (
+            <IonButton
+              key={section.path}
+              href={section.path}
+              expand="block"
+              fill="outline"
+              className="admin-index-button"
+              onClick={(e) => {
+                e.preventDefault();
+                navigate(section.path);
+              }}
+            >
+              {section.label}
+            </IonButton>
+          ))}
+        </div>
       </IonContent>
     </IonPage>
   );

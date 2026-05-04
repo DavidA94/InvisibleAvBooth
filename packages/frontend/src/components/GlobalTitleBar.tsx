@@ -26,12 +26,17 @@ export function GlobalTitleBar(): ReactNode {
     <div data-testid={TEST_ID_GLOBAL_TITLE_BAR} className="title-bar">
       {!isChangePassword && (
         <span data-testid={TEST_ID_TITLE_BAR_DASHBOARD_NAV} className="title-bar-navigation">
-          {isDashboard && dashboardName ? (
-            <span>{dashboardName}</span>
-          ) : (
-            <em className="text-muted">No Dashboard Selected</em>
-          )}
-          <IonButton href="/dashboards" fill="clear" size="small" className="title-bar-nav-link" onClick={(e) => { e.preventDefault(); navigate("/dashboards"); }}>
+          {isDashboard && dashboardName ? <span>{dashboardName}</span> : <em className="text-muted">No Dashboard Selected</em>}
+          <IonButton
+            href="/dashboards"
+            fill="clear"
+            size="small"
+            className="title-bar-nav-link"
+            onClick={(e) => {
+              e.preventDefault();
+              navigate("/dashboards");
+            }}
+          >
             (CHANGE)
           </IonButton>
           {user.role === "ADMIN" && (
@@ -43,7 +48,10 @@ export function GlobalTitleBar(): ReactNode {
                 fill="clear"
                 size="small"
                 className="title-bar-nav-link"
-                onClick={(e) => { e.preventDefault(); navigate("/admin"); }}
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate("/admin");
+                }}
               >
                 Admin Pages
               </IonButton>

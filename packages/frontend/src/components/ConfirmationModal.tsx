@@ -29,7 +29,12 @@ export function ConfirmationModal({
       <IonButton data-testid={TEST_ID_CONFIRMATION_CANCEL_BUTTON} fill="outline" size="default" onClick={onCancel}>
         {cancelLabel}
       </IonButton>
-      <IonButton data-testid={TEST_ID_CONFIRMATION_CONFIRM_BUTTON} color={confirmVariant === "danger" ? "danger" : "primary"} size="default" onClick={onConfirm}>
+      <IonButton
+        data-testid={TEST_ID_CONFIRMATION_CONFIRM_BUTTON}
+        color={confirmVariant === "danger" ? "danger" : "primary"}
+        size="default"
+        onClick={onConfirm}
+      >
         {confirmLabel}
       </IonButton>
     </div>

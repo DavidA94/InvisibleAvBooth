@@ -6,7 +6,7 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     globals: true,
-    setupFiles: ["./src/test/setup.ts"],
+    setupFiles: ["./src/test/setup.tsx"],
     exclude: ["playwright/**", "node_modules/**", "vite.config.test.ts"],
     testTimeout: 30000,
     hookTimeout: 30000,
@@ -20,7 +20,7 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       include: ["src/**/*.{ts,tsx}"],
-      exclude: ["src/main.tsx", "src/App.tsx", "src/test/**"],
+      exclude: ["src/main.tsx", "src/App.tsx", "src/test/**", "src/types.ts", "src/vite-env.d.ts", "src/theme/**"],
       thresholds: {
         lines: 90,
         branches: 85,

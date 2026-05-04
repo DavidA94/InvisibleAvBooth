@@ -16,12 +16,12 @@ Tests are part of every story's definition of done — not a separate phase. Uni
 
 ## Stack
 
-| Layer               | Tool                           | Scope                                                                      |
-| ------------------- | ------------------------------ | -------------------------------------------------------------------------- |
-| Unit & component    | Vitest + React Testing Library | Logic, hooks, components — both packages                                   |
-| Property-based      | Vitest + fast-check            | Correctness properties (a form of unit test, not a separate layer)         |
-| Backend E2E         | Vitest                         | Full server with fake devices — REST/Socket.io API → services → SQLite     |
-| Frontend E2E        | Playwright                     | Full user flows in the browser, mocked backend (HTTP + WebSocket)          |
+| Layer            | Tool                           | Scope                                                                  |
+| ---------------- | ------------------------------ | ---------------------------------------------------------------------- |
+| Unit & component | Vitest + React Testing Library | Logic, hooks, components — both packages                               |
+| Property-based   | Vitest + fast-check            | Correctness properties (a form of unit test, not a separate layer)     |
+| Backend E2E      | Vitest                         | Full server with fake devices — REST/Socket.io API → services → SQLite |
+| Frontend E2E     | Playwright                     | Full user flows in the browser, mocked backend (HTTP + WebSocket)      |
 
 **Why two E2E layers**: Backend E2E tests (Vitest) verify that routes, services, the database, and socket events work together correctly with fake device clients — no browser involved. Frontend E2E tests (Playwright) verify that the UI drives the correct HTTP and WebSocket calls and responds correctly to server events — no real backend involved. These are complementary, not redundant. Both run via `npm run test:e2e` in their respective packages and are included in root `npm run ci`.
 
@@ -65,13 +65,13 @@ Backend e2e tests exercise the full path from the API boundary (REST endpoint or
 
 The tests use a shared `buildApp()` factory (`src/app.ts`) that assembles the full Express + Socket.io application. This is the same factory used by `index.ts` in production, ensuring test and production wiring never drift apart. Tests inject fakes for external dependencies:
 
-| Dependency | Production | Test |
-|------------|-----------|------|
-| OBS WebSocket | `obs-websocket-js` | `createFakeObs()` — mock with event simulation and stateful recording tracking |
-| Platform APIs (YouTube/Facebook) | `YouTubeClient` / `FacebookClient` | `FakePlatformClient` — enqueueable responses and call recording |
-| RTMP relay (node-media-server) | Real NMS instance | `createFakeNms()` — no-op |
-| FFmpeg forwarders | `child_process.spawn` | `createFakeSpawn()` — emits `close` immediately |
-| Database | File-backed SQLite | In-memory SQLite (`:memory:`) with identical schema |
+| Dependency                       | Production                         | Test                                                                           |
+| -------------------------------- | ---------------------------------- | ------------------------------------------------------------------------------ |
+| OBS WebSocket                    | `obs-websocket-js`                 | `createFakeObs()` — mock with event simulation and stateful recording tracking |
+| Platform APIs (YouTube/Facebook) | `YouTubeClient` / `FacebookClient` | `FakePlatformClient` — enqueueable responses and call recording                |
+| RTMP relay (node-media-server)   | Real NMS instance                  | `createFakeNms()` — no-op                                                      |
+| FFmpeg forwarders                | `child_process.spawn`              | `createFakeSpawn()` — emits `close` immediately                                |
+| Database                         | File-backed SQLite                 | In-memory SQLite (`:memory:`) with identical schema                            |
 
 ### Fake Response Sequencing
 
@@ -193,6 +193,89 @@ Payload and route files are organized by domain. Only `obs.ts`, `session.ts`, an
 - Shared routes always default to happy-path, no errors
 - Error and edge-case payloads are passed in via factory overrides
 - Never hardcode payload data inline in test files — always use a factory
+
+---
+
+## Testability by Design
+
+If test code is as complex as (or more complex than) the code it tests, the production code needs to be simplified. Hard to test = hard to read.
+
+### Private by Convention (`_method`)
+
+Methods that are internal implementation details but need direct testing should be prefixed with `_` rather than using TypeScript's `private` keyword. This allows tests to call them directly without routing through complex orchestration flows.
+
+Apply this when:
+
+- A method has multiple branches that are hard to reach through the public API
+- Testing the public method requires elaborate multi-step setup just to reach one branch
+- The method is a self-contained "big idea" within a larger orchestration
+
+### Decompose Complex Methods
+
+Complex orchestration methods should delegate to smaller, testable pieces:
+
+```ts
+async startAll(): Promise<void> {
+  const entries = this._getIdlePlatforms();
+  if (entries.length === 0) return;
+
+  const results = await this._createBroadcasts(entries);
+  this._applyBroadcastResults(results, entries);
+
+  if (results.successful.length === 0) return;
+
+  const obsOk = await this._ensureObsStreaming();
+  if (!obsOk) {
+    this._cleanupFailedStart(results.successful);
+    return;
+  }
+
+  this._startForwarders(results.successful);
+}
+```
+
+Each extracted method is independently testable. The orchestration method has minimal branching — it reads like a recipe.
+
+### Control State Directly in Tests
+
+When testing behavior that depends on internal state (e.g., a platform being in "streaming" or "error" status), prefer calling exposed `_` methods to set up state rather than running full flows:
+
+```ts
+// Instead of: await service.startAll() just to get a platform into "streaming"
+service._transitionPlatform("yt-1", "streaming");
+
+// Now test the specific behavior that depends on streaming state
+eventBus.emit(BUS_RELAY_STATE_CHANGED, { running: true, obsConnected: false });
+expect(service.getPlatformStates().get("yt-1")?.status).toBe("no_source");
+```
+
+This eliminates cascading mock requirements and makes each test's intent obvious.
+
+### Use `it.each` with Template Literals for State Machines
+
+When a function's behavior varies by input, use interpolated string tables:
+
+```ts
+it.each`
+  pollResult            | expectedStatus
+  ${{ healthy: true }}  | ${"streaming"}
+  ${{ healthy: false }} | ${"error"}
+  ${new Error("fail")}  | ${"error"}
+`("recoverPlatform with $expectedStatus outcome", async ({ pollResult, expectedStatus }) => {
+  service._transitionPlatform("yt-1", "recovering");
+  mockClient.pollHealth.mockImplementation(() => (pollResult instanceof Error ? Promise.reject(pollResult) : Promise.resolve(pollResult)));
+  await service._recoverPlatform("yt-1", entry);
+  expect(service.getPlatformStates().get("yt-1")?.status).toBe(expectedStatus);
+});
+```
+
+If rows get too wide, the function under test is doing too much.
+
+### When to Refactor for Testability
+
+- **New code**: Follow this pattern from the start.
+- **Existing code being heavily modified**: Refactor to match during the modification.
+- **Existing code that works and isn't being touched**: Leave it alone.
 
 ---
 

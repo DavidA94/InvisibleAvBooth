@@ -4,6 +4,7 @@ export type { PlatformConfig };
 
 export interface BroadcastInfo {
   broadcastId: string;
+  rtmpUrl: string;
   streamUrl: string;
   streamKey: string;
 }

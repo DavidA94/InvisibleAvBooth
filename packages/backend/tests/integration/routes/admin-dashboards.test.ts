@@ -4,7 +4,9 @@ import type { TestServer } from "../harness.js";
 
 let s: TestServer;
 
-beforeAll(async () => { s = await buildTestServer(); });
+beforeAll(async () => {
+  s = await buildTestServer();
+});
 afterAll(() => destroyServer(s));
 beforeEach(() => resetServer(s));
 
@@ -42,7 +44,10 @@ describe("PUT /api/admin/dashboards/:id", () => {
   it("updates a dashboard", async () => {
     const cookie = await loginAsAdmin(s.agent, s.ctx.authService);
     const created = await s.agent.post("/api/admin/dashboards").set("Cookie", cookie).send(baseDashboard);
-    const res = await s.agent.put(`/api/admin/dashboards/${created.body.id as string}`).set("Cookie", cookie).send({ name: "Updated" });
+    const res = await s.agent
+      .put(`/api/admin/dashboards/${created.body.id as string}`)
+      .set("Cookie", cookie)
+      .send({ name: "Updated" });
     expect(res.status).toBe(200);
     expect(res.body.name).toBe("Updated");
   });
@@ -72,7 +77,10 @@ describe("POST /api/admin/dashboards/:id/widgets", () => {
   it("creates a widget", async () => {
     const cookie = await loginAsAdmin(s.agent, s.ctx.authService);
     const dash = await s.agent.post("/api/admin/dashboards").set("Cookie", cookie).send(baseDashboard);
-    const res = await s.agent.post(`/api/admin/dashboards/${dash.body.id as string}/widgets`).set("Cookie", cookie).send(baseWidget);
+    const res = await s.agent
+      .post(`/api/admin/dashboards/${dash.body.id as string}/widgets`)
+      .set("Cookie", cookie)
+      .send(baseWidget);
     expect(res.status).toBe(201);
     expect(res.body.widgetId).toBe("obs");
   });
@@ -88,7 +96,41 @@ describe("POST /api/admin/dashboards/:id/widgets", () => {
   it("returns 400 when required fields are missing", async () => {
     const cookie = await loginAsAdmin(s.agent, s.ctx.authService);
     const dash = await s.agent.post("/api/admin/dashboards").set("Cookie", cookie).send(baseDashboard);
-    expect((await s.agent.post(`/api/admin/dashboards/${dash.body.id as string}/widgets`).set("Cookie", cookie).send({ widgetId: "obs" })).status).toBe(400);
+    expect(
+      (
+        await s.agent
+          .post(`/api/admin/dashboards/${dash.body.id as string}/widgets`)
+          .set("Cookie", cookie)
+          .send({ widgetId: "obs" })
+      ).status,
+    ).toBe(400);
+  });
+
+  it("returns 404 when dashboard does not exist", async () => {
+    const cookie = await loginAsAdmin(s.agent, s.ctx.authService);
+    const res = await s.agent.post("/api/admin/dashboards/nonexistent/widgets").set("Cookie", cookie).send(baseWidget);
+    expect(res.status).toBe(404);
+  });
+});
+
+describe("GET /api/admin/dashboards/:id/widgets/:widgetId", () => {
+  it("returns a single widget", async () => {
+    const cookie = await loginAsAdmin(s.agent, s.ctx.authService);
+    const dash = await s.agent.post("/api/admin/dashboards").set("Cookie", cookie).send(baseDashboard);
+    const widget = await s.agent
+      .post(`/api/admin/dashboards/${dash.body.id as string}/widgets`)
+      .set("Cookie", cookie)
+      .send(baseWidget);
+    const res = await s.agent.get(`/api/admin/dashboards/${dash.body.id as string}/widgets/${widget.body.id as string}`).set("Cookie", cookie);
+    expect(res.status).toBe(200);
+    expect(res.body.widgetId).toBe("obs");
+  });
+
+  it("returns 404 for unknown widget", async () => {
+    const cookie = await loginAsAdmin(s.agent, s.ctx.authService);
+    const dash = await s.agent.post("/api/admin/dashboards").set("Cookie", cookie).send(baseDashboard);
+    const res = await s.agent.get(`/api/admin/dashboards/${dash.body.id as string}/widgets/nonexistent`).set("Cookie", cookie);
+    expect(res.status).toBe(404);
   });
 });
 
@@ -98,9 +140,22 @@ describe("PUT /api/admin/dashboards/:id/widgets/:widgetId", () => {
     const dash = await s.agent.post("/api/admin/dashboards").set("Cookie", cookie).send(baseDashboard);
     const dashId = dash.body.id as string;
     const widget = await s.agent.post(`/api/admin/dashboards/${dashId}/widgets`).set("Cookie", cookie).send(baseWidget);
-    const res = await s.agent.put(`/api/admin/dashboards/${dashId}/widgets/${widget.body.id as string}`).set("Cookie", cookie).send({ title: "Updated OBS" });
+    const res = await s.agent
+      .put(`/api/admin/dashboards/${dashId}/widgets/${widget.body.id as string}`)
+      .set("Cookie", cookie)
+      .send({ title: "Updated OBS" });
     expect(res.status).toBe(200);
     expect(res.body.title).toBe("Updated OBS");
+  });
+
+  it("returns 404 for unknown widget", async () => {
+    const cookie = await loginAsAdmin(s.agent, s.ctx.authService);
+    const dash = await s.agent.post("/api/admin/dashboards").set("Cookie", cookie).send(baseDashboard);
+    const res = await s.agent
+      .put(`/api/admin/dashboards/${dash.body.id as string}/widgets/nonexistent`)
+      .set("Cookie", cookie)
+      .send({ title: "X" });
+    expect(res.status).toBe(404);
   });
 });
 
@@ -112,6 +167,13 @@ describe("DELETE /api/admin/dashboards/:id/widgets/:widgetId", () => {
     const widget = await s.agent.post(`/api/admin/dashboards/${dashId}/widgets`).set("Cookie", cookie).send(baseWidget);
     expect((await s.agent.delete(`/api/admin/dashboards/${dashId}/widgets/${widget.body.id as string}`).set("Cookie", cookie)).status).toBe(204);
   });
+
+  it("returns 404 for unknown widget", async () => {
+    const cookie = await loginAsAdmin(s.agent, s.ctx.authService);
+    const dash = await s.agent.post("/api/admin/dashboards").set("Cookie", cookie).send(baseDashboard);
+    const res = await s.agent.delete(`/api/admin/dashboards/${dash.body.id as string}/widgets/nonexistent`).set("Cookie", cookie);
+    expect(res.status).toBe(404);
+  });
 });
 
 // ── Public dashboard routes (role filtering) ─────────────────────────────────
@@ -119,16 +181,28 @@ describe("DELETE /api/admin/dashboards/:id/widgets/:widgetId", () => {
 describe("GET /api/dashboards", () => {
   it("ADMIN sees all dashboards", async () => {
     const cookie = await loginAsAdmin(s.agent, s.ctx.authService);
-    await s.agent.post("/api/admin/dashboards").set("Cookie", cookie).send({ name: "A", allowedRoles: ["AvVolunteer"] });
-    await s.agent.post("/api/admin/dashboards").set("Cookie", cookie).send({ name: "B", allowedRoles: ["ADMIN"] });
+    await s.agent
+      .post("/api/admin/dashboards")
+      .set("Cookie", cookie)
+      .send({ name: "A", allowedRoles: ["AvVolunteer"] });
+    await s.agent
+      .post("/api/admin/dashboards")
+      .set("Cookie", cookie)
+      .send({ name: "B", allowedRoles: ["ADMIN"] });
     const res = await s.agent.get("/api/dashboards").set("Cookie", cookie);
     expect(res.body).toHaveLength(2);
   });
 
   it("AvVolunteer sees only matching dashboards", async () => {
     const adminCookie = await loginAsAdmin(s.agent, s.ctx.authService);
-    await s.agent.post("/api/admin/dashboards").set("Cookie", adminCookie).send({ name: "Volunteer", allowedRoles: ["AvVolunteer"] });
-    await s.agent.post("/api/admin/dashboards").set("Cookie", adminCookie).send({ name: "Admin Only", allowedRoles: ["ADMIN"] });
+    await s.agent
+      .post("/api/admin/dashboards")
+      .set("Cookie", adminCookie)
+      .send({ name: "Volunteer", allowedRoles: ["AvVolunteer"] });
+    await s.agent
+      .post("/api/admin/dashboards")
+      .set("Cookie", adminCookie)
+      .send({ name: "Admin Only", allowedRoles: ["ADMIN"] });
     const volCookie = await loginAs(s.agent, s.ctx.authService, "vol", "pass", "AvVolunteer");
     const res = await s.agent.get("/api/dashboards").set("Cookie", volCookie);
     expect(res.body).toHaveLength(1);
@@ -151,7 +225,10 @@ describe("GET /api/dashboards/:id/layout", () => {
 
   it("returns 403 when user role is not in allowedRoles", async () => {
     const adminCookie = await loginAsAdmin(s.agent, s.ctx.authService);
-    const dash = await s.agent.post("/api/admin/dashboards").set("Cookie", adminCookie).send({ name: "Admin Only", allowedRoles: ["ADMIN"] });
+    const dash = await s.agent
+      .post("/api/admin/dashboards")
+      .set("Cookie", adminCookie)
+      .send({ name: "Admin Only", allowedRoles: ["ADMIN"] });
     const volCookie = await loginAs(s.agent, s.ctx.authService, "vol", "pass", "AvVolunteer");
     expect((await s.agent.get(`/api/dashboards/${dash.body.id as string}/layout`).set("Cookie", volCookie)).status).toBe(403);
   });

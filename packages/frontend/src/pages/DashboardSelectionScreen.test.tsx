@@ -68,4 +68,48 @@ describe("DashboardSelectionScreen", () => {
     expect(localStorage.getItem("dashboardName")).toBe("Main Dashboard");
     expect(mockPush).toHaveBeenCalledWith("/dashboard/d1");
   });
+
+  it("auto-selects single dashboard on initial auth", async () => {
+    sessionStorage.setItem("initialAuth", "true");
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => [{ id: "d1", name: "Only Dashboard", description: "" }],
+    });
+    renderPage();
+    await waitFor(() => {
+      expect(mockPush).toHaveBeenCalledWith("/dashboard/d1");
+    });
+  });
+
+  it("redirects to cached dashboard on initial auth", async () => {
+    sessionStorage.setItem("initialAuth", "true");
+    localStorage.setItem("dashboardId", "cached-1");
+    mockFetch.mockResolvedValueOnce({ ok: true, json: async () => [] });
+    renderPage();
+    await waitFor(() => {
+      expect(mockPush).toHaveBeenCalledWith("/dashboard/cached-1", { replace: true });
+    });
+  });
+
+  it("shows loading state before fetch resolves", () => {
+    mockFetch.mockReturnValue(new Promise(() => {}));
+    renderPage();
+    expect(screen.queryByTestId(TEST_ID_DASHBOARD_OPTION)).not.toBeInTheDocument();
+    expect(screen.queryByTestId(TEST_ID_NO_DASHBOARDS_SCREEN)).not.toBeInTheDocument();
+  });
+
+  it("selects dashboard on Enter key", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => [{ id: "d1", name: "Main", description: "" }],
+    });
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByTestId(TEST_ID_DASHBOARD_OPTION)).toBeInTheDocument();
+    });
+    const option = screen.getByTestId(TEST_ID_DASHBOARD_OPTION);
+    option.focus();
+    await userEvent.keyboard("{Enter}");
+    expect(mockPush).toHaveBeenCalledWith("/dashboard/d1");
+  });
 });

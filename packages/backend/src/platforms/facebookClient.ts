@@ -5,7 +5,7 @@
  * Each instance is bound to a single Page access token from PlatformConfig.
  */
 import { logger } from "../logger.js";
-import type { StreamingPlatformClient, BroadcastInfo, PlatformHealthDetails, PlatformConfig } from "./platformClient.js";
+import type { StreamingPlatformClient, BroadcastInfo, PlatformHealthDetails, PlatformConfig, TokenInfo } from "./platformClient.js";
 import { PlatformError } from "./platformClient.js";
 
 const GRAPH_API_BASE = "https://graph.facebook.com/v19.0";
@@ -110,6 +110,11 @@ export class FacebookClient implements StreamingPlatformClient {
       if (error instanceof PlatformError) throw error;
       throw this.wrapError(error, "HEALTH_POLL_FAILED", "Failed to poll Facebook health");
     }
+  }
+
+  async refreshToken(): Promise<TokenInfo> {
+    // Facebook page tokens are long-lived and don't require refresh
+    return { accessToken: this.accessToken };
   }
 
   async validateToken(): Promise<boolean> {

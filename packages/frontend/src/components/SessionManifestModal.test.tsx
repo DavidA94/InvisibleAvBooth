@@ -3,7 +3,14 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { SessionManifestModal } from "./SessionManifestModal";
 import { useStore } from "../store";
 import { INITIAL_OBS_STATE } from "../store/obsSlice";
-import { TEST_ID_SESSION_MANIFEST_MODAL, TEST_ID_MANIFEST_SAVE, TEST_ID_MANIFEST_CANCEL, TEST_ID_MANIFEST_CLEAR, TEST_ID_MANIFEST_TITLE_TEMPLATE, TEST_ID_MANIFEST_DESCRIPTION_TEMPLATE } from "../constants/testIds";
+import {
+  TEST_ID_SESSION_MANIFEST_MODAL,
+  TEST_ID_MANIFEST_SAVE,
+  TEST_ID_MANIFEST_CANCEL,
+  TEST_ID_MANIFEST_CLEAR,
+  TEST_ID_MANIFEST_TITLE_TEMPLATE,
+  TEST_ID_MANIFEST_DESCRIPTION_TEMPLATE,
+} from "../constants/testIds";
 import type { CommandResult } from "../types";
 
 const mockEmit = vi.fn();
@@ -16,7 +23,7 @@ const defaultTemplates = [
 ];
 
 function mockTemplates(templates = defaultTemplates): void {
-  global.fetch = vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(templates) }) as unknown as typeof fetch;
+  globalThis.fetch = vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(templates) }) as unknown as typeof fetch;
 }
 
 const onClose = vi.fn();

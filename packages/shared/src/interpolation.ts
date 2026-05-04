@@ -29,11 +29,7 @@ export function formatScripture(ref: ScriptureReference): string {
  * Interpolates a template string with manifest fields.
  * Both frontend and backend call this — single source of truth.
  */
-export function interpolateTemplate(
-  manifest: SessionManifestFields,
-  template?: string,
-  verseTextResolver?: (ref: ScriptureReference) => string,
-): string {
+export function interpolateTemplate(manifest: SessionManifestFields, template?: string, verseTextResolver?: (ref: ScriptureReference) => string): string {
   const t = template?.trim() || DEFAULT_TEMPLATE;
   const today = new Date().toISOString().slice(0, 10);
   const speaker = manifest.speaker?.trim() || "[No Speaker]";

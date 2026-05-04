@@ -3,10 +3,14 @@ import { render, screen, fireEvent, act } from "@testing-library/react";
 import { ObsDeviceForm } from "./ObsDeviceForm";
 import type { DeviceRecord, DirtyCheck } from "./deviceTypeRegistry";
 import {
-  TEST_ID_DEVICE_FORM_LABEL, TEST_ID_DEVICE_FORM_HOST,
+  TEST_ID_DEVICE_FORM_LABEL,
+  TEST_ID_DEVICE_FORM_HOST,
   TEST_ID_DEVICE_FORM_PASSWORD,
-  TEST_ID_DEVICE_FORM_ENABLED, TEST_ID_DEVICE_FORM_SAVE, TEST_ID_DEVICE_FORM_DELETE,
-  TEST_ID_DEVICE_FORM_ERROR, TEST_ID_CONFIRMATION_CONFIRM_BUTTON,
+  TEST_ID_DEVICE_FORM_ENABLED,
+  TEST_ID_DEVICE_FORM_SAVE,
+  TEST_ID_DEVICE_FORM_DELETE,
+  TEST_ID_DEVICE_FORM_ERROR,
+  TEST_ID_CONFIRMATION_CONFIRM_BUTTON,
 } from "../../constants/testIds";
 
 const mockFetch = vi.fn();
@@ -31,14 +35,7 @@ beforeEach(() => {
 });
 
 function renderCreate(overrides?: { onSaved?: () => void; registerDirtyCheck?: (c: DirtyCheck) => void }): void {
-  render(
-    <ObsDeviceForm
-      device={null}
-      onSaved={overrides?.onSaved ?? noop}
-      onDeleted={noop}
-      registerDirtyCheck={overrides?.registerDirtyCheck ?? noop}
-    />,
-  );
+  render(<ObsDeviceForm device={null} onSaved={overrides?.onSaved ?? noop} onDeleted={noop} registerDirtyCheck={overrides?.registerDirtyCheck ?? noop} />);
 }
 
 function renderEdit(overrides?: { onSaved?: () => void; onDeleted?: () => void; registerDirtyCheck?: (c: DirtyCheck) => void }): void {
@@ -147,13 +144,21 @@ describe("ObsDeviceForm — edit mode", () => {
 describe("ObsDeviceForm — dirty check", () => {
   it("reports not dirty when no changes made", () => {
     let dirtyCheck: DirtyCheck = { isDirty: () => false };
-    renderEdit({ registerDirtyCheck: (c) => { dirtyCheck = c; } });
+    renderEdit({
+      registerDirtyCheck: (c) => {
+        dirtyCheck = c;
+      },
+    });
     expect(dirtyCheck.isDirty()).toBe(false);
   });
 
   it("reports dirty when label changes", () => {
     let dirtyCheck: DirtyCheck = { isDirty: () => false };
-    renderEdit({ registerDirtyCheck: (c) => { dirtyCheck = c; } });
+    renderEdit({
+      registerDirtyCheck: (c) => {
+        dirtyCheck = c;
+      },
+    });
 
     fireEvent(screen.getByTestId(TEST_ID_DEVICE_FORM_LABEL), new CustomEvent("ionInput", { detail: { value: "Changed" } }));
     expect(dirtyCheck.isDirty()).toBe(true);
@@ -161,7 +166,11 @@ describe("ObsDeviceForm — dirty check", () => {
 
   it("reports not dirty when value reverts to original (a→b→a)", () => {
     let dirtyCheck: DirtyCheck = { isDirty: () => false };
-    renderEdit({ registerDirtyCheck: (c) => { dirtyCheck = c; } });
+    renderEdit({
+      registerDirtyCheck: (c) => {
+        dirtyCheck = c;
+      },
+    });
 
     fireEvent(screen.getByTestId(TEST_ID_DEVICE_FORM_LABEL), new CustomEvent("ionInput", { detail: { value: "Changed" } }));
     expect(dirtyCheck.isDirty()).toBe(true);
@@ -172,7 +181,11 @@ describe("ObsDeviceForm — dirty check", () => {
 
   it("reports dirty when password is entered in edit mode", () => {
     let dirtyCheck: DirtyCheck = { isDirty: () => false };
-    renderEdit({ registerDirtyCheck: (c) => { dirtyCheck = c; } });
+    renderEdit({
+      registerDirtyCheck: (c) => {
+        dirtyCheck = c;
+      },
+    });
 
     fireEvent(screen.getByTestId(TEST_ID_DEVICE_FORM_PASSWORD), new CustomEvent("ionInput", { detail: { value: "newpass" } }));
     expect(dirtyCheck.isDirty()).toBe(true);
@@ -180,7 +193,11 @@ describe("ObsDeviceForm — dirty check", () => {
 
   it("reports not dirty when password is cleared back to empty in edit mode", () => {
     let dirtyCheck: DirtyCheck = { isDirty: () => false };
-    renderEdit({ registerDirtyCheck: (c) => { dirtyCheck = c; } });
+    renderEdit({
+      registerDirtyCheck: (c) => {
+        dirtyCheck = c;
+      },
+    });
 
     fireEvent(screen.getByTestId(TEST_ID_DEVICE_FORM_PASSWORD), new CustomEvent("ionInput", { detail: { value: "newpass" } }));
     fireEvent(screen.getByTestId(TEST_ID_DEVICE_FORM_PASSWORD), new CustomEvent("ionInput", { detail: { value: "" } }));

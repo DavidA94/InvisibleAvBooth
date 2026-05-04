@@ -57,7 +57,7 @@ export default [
     languageOptions: {
       parser: tsParser,
       parserOptions: {
-        project: "./packages/backend/tsconfig.json",
+        project: "./packages/backend/tsconfig.eslint.json",
         ecmaVersion: "latest",
         sourceType: "module",
       },
@@ -81,7 +81,7 @@ export default [
     languageOptions: {
       parser: tsParser,
       parserOptions: {
-        project: "./packages/frontend/tsconfig.json",
+        project: "./packages/frontend/tsconfig.eslint.json",
         ecmaVersion: "latest",
         sourceType: "module",
         ecmaFeatures: { jsx: true },

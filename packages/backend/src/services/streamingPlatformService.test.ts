@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { StreamingPlatformService } from "./streamingPlatformService.js";
+import type { PlatformEntry } from "./streamingPlatformService.js";
 import { eventBus } from "../eventBus/eventBus.js";
 import {
   BUS_PLATFORM_STATE_CHANGED,
@@ -22,6 +23,7 @@ function makeMockClient(platformType: "youtube" | "facebook" = "youtube"): Strea
   return {
     createBroadcast: vi.fn().mockResolvedValue({
       broadcastId: `broadcast-${platformType}`,
+      rtmpUrl: `rtmp://ingest.${platformType}.com/live/key123`,
       streamUrl: `rtmp://ingest.${platformType}.com/live`,
       streamKey: "key123",
     }),
@@ -130,15 +132,59 @@ describe("StreamingPlatformService", () => {
 
   describe("initial state", () => {
     it("loads enabled platforms from config dao", () => {
-      const { service } = makeService();
+      const { service } = makeService({
+        clients: new Map([
+          ["youtube", makeMockClient("youtube")],
+          ["facebook", makeMockClient("facebook")],
+        ]),
+        configDao: makeMockConfigDao([
+          makeConfig({
+            enabled: true,
+            platformType: "facebook",
+            label: "Facebook",
+            id: "fb-1",
+          }),
+          makeConfig({
+            enabled: false,
+            platformType: "youtube",
+            id: "yt-1",
+          }),
+          makeConfig({
+            enabled: true,
+            // @ts-expect-error fakebook doesn't exist
+            platformType: "fakebook",
+            id: "fake",
+          }),
+        ]),
+      });
       const states = service.getPlatformStates();
       expect(states.size).toBe(1);
-      expect(states.get("yt-1")?.status).toBe("idle");
+      expect(states.get("fb-1")?.status).toBe("idle");
     });
 
-    it("skips disabled platforms", () => {
-      const { service } = makeService({ configDao: makeMockConfigDao([makeConfig({ enabled: false })]) });
-      expect(service.getPlatformStates().size).toBe(0);
+    it.each(["public", "unlisted", undefined, null])("correctly builds the platform privacy for [%s]", (privacy) => {
+      const { service } = makeService({
+        configDao: makeMockConfigDao([
+          makeConfig({
+            metadata:
+              privacy === null
+                ? {}
+                : {
+                    privacy,
+                  },
+          }),
+        ]),
+      });
+
+      const healths = service.getPlatformHealth();
+      expect(healths).toEqual([
+        {
+          platformType: "youtube",
+          label: "YouTube",
+          healthy: true,
+          ...(privacy === null || privacy === undefined ? {} : { privacy }),
+        },
+      ]);
     });
   });
 
@@ -251,6 +297,7 @@ describe("StreamingPlatformService", () => {
               () =>
                 resolve({
                   broadcastId: "b1",
+                  rtmpUrl: "rtmp://test/key",
                   streamUrl: "rtmp://test",
                   streamKey: "key",
                 }),
@@ -481,6 +528,67 @@ describe("StreamingPlatformService", () => {
 
       await new Promise((resolve) => setTimeout(resolve, 50));
 
+      expect(service.getPlatformStates().get("yt-1")?.status).toBe("error");
+    });
+
+    it.each`
+      scenario         | pollResult                                            | expectedStatus
+      ${"healthy"}     | ${{ healthy: true, streamHealth: "good" }}            | ${"streaming"}
+      ${"unhealthy"}   | ${{ healthy: false, streamHealth: "bad" }}            | ${"error"}
+      ${"poll throws"} | ${new PlatformError("HEALTH_POLL_FAILED", "timeout")} | ${"error"}
+    `("_recoverPlatform transitions to $expectedStatus when poll is $scenario", async ({ pollResult, expectedStatus }) => {
+      const client = makeMockClient("youtube");
+      const { service } = makeService({ clients: new Map([["youtube", client]]) });
+
+      // Walk through valid transitions to reach "recovering"
+      service._transitionPlatform("yt-1", "starting");
+      service._transitionPlatform("yt-1", "streaming");
+      service._transitionPlatform("yt-1", "no_source");
+      service._transitionPlatform("yt-1", "recovering");
+
+      // Access the internal entry to set broadcastId
+      const entry = (service as unknown as { platforms: Map<string, PlatformEntry> }).platforms.get("yt-1")!;
+      entry.broadcastId = "broadcast-1";
+      entry.rtmpUrl = "rtmp://test/key";
+
+      vi.mocked(client.pollHealth).mockImplementation(() => (pollResult instanceof Error ? Promise.reject(pollResult) : Promise.resolve(pollResult)));
+
+      await service._recoverPlatform("yt-1", entry);
+      expect(service.getPlatformStates().get("yt-1")?.status).toBe(expectedStatus);
+    });
+
+    it("_recoverPlatform respawns dead forwarder", async () => {
+      const client = makeMockClient("youtube");
+      const relay = makeMockRelayService();
+      vi.mocked(relay.isForwarderAlive).mockReturnValue(false);
+
+      const { service } = makeService({ clients: new Map([["youtube", client]]), relay });
+
+      service._transitionPlatform("yt-1", "starting");
+      service._transitionPlatform("yt-1", "streaming");
+      service._transitionPlatform("yt-1", "no_source");
+      service._transitionPlatform("yt-1", "recovering");
+
+      const entry = (service as unknown as { platforms: Map<string, PlatformEntry> }).platforms.get("yt-1")!;
+      entry.broadcastId = "broadcast-1";
+      entry.rtmpUrl = "rtmp://test/key";
+
+      await service._recoverPlatform("yt-1", entry);
+      expect(relay.startForwarder).toHaveBeenCalledWith("yt-1", "rtmp://test/key");
+    });
+
+    it("_recoverPlatform transitions to error when no broadcastId", async () => {
+      const { service } = makeService();
+
+      service._transitionPlatform("yt-1", "starting");
+      service._transitionPlatform("yt-1", "streaming");
+      service._transitionPlatform("yt-1", "no_source");
+      service._transitionPlatform("yt-1", "recovering");
+
+      const entry = (service as unknown as { platforms: Map<string, PlatformEntry> }).platforms.get("yt-1")!;
+      entry.broadcastId = undefined;
+
+      await service._recoverPlatform("yt-1", entry);
       expect(service.getPlatformStates().get("yt-1")?.status).toBe("error");
     });
   });

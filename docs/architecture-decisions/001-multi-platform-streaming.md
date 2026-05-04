@@ -114,13 +114,13 @@ The existing `ObsService.startStream()` safe-start sequence changes significantl
 
 ### Failure Modes
 
-| Failure                                 | Impact                                     | Recovery                                                       |
-| --------------------------------------- | ------------------------------------------ | -------------------------------------------------------------- |
-| node-media-server crashes               | All streams stop (OBS has nowhere to send) | Backend detects and restarts; OBS auto-reconnects              |
-| Single FFmpeg process crashes           | One platform loses stream; others continue | Backend detects exit, surfaces banner, allows restart          |
-| Platform API rejects broadcast creation | That platform is skipped; others proceed   | Banner notification; admin checks platform config              |
-| OAuth token expired/revoked             | Platform API calls fail for that platform  | Banner: "YouTube authorization expired — admin must reconnect" |
-| OBS disconnects from relay              | All platform streams lose source data    | Platforms transition to "No Source"; on OBS reconnect, transition to "Recovering" and verify via API; see Req 5.10 |
+| Failure                                 | Impact                                     | Recovery                                                                                                           |
+| --------------------------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------ |
+| node-media-server crashes               | All streams stop (OBS has nowhere to send) | Backend detects and restarts; OBS auto-reconnects                                                                  |
+| Single FFmpeg process crashes           | One platform loses stream; others continue | Backend detects exit, surfaces banner, allows restart                                                              |
+| Platform API rejects broadcast creation | That platform is skipped; others proceed   | Banner notification; admin checks platform config                                                                  |
+| OAuth token expired/revoked             | Platform API calls fail for that platform  | Banner: "YouTube authorization expired — admin must reconnect"                                                     |
+| OBS disconnects from relay              | All platform streams lose source data      | Platforms transition to "No Source"; on OBS reconnect, transition to "Recovering" and verify via API; see Req 5.10 |
 
 ### Token Management
 

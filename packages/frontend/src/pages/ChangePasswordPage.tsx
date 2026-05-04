@@ -4,8 +4,12 @@ import { IonPage, IonContent, IonInput, IonButton, IonText } from "@ionic/react"
 import { useNavigate } from "react-router";
 import { useStore } from "../store";
 import {
-  TEST_ID_CHANGE_PASSWORD_PAGE, TEST_ID_CHANGE_PASSWORD_FORM, TEST_ID_NEW_PASSWORD_INPUT,
-  TEST_ID_CONFIRM_PASSWORD_INPUT, TEST_ID_CHANGE_PASSWORD_SUBMIT, TEST_ID_CHANGE_PASSWORD_ERROR,
+  TEST_ID_CHANGE_PASSWORD_PAGE,
+  TEST_ID_CHANGE_PASSWORD_FORM,
+  TEST_ID_NEW_PASSWORD_INPUT,
+  TEST_ID_CONFIRM_PASSWORD_INPUT,
+  TEST_ID_CHANGE_PASSWORD_SUBMIT,
+  TEST_ID_CHANGE_PASSWORD_ERROR,
 } from "../constants/testIds";
 
 export function ChangePasswordPage(): ReactNode {

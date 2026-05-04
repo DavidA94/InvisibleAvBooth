@@ -1,12 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { eventBus } from "../../../eventBus/eventBus.js";
-import {
-  BUS_PLATFORM_STATE_CHANGED,
-  BUS_PLATFORM_HEALTH_UPDATED,
-  BUS_RELAY_STATE_CHANGED,
-  BUS_PLATFORM_READINESS_CHANGED,
-} from "../../../eventBus/types.js";
-import { CTS_PLATFORM_COMMAND, STC_PLATFORM_STATE, STC_PLATFORM_HEALTH, STC_RELAY_STATE, STC_PLATFORM_READINESS } from "@invisible-av-booth/shared";
+import { BUS_PLATFORM_STATE_CHANGED, BUS_PLATFORM_HEALTH_UPDATED, BUS_RELAY_STATE_CHANGED, BUS_PLATFORM_READINESS_CHANGED } from "../../../eventBus/types.js";
+import { STC_PLATFORM_STATE, STC_PLATFORM_HEALTH, STC_RELAY_STATE, STC_PLATFORM_READINESS } from "@invisible-av-booth/shared";
 import { StreamingPlatformModule } from "./streamingPlatformModule.js";
 import type { StreamingPlatformService } from "../../../services/streamingPlatformService.js";
 import type { RelayService } from "../../../services/relayService.js";
@@ -72,7 +67,9 @@ describe("registerSocket", () => {
     const mod = new StreamingPlatformModule(svc, makeMockRelayService());
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let handler: any;
-    socketOnMock.mockImplementation((_: string, fn: unknown) => { handler = fn; });
+    socketOnMock.mockImplementation((_: string, fn: unknown) => {
+      handler = fn;
+    });
     mod.registerSocket({ socket: socketMock, jwtPayload: fakeUser } as AuthenticatedSocket);
 
     const ack = vi.fn();
@@ -81,12 +78,61 @@ describe("registerSocket", () => {
     expect(ack).toHaveBeenCalledWith({ success: true });
   });
 
+  it("startPlatform command calls platformService.startPlatform", async () => {
+    const svc = makeMockPlatformService();
+    const mod = new StreamingPlatformModule(svc, makeMockRelayService());
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let handler: any;
+    socketOnMock.mockImplementation((_: string, fn: unknown) => {
+      handler = fn;
+    });
+    mod.registerSocket({ socket: socketMock, jwtPayload: fakeUser } as AuthenticatedSocket);
+
+    const ack = vi.fn();
+    await handler({ type: "startPlatform", platformType: "youtube" }, ack);
+    expect(svc.startPlatform).toHaveBeenCalledWith("youtube");
+    expect(ack).toHaveBeenCalledWith({ success: true });
+  });
+
+  it("startPlatform without platformType returns error", async () => {
+    const svc = makeMockPlatformService();
+    const mod = new StreamingPlatformModule(svc, makeMockRelayService());
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let handler: any;
+    socketOnMock.mockImplementation((_: string, fn: unknown) => {
+      handler = fn;
+    });
+    mod.registerSocket({ socket: socketMock, jwtPayload: fakeUser } as AuthenticatedSocket);
+
+    const ack = vi.fn();
+    await handler({ type: "startPlatform" }, ack);
+    expect(ack).toHaveBeenCalledWith({ success: false, error: "platformType required" });
+  });
+
+  it("stopAll command calls platformService.stopAll", async () => {
+    const svc = makeMockPlatformService();
+    const mod = new StreamingPlatformModule(svc, makeMockRelayService());
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let handler: any;
+    socketOnMock.mockImplementation((_: string, fn: unknown) => {
+      handler = fn;
+    });
+    mod.registerSocket({ socket: socketMock, jwtPayload: fakeUser } as AuthenticatedSocket);
+
+    const ack = vi.fn();
+    await handler({ type: "stopAll" }, ack);
+    expect(svc.stopAll).toHaveBeenCalled();
+    expect(ack).toHaveBeenCalledWith({ success: true });
+  });
+
   it("stopPlatform command calls platformService.stopPlatform", async () => {
     const svc = makeMockPlatformService();
     const mod = new StreamingPlatformModule(svc, makeMockRelayService());
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let handler: any;
-    socketOnMock.mockImplementation((_: string, fn: unknown) => { handler = fn; });
+    socketOnMock.mockImplementation((_: string, fn: unknown) => {
+      handler = fn;
+    });
     mod.registerSocket({ socket: socketMock, jwtPayload: fakeUser } as AuthenticatedSocket);
 
     const ack = vi.fn();
@@ -101,12 +147,44 @@ describe("registerSocket", () => {
     const mod = new StreamingPlatformModule(svc, makeMockRelayService());
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let handler: any;
-    socketOnMock.mockImplementation((_: string, fn: unknown) => { handler = fn; });
+    socketOnMock.mockImplementation((_: string, fn: unknown) => {
+      handler = fn;
+    });
     mod.registerSocket({ socket: socketMock, jwtPayload: fakeUser } as AuthenticatedSocket);
 
     const ack = vi.fn();
     await handler({ type: "startAll" }, ack);
     expect(ack).toHaveBeenCalledWith({ success: false, error: "busy" });
+  });
+
+  it("stopPlatform without platformType returns error", async () => {
+    const svc = makeMockPlatformService();
+    const mod = new StreamingPlatformModule(svc, makeMockRelayService());
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let handler: any;
+    socketOnMock.mockImplementation((_: string, fn: unknown) => {
+      handler = fn;
+    });
+    mod.registerSocket({ socket: socketMock, jwtPayload: fakeUser } as AuthenticatedSocket);
+
+    const ack = vi.fn();
+    await handler({ type: "stopPlatform" }, ack);
+    expect(ack).toHaveBeenCalledWith({ success: false, error: "platformType required" });
+  });
+
+  it("unknown command returns error", async () => {
+    const svc = makeMockPlatformService();
+    const mod = new StreamingPlatformModule(svc, makeMockRelayService());
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let handler: any;
+    socketOnMock.mockImplementation((_: string, fn: unknown) => {
+      handler = fn;
+    });
+    mod.registerSocket({ socket: socketMock, jwtPayload: fakeUser } as AuthenticatedSocket);
+
+    const ack = vi.fn();
+    await handler({ type: "invalidCommand" }, ack);
+    expect(ack).toHaveBeenCalledWith({ success: false, error: expect.stringContaining("Unknown command") });
   });
 });
 

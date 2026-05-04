@@ -1,6 +1,4 @@
 import type { Page } from "@playwright/test";
-import type { PlatformStatePayload, RelayStatePayload, PlatformReadinessPayload } from "../../fixtures/payloads/platform";
-import { platformStateIdle, relayStateDefault, platformReadinessDefault } from "../../fixtures/payloads/platform";
 
 export async function routePlatformHealthApi(page: Page): Promise<void> {
   await page.route("**/api/platforms/health", async (route) => {

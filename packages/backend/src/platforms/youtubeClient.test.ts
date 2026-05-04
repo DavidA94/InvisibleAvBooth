@@ -77,9 +77,7 @@ describe("YouTubeClient", () => {
       });
       expect(mockLiveBroadcastsInsert).toHaveBeenCalledOnce();
       expect(mockLiveStreamsInsert).toHaveBeenCalledOnce();
-      expect(mockLiveBroadcastsBind).toHaveBeenCalledWith(
-        expect.objectContaining({ id: "broadcast-123", streamId: "stream-456" }),
-      );
+      expect(mockLiveBroadcastsBind).toHaveBeenCalledWith(expect.objectContaining({ id: "broadcast-123", streamId: "stream-456" }));
     });
 
     it("passes privacy setting to broadcast insert", async () => {
@@ -124,9 +122,7 @@ describe("YouTubeClient", () => {
 
       await makeClient().endBroadcast("broadcast-123");
 
-      expect(mockLiveBroadcastsTransition).toHaveBeenCalledWith(
-        expect.objectContaining({ broadcastStatus: "complete", id: "broadcast-123" }),
-      );
+      expect(mockLiveBroadcastsTransition).toHaveBeenCalledWith(expect.objectContaining({ broadcastStatus: "complete", id: "broadcast-123" }));
     });
 
     it("treats 403 (already ended) as success", async () => {

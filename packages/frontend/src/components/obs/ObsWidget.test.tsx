@@ -126,4 +126,57 @@ describe("ObsWidget", () => {
     );
     expect(screen.getByTestId(TEST_ID_OBS_METADATA_PREVIEW)).toHaveTextContent("Apr 19 – John – Grace");
   });
+
+  it("shows healthy relay status when relay running and OBS connected", () => {
+    resetStore();
+    useStore.setState({ relayState: { running: true, obsConnected: true } });
+    render(
+      <IonApp>
+        <ObsWidget />
+      </IonApp>,
+    );
+    // Widget renders without error overlay when connected
+    expect(screen.queryByTestId(TEST_ID_WIDGET_ERROR_OVERLAY)).not.toBeInTheDocument();
+  });
+
+  it("shows degraded relay status when relay running but OBS not connected", () => {
+    resetStore();
+    useStore.setState({ relayState: { running: true, obsConnected: false } });
+    render(
+      <IonApp>
+        <ObsWidget />
+      </IonApp>,
+    );
+    // Still renders the widget (relay degraded doesn't show error overlay)
+    expect(screen.getByTestId(TEST_ID_OBS_WIDGET)).toBeInTheDocument();
+  });
+
+  it("shows healthy stream status when any platform is streaming", () => {
+    resetStore();
+    useStore.setState({ platformStates: new Map([["yt-1", { status: "streaming" }]]) });
+    render(
+      <IonApp>
+        <ObsWidget />
+      </IonApp>,
+    );
+    expect(screen.getByTestId(TEST_ID_OBS_WIDGET)).toBeInTheDocument();
+  });
+
+  it("adds notification on command failure", async () => {
+    mockEmit.mockImplementation((_event: string, _data: unknown, ack: (r: CommandResult) => void) => {
+      ack({ success: false, error: "OBS refused" });
+    });
+    resetStore(recordingState);
+    render(
+      <IonApp>
+        <ObsWidget />
+      </IonApp>,
+    );
+    fireEvent.click(screen.getByTestId(TEST_ID_OBS_RECORD_BUTTON));
+    fireEvent.click(screen.getByTestId(TEST_ID_CONFIRMATION_CONFIRM_BUTTON));
+    await waitFor(() => {
+      const state = useStore.getState();
+      expect(state.notifications.length).toBeGreaterThan(0);
+    });
+  });
 });

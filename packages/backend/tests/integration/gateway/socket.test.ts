@@ -6,8 +6,13 @@ import type { TestServer } from "../harness.js";
 import { eventBus } from "../../../src/eventBus/eventBus.js";
 import { BUS_OBS_ERROR } from "../../../src/eventBus/types.js";
 import {
-  CTS_OBS_COMMAND, CTS_OBS_RECONNECT, CTS_SESSION_MANIFEST_UPDATE, CTS_REQUEST_INITIAL_STATE,
-  STC_OBS_STATE, STC_OBS_ERROR, STC_SESSION_MANIFEST_UPDATED,
+  CTS_OBS_COMMAND,
+  CTS_OBS_RECONNECT,
+  CTS_SESSION_MANIFEST_UPDATE,
+  CTS_REQUEST_INITIAL_STATE,
+  STC_OBS_STATE,
+  STC_OBS_ERROR,
+  STC_SESSION_MANIFEST_UPDATED,
 } from "@invisible-av-booth/shared";
 
 let s: TestServer;
@@ -17,9 +22,11 @@ const clients: ClientSocket[] = [];
 beforeAll(async () => {
   s = await buildTestServer();
   // Connect OBS so commands work — inserts an OBS device row first
-  s.ctx.database.prepare(
-    "INSERT INTO device_connections (id, deviceType, label, host, port, encryptedPassword, metadata, features, enabled, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-  ).run("obs-1", "obs", "Main OBS", "localhost", 4455, null, "{}", "{}", 1, new Date().toISOString());
+  s.ctx.database
+    .prepare(
+      "INSERT INTO device_connections (id, deviceType, label, host, port, encryptedPassword, metadata, features, enabled, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    )
+    .run("obs-1", "obs", "Main OBS", "localhost", 4455, null, "{}", "{}", 1, new Date().toISOString());
   await s.ctx.obsService.connect();
 });
 afterAll(() => destroyServer(s));
@@ -27,9 +34,11 @@ afterAll(() => destroyServer(s));
 beforeEach(async () => {
   // Reset DB but re-insert OBS device so obsService stays connected
   resetServer(s);
-  s.ctx.database.prepare(
-    "INSERT INTO device_connections (id, deviceType, label, host, port, encryptedPassword, metadata, features, enabled, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-  ).run("obs-1", "obs", "Main OBS", "localhost", 4455, null, "{}", "{}", 1, new Date().toISOString());
+  s.ctx.database
+    .prepare(
+      "INSERT INTO device_connections (id, deviceType, label, host, port, encryptedPassword, metadata, features, enabled, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    )
+    .run("obs-1", "obs", "Main OBS", "localhost", 4455, null, "{}", "{}", 1, new Date().toISOString());
   token = "";
   const cookie = await loginAsAdmin(s.agent, s.ctx.authService);
   const match = cookie.match(/token=([^;]+)/);

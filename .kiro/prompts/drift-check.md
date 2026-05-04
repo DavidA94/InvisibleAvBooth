@@ -32,7 +32,7 @@ For EACH item from Step 1, read the actual code file and verify:
 1. **Does the file exist at the path the spec references?** If not, find the real path.
 2. **Does the interface/type match what the spec assumes?** Compare field names, types, optionality.
 3. **Does the function signature match?** Compare parameters, return types, export names.
-4. **Does the naming convention match?** Check prefixes (BUS_*, STC_*, CTS_*, URL_*), casing, file organization patterns.
+4. **Does the naming convention match?** Check prefixes (BUS*\*, STC*\_, CTS\_\_, URL\_\*), casing, file organization patterns.
 5. **Does the route pattern match?** Check whether routes use `/api/` prefix, whether admin routes are under `/api/admin/`, whether frontend routes are separate from backend routes.
 6. **Does the database schema match?** Check column names, types, constraints, table relationships.
 7. **Does the component structure match?** Check prop interfaces, component hierarchy, state management patterns.
@@ -71,48 +71,57 @@ For each finding, classify it:
 Use this as a systematic checklist. Do not skip items.
 
 ### Types & Interfaces
+
 - [ ] Every type the spec references — verify name, location, and shape against code
 - [ ] Every type the spec modifies — verify the current shape before describing the change
 - [ ] Every new type — verify it doesn't conflict with an existing type of the same name
 - [ ] Re-exports and aliases — verify the chain (shared → backend, shared → frontend)
 
 ### Functions & Methods
+
 - [ ] Every function the spec calls — verify it exists, verify the signature
 - [ ] Every function the spec renames — verify the old name, list all import sites
 - [ ] Every function the spec modifies — verify the current implementation matches what the spec assumes
 
 ### File Paths
+
 - [ ] Every file path referenced in the spec — verify it exists at that exact path
 - [ ] Directory structure assumptions — verify the spec's file organization matches the codebase
 
 ### Routes
+
 - [ ] Every REST endpoint — verify it uses the correct prefix (`/api/`, `/api/admin/`, `/api/auth/`)
 - [ ] Frontend routes vs backend routes — verify they're not confused (frontend routes are React Router paths, backend routes are Express paths)
 - [ ] URL constants — verify new routes have corresponding constants in the shared `urls.ts` file
 - [ ] Caddy/proxy configuration — verify new routes will be correctly routed
 
 ### Events
+
 - [ ] Socket.io event names — verify they follow the `CTS_*`/`STC_*` convention and are in the shared constants file
 - [ ] EventBus event names — verify they follow the `BUS_*` convention and are in the backend types file
 - [ ] Event payloads — verify the shape matches between emitter and subscriber
 - [ ] EventMap composition — verify new event slices are added to the root EventMap
 
 ### Database
+
 - [ ] New tables — verify they use `CREATE TABLE IF NOT EXISTS` and are added to `applySchema()`
 - [ ] Existing tables — verify column names and types match what the spec assumes
 - [ ] Bootstrap/seed data — verify it runs idempotently and doesn't conflict with existing seeds
 
 ### CSS & Theming
+
 - [ ] CSS class names — verify they follow the existing naming convention in `shared.css`
 - [ ] Design tokens — verify they reference existing CSS custom properties from `variables.css`
 - [ ] New classes — verify they don't conflict with existing class names
 
 ### Dependencies & Wiring
+
 - [ ] Service instantiation — verify the spec describes how new services are created and wired in `index.ts`
 - [ ] Constructor injection — verify dependency chains are explicit (not hidden singletons)
 - [ ] Module registration — verify new Socket modules are registered in the SocketGateway
 
 ### Conventions
+
 - [ ] `data-testid` values — verify they follow the existing constant pattern (if one exists)
 - [ ] Error types — verify they follow the existing `class XError extends Error` pattern
 - [ ] Result types — verify they use the existing `Result<T, E>` pattern
@@ -121,17 +130,22 @@ Use this as a systematic checklist. Do not skip items.
 ## OUTPUT FORMAT
 
 ### Auto-Fixed
+
 List each fix applied directly, with the file and what changed.
 
 ### Human-Required
+
 For each item needing human input:
+
 - **What the spec says**: [quote]
 - **What the code does**: [quote or description]
 - **Why they conflict**: [explanation]
 - **Options**: [A or B, with tradeoffs]
 
 ### Missing Patterns
+
 For each pattern the spec should follow:
+
 - **Pattern**: [description]
 - **Where it exists**: [file path]
 - **What the spec should add**: [specific addition]

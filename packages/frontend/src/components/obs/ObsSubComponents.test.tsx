@@ -6,7 +6,15 @@ import { ObsControls } from "./ObsControls";
 import { INITIAL_OBS_STATE } from "../../store/obsSlice";
 import { useStore } from "../../store";
 import type { ObsState } from "../../types";
-import { TEST_ID_EDIT_DETAILS_BUTTON, TEST_ID_MANAGE_STREAMS_BUTTON, TEST_ID_OBS_METADATA_PREVIEW, TEST_ID_OBS_RECORD_BUTTON, TEST_ID_RECORDING_INDICATOR, TEST_ID_STREAM_STATUS, TEST_ID_STREAM_TIMECODE } from "../../constants/testIds";
+import {
+  TEST_ID_EDIT_DETAILS_BUTTON,
+  TEST_ID_MANAGE_STREAMS_BUTTON,
+  TEST_ID_OBS_METADATA_PREVIEW,
+  TEST_ID_OBS_RECORD_BUTTON,
+  TEST_ID_RECORDING_INDICATOR,
+  TEST_ID_STREAM_STATUS,
+  TEST_ID_STREAM_TIMECODE,
+} from "../../constants/testIds";
 
 const mockEmit = vi.fn();
 vi.mock("../../providers/SocketProvider", () => ({

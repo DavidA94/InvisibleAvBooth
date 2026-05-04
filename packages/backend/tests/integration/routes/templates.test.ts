@@ -4,15 +4,29 @@ import type { TestServer } from "../harness.js";
 
 let s: TestServer;
 
-beforeAll(async () => { s = await buildTestServer(); });
+beforeAll(async () => {
+  s = await buildTestServer();
+});
 afterAll(() => destroyServer(s));
 beforeEach(() => resetServer(s));
 
 async function seedTemplates(cookie: string) {
-  await s.agent.post("/api/admin/templates").set("Cookie", cookie).send({ name: "Admin Title", category: "title", formatString: "{Date} - {Speaker} - {Title}", roleMinimum: "ADMIN" });
-  await s.agent.post("/api/admin/templates").set("Cookie", cookie).send({ name: "Power Title", category: "title", formatString: "{Date} - {Title}", roleMinimum: "AvPowerUser" });
-  await s.agent.post("/api/admin/templates").set("Cookie", cookie).send({ name: "Vol Title", category: "title", formatString: "{Date}", roleMinimum: "AvVolunteer" });
-  await s.agent.post("/api/admin/templates").set("Cookie", cookie).send({ name: "Vol Desc", category: "description", formatString: "{Speaker}", roleMinimum: "AvVolunteer" });
+  await s.agent
+    .post("/api/admin/templates")
+    .set("Cookie", cookie)
+    .send({ name: "Admin Title", category: "title", formatString: "{Date} - {Speaker} - {Title}", roleMinimum: "ADMIN" });
+  await s.agent
+    .post("/api/admin/templates")
+    .set("Cookie", cookie)
+    .send({ name: "Power Title", category: "title", formatString: "{Date} - {Title}", roleMinimum: "AvPowerUser" });
+  await s.agent
+    .post("/api/admin/templates")
+    .set("Cookie", cookie)
+    .send({ name: "Vol Title", category: "title", formatString: "{Date}", roleMinimum: "AvVolunteer" });
+  await s.agent
+    .post("/api/admin/templates")
+    .set("Cookie", cookie)
+    .send({ name: "Vol Desc", category: "description", formatString: "{Speaker}", roleMinimum: "AvVolunteer" });
 }
 
 describe("GET /api/templates (role filtering)", () => {

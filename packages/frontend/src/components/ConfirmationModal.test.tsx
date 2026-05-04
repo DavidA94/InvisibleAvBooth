@@ -1,7 +1,13 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { ConfirmationModal } from "./ConfirmationModal";
-import { TEST_ID_CONFIRMATION_BODY, TEST_ID_CONFIRMATION_CANCEL_BUTTON, TEST_ID_CONFIRMATION_CONFIRM_BUTTON, TEST_ID_MODAL_BODY, TEST_ID_MODAL_HEADER } from "../constants/testIds";
+import {
+  TEST_ID_CONFIRMATION_BODY,
+  TEST_ID_CONFIRMATION_CANCEL_BUTTON,
+  TEST_ID_CONFIRMATION_CONFIRM_BUTTON,
+  TEST_ID_MODAL_BODY,
+  TEST_ID_MODAL_HEADER,
+} from "../constants/testIds";
 
 const defaultProps = {
   isOpen: true,

@@ -4,12 +4,16 @@ import { AdminDeviceManagement } from "./AdminDeviceManagement";
 import { useStore } from "../store";
 import { INITIAL_OBS_STATE } from "../store/obsSlice";
 import {
-  TEST_ID_ADMIN_DEVICES_PAGE, TEST_ID_DEVICE_LIST, TEST_ID_DEVICE_LIST_ITEM,
-  TEST_ID_ADD_DEVICE_BUTTON, TEST_ID_ADD_DEVICE_TYPE_OPTION,
-  TEST_ID_DEVICE_DETAIL_EMPTY, TEST_ID_DEVICE_DETAIL_PANEL,
-  TEST_ID_DEVICE_FORM_LABEL, TEST_ID_DEVICE_FORM_HOST, TEST_ID_DEVICE_FORM_SAVE,
+  TEST_ID_DEVICE_LIST_ITEM,
+  TEST_ID_ADD_DEVICE_BUTTON,
+  TEST_ID_ADD_DEVICE_TYPE_OPTION,
+  TEST_ID_DEVICE_DETAIL_EMPTY,
+  TEST_ID_DEVICE_FORM_LABEL,
+  TEST_ID_DEVICE_FORM_HOST,
+  TEST_ID_DEVICE_FORM_SAVE,
   TEST_ID_DEVICE_LIST_DELETE_BUTTON,
-  TEST_ID_CONFIRMATION_CONFIRM_BUTTON, TEST_ID_CONFIRMATION_CANCEL_BUTTON,
+  TEST_ID_CONFIRMATION_CONFIRM_BUTTON,
+  TEST_ID_CONFIRMATION_CANCEL_BUTTON,
 } from "../constants/testIds";
 
 const mockFetch = vi.fn();
@@ -189,7 +193,13 @@ describe("AdminDeviceManagement", () => {
     fireEvent(screen.getByTestId(TEST_ID_DEVICE_FORM_HOST), new CustomEvent("ionInput", { detail: { value: "10.0.0.1" } }));
 
     mockFetch.mockResolvedValueOnce({ ok: true, json: async () => ({ id: "d3" }) });
-    mockFetch.mockResolvedValueOnce({ ok: true, json: async () => [...DEVICES, { id: "d3", deviceType: "obs", label: "New OBS", host: "10.0.0.1", port: 4455, metadata: {}, features: {}, enabled: true, createdAt: "2026-01-03" }] });
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => [
+        ...DEVICES,
+        { id: "d3", deviceType: "obs", label: "New OBS", host: "10.0.0.1", port: 4455, metadata: {}, features: {}, enabled: true, createdAt: "2026-01-03" },
+      ],
+    });
 
     await act(async () => {
       fireEvent.click(screen.getByTestId(TEST_ID_DEVICE_FORM_SAVE));

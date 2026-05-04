@@ -119,4 +119,75 @@ describe("Dashboard", () => {
     expect(screen.getByTestId(TEST_ID_DASHBOARD_GRID)).toBeInTheDocument();
     vi.useRealTimers();
   });
+
+  it("redirects on 404 response", async () => {
+    mockFetch.mockResolvedValueOnce({ ok: false, status: 404 });
+    renderPage();
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith("/dashboards", { replace: true });
+    });
+  });
+
+  it("redirects on 403 response", async () => {
+    mockFetch.mockResolvedValueOnce({ ok: false, status: 403 });
+    renderPage();
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith("/dashboards", { replace: true });
+    });
+  });
+
+  it("filters cells by user role", async () => {
+    useStore.setState({ user: { id: "u1", username: "vol", role: "AvVolunteer" } });
+    const manifest: GridManifest = {
+      version: 1,
+      cells: [
+        { widgetId: "obs", title: "OBS", col: 0, row: 0, colSpan: 3, rowSpan: 2, roleMinimum: "AvVolunteer" },
+        { widgetId: "admin-only", title: "Admin", col: 3, row: 0, colSpan: 3, rowSpan: 2, roleMinimum: "ADMIN" },
+      ],
+    };
+    mockFetch.mockResolvedValueOnce({ ok: true, json: async () => manifest });
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByTestId(TEST_ID_DASHBOARD_GRID)).toBeInTheDocument();
+    });
+    expect(screen.getByTestId("widget-obs")).toBeInTheDocument();
+    expect(screen.queryByText("Admin")).not.toBeInTheDocument();
+  });
+
+  it("uses default manifest when version is not 1", async () => {
+    mockFetch.mockResolvedValueOnce({ ok: true, json: async () => ({ version: 99, cells: [] }) });
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByTestId(TEST_ID_DASHBOARD_GRID)).toBeInTheDocument();
+    });
+  });
+
+  it("uses default manifest on fetch failure with no cache", async () => {
+    mockFetch.mockRejectedValueOnce(new Error("network"));
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByTestId(TEST_ID_DASHBOARD_GRID)).toBeInTheDocument();
+    });
+  });
+
+  it("uses default manifest on 500 response with no cache", async () => {
+    mockFetch.mockResolvedValueOnce({ ok: false, status: 500 });
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByTestId(TEST_ID_DASHBOARD_GRID)).toBeInTheDocument();
+    });
+  });
+
+  it("renders non-obs widget as placeholder", async () => {
+    const manifest: GridManifest = {
+      version: 1,
+      cells: [{ widgetId: "audio", title: "Audio", col: 0, row: 0, colSpan: 3, rowSpan: 2, roleMinimum: "AvVolunteer" }],
+    };
+    mockFetch.mockResolvedValueOnce({ ok: true, json: async () => manifest });
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByTestId("widget-audio")).toBeInTheDocument();
+    });
+    expect(screen.getByText("Audio")).toBeInTheDocument();
+  });
 });

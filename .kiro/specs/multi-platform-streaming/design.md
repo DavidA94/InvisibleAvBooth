@@ -106,15 +106,15 @@ graph TD
 
 ### New Communication Boundaries
 
-| Boundary | Protocol | Notes |
-|---|---|---|
-| Backend → YouTube/Facebook APIs | HTTPS (REST) | OAuth 2.0 bearer tokens |
-| OBS → Relay | RTMP | `rtmp://localhost:{RELAY_PORT}/live/stream` |
-| Relay → Platform ingest | RTMP via FFmpeg | `-c copy`, no re-encoding |
-| Frontend ↔ Backend (platform state) | Socket.io | New `stc:platform:state` and `cts:platform:command` events |
-| Frontend → Backend (templates) | REST | `GET/POST/PUT/DELETE /api/admin/templates` |
-| Frontend → Backend (platform config) | REST | `/api/admin/platforms/*` |
-| Frontend → Backend (OAuth callbacks) | REST | `GET /api/auth/callback/{youtube,facebook}` |
+| Boundary                             | Protocol        | Notes                                                      |
+| ------------------------------------ | --------------- | ---------------------------------------------------------- |
+| Backend → YouTube/Facebook APIs      | HTTPS (REST)    | OAuth 2.0 bearer tokens                                    |
+| OBS → Relay                          | RTMP            | `rtmp://localhost:{RELAY_PORT}/live/stream`                |
+| Relay → Platform ingest              | RTMP via FFmpeg | `-c copy`, no re-encoding                                  |
+| Frontend ↔ Backend (platform state)  | Socket.io       | New `stc:platform:state` and `cts:platform:command` events |
+| Frontend → Backend (templates)       | REST            | `GET/POST/PUT/DELETE /api/admin/templates`                 |
+| Frontend → Backend (platform config) | REST            | `/api/admin/platforms/*`                                   |
+| Frontend → Backend (OAuth callbacks) | REST            | `GET /api/auth/callback/{youtube,facebook}`                |
 
 ### Key Architectural Decisions
 
@@ -138,13 +138,13 @@ Manages the `node-media-server` lifecycle and all FFmpeg forwarder processes. Th
 
 ```typescript
 interface RelayService {
-  start(): Promise<void>;                                    // Start node-media-server on RELAY_PORT
-  stop(): Promise<void>;                                     // Stop relay and all forwarders
-  getRelayState(): RelayState;                               // Current relay health
-  isObsConnected(): boolean;                                 // Whether OBS is publishing to the relay
+  start(): Promise<void>; // Start node-media-server on RELAY_PORT
+  stop(): Promise<void>; // Stop relay and all forwarders
+  getRelayState(): RelayState; // Current relay health
+  isObsConnected(): boolean; // Whether OBS is publishing to the relay
   startForwarder(platformId: string, rtmpUrl: string): void; // Spawn FFmpeg for one platform
-  stopForwarder(platformId: string): void;                   // Kill FFmpeg for one platform
-  stopAllForwarders(): void;                                 // Kill all FFmpeg processes
+  stopForwarder(platformId: string): void; // Kill FFmpeg for one platform
+  stopAllForwarders(): void; // Kill all FFmpeg processes
   // Emits bus:relay:state:changed on EventBus when relay or OBS connection state changes
   // Emits bus:forwarder:exited on EventBus when an FFmpeg process exits unexpectedly
 }
@@ -193,9 +193,9 @@ interface PlatformConfig {
   platformType: "youtube" | "facebook";
   label: string;
   enabled: boolean;
-  accessToken: string;            // decrypted by DAO
-  refreshToken: string;           // decrypted by DAO
-  tokenExpiresAt: string | null;  // ISO 8601 or null (Facebook tokens don't expire)
+  accessToken: string; // decrypted by DAO
+  refreshToken: string; // decrypted by DAO
+  tokenExpiresAt: string | null; // ISO 8601 or null (Facebook tokens don't expire)
   platformMetadata: YouTubeMetadata | FacebookMetadata; // decoded from JSON by DAO
   createdAt: string;
 }
@@ -225,7 +225,7 @@ Manages platform configurations, OAuth token lifecycle, broadcast CRUD, health p
 interface StreamingPlatformService {
   // Platform configuration
   getEnabledPlatforms(): PlatformConfig[];
-  getPlatformHealth(): PlatformHealthSummary[];  // Token validity + page access for each platform
+  getPlatformHealth(): PlatformHealthSummary[]; // Token validity + page access for each platform
 
   // Broadcast lifecycle — reads manifest from SessionManifestService internally
   startAll(): Promise<void>;
@@ -278,18 +278,18 @@ interface StreamingPlatformService {
 
 **State transitions**:
 
-| From | To | Trigger |
-|---|---|---|
-| Idle | Starting | User taps Start / Start All |
-| Starting | Streaming | Broadcast created + FFmpeg spawned + OBS streaming + platform confirms live |
-| Starting | Error | Timeout (30s) or API failure |
-| Streaming | Stopping | User taps Stop / Stop All |
-| Streaming | No Source | OBS disconnects from relay (publisher disconnect event) |
-| Stopping | Idle | FFmpeg killed + broadcast ended via API, or 30-second stop timeout (Req 7.4) |
-| No Source | Recovering | OBS reconnects to relay (publisher connect event) |
-| Recovering | Streaming | Platform API confirms broadcast still active |
-| Recovering | Error | Platform API reports broadcast ended |
-| Error | Starting | User taps Start (best-effort end old broadcast first) |
+| From       | To         | Trigger                                                                      |
+| ---------- | ---------- | ---------------------------------------------------------------------------- |
+| Idle       | Starting   | User taps Start / Start All                                                  |
+| Starting   | Streaming  | Broadcast created + FFmpeg spawned + OBS streaming + platform confirms live  |
+| Starting   | Error      | Timeout (30s) or API failure                                                 |
+| Streaming  | Stopping   | User taps Stop / Stop All                                                    |
+| Streaming  | No Source  | OBS disconnects from relay (publisher disconnect event)                      |
+| Stopping   | Idle       | FFmpeg killed + broadcast ended via API, or 30-second stop timeout (Req 7.4) |
+| No Source  | Recovering | OBS reconnects to relay (publisher connect event)                            |
+| Recovering | Streaming  | Platform API confirms broadcast still active                                 |
+| Recovering | Error      | Platform API reports broadcast ended                                         |
+| Error      | Starting   | User taps Start (best-effort end old broadcast first)                        |
 
 **Parallel start orchestration (Req 6.4)**: `startAll()` executes the per-platform sequence in parallel via `Promise.allSettled()`. Step (c) — ensuring OBS is streaming to the relay — is a shared prerequisite protected by a mutex. All parallel platform sequences await this mutex before proceeding to step (d).
 
@@ -500,11 +500,7 @@ private computeManifestReady(titleTemplate: MetadataTemplateRow | null, descript
 
 ```typescript
 // packages/shared/src/interpolation.ts
-export function interpolateTemplate(
-  manifest: SessionManifestFields,
-  template: string,
-  verseTextResolver?: (ref: ScriptureReference) => string,
-): string;
+export function interpolateTemplate(manifest: SessionManifestFields, template: string, verseTextResolver?: (ref: ScriptureReference) => string): string;
 ```
 
 The backend passes a resolver that queries the KJV table. The frontend passes no resolver — `{verseText}` tokens in the frontend preview are replaced with the formatted scripture reference followed by `(full text included on stream)` (e.g., `John 3:16 (full text included on stream)`), since the frontend does not have access to the KJV database. The full verse text is only visible in the backend-computed `interpolatedDescription` that is broadcast to clients.
@@ -723,7 +719,7 @@ interface SessionManifestEventMap {
     manifest: SessionManifest;
     interpolatedStreamTitle: string;
     interpolatedDescription: string; // new — empty string when "None" template selected
-    manifestReady: boolean;          // new — true when templates selected and all required fields populated
+    manifestReady: boolean; // new — true when templates selected and all required fields populated
   };
 }
 ```
@@ -844,21 +840,21 @@ Mounted at `/api/admin/templates`. Requires ADMIN role.
 
 **URL constants**: Following the existing pattern in `packages/shared/src/constants/urls.ts`, add constants for all new routes: `URL_ADMIN_TEMPLATES`, `URL_ADMIN_TEMPLATE_BY_ID`, `URL_ADMIN_TEMPLATES_VALIDATE`, `URL_TEMPLATES` (volunteer read), `URL_ADMIN_PLATFORMS`, `URL_ADMIN_PLATFORM_BY_TYPE`, `URL_PLATFORMS_HEALTH`, `URL_AUTH_CALLBACK_YOUTUBE`, `URL_AUTH_CALLBACK_FACEBOOK`.
 
-| Method | Path | Description |
-|---|---|---|
-| `GET` | `/api/admin/templates` | List all templates (unfiltered, for admin management page) |
-| `POST` | `/api/admin/templates` | Create template (runs validation) |
-| `PUT` | `/api/admin/templates/:id` | Update template (runs validation) |
-| `DELETE` | `/api/admin/templates/:id` | Delete template (guards last title template) |
-| `POST` | `/api/admin/templates/validate` | Validate without saving — returns blockers and warnings |
+| Method   | Path                            | Description                                                |
+| -------- | ------------------------------- | ---------------------------------------------------------- |
+| `GET`    | `/api/admin/templates`          | List all templates (unfiltered, for admin management page) |
+| `POST`   | `/api/admin/templates`          | Create template (runs validation)                          |
+| `PUT`    | `/api/admin/templates/:id`      | Update template (runs validation)                          |
+| `DELETE` | `/api/admin/templates/:id`      | Delete template (guards last title template)               |
+| `POST`   | `/api/admin/templates/validate` | Validate without saving — returns blockers and warnings    |
 
 **Volunteer read** — `createTemplateRouter(database: Database, authService: AuthService): Router`
 
 Mounted at `/api/templates`. Requires authentication (any role). Used by `SessionManifestModal` to populate template dropdowns.
 
-| Method | Path | Description |
-|---|---|---|
-| `GET` | `/api/templates?category={title\|description}` | List templates filtered by the authenticated user's role (derived from JWT, not a query param) |
+| Method | Path                                           | Description                                                                                    |
+| ------ | ---------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `GET`  | `/api/templates?category={title\|description}` | List templates filtered by the authenticated user's role (derived from JWT, not a query param) |
 
 The backend reads the user's role from the JWT payload and filters templates where `roleMinimum` is at or below that role in the hierarchy. The `category` query parameter is optional — if omitted, both categories are returned.
 
@@ -867,8 +863,8 @@ The backend reads the user's role from the JWT payload and filters templates whe
 ```typescript
 interface ValidationResult {
   valid: boolean;
-  blockers: ValidationIssue[];  // Red errors — must be fixed
-  warnings: ValidationIssue[];  // Amber warnings — can be acknowledged
+  blockers: ValidationIssue[]; // Red errors — must be fixed
+  warnings: ValidationIssue[]; // Amber warnings — can be acknowledged
 }
 
 interface ValidationIssue {
@@ -882,15 +878,15 @@ interface ValidationIssue {
 
 `createPlatformRouter(database: Database, authService: AuthService): Router`
 
-| Method | Path | Auth | Description |
-|---|---|---|---|
-| `GET` | `/api/admin/platforms` | ADMIN | List all platform configs (tokens excluded) |
-| `GET` | `/api/admin/platforms/:platformType` | ADMIN | Get single platform config |
-| `PUT` | `/api/admin/platforms/:platformType` | ADMIN | Update platform config (enable/disable, privacy, etc.) |
-| `DELETE` | `/api/admin/platforms/:platformType` | ADMIN | Disconnect platform (revoke + delete tokens) |
-| `GET` | `/api/auth/callback/youtube` | Unauthenticated | OAuth callback — exchanges code for tokens |
-| `GET` | `/api/auth/callback/facebook` | Unauthenticated | OAuth callback — exchanges code for tokens |
-| `GET` | `/api/platforms/health` | Authenticated | Platform readiness (token validity, page access) for widget icons |
+| Method   | Path                                 | Auth            | Description                                                       |
+| -------- | ------------------------------------ | --------------- | ----------------------------------------------------------------- |
+| `GET`    | `/api/admin/platforms`               | ADMIN           | List all platform configs (tokens excluded)                       |
+| `GET`    | `/api/admin/platforms/:platformType` | ADMIN           | Get single platform config                                        |
+| `PUT`    | `/api/admin/platforms/:platformType` | ADMIN           | Update platform config (enable/disable, privacy, etc.)            |
+| `DELETE` | `/api/admin/platforms/:platformType` | ADMIN           | Disconnect platform (revoke + delete tokens)                      |
+| `GET`    | `/api/auth/callback/youtube`         | Unauthenticated | OAuth callback — exchanges code for tokens                        |
+| `GET`    | `/api/auth/callback/facebook`        | Unauthenticated | OAuth callback — exchanges code for tokens                        |
+| `GET`    | `/api/platforms/health`              | Authenticated   | Platform readiness (token validity, page access) for widget icons |
 
 The OAuth callback endpoints are unauthenticated because the browser redirects from the platform's consent screen — the JWT cookie is present but the redirect is a GET, not an API call. The callback validates the `state` parameter (CSRF protection) before processing.
 
@@ -928,8 +924,8 @@ export interface SessionManifest {
   speaker?: string;
   title?: string;
   scripture?: ScriptureReference;
-  titleTemplateId?: string;       // new
-  descriptionTemplateId?: string;  // new
+  titleTemplateId?: string; // new
+  descriptionTemplateId?: string; // new
 }
 
 // New — platform stream state for ManageStreamsModal
@@ -941,7 +937,7 @@ export interface PlatformStreamState {
   label: string;
   status: PlatformStatus;
   health?: PlatformHealth;
-  statusMessage?: string;       // Step-level progress or error message
+  statusMessage?: string; // Step-level progress or error message
   privacy?: "public" | "unlisted" | "private"; // YouTube only, display in modal
 }
 
@@ -1029,7 +1025,7 @@ export interface SessionManifestSlice {
   manifest: SessionManifest;
   interpolatedStreamTitle: string;
   interpolatedDescription: string; // new
-  manifestReady: boolean;          // new — backend-computed, true when templates selected + required fields populated
+  manifestReady: boolean; // new — backend-computed, true when templates selected + required fields populated
   setManifest: (manifest: SessionManifest, interpolatedStreamTitle: string, interpolatedDescription: string, manifestReady: boolean) => void;
 }
 ```
@@ -1089,14 +1085,12 @@ newSocket.on(STC_PLATFORM_READINESS, (payload: { platforms: PlatformHealthSummar
 });
 
 // Modified manifest handler — now includes interpolatedDescription and manifestReady
-newSocket.on(STC_SESSION_MANIFEST_UPDATED, (payload: {
-  manifest: SessionManifest;
-  interpolatedStreamTitle: string;
-  interpolatedDescription: string;
-  manifestReady: boolean;
-}) => {
-  useStore.getState().setManifest(payload.manifest, payload.interpolatedStreamTitle, payload.interpolatedDescription, payload.manifestReady);
-});
+newSocket.on(
+  STC_SESSION_MANIFEST_UPDATED,
+  (payload: { manifest: SessionManifest; interpolatedStreamTitle: string; interpolatedDescription: string; manifestReady: boolean }) => {
+    useStore.getState().setManifest(payload.manifest, payload.interpolatedStreamTitle, payload.interpolatedDescription, payload.manifestReady);
+  },
+);
 ```
 
 ---
@@ -1256,18 +1250,19 @@ function deriveStreamStatus(platforms: Map<string, PlatformStreamState>): Connec
 
 **Relay popover text** uses a custom `popoverText` field on the connection object (or derived inline):
 
-| Relay State | Popover Text |
-|---|---|
-| `healthy` | "Relay: Healthy" |
-| `inactive` (OBS not connected) | "Relay: Waiting for OBS" |
+| Relay State                          | Popover Text                     |
+| ------------------------------------ | -------------------------------- |
+| `healthy`                            | "Relay: Healthy"                 |
+| `inactive` (OBS not connected)       | "Relay: Waiting for OBS"         |
 | `inactive` (no platforms configured) | "Relay: No platforms configured" |
-| `unhealthy` | "Relay: Failed" |
+| `unhealthy`                          | "Relay: Failed"                  |
 
 The distinction between the two `inactive` cases requires checking whether any platforms are configured. This is derived from the platform store.
 
 **"Manage Streams" button replaces "Start Stream"**: The stream button in `ObsControls` is replaced by a "Manage Streams" button. Recording controls remain unchanged.
 
 **`ObsStatusBar` content during multi-platform streaming**: The status bar adapts to the current streaming state. It reads platform state from the Zustand `platformSlice` (via `usePlatformState()`) in addition to its existing `obsState` props — this is the only new store dependency added to the status bar:
+
 - **Idle** (no platforms streaming): Normal idle state — no stream dot, no timecode
 - **Starting** (start sequence in progress): "Going Live…" replaces the normal stream status (Req 6.11)
 - **Streaming** (at least one platform live): Green stream dot + OBS timecode. The timecode reflects the duration since OBS started streaming to the relay, not the platform broadcast duration. This is documented here because the relay stream may start a few seconds before the platform broadcasts go live.
@@ -1291,12 +1286,7 @@ ObsWidget (3×2)
 **ManageStreamsButton sub-label priority** (Req 12.4):
 
 ```typescript
-function getManageStreamsSubLabel(
-  relayState: RelayState,
-  obsConnected: boolean,
-  manifest: SessionManifest,
-  manifestReady: boolean,
-): string | undefined {
+function getManageStreamsSubLabel(relayState: RelayState, obsConnected: boolean, manifest: SessionManifest, manifestReady: boolean): string | undefined {
   if (relayState === "unhealthy") return "Streaming unavailable";
   if (!obsConnected) return "OBS not connected";
   if (!manifest.titleTemplateId) return "Select templates";
@@ -1367,15 +1357,15 @@ Each platform row uses the `platform-row` class and meets WCAG 2.5.5 touch targe
 
 **Status display per platform state**:
 
-| Status | Dot | Label | Action Button |
-|---|---|---|---|
-| Idle | Grey (`widget-dot-inactive`) | "Idle" | "Start Stream" |
-| Starting | Amber spinner | "Creating broadcast…" / "Connecting…" | Disabled |
-| Streaming | Green (`widget-dot-healthy`) | "Streaming (Good)" | "Stop Stream" |
-| Stopping | Grey spinner | "Stopping…" | Disabled |
-| No Source | Red (`widget-dot-unhealthy`) | "No Source — waiting for OBS…" | None |
-| Recovering | Amber spinner | "Verifying stream…" | Disabled |
-| Error | Red (`widget-dot-unhealthy`) | Error message | "Start Stream" |
+| Status     | Dot                          | Label                                 | Action Button  |
+| ---------- | ---------------------------- | ------------------------------------- | -------------- |
+| Idle       | Grey (`widget-dot-inactive`) | "Idle"                                | "Start Stream" |
+| Starting   | Amber spinner                | "Creating broadcast…" / "Connecting…" | Disabled       |
+| Streaming  | Green (`widget-dot-healthy`) | "Streaming (Good)"                    | "Stop Stream"  |
+| Stopping   | Grey spinner                 | "Stopping…"                           | Disabled       |
+| No Source  | Red (`widget-dot-unhealthy`) | "No Source — waiting for OBS…"        | None           |
+| Recovering | Amber spinner                | "Verifying stream…"                   | Disabled       |
+| Error      | Red (`widget-dot-unhealthy`) | Error message                         | "Start Stream" |
 
 **"Start All" / "Stop All" buttons**: Positioned at the bottom of the modal. "Start All" is disabled (greyed out) when all platforms are streaming or when a start sequence is in progress. "Stop All" is disabled when no platforms are streaming or when a stop sequence is in progress.
 
@@ -1427,6 +1417,7 @@ Adds template selection dropdowns above the existing metadata fields.
 **Template fetching**: Templates are fetched via `GET /api/templates` when the modal opens. The backend filters by the authenticated user's role (derived from the JWT, not a query parameter). Not pushed via Socket.io — the list is stable for the modal's lifetime.
 
 **Auto-select logic** (Req 4.1): After fetching, the frontend applies auto-selection:
+
 - Title: if exactly one non-"None" template visible → auto-select it
 - Description: if exactly one non-"None" template visible → auto-select it; if zero non-"None" → auto-select "None"
 - Two or more non-"None" in either category → leave unselected
@@ -1509,30 +1500,30 @@ For description templates, the Template field is a multi-line `<textarea>` inste
 
 ### New Routes
 
-| Route | Accessible to | Description |
-|---|---|---|
-| `/admin` | ADMIN only | Admin Index Page — links to all admin sections |
-| `/admin/templates` | ADMIN only | Metadata template management |
-| `/admin/platforms/youtube` | ADMIN only | YouTube platform configuration + OAuth |
-| `/admin/platforms/facebook` | ADMIN only | Facebook platform configuration + OAuth |
+| Route                       | Accessible to | Description                                    |
+| --------------------------- | ------------- | ---------------------------------------------- |
+| `/admin`                    | ADMIN only    | Admin Index Page — links to all admin sections |
+| `/admin/templates`          | ADMIN only    | Metadata template management                   |
+| `/admin/platforms/youtube`  | ADMIN only    | YouTube platform configuration + OAuth         |
+| `/admin/platforms/facebook` | ADMIN only    | Facebook platform configuration + OAuth        |
 
 ### New REST Endpoints
 
-| Endpoint | Role | Description |
-|---|---|---|
-| `GET /api/admin/templates` | ADMIN | List all templates (unfiltered) |
-| `POST /api/admin/templates` | ADMIN | Create template |
-| `PUT /api/admin/templates/:id` | ADMIN | Update template |
-| `DELETE /api/admin/templates/:id` | ADMIN | Delete template |
-| `POST /api/admin/templates/validate` | ADMIN | Validate template without saving |
-| `GET /api/templates?category=` | Authenticated | List templates filtered by user's role (from JWT) |
-| `GET /api/admin/platforms` | ADMIN | List platform configs |
-| `GET /api/admin/platforms/:platformType` | ADMIN | Get single platform config |
-| `PUT /api/admin/platforms/:platformType` | ADMIN | Update platform config |
-| `DELETE /api/admin/platforms/:platformType` | ADMIN | Disconnect platform |
-| `GET /api/auth/callback/youtube` | Unauthenticated | YouTube OAuth callback |
-| `GET /api/auth/callback/facebook` | Unauthenticated | Facebook OAuth callback |
-| `GET /api/platforms/health` | Authenticated | Platform readiness for widget icons |
+| Endpoint                                    | Role            | Description                                       |
+| ------------------------------------------- | --------------- | ------------------------------------------------- |
+| `GET /api/admin/templates`                  | ADMIN           | List all templates (unfiltered)                   |
+| `POST /api/admin/templates`                 | ADMIN           | Create template                                   |
+| `PUT /api/admin/templates/:id`              | ADMIN           | Update template                                   |
+| `DELETE /api/admin/templates/:id`           | ADMIN           | Delete template                                   |
+| `POST /api/admin/templates/validate`        | ADMIN           | Validate template without saving                  |
+| `GET /api/templates?category=`              | Authenticated   | List templates filtered by user's role (from JWT) |
+| `GET /api/admin/platforms`                  | ADMIN           | List platform configs                             |
+| `GET /api/admin/platforms/:platformType`    | ADMIN           | Get single platform config                        |
+| `PUT /api/admin/platforms/:platformType`    | ADMIN           | Update platform config                            |
+| `DELETE /api/admin/platforms/:platformType` | ADMIN           | Disconnect platform                               |
+| `GET /api/auth/callback/youtube`            | Unauthenticated | YouTube OAuth callback                            |
+| `GET /api/auth/callback/facebook`           | Unauthenticated | Facebook OAuth callback                           |
+| `GET /api/platforms/health`                 | Authenticated   | Platform readiness for widget icons               |
 
 ### Modified ADMIN Post-Login Flow
 
@@ -1547,16 +1538,19 @@ Non-ADMIN users are unaffected — they continue to navigate to the Dashboard Se
 The `GlobalTitleBar` dashboard navigation label always links to the Dashboard Selection Screen (not `/admin`). For ADMIN users, an additional "Admin Pages" link is added after the dashboard label, linking to `/admin`. The dashboard label always uses the word "CHANGE" — defined as a constant to prevent drift.
 
 **GlobalTitleBar layout — ADMIN user with dashboard loaded:**
+
 ```
 Main Dashboard (CHANGE) | Admin Pages          John Smith (ADMIN) | LOGOUT
 ```
 
 **GlobalTitleBar layout — ADMIN user, no dashboard loaded (on admin pages or selection screen):**
+
 ```
 No Dashboard Selected (CHANGE) | Admin Pages   John Smith (ADMIN) | LOGOUT
 ```
 
 **GlobalTitleBar layout — non-ADMIN user (unchanged from original spec):**
+
 ```
 Main Dashboard (CHANGE)                        John Smith (AvVolunteer) | LOGOUT
 ```
@@ -1572,11 +1566,7 @@ Main Dashboard (CHANGE)                        John Smith (AvVolunteer) | LOGOUT
 The `interpolateTemplate` function in `packages/shared/src/interpolation.ts` is extended to support `{verseText}`. Since verse text requires a KJV database query, the function accepts an optional resolver:
 
 ```typescript
-export function interpolateTemplate(
-  manifest: SessionManifestFields,
-  template: string,
-  verseTextResolver?: (ref: ScriptureReference) => string,
-): string {
+export function interpolateTemplate(manifest: SessionManifestFields, template: string, verseTextResolver?: (ref: ScriptureReference) => string): string {
   // ... existing token replacements for {Date}, {Speaker}, {Title}, {Scripture}
   // Note: formatScripture() must be updated to handle verse 0 per Req 3.3:
   // - verse 0 with no verseEnd → chapter only (e.g., "Psalm 23")
@@ -1603,9 +1593,9 @@ export function interpolateTemplate(
 ```typescript
 function createVerseTextResolver(database: Database): (ref: ScriptureReference) => string {
   return (ref: ScriptureReference): string => {
-    const rows = database.prepare(
-      "SELECT VERSENO, VERSETEXT FROM kjv WHERE BOOKID = ? AND CHAPTERNO = ? AND VERSENO BETWEEN ? AND ? ORDER BY VERSENO",
-    ).all(ref.bookId, ref.chapter, ref.verse, ref.verseEnd ?? ref.verse) as Array<{ VERSENO: number; VERSETEXT: string }>;
+    const rows = database
+      .prepare("SELECT VERSENO, VERSETEXT FROM kjv WHERE BOOKID = ? AND CHAPTERNO = ? AND VERSENO BETWEEN ? AND ? ORDER BY VERSENO")
+      .all(ref.bookId, ref.chapter, ref.verse, ref.verseEnd ?? ref.verse) as Array<{ VERSENO: number; VERSETEXT: string }>;
 
     if (rows.length === 0) return "[No Verse Text]";
 
@@ -1648,23 +1638,23 @@ function createVerseTextResolver(database: Database): (ref: ScriptureReference) 
 
 ## Error Notification Mapping (Additions)
 
-| Condition | Level | Severity | Auto-resolves? |
-|---|---|---|---|
-| Platform broadcast creation failed | Banner | error | No — volunteer retries from ManageStreamsModal |
-| Platform broadcast creation timed out (30s) | Banner | error | No |
-| FFmpeg forwarder crashed (auto-recovering) | Banner | warning | Yes — on successful recovery |
-| FFmpeg recovery failed / broadcast ended | Banner | error | No — volunteer restarts from ManageStreamsModal |
-| Platform stream quality poor | Banner | warning | Yes — auto-clears when health returns to good or ok |
-| Platform token expired / revoked | Banner | error | No — admin must reconnect |
-| Facebook Page inaccessible | Banner | error | No — admin must reconnect |
-| Relay failed to start | Banner | error | No — requires server restart |
-| Relay crashed and recovered | Banner | info | Yes — auto-clears |
-| Relay crashed and recovery failed | Banner | error | No — requires server restart |
-| OBS disconnect during multi-platform stream | Modal | error | Yes — when OBS reconnects (existing behavior) |
-| Platform broadcast ended during OBS disconnect | Banner | error | No — volunteer creates new broadcast |
-| Stop broadcast API failed after 3 retries | Banner | warning | No — "Check {platform} manually" |
-| YouTube daily quota exhausted | Banner | error | No — "YouTube daily limit reached — streaming to YouTube is unavailable until tomorrow. Facebook is unaffected." |
-| FFmpeg not installed | Banner | error | No — "FFmpeg is not installed — streaming is unavailable. Contact an administrator." |
+| Condition                                      | Level  | Severity | Auto-resolves?                                                                                                   |
+| ---------------------------------------------- | ------ | -------- | ---------------------------------------------------------------------------------------------------------------- |
+| Platform broadcast creation failed             | Banner | error    | No — volunteer retries from ManageStreamsModal                                                                   |
+| Platform broadcast creation timed out (30s)    | Banner | error    | No                                                                                                               |
+| FFmpeg forwarder crashed (auto-recovering)     | Banner | warning  | Yes — on successful recovery                                                                                     |
+| FFmpeg recovery failed / broadcast ended       | Banner | error    | No — volunteer restarts from ManageStreamsModal                                                                  |
+| Platform stream quality poor                   | Banner | warning  | Yes — auto-clears when health returns to good or ok                                                              |
+| Platform token expired / revoked               | Banner | error    | No — admin must reconnect                                                                                        |
+| Facebook Page inaccessible                     | Banner | error    | No — admin must reconnect                                                                                        |
+| Relay failed to start                          | Banner | error    | No — requires server restart                                                                                     |
+| Relay crashed and recovered                    | Banner | info     | Yes — auto-clears                                                                                                |
+| Relay crashed and recovery failed              | Banner | error    | No — requires server restart                                                                                     |
+| OBS disconnect during multi-platform stream    | Modal  | error    | Yes — when OBS reconnects (existing behavior)                                                                    |
+| Platform broadcast ended during OBS disconnect | Banner | error    | No — volunteer creates new broadcast                                                                             |
+| Stop broadcast API failed after 3 retries      | Banner | warning  | No — "Check {platform} manually"                                                                                 |
+| YouTube daily quota exhausted                  | Banner | error    | No — "YouTube daily limit reached — streaming to YouTube is unavailable until tomorrow. Facebook is unaffected." |
+| FFmpeg not installed                           | Banner | error    | No — "FFmpeg is not installed — streaming is unavailable. Contact an administrator."                             |
 
 ---
 
@@ -1747,6 +1737,7 @@ _For any_ platform transitioning from "Error" to "Starting", the backend SHALL a
 ### Unit Tests (Vitest)
 
 Backend:
+
 - `RelayService`: relay start/stop, OBS connect/disconnect detection, FFmpeg spawn/kill, crash recovery
 - `StreamingPlatformService`: state machine transitions, parallel start orchestration, auto-recovery with API verification, No Source handling, OBS stream stop check
 - `MetadataTemplateDao`: CRUD, role filtering, category filtering, last-template guard
@@ -1755,6 +1746,7 @@ Backend:
 - YouTube/Facebook client: broadcast create/end, token refresh, health polling
 
 Frontend:
+
 - `ManageStreamsModal`: platform row rendering per status, Start All/Stop All disabled states, confirmation modals, dismissable during operations
 - `ObsWidget` (modified): three connection indicators, Manage Streams button sub-label priority, tap-to-open for priorities 3/4, Toast for priorities 1/2
 - `SessionManifestModal` (modified): template dropdown rendering, auto-select logic, dynamic field rendering, stale template handling, localStorage persistence
@@ -1764,17 +1756,17 @@ Frontend:
 
 ### Property-Based Tests (Vitest + fast-check)
 
-| Property | Test target | What varies |
-|---|---|---|
-| P22: Parallel start step (c) once | `StreamingPlatformService.startAll()` | 1–5 platforms, step (c) success/failure |
-| P23: Auto-recovery suppressed in No Source | `StreamingPlatformService` | FFmpeg exit events during various platform states |
-| P24: Valid state transitions | `StreamingPlatformService` | Arbitrary sequences of start/stop/disconnect/reconnect events |
-| P25: Template role filtering | `MetadataTemplateDao.getByCategoryAndRole()` | All role × template roleMinimum combinations |
-| P26: Template auto-select | `SessionManifestModal` auto-select logic | 0–5 templates per category with various roleMinimum values |
-| P27: Validate-then-save gate | Template validation logic | Arbitrary template names, format strings, roles |
-| P28: OBS stops when all idle | `StreamingPlatformService` | Arbitrary sequences of platform state transitions |
-| P29: Sub-label priority | `getManageStreamsSubLabel()` | All combinations of relay/OBS/template/metadata states |
-| P30: Best-effort cleanup | `StreamingPlatformService.startPlatform()` from Error | End-broadcast success/failure × new broadcast success/failure |
+| Property                                   | Test target                                           | What varies                                                   |
+| ------------------------------------------ | ----------------------------------------------------- | ------------------------------------------------------------- |
+| P22: Parallel start step (c) once          | `StreamingPlatformService.startAll()`                 | 1–5 platforms, step (c) success/failure                       |
+| P23: Auto-recovery suppressed in No Source | `StreamingPlatformService`                            | FFmpeg exit events during various platform states             |
+| P24: Valid state transitions               | `StreamingPlatformService`                            | Arbitrary sequences of start/stop/disconnect/reconnect events |
+| P25: Template role filtering               | `MetadataTemplateDao.getByCategoryAndRole()`          | All role × template roleMinimum combinations                  |
+| P26: Template auto-select                  | `SessionManifestModal` auto-select logic              | 0–5 templates per category with various roleMinimum values    |
+| P27: Validate-then-save gate               | Template validation logic                             | Arbitrary template names, format strings, roles               |
+| P28: OBS stops when all idle               | `StreamingPlatformService`                            | Arbitrary sequences of platform state transitions             |
+| P29: Sub-label priority                    | `getManageStreamsSubLabel()`                          | All combinations of relay/OBS/template/metadata states        |
+| P30: Best-effort cleanup                   | `StreamingPlatformService.startPlatform()` from Error | End-broadcast success/failure × new broadcast success/failure |
 
 ### Integration Tests (Playwright)
 

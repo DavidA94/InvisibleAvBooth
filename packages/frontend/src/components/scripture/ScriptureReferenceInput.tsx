@@ -2,18 +2,15 @@ import { useMemo, useCallback } from "react";
 import type { ReactNode } from "react";
 import Select from "react-select";
 import type { GroupBase } from "react-select";
-import {
-  BIBLE_BOOKS,
-  MAX_CHAPTERS,
-  MAX_VERSES,
-  getChaptersForBook,
-  getVerseRange,
-  isChapterValid,
-  isVerseValidForBook,
-  isVerseValidForChapter,
-} from "@invisible-av-booth/shared";
+import { BIBLE_BOOKS, MAX_CHAPTERS, MAX_VERSES, getChaptersForBook, getVerseRange } from "@invisible-av-booth/shared";
 import { darkSelectStyles } from "../../theme/selectStyles";
-import { TEST_ID_SCRIPTURE_BOOK_SELECT, TEST_ID_SCRIPTURE_CHAPTER_SELECT, TEST_ID_SCRIPTURE_VERSE_SELECT, TEST_ID_SCRIPTURE_VERSE_END_SELECT } from "../../constants/testIds";
+import { cascadeBookChange, cascadeChapterChange, cascadeVerseChange, cascadeVerseEndChange } from "./scriptureCascade";
+import {
+  TEST_ID_SCRIPTURE_BOOK_SELECT,
+  TEST_ID_SCRIPTURE_CHAPTER_SELECT,
+  TEST_ID_SCRIPTURE_VERSE_SELECT,
+  TEST_ID_SCRIPTURE_VERSE_END_SELECT,
+} from "../../constants/testIds";
 
 interface NumberOption {
   value: number;
@@ -89,32 +86,10 @@ export function ScriptureReferenceInput({
       const newBookId = option?.value ?? null;
       onBookChange(newBookId);
 
-      if (newBookId) {
-        if (chapter && !isChapterValid(newBookId, chapter)) {
-          onChapterChange(null);
-          onVerseChange(null);
-          onVerseEndChange(null);
-          return;
-        }
-        if (verse) {
-          const verseValid = chapter
-            ? isVerseValidForChapter(newBookId, chapter, verse)
-            : isVerseValidForBook(newBookId, verse);
-          if (!verseValid) {
-            onVerseChange(null);
-            onVerseEndChange(null);
-            return;
-          }
-        }
-        if (verseEnd) {
-          const verseEndValid = chapter
-            ? isVerseValidForChapter(newBookId, chapter, verseEnd)
-            : isVerseValidForBook(newBookId, verseEnd);
-          if (!verseEndValid) {
-            onVerseEndChange(null);
-          }
-        }
-      }
+      const result = cascadeBookChange(newBookId, { chapter, verse, verseEnd });
+      if (result.chapter !== undefined) onChapterChange(result.chapter);
+      if (result.verse !== undefined) onVerseChange(result.verse);
+      if (result.verseEnd !== undefined) onVerseEndChange(result.verseEnd);
     },
     [chapter, verse, verseEnd, onBookChange, onChapterChange, onVerseChange, onVerseEndChange],
   );
@@ -124,16 +99,9 @@ export function ScriptureReferenceInput({
       const newChapter = option?.value ?? null;
       onChapterChange(newChapter);
 
-      if (newChapter && bookId) {
-        if (verse && !isVerseValidForChapter(bookId, newChapter, verse)) {
-          onVerseChange(null);
-          onVerseEndChange(null);
-          return;
-        }
-        if (verseEnd && !isVerseValidForChapter(bookId, newChapter, verseEnd)) {
-          onVerseEndChange(null);
-        }
-      }
+      const result = cascadeChapterChange(bookId, newChapter, { verse, verseEnd });
+      if (result.verse !== undefined) onVerseChange(result.verse);
+      if (result.verseEnd !== undefined) onVerseEndChange(result.verseEnd);
     },
     [bookId, verse, verseEnd, onChapterChange, onVerseChange, onVerseEndChange],
   );
@@ -141,11 +109,12 @@ export function ScriptureReferenceInput({
   const handleVerseChange = useCallback(
     (option: NumberOption | null) => {
       const newVerse = option?.value ?? null;
-      onVerseChange(newVerse);
-
-      if (newVerse && verseEnd && newVerse > verseEnd) {
-        onVerseChange(verseEnd);
-        onVerseEndChange(newVerse);
+      const swap = cascadeVerseChange(newVerse, verseEnd);
+      if (swap) {
+        onVerseChange(swap.verse);
+        onVerseEndChange(swap.verseEnd);
+      } else {
+        onVerseChange(newVerse);
       }
     },
     [verseEnd, onVerseChange, onVerseEndChange],
@@ -154,11 +123,12 @@ export function ScriptureReferenceInput({
   const handleVerseEndChange = useCallback(
     (option: NumberOption | null) => {
       const newVerseEnd = option?.value ?? null;
-      onVerseEndChange(newVerseEnd);
-
-      if (newVerseEnd && verse && newVerseEnd < verse) {
-        onVerseChange(newVerseEnd);
-        onVerseEndChange(verse);
+      const swap = cascadeVerseEndChange(verse, newVerseEnd);
+      if (swap) {
+        onVerseChange(swap.verse);
+        onVerseEndChange(swap.verseEnd);
+      } else {
+        onVerseEndChange(newVerseEnd);
       }
     },
     [verse, onVerseChange, onVerseEndChange],

@@ -134,11 +134,11 @@ See `logging.md` for the full logging philosophy and conventions.
 
 All event names in the system use a prefix that identifies the communication boundary:
 
-| Prefix | Boundary | Direction | Example |
-|--------|----------|-----------|---------|
-| `bus:` | Internal EventBus (backend only) | Service → Service | `bus:obs:state:changed`, `bus:session:manifest:updated` |
-| `stc:` | Socket.io server-to-client | Backend → Frontend | `stc:obs:state`, `stc:session:manifest:updated` |
-| `cts:` | Socket.io client-to-server | Frontend → Backend | `cts:obs:command`, `cts:request:initial:state` |
+| Prefix | Boundary                         | Direction          | Example                                                 |
+| ------ | -------------------------------- | ------------------ | ------------------------------------------------------- |
+| `bus:` | Internal EventBus (backend only) | Service → Service  | `bus:obs:state:changed`, `bus:session:manifest:updated` |
+| `stc:` | Socket.io server-to-client       | Backend → Frontend | `stc:obs:state`, `stc:session:manifest:updated`         |
+| `cts:` | Socket.io client-to-server       | Frontend → Backend | `cts:obs:command`, `cts:request:initial:state`          |
 
 All event name constants are defined in `packages/shared/src/constants/socketEvents.ts` and exported from `@invisible-av-booth/shared`. Both frontend and backend import these constants — event names are never hardcoded as strings.
 
@@ -149,6 +149,7 @@ All event name constants are defined in `packages/shared/src/constants/socketEve
 Both backend and frontend use a modular pattern for organizing socket event handlers by domain.
 
 **Backend** (`src/gateway/modules/`): Each module implements the `SocketModule` interface:
+
 - `register(io)` — called once at startup; wires EventBus events to Socket.io broadcasts
 - `registerSocket(auth)` — called per authenticated connection; registers per-socket `cts:` handlers
 - `emitInitialState(auth)` — called when a client emits `cts:request:initial:state` (on connect and reconnect)
@@ -228,6 +229,7 @@ Phone-sized viewports are explicitly out of scope for this release and will be a
 The `font-size` on `<html>` is set to a fixed `16px`. This is the reference point for all `rem` values. Unlike the previous `clamp()`-based approach, the font size does not change with viewport width — this eliminates inconsistent text rendering, unpredictable element sizes, and visual artifacts caused by fractional rem-to-pixel conversions at different viewport widths.
 
 Viewport adaptation is handled entirely by the grid container:
+
 - `width: 100%; max-width: 1400px` — fills the viewport horizontally up to a cap
 - `height: 100%; max-height: 900px` — fills the viewport vertically up to a cap
 - `margin: 0 auto` — centers the grid when the viewport exceeds the max dimensions

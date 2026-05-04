@@ -4,8 +4,13 @@ import { IonPage, IonContent, IonInput, IonButton, IonCheckbox, IonText } from "
 import { useNavigate, Navigate } from "react-router";
 import { useStore } from "../store";
 import {
-  TEST_ID_LOGIN_PAGE, TEST_ID_LOGIN_FORM, TEST_ID_LOGIN_USERNAME, TEST_ID_LOGIN_PASSWORD,
-  TEST_ID_LOGIN_REMEMBER, TEST_ID_LOGIN_SUBMIT, TEST_ID_LOGIN_ERROR,
+  TEST_ID_LOGIN_PAGE,
+  TEST_ID_LOGIN_FORM,
+  TEST_ID_LOGIN_USERNAME,
+  TEST_ID_LOGIN_PASSWORD,
+  TEST_ID_LOGIN_REMEMBER,
+  TEST_ID_LOGIN_SUBMIT,
+  TEST_ID_LOGIN_ERROR,
 } from "../constants/testIds";
 import type { AuthUser } from "../types";
 

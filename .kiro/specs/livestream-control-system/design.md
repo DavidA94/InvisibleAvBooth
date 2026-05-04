@@ -1128,7 +1128,7 @@ When `!obsState.connected`, the `WidgetErrorOverlay` covers the entire `ObsContr
 
 ### ObsCommand
 
-> *Modified by multi-platform-streaming: the frontend-facing `ObsCommandType` retains only `startRecording` and `stopRecording`. `startStream`/`stopStream` are called internally by `StreamingPlatformService`. The shared package retains all four values for backend use.*
+> _Modified by multi-platform-streaming: the frontend-facing `ObsCommandType` retains only `startRecording` and `stopRecording`. `startStream`/`stopStream` are called internally by `StreamingPlatformService`. The shared package retains all four values for backend use._
 
 ```typescript
 type ObsCommandType = "startStream" | "stopStream" | "startRecording" | "stopRecording";
@@ -1240,11 +1240,11 @@ All steps are documented in `docs/setup.md`, which also lists all admin-accessib
 
 ### Admin Routes Reference
 
-| Route              | Access                                       | Purpose                                                         |
-| ------------------ | -------------------------------------------- | --------------------------------------------------------------- |
-| `/admin/users`     | ADMIN only                                   | Two-panel user management: list + detail form (self-delete and self-role-change prevented) |
+| Route              | Access                                       | Purpose                                                                                       |
+| ------------------ | -------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `/admin/users`     | ADMIN only                                   | Two-panel user management: list + detail form (self-delete and self-role-change prevented)    |
 | `/admin/devices`   | ADMIN only                                   | Two-panel device management: list + detail form (supports multiple device types via registry) |
-| `/change-password` | Any user with `requiresPasswordChange: true` | Mandatory password change on first login                        |
+| `/change-password` | Any user with `requiresPasswordChange: true` | Mandatory password change on first login                                                      |
 
 These routes are not linked from the main dashboard UI. Navigate to them directly by URL.
 
@@ -1410,32 +1410,32 @@ The OBS widget occupies col 0, row 0, spanning 2 columns × 2 rows with title "O
 
 ## Navigation
 
-| Route              | Accessible to                                    | Description                                           |
-| ------------------ | ------------------------------------------------ | ----------------------------------------------------- |
-| `/login`           | Unauthenticated                                  | Login page with username, password, and "Remember me" |
-| `/change-password` | Authenticated (requiresPasswordChange)           | Mandatory password change on first login              |
-| `/dashboards`      | All authenticated                                | Dashboard Selection Screen                            |
-| `/dashboard/:id`   | All authenticated                                | Active dashboard — the widget grid                    |
-| `/admin/users`     | ADMIN only                                       | User management page                                  |
-| `/admin/devices`   | ADMIN only                                       | Device connection management page                     |
+| Route              | Accessible to                          | Description                                           |
+| ------------------ | -------------------------------------- | ----------------------------------------------------- |
+| `/login`           | Unauthenticated                        | Login page with username, password, and "Remember me" |
+| `/change-password` | Authenticated (requiresPasswordChange) | Mandatory password change on first login              |
+| `/dashboards`      | All authenticated                      | Dashboard Selection Screen                            |
+| `/dashboard/:id`   | All authenticated                      | Active dashboard — the widget grid                    |
+| `/admin/users`     | ADMIN only                             | User management page                                  |
+| `/admin/devices`   | ADMIN only                             | Device connection management page                     |
 
 REST endpoints:
 
-| Endpoint                                            | Role              | Description                                                                              |
-| --------------------------------------------------- | ----------------- | ---------------------------------------------------------------------------------------- |
-| `POST /api/auth/login`                              | Unauthenticated   | Authenticate with username + password; sets JWT and user_info cookies                    |
-| `POST /api/auth/logout`                             | All authenticated | Clears JWT and user_info cookies                                                         |
-| `POST /api/auth/change-password`                    | All authenticated | Self-service password change; re-issues JWT with cleared requiresPasswordChange           |
-| `GET /api/dashboards`                               | All authenticated | Returns dashboards accessible to the user's role (name, description, id)                 |
-| `GET /api/dashboards/:id/layout`                    | All authenticated | Returns `GridManifest` for the specified dashboard                                       |
-| `GET /api/session/manifest`                         | All authenticated | Returns the current in-memory SessionManifest                                            |
-| `GET /api/kjv/validate`                             | All authenticated | Validates a scripture reference against the KJV database                                 |
-| `GET/POST/PUT/DELETE /api/admin/users`              | ADMIN only        | User account CRUD                                                                        |
-| `POST /api/admin/users/:id/change-password`         | ADMIN only        | Admin resets another user's password                                                     |
-| `GET/POST/PUT/DELETE /api/admin/devices`            | ADMIN only        | Device connection CRUD                                                                   |
-| `GET/POST/PUT/DELETE /api/admin/dashboards`         | ADMIN only        | Dashboard CRUD                                                                           |
-| `GET/POST/PUT/DELETE /api/admin/dashboards/:id/widgets` | ADMIN only    | Widget configuration CRUD for a dashboard                                                |
-| `POST /api/logs`                                    | All authenticated | Accepts a batch of frontend log entries; written to `logs/app.log` by the backend logger |
+| Endpoint                                                | Role              | Description                                                                              |
+| ------------------------------------------------------- | ----------------- | ---------------------------------------------------------------------------------------- |
+| `POST /api/auth/login`                                  | Unauthenticated   | Authenticate with username + password; sets JWT and user_info cookies                    |
+| `POST /api/auth/logout`                                 | All authenticated | Clears JWT and user_info cookies                                                         |
+| `POST /api/auth/change-password`                        | All authenticated | Self-service password change; re-issues JWT with cleared requiresPasswordChange          |
+| `GET /api/dashboards`                                   | All authenticated | Returns dashboards accessible to the user's role (name, description, id)                 |
+| `GET /api/dashboards/:id/layout`                        | All authenticated | Returns `GridManifest` for the specified dashboard                                       |
+| `GET /api/session/manifest`                             | All authenticated | Returns the current in-memory SessionManifest                                            |
+| `GET /api/kjv/validate`                                 | All authenticated | Validates a scripture reference against the KJV database                                 |
+| `GET/POST/PUT/DELETE /api/admin/users`                  | ADMIN only        | User account CRUD                                                                        |
+| `POST /api/admin/users/:id/change-password`             | ADMIN only        | Admin resets another user's password                                                     |
+| `GET/POST/PUT/DELETE /api/admin/devices`                | ADMIN only        | Device connection CRUD                                                                   |
+| `GET/POST/PUT/DELETE /api/admin/dashboards`             | ADMIN only        | Dashboard CRUD                                                                           |
+| `GET/POST/PUT/DELETE /api/admin/dashboards/:id/widgets` | ADMIN only        | Widget configuration CRUD for a dashboard                                                |
+| `POST /api/logs`                                        | All authenticated | Accepts a batch of frontend log entries; written to `logs/app.log` by the backend logger |
 
 ### `GET /api/kjv/validate` Contract
 
@@ -1626,7 +1626,7 @@ _For any_ sequence of OBS commands, after each command completes (success or fai
 
 ### Property 9: Safe-start sequence ordering
 
-> *Superseded by multi-platform-streaming: metadata is set via platform APIs, not OBS. The safe-start sequence is replaced by the relay-aware platform start flow. See multi-platform-streaming design doc.*
+> _Superseded by multi-platform-streaming: metadata is set via platform APIs, not OBS. The safe-start sequence is replaced by the relay-aware platform start flow. See multi-platform-streaming design doc._
 
 _For any_ Start Stream command, the backend SHALL always attempt to update OBS stream metadata before issuing the stream start command, and SHALL NOT issue the stream start command if the metadata update step fails.
 
@@ -1676,7 +1676,7 @@ _For any_ SessionManifest state, if either `obsState.streaming` or `obsState.rec
 
 ### Property 15: Start Stream disabled without required manifest fields
 
-> *Superseded by multi-platform-streaming Req 12.4: replaced by `manifestReady` boolean computed from selected template tokens. The "Manage Streams" button uses a priority-ordered sub-label system.*
+> _Superseded by multi-platform-streaming Req 12.4: replaced by `manifestReady` boolean computed from selected template tokens. The "Manage Streams" button uses a priority-ordered sub-label system._
 
 _For any_ SessionManifest where both `speaker` and `title` are absent (undefined or empty), the Start Stream button SHALL be disabled and SHALL NOT issue a stream start command.
 
@@ -1710,7 +1710,7 @@ _For any_ `ConfirmationModal` instance, tapping the cancel action SHALL call `on
 
 ### Property 19: streamTitleTemplate fallback
 
-> *Superseded by multi-platform-streaming Req 3: `streamTitleTemplate` is replaced by the `metadata_templates` table. Templates are read from the database via `MetadataTemplateDao`.*
+> _Superseded by multi-platform-streaming Req 3: `streamTitleTemplate` is replaced by the `metadata_templates` table. Templates are read from the database via `MetadataTemplateDao`._
 
 _For any_ OBS device connection record where `metadata.streamTitleTemplate` is absent or empty, `ObsService` SHALL use the default template `"{Date} – {Speaker} – {Title}"` for interpolation and SHALL NOT produce an error or empty string.
 
@@ -1720,7 +1720,7 @@ _For any_ OBS device connection record where `metadata.streamTitleTemplate` is a
 
 ### Property 20: Scripture interpolation format
 
-> *Extended by multi-platform-streaming Req 3.3: adds verse 0 handling — verse 0 with no verseEnd displays as chapter only; verse 0 with verseEnd displays range starting at 1.*
+> _Extended by multi-platform-streaming Req 3.3: adds verse 0 handling — verse 0 with no verseEnd displays as chapter only; verse 0 with verseEnd displays range starting at 1._
 
 _For any_ valid `ScriptureReference` with a known `bookId`, the interpolated `{Scripture}` token SHALL produce a string in the format `<BookName> <Chapter>:<Verse>` for single verses and `<BookName> <Chapter>:<Verse>-<EndVerse>` for ranges, where `<BookName>` is the display name resolved from `bookId` via `BIBLE_BOOKS`. If `scripture` is absent from the SessionManifest, the token SHALL be replaced with `[No Scripture]` and SHALL NOT produce an empty string or a raw token.
 
@@ -1874,7 +1874,7 @@ type ObsErrorCode =
 
 ### Safe-Start Sequence Error Handling
 
-> *Superseded by multi-platform-streaming: metadata is set via platform APIs, not OBS. The safe-start sequence is replaced by the relay-aware platform start flow with parallel broadcast creation, shared OBS start prerequisite, and per-platform error handling. See multi-platform-streaming design doc.*
+> _Superseded by multi-platform-streaming: metadata is set via platform APIs, not OBS. The safe-start sequence is replaced by the relay-aware platform start flow with parallel broadcast creation, shared OBS start prerequisite, and per-platform error handling. See multi-platform-streaming design doc._
 
 The OBS safe-start sequence (Requirement 8.2) has two failure points:
 
@@ -1929,7 +1929,7 @@ When Socket.io successfully reconnects:
 
 ### Safe-Start Race Condition
 
-> *Superseded by multi-platform-streaming: the OBS safe-start sequence no longer exists. OBS streams to the relay; metadata is set via platform APIs. See multi-platform-streaming design doc.*
+> _Superseded by multi-platform-streaming: the OBS safe-start sequence no longer exists. OBS streams to the relay; metadata is set via platform APIs. See multi-platform-streaming design doc._
 
 The OBS safe-start sequence (metadata update → stream start) can be interrupted by an OBS disconnect between the two steps. If obs-websocket fires a disconnect event after the metadata update succeeds but before the stream start command is issued:
 

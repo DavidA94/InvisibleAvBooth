@@ -3,6 +3,7 @@ import { randomBytes } from "crypto";
 import type { Database } from "better-sqlite3";
 import type { AuthService } from "../services/authService.js";
 import { requireRole } from "../middleware/auth.js";
+import type { PlatformConfig } from "../gateway/modules/platform/types.js";
 import { PlatformConfigDao } from "../platforms/platformConfigDao.js";
 import { logger } from "../logger.js";
 
@@ -30,7 +31,10 @@ export function createPlatformRouter(database: Database, authService: AuthServic
 
   router.get("/admin/platforms/:platformType", requireRole(authService, "ADMIN"), (req, res) => {
     const configs = dao.getByType(req.params["platformType"] as "youtube" | "facebook");
-    if (configs.length === 0) { res.status(404).json({ error: "Not found" }); return; }
+    if (configs.length === 0) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
     res.json(sanitize(configs[0]!));
   });
 
@@ -84,17 +88,26 @@ export function createPlatformRouter(database: Database, authService: AuthServic
   return router;
 }
 
-function handleOAuthCallback(database: Database, platformType: string, state: string | undefined, code: string | undefined, res: { status: (n: number) => { json: (o: object) => void; end: () => void }; redirect: (url: string) => void }): void {
-  // Cleanup stale states
-  const cutoff = new Date(Date.now() - OAUTH_STATE_TTL_MS).toISOString();
-  database.prepare("DELETE FROM oauth_states WHERE createdAt < ?").run(cutoff);
-
+function handleOAuthCallback(
+  database: Database,
+  platformType: string,
+  state: string | undefined,
+  code: string | undefined,
+  res: { status: (n: number) => { json: (o: object) => void; end: () => void }; redirect: (url: string) => void },
+): void {
   if (!state || !code) {
     res.redirect(`/admin/platforms/${platformType}?error=missing_params`);
     return;
   }
 
-  const row = database.prepare("SELECT * FROM oauth_states WHERE state = ? AND platformType = ?").get(state, platformType) as { state: string; createdAt: string } | undefined;
+  const row = database.prepare("SELECT * FROM oauth_states WHERE state = ? AND platformType = ?").get(state, platformType) as
+    | { state: string; createdAt: string }
+    | undefined;
+
+  // Cleanup stale states
+  const cutoff = new Date(Date.now() - OAUTH_STATE_TTL_MS).toISOString();
+  database.prepare("DELETE FROM oauth_states WHERE createdAt < ?").run(cutoff);
+
   if (!row) {
     res.redirect(`/admin/platforms/${platformType}?error=invalid_state`);
     return;
@@ -157,7 +170,9 @@ async function exchangeCodeForTokens(database: Database, platformType: string, c
       const appSecret = process.env["FACEBOOK_APP_SECRET"] ?? "";
       const redirectUri = "https://localhost/api/auth/callback/facebook";
 
-      const tokenRes = await fetch(`https://graph.facebook.com/v19.0/oauth/access_token?client_id=${appId}&client_secret=${appSecret}&redirect_uri=${encodeURIComponent(redirectUri)}&code=${code}`);
+      const tokenRes = await fetch(
+        `https://graph.facebook.com/v19.0/oauth/access_token?client_id=${appId}&client_secret=${appSecret}&redirect_uri=${encodeURIComponent(redirectUri)}&code=${code}`,
+      );
 
       if (!tokenRes.ok) {
         logger.error("Facebook token exchange failed", { context: { status: tokenRes.status } });
@@ -170,7 +185,15 @@ async function exchangeCodeForTokens(database: Database, platformType: string, c
       label = "Facebook";
     }
 
-    dao.upsert({ platformType: platformType as "youtube" | "facebook", label, accessToken, refreshToken, tokenExpiresAt, metadata, enabled: true });
+    dao.upsert({
+      platformType: platformType as "youtube" | "facebook",
+      label,
+      accessToken,
+      ...(refreshToken !== undefined && { refreshToken }),
+      ...(tokenExpiresAt !== undefined && { tokenExpiresAt }),
+      metadata,
+      enabled: true,
+    });
     logger.info(`${platformType} OAuth tokens saved successfully`);
     return true;
   } catch (err) {
@@ -180,7 +203,7 @@ async function exchangeCodeForTokens(database: Database, platformType: string, c
 }
 
 // Strip sensitive fields from platform config before sending to client
-function sanitize(config: { accessToken?: string; refreshToken?: string; [key: string]: unknown }): Record<string, unknown> {
+function sanitize(config: PlatformConfig): Record<string, unknown> {
   const { accessToken: _a, refreshToken: _r, ...safe } = config;
   return { ...safe, hasToken: !!_a };
 }

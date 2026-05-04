@@ -5,7 +5,9 @@ import { decrypt } from "../../../src/crypto.js";
 
 let s: TestServer;
 
-beforeAll(async () => { s = await buildTestServer(); });
+beforeAll(async () => {
+  s = await buildTestServer();
+});
 afterAll(() => destroyServer(s));
 beforeEach(() => resetServer(s));
 
@@ -14,7 +16,10 @@ const baseDevice = { deviceType: "obs", label: "Main OBS", host: "localhost", po
 describe("POST /api/admin/devices", () => {
   it("creates a device and returns it without password", async () => {
     const cookie = await loginAsAdmin(s.agent, s.ctx.authService);
-    const res = await s.agent.post("/api/admin/devices").set("Cookie", cookie).send({ ...baseDevice, password: "secret" });
+    const res = await s.agent
+      .post("/api/admin/devices")
+      .set("Cookie", cookie)
+      .send({ ...baseDevice, password: "secret" });
     expect(res.status).toBe(201);
     expect(res.body.label).toBe("Main OBS");
     expect(res.body).not.toHaveProperty("encryptedPassword");
@@ -35,7 +40,10 @@ describe("POST /api/admin/devices", () => {
 describe("GET /api/admin/devices", () => {
   it("returns device list without passwords", async () => {
     const cookie = await loginAsAdmin(s.agent, s.ctx.authService);
-    await s.agent.post("/api/admin/devices").set("Cookie", cookie).send({ ...baseDevice, password: "secret" });
+    await s.agent
+      .post("/api/admin/devices")
+      .set("Cookie", cookie)
+      .send({ ...baseDevice, password: "secret" });
     const res = await s.agent.get("/api/admin/devices").set("Cookie", cookie);
     expect(res.status).toBe(200);
     expect(Array.isArray(res.body)).toBe(true);
@@ -62,7 +70,10 @@ describe("PUT /api/admin/devices/:id", () => {
   it("updates a device", async () => {
     const cookie = await loginAsAdmin(s.agent, s.ctx.authService);
     const created = await s.agent.post("/api/admin/devices").set("Cookie", cookie).send(baseDevice);
-    const res = await s.agent.put(`/api/admin/devices/${created.body.id as string}`).set("Cookie", cookie).send({ label: "Updated OBS" });
+    const res = await s.agent
+      .put(`/api/admin/devices/${created.body.id as string}`)
+      .set("Cookie", cookie)
+      .send({ label: "Updated OBS" });
     expect(res.status).toBe(200);
     expect(res.body.label).toBe("Updated OBS");
     expect(res.body).not.toHaveProperty("encryptedPassword");
@@ -90,7 +101,10 @@ describe("DELETE /api/admin/devices/:id", () => {
 describe("encryption round-trip", () => {
   it("password is encrypted at rest and never returned in responses", async () => {
     const cookie = await loginAsAdmin(s.agent, s.ctx.authService);
-    const created = await s.agent.post("/api/admin/devices").set("Cookie", cookie).send({ ...baseDevice, password: "mysecret" });
+    const created = await s.agent
+      .post("/api/admin/devices")
+      .set("Cookie", cookie)
+      .send({ ...baseDevice, password: "mysecret" });
     const id = created.body.id as string;
 
     const row = s.ctx.database.prepare("SELECT encryptedPassword FROM device_connections WHERE id = ?").get(id) as { encryptedPassword: string };
@@ -104,7 +118,10 @@ describe("encryption round-trip", () => {
 
   it("password is preserved when updating other fields", async () => {
     const cookie = await loginAsAdmin(s.agent, s.ctx.authService);
-    const created = await s.agent.post("/api/admin/devices").set("Cookie", cookie).send({ ...baseDevice, password: "original" });
+    const created = await s.agent
+      .post("/api/admin/devices")
+      .set("Cookie", cookie)
+      .send({ ...baseDevice, password: "original" });
     const id = created.body.id as string;
 
     await s.agent.put(`/api/admin/devices/${id}`).set("Cookie", cookie).send({ label: "New Label" });

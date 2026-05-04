@@ -36,9 +36,7 @@ describe("FacebookClient", () => {
 
   describe("createBroadcast", () => {
     it("creates a live video and splits stream URL", async () => {
-      mockFetch.mockResolvedValue(
-        mockResponse({ id: "video-789", stream_url: "rtmp://live.facebook.com/rtmp/stream-key-abc" }),
-      );
+      mockFetch.mockResolvedValue(mockResponse({ id: "video-789", stream_url: "rtmp://live.facebook.com/rtmp/stream-key-abc" }));
 
       const result = await makeClient().createBroadcast("Sunday Service", "Weekly service");
 
@@ -48,10 +46,7 @@ describe("FacebookClient", () => {
         streamUrl: "rtmp://live.facebook.com/rtmp",
         streamKey: "stream-key-abc",
       });
-      expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining("/123456/live_videos"),
-        expect.objectContaining({ method: "POST" }),
-      );
+      expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining("/123456/live_videos"), expect.objectContaining({ method: "POST" }));
     });
 
     it("throws BROADCAST_CREATE_FAILED on incomplete response", async () => {
@@ -61,17 +56,13 @@ describe("FacebookClient", () => {
     });
 
     it("throws TOKEN_EXPIRED on error code 190", async () => {
-      mockFetch.mockResolvedValue(
-        mockResponse({ error: { message: "token expired", code: 190 } }, false, 401),
-      );
+      mockFetch.mockResolvedValue(mockResponse({ error: { message: "token expired", code: 190 } }, false, 401));
 
       await expect(makeClient().createBroadcast("T", "D")).rejects.toMatchObject({ code: "TOKEN_EXPIRED" });
     });
 
     it("throws PAGE_INACCESSIBLE on error code 10", async () => {
-      mockFetch.mockResolvedValue(
-        mockResponse({ error: { message: "page not accessible", code: 10 } }, false, 403),
-      );
+      mockFetch.mockResolvedValue(mockResponse({ error: { message: "page not accessible", code: 10 } }, false, 403));
 
       await expect(makeClient().createBroadcast("T", "D")).rejects.toMatchObject({ code: "PAGE_INACCESSIBLE" });
     });
@@ -82,24 +73,17 @@ describe("FacebookClient", () => {
       mockFetch.mockResolvedValue(mockResponse({ success: true }));
 
       await expect(makeClient().endBroadcast("video-789")).resolves.toBeUndefined();
-      expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining("/video-789"),
-        expect.objectContaining({ method: "POST" }),
-      );
+      expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining("/video-789"), expect.objectContaining({ method: "POST" }));
     });
 
     it("treats error code 100 (already ended) as success", async () => {
-      mockFetch.mockResolvedValue(
-        mockResponse({ error: { message: "already ended", code: 100 } }, false, 400),
-      );
+      mockFetch.mockResolvedValue(mockResponse({ error: { message: "already ended", code: 100 } }, false, 400));
 
       await expect(makeClient().endBroadcast("video-789")).resolves.toBeUndefined();
     });
 
     it("throws BROADCAST_END_FAILED on other errors", async () => {
-      mockFetch.mockResolvedValue(
-        mockResponse({ error: { message: "server error", code: 500 } }, false, 500),
-      );
+      mockFetch.mockResolvedValue(mockResponse({ error: { message: "server error", code: 500 } }, false, 500));
 
       await expect(makeClient().endBroadcast("v-1")).rejects.toMatchObject({ code: "NETWORK_ERROR" });
     });
@@ -129,12 +113,8 @@ describe("FacebookClient", () => {
 
     it("returns health after broadcast creation", async () => {
       mockFetch
-        .mockResolvedValueOnce(
-          mockResponse({ id: "v-1", stream_url: "rtmp://fb.example.com/rtmp/key" }),
-        )
-        .mockResolvedValueOnce(
-          mockResponse({ status: "LIVE", live_views: 42 }),
-        );
+        .mockResolvedValueOnce(mockResponse({ id: "v-1", stream_url: "rtmp://fb.example.com/rtmp/key" }))
+        .mockResolvedValueOnce(mockResponse({ status: "LIVE", live_views: 42 }));
 
       const client = makeClient();
       await client.createBroadcast("T", "D");
@@ -142,6 +122,14 @@ describe("FacebookClient", () => {
 
       expect(health).toEqual({ healthy: true, viewerCount: 42, streamHealth: "LIVE" });
     });
+  });
+
+  it("throws HEALTH_POLL_FAILED on network error", async () => {
+    mockFetch.mockResolvedValueOnce(mockResponse({ id: "v-1", stream_url: "rtmp://fb.example.com/rtmp/key" })).mockRejectedValue("network timeout");
+
+    const client = makeClient();
+    await client.createBroadcast("T", "D");
+    await expect(client.pollHealth()).rejects.toMatchObject({ code: "HEALTH_POLL_FAILED" });
   });
 
   describe("validateToken", () => {
@@ -161,6 +149,13 @@ describe("FacebookClient", () => {
       mockFetch.mockRejectedValue(new Error("network error"));
 
       expect(await makeClient().validateToken()).toBe(false);
+    });
+  });
+
+  describe("refreshToken", () => {
+    it("returns current access token (Facebook tokens are long-lived)", async () => {
+      const result = await makeClient().refreshToken();
+      expect(result).toEqual({ accessToken: "page-access-token" });
     });
   });
 });

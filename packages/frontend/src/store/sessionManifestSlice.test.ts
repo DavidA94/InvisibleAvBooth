@@ -5,7 +5,16 @@ import { INITIAL_OBS_STATE } from "./obsSlice";
 import type { SessionManifest } from "../types";
 
 beforeEach(() => {
-  useStore.setState({ user: null, obsState: INITIAL_OBS_STATE, obsPending: false, manifest: {}, interpolatedStreamTitle: "", interpolatedDescription: "", manifestReady: false, notifications: [] });
+  useStore.setState({
+    user: null,
+    obsState: INITIAL_OBS_STATE,
+    obsPending: false,
+    manifest: {},
+    interpolatedStreamTitle: "",
+    interpolatedDescription: "",
+    manifestReady: false,
+    notifications: [],
+  });
 });
 
 describe("sessionManifestSlice", () => {

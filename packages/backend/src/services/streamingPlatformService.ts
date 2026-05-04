@@ -42,7 +42,7 @@ const RECOVERY_WAIT_MS = 2_000;
 const RECOVERY_VERIFY_MS = 5_000;
 const HEALTH_FAILURE_THRESHOLD = 3;
 
-interface PlatformEntry {
+export interface PlatformEntry {
   config: PlatformConfig;
   client: StreamingPlatformClient;
   state: PlatformStreamState;
@@ -111,7 +111,7 @@ export class StreamingPlatformService {
       if (entries.length === 0) return;
 
       for (const [id] of entries) {
-        this.transitionPlatform(id, "starting", "Creating broadcast…");
+        this._transitionPlatform(id, "starting", "Creating broadcast…");
       }
 
       // Steps (a)+(b): create broadcasts in parallel
@@ -131,11 +131,11 @@ export class StreamingPlatformService {
           const entry = this.platforms.get(id);
           if (entry) {
             entry.broadcastId = result.value.broadcast.broadcastId;
-            entry.rtmpUrl = `${result.value.broadcast.streamUrl}/${result.value.broadcast.streamKey}`;
+            entry.rtmpUrl = result.value.broadcast.rtmpUrl;
           }
         } else {
           const message = result.reason instanceof Error ? result.reason.message : String(result.reason);
-          this.transitionPlatform(id, "error", message);
+          this._transitionPlatform(id, "error", message);
         }
       }
 
@@ -145,8 +145,8 @@ export class StreamingPlatformService {
       const obsResult = await this.ensureObsStreamingToRelay();
       if (!obsResult.success) {
         for (const { platformId, broadcast } of successful) {
-          this.endBroadcastBestEffort(platformId, broadcast.broadcastId);
-          this.transitionPlatform(platformId, "error", "Could not start OBS stream");
+          this._endBroadcastBestEffort(platformId, broadcast.broadcastId);
+          this._transitionPlatform(platformId, "error", "Could not start OBS stream");
         }
         return;
       }
@@ -157,7 +157,7 @@ export class StreamingPlatformService {
         if (entry?.rtmpUrl) {
           this.relayService.startForwarder(platformId, entry.rtmpUrl);
         }
-        this.transitionPlatform(platformId, "streaming");
+        this._transitionPlatform(platformId, "streaming");
       }
 
       this.startHealthPolling();
@@ -175,33 +175,33 @@ export class StreamingPlatformService {
 
       // Best-effort cleanup if restarting from error (Property 30)
       if (entry.state.status === "error" && entry.broadcastId) {
-        this.endBroadcastBestEffort(id, entry.broadcastId);
+        this._endBroadcastBestEffort(id, entry.broadcastId);
       }
 
-      this.transitionPlatform(id, "starting", "Creating broadcast…");
+      this._transitionPlatform(id, "starting", "Creating broadcast…");
 
       const { interpolatedStreamTitle, interpolatedDescription } = this.manifestService.getInterpolated();
 
       try {
         const broadcast = await entry.client.createBroadcast(interpolatedStreamTitle, interpolatedDescription);
         entry.broadcastId = broadcast.broadcastId;
-        entry.rtmpUrl = `${broadcast.streamUrl}/${broadcast.streamKey}`;
+        entry.rtmpUrl = broadcast.rtmpUrl;
       } catch (error: unknown) {
-        this.transitionPlatform(id, "error", error instanceof Error ? error.message : String(error));
+        this._transitionPlatform(id, "error", error instanceof Error ? error.message : String(error));
         return;
       }
 
       const obsResult = await this.ensureObsStreamingToRelay();
       if (!obsResult.success) {
-        if (entry.broadcastId) this.endBroadcastBestEffort(id, entry.broadcastId);
-        this.transitionPlatform(id, "error", "Could not start OBS stream");
+        if (entry.broadcastId) this._endBroadcastBestEffort(id, entry.broadcastId);
+        this._transitionPlatform(id, "error", "Could not start OBS stream");
         return;
       }
 
       if (entry.rtmpUrl) {
         this.relayService.startForwarder(id, entry.rtmpUrl);
       }
-      this.transitionPlatform(id, "streaming");
+      this._transitionPlatform(id, "streaming");
       this.startHealthPolling();
     } finally {
       this.operationInProgress = false;
@@ -218,7 +218,7 @@ export class StreamingPlatformService {
       );
 
       for (const [id] of active) {
-        this.transitionPlatform(id, "stopping", "Stopping…");
+        this._transitionPlatform(id, "stopping", "Stopping…");
       }
 
       await Promise.allSettled(active.map(([id, entry]) => this.stopSinglePlatform(id, entry)));
@@ -235,7 +235,7 @@ export class StreamingPlatformService {
     this.operationInProgress = true;
     try {
       const [id, entry] = this.findEntryByTypeOrThrow(platformType);
-      this.transitionPlatform(id, "stopping", "Stopping…");
+      this._transitionPlatform(id, "stopping", "Stopping…");
       await this.stopSinglePlatform(id, entry);
       this.checkAllIdle();
     } finally {
@@ -284,7 +284,7 @@ export class StreamingPlatformService {
 
   // ── State machine ─────────────────────────────────────────────────────────
 
-  private transitionPlatform(platformId: string, newStatus: PlatformStatus, statusMessage?: string): void {
+  _transitionPlatform(platformId: string, newStatus: PlatformStatus, statusMessage?: string): void {
     const entry = this.platforms.get(platformId);
     if (!entry) return;
 
@@ -348,10 +348,10 @@ export class StreamingPlatformService {
     });
 
     await Promise.race([work(), timeout]);
-    this.transitionPlatform(platformId, "idle");
+    this._transitionPlatform(platformId, "idle");
   }
 
-  private endBroadcastBestEffort(platformId: string, broadcastId: string): void {
+  _endBroadcastBestEffort(platformId: string, broadcastId: string): void {
     const entry = this.platforms.get(platformId);
     if (!entry) return;
     void entry.client.endBroadcast(broadcastId).catch((error: unknown) => {
@@ -418,10 +418,10 @@ export class StreamingPlatformService {
       try {
         const health = await entry.client.pollHealth();
         if (!health.healthy) {
-          this.transitionPlatform(platformId, "error", `${entry.config.label} stream recovery failed`);
+          this._transitionPlatform(platformId, "error", `${entry.config.label} stream recovery failed`);
         }
       } catch {
-        this.transitionPlatform(platformId, "error", `${entry.config.label} stream recovery failed`);
+        this._transitionPlatform(platformId, "error", `${entry.config.label} stream recovery failed`);
       }
     }
   }
@@ -431,23 +431,23 @@ export class StreamingPlatformService {
       // OBS disconnected → No Source for streaming platforms
       for (const [id, entry] of this.platforms) {
         if (entry.state.status === "streaming") {
-          this.transitionPlatform(id, "no_source", "No source — waiting for OBS…");
+          this._transitionPlatform(id, "no_source", "No source — waiting for OBS…");
         }
       }
     } else if (payload.running && payload.obsConnected) {
       // OBS reconnected → recover no_source platforms
       for (const [id, entry] of this.platforms) {
         if (entry.state.status === "no_source") {
-          this.transitionPlatform(id, "recovering", "Verifying stream…");
-          void this.recoverPlatform(id, entry);
+          this._transitionPlatform(id, "recovering", "Verifying stream…");
+          void this._recoverPlatform(id, entry);
         }
       }
     }
   }
 
-  private async recoverPlatform(platformId: string, entry: PlatformEntry): Promise<void> {
+  async _recoverPlatform(platformId: string, entry: PlatformEntry): Promise<void> {
     if (!entry.broadcastId) {
-      this.transitionPlatform(platformId, "error", "Recovery failed — no broadcast to verify");
+      this._transitionPlatform(platformId, "error", "Recovery failed — no broadcast to verify");
       return;
     }
 
@@ -459,12 +459,12 @@ export class StreamingPlatformService {
     try {
       const health = await entry.client.pollHealth();
       if (health.healthy) {
-        this.transitionPlatform(platformId, "streaming");
+        this._transitionPlatform(platformId, "streaming");
       } else {
-        this.transitionPlatform(platformId, "error", `${entry.config.label} stream recovery failed`);
+        this._transitionPlatform(platformId, "error", `${entry.config.label} stream recovery failed`);
       }
     } catch {
-      this.transitionPlatform(platformId, "error", `${entry.config.label} stream recovery failed`);
+      this._transitionPlatform(platformId, "error", `${entry.config.label} stream recovery failed`);
     }
   }
 
@@ -486,6 +486,7 @@ export class StreamingPlatformService {
 
   private loadPlatforms(): void {
     const configs = this.platformConfigDao.getAll().filter((c) => c.enabled);
+    logger.info(JSON.stringify(configs));
     for (const config of configs) {
       const client = this.platformClients.get(config.platformType);
       if (!client) continue;

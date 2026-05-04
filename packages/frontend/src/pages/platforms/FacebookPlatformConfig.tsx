@@ -3,9 +3,19 @@ import type { ReactNode } from "react";
 import { IonPage, IonContent, IonButton, IonSpinner } from "@ionic/react";
 import { useSearchParams } from "react-router";
 import { ConfirmationModal } from "../../components/ConfirmationModal";
-import { TEST_ID_FACEBOOK_CONFIG_PAGE, TEST_ID_PLATFORM_CONNECT_BUTTON, TEST_ID_PLATFORM_DISCONNECT_BUTTON, TEST_ID_PLATFORM_ACCOUNT_DISPLAY } from "../../constants/testIds";
+import {
+  TEST_ID_FACEBOOK_CONFIG_PAGE,
+  TEST_ID_PLATFORM_CONNECT_BUTTON,
+  TEST_ID_PLATFORM_DISCONNECT_BUTTON,
+  TEST_ID_PLATFORM_ACCOUNT_DISPLAY,
+} from "../../constants/testIds";
 
-interface PlatformConfig { platformType: string; hasToken?: boolean; enabled?: boolean; metadata?: Record<string, unknown> }
+interface PlatformConfig {
+  platformType: string;
+  hasToken?: boolean;
+  enabled?: boolean;
+  metadata?: Record<string, unknown>;
+}
 
 export function FacebookPlatformConfig(): ReactNode {
   const [config, setConfig] = useState<PlatformConfig | null>(null);
@@ -17,8 +27,13 @@ export function FacebookPlatformConfig(): ReactNode {
   useEffect(() => {
     const err = searchParams.get("error");
     const connected = searchParams.get("connected");
-    if (err) { setError(`Connection failed: ${err.replace(/_/g, " ")}`); setSearchParams({}, { replace: true }); }
-    if (connected) { setSearchParams({}, { replace: true }); }
+    if (err) {
+      setError(`Connection failed: ${err.replace(/_/g, " ")}`);
+      setSearchParams({}, { replace: true });
+    }
+    if (connected) {
+      setSearchParams({}, { replace: true });
+    }
   }, [searchParams, setSearchParams]);
 
   const fetchConfig = useCallback(async (): Promise<void> => {
@@ -26,11 +41,16 @@ export function FacebookPlatformConfig(): ReactNode {
       const res = await fetch("/api/admin/platforms/facebook", { credentials: "include" });
       if (res.ok) setConfig((await res.json()) as PlatformConfig);
       else setConfig(null);
-    } catch { setError("Failed to load configuration"); }
-    finally { setLoading(false); }
+    } catch {
+      setError("Failed to load configuration");
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  useEffect(() => { void fetchConfig(); }, [fetchConfig]);
+  useEffect(() => {
+    void fetchConfig();
+  }, [fetchConfig]);
 
   const handleConnect = async (): Promise<void> => {
     setError("");
@@ -43,18 +63,30 @@ export function FacebookPlatformConfig(): ReactNode {
         const data = (await res.json()) as { error?: string };
         setError(data.error ?? "Failed to start OAuth flow");
       }
-    } catch { setError("Network error"); }
+    } catch {
+      setError("Network error");
+    }
   };
 
   const handleDisconnect = async (): Promise<void> => {
     try {
       await fetch("/api/admin/platforms/facebook", { method: "DELETE", credentials: "include" });
       setConfig(null);
-    } catch { setError("Failed to disconnect"); }
-    finally { setDisconnectConfirm(false); }
+    } catch {
+      setError("Failed to disconnect");
+    } finally {
+      setDisconnectConfirm(false);
+    }
   };
 
-  if (loading) return <IonPage data-testid={TEST_ID_FACEBOOK_CONFIG_PAGE}><IonContent className="ion-padding ion-text-center"><IonSpinner /></IonContent></IonPage>;
+  if (loading)
+    return (
+      <IonPage data-testid={TEST_ID_FACEBOOK_CONFIG_PAGE}>
+        <IonContent className="ion-padding ion-text-center">
+          <IonSpinner />
+        </IonContent>
+      </IonPage>
+    );
 
   const connected = config?.hasToken;
 
@@ -85,7 +117,7 @@ export function FacebookPlatformConfig(): ReactNode {
                   <span className="widget-dot-healthy">●</span>
                   <span>Connected</span>
                 </div>
-                {config?.metadata?.pageName && (
+                {typeof config?.metadata?.pageName === "string" && (
                   <div className="layout-row gap-standard">
                     <span className="text-muted">Page:</span>
                     <span>{String(config.metadata.pageName)}</span>
@@ -100,7 +132,16 @@ export function FacebookPlatformConfig(): ReactNode {
           </div>
         </div>
 
-        <ConfirmationModal isOpen={disconnectConfirm} title="Disconnect Facebook" body="Are you sure? Active streams will be affected." confirmLabel="Disconnect" cancelLabel="Cancel" confirmVariant="danger" onConfirm={() => void handleDisconnect()} onCancel={() => setDisconnectConfirm(false)} />
+        <ConfirmationModal
+          isOpen={disconnectConfirm}
+          title="Disconnect Facebook"
+          body="Are you sure? Active streams will be affected."
+          confirmLabel="Disconnect"
+          cancelLabel="Cancel"
+          confirmVariant="danger"
+          onConfirm={() => void handleDisconnect()}
+          onCancel={() => setDisconnectConfirm(false)}
+        />
       </IonContent>
     </IonPage>
   );

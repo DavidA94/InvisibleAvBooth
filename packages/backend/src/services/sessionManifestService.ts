@@ -108,17 +108,13 @@ export class SessionManifestService {
     const resolver = this.createVerseTextResolver();
 
     const titleTemplate = this.manifest.titleTemplateId ? this.dao.getById(this.manifest.titleTemplateId) : null;
-    const descriptionTemplate = this.manifest.descriptionTemplateId
-      ? this.dao.getById(this.manifest.descriptionTemplateId)
-      : null;
+    const descriptionTemplate = this.manifest.descriptionTemplateId ? this.dao.getById(this.manifest.descriptionTemplateId) : null;
 
     const titleFormat = titleTemplate?.formatString ?? DEFAULT_STREAM_TITLE_TEMPLATE;
     const descriptionFormat = descriptionTemplate?.formatString ?? "";
 
     this.cachedInterpolatedTitle = interpolateTemplate(this.manifest, titleFormat, resolver);
-    this.cachedInterpolatedDescription = descriptionFormat
-      ? interpolateTemplate(this.manifest, descriptionFormat, resolver)
-      : "";
+    this.cachedInterpolatedDescription = descriptionFormat ? interpolateTemplate(this.manifest, descriptionFormat, resolver) : "";
     this.cachedManifestReady = this.computeManifestReady(titleFormat, descriptionFormat);
   }
 
@@ -159,9 +155,9 @@ export class SessionManifestService {
         return rows.map((row) => row.VERSETEXT).join(" ");
       }
       if (ref.verse === 0) {
-        const rows = this.database
-          .prepare("SELECT VERSETEXT FROM kjv WHERE BOOKID = ? AND CHAPTERNO = ? ORDER BY VERSENO")
-          .all(ref.bookId, ref.chapter) as { VERSETEXT: string }[];
+        const rows = this.database.prepare("SELECT VERSETEXT FROM kjv WHERE BOOKID = ? AND CHAPTERNO = ? ORDER BY VERSENO").all(ref.bookId, ref.chapter) as {
+          VERSETEXT: string;
+        }[];
         return rows.map((row) => row.VERSETEXT).join(" ");
       }
       const row = this.database

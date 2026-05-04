@@ -19,6 +19,7 @@ let flushTimer: ReturnType<typeof setInterval> | null = null;
 
 function enqueue(level: LogEntry["level"], message: string, meta?: { userId?: string; context?: Record<string, unknown> }): void {
   // Always log to console in development for immediate visibility
+  // eslint-disable-next-line no-console
   const consoleFn = level === "error" ? console.error : level === "warn" ? console.warn : level === "debug" ? console.debug : console.info;
   consoleFn(`[${level.toUpperCase()}] ${message}`, meta?.context ?? "");
 

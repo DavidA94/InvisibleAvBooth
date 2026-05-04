@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import Database from "better-sqlite3";
 import type BetterSqlite3 from "better-sqlite3";
 import { applySchema } from "../database/schema.js";
-import { ObsService, ObsError } from "./obsService.js";
+import { ObsService, ObsError, getObsService, resetObsService } from "./obsService.js";
 import { eventBus } from "../eventBus/eventBus.js";
 
 // ── Mock OBSWebSocket client ──────────────────────────────────────────────────
@@ -20,8 +20,7 @@ function makeMockObs() {
     call: vi.fn().mockImplementation((method: string) => {
       if (method === "GetStreamStatus") return Promise.resolve({ outputActive: true });
       if (method === "GetRecordStatus") return Promise.resolve({ outputActive: true });
-      if (method === "GetStreamServiceSettings")
-        return Promise.resolve({ streamServiceSettings: { server: "rtmp://localhost:1935/live/stream" } });
+      if (method === "GetStreamServiceSettings") return Promise.resolve({ streamServiceSettings: { server: "rtmp://localhost:1935/live/stream" } });
       return Promise.resolve({});
     }),
     on: vi.fn().mockImplementation((event: string, handler: EventHandler) => {
@@ -162,8 +161,7 @@ describe("ObsService.startStream — relay-aware", () => {
     await service.connect();
     mockObs.call.mockClear();
     mockObs.call.mockImplementation((method: string) => {
-      if (method === "GetStreamServiceSettings")
-        return Promise.resolve({ streamServiceSettings: { server: "rtmp://localhost:1935/live/stream" } });
+      if (method === "GetStreamServiceSettings") return Promise.resolve({ streamServiceSettings: { server: "rtmp://localhost:1935/live/stream" } });
       return Promise.resolve({});
     });
     await service.startStream();
@@ -178,8 +176,7 @@ describe("ObsService.startStream — relay-aware", () => {
     await service.connect();
     mockObs.call.mockClear();
     mockObs.call.mockImplementation((method: string) => {
-      if (method === "GetStreamServiceSettings")
-        return Promise.resolve({ streamServiceSettings: { server: "rtmp://some-other-server/live" } });
+      if (method === "GetStreamServiceSettings") return Promise.resolve({ streamServiceSettings: { server: "rtmp://some-other-server/live" } });
       return Promise.resolve({});
     });
     await service.startStream();
@@ -193,8 +190,7 @@ describe("ObsService.startStream — relay-aware", () => {
     await service.connect();
     mockObs.call.mockClear();
     mockObs.call.mockImplementation((method: string) => {
-      if (method === "GetStreamServiceSettings")
-        return Promise.resolve({ streamServiceSettings: { server: "rtmp://localhost:1935/live/stream" } });
+      if (method === "GetStreamServiceSettings") return Promise.resolve({ streamServiceSettings: { server: "rtmp://localhost:1935/live/stream" } });
       return Promise.resolve({});
     });
     await service.startStream();
@@ -225,8 +221,7 @@ describe("ObsService.startStream — relay-aware", () => {
     const service = makeSvc(makeDatabase(), mockObs);
     await service.connect();
     mockObs.call.mockImplementation((method: string) => {
-      if (method === "GetStreamServiceSettings")
-        return Promise.resolve({ streamServiceSettings: { server: "rtmp://localhost:1935/live/stream" } });
+      if (method === "GetStreamServiceSettings") return Promise.resolve({ streamServiceSettings: { server: "rtmp://localhost:1935/live/stream" } });
       if (method === "StartStream") return Promise.reject(new Error("stream error"));
       return Promise.resolve({});
     });
@@ -345,6 +340,48 @@ describe("ObsService reconnect", () => {
 });
 
 // ── ObsError ──────────────────────────────────────────────────────────────────
+
+describe("ObsService.updateStreamMetadata", () => {
+  it("calls SetStreamServiceSettings with title", async () => {
+    const mockObs = makeMockObs();
+    const service = makeSvc(makeDatabase(), mockObs);
+    await service.connect();
+
+    const result = await service.updateStreamMetadata("New Title");
+    expect(result.success).toBe(true);
+    expect(mockObs.call).toHaveBeenCalledWith("SetStreamServiceSettings", expect.objectContaining({ streamServiceSettings: { stream_title: "New Title" } }));
+  });
+
+  it("returns METADATA_UPDATE_FAILED on error", async () => {
+    const mockObs = makeMockObs();
+    const service = makeSvc(makeDatabase(), mockObs);
+    await service.connect();
+
+    mockObs.call.mockRejectedValueOnce(new Error("OBS error"));
+    const result = await service.updateStreamMetadata("Title");
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error.code).toBe("METADATA_UPDATE_FAILED");
+  });
+});
+
+describe("ObsService singleton helpers", () => {
+  it("getObsService returns same instance", () => {
+    const db = makeDatabase();
+    const a = getObsService(db);
+    const b = getObsService(db);
+    expect(a).toBe(b);
+    resetObsService();
+  });
+
+  it("resetObsService clears the singleton", () => {
+    const db = makeDatabase();
+    const a = getObsService(db);
+    resetObsService();
+    const b = getObsService(db);
+    expect(a).not.toBe(b);
+    resetObsService();
+  });
+});
 
 describe("ObsError", () => {
   it("has correct code and name", () => {

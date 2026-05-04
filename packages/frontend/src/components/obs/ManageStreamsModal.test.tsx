@@ -64,14 +64,14 @@ describe("ManageStreamsModal", () => {
     resetStore(new Map([["YouTube", { state: "streaming" }]]));
     render(<ManageStreamsModal isOpen={true} onClose={vi.fn()} />);
     const btn = screen.getByTestId(TEST_ID_PLATFORM_START_ALL);
-    expect((btn as HTMLIonButtonElement).disabled).toBe(true);
+    expect((btn as HTMLButtonElement).disabled).toBe(true);
   });
 
   it("disables Stop All when no platform is streaming", () => {
     resetStore(new Map([["YouTube", { state: "idle" }]]));
     render(<ManageStreamsModal isOpen={true} onClose={vi.fn()} />);
     const btn = screen.getByTestId(TEST_ID_PLATFORM_STOP_ALL);
-    expect((btn as HTMLIonButtonElement).disabled).toBe(true);
+    expect((btn as HTMLButtonElement).disabled).toBe(true);
   });
 
   it("enables Start All when all platforms idle", () => {

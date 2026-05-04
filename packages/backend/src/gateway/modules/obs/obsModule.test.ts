@@ -129,6 +129,43 @@ describe("registerSocket", () => {
     expect(obsService.stopStream).not.toHaveBeenCalled();
   });
 
+  it("returns error for unknown command type", async () => {
+    const obsService: ObsService = makeMockObsService();
+    const module: ObsModule = new ObsModule(obsService);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let callback: any;
+    socketOnMock.mockImplementation((event, func) => {
+      if (event === CTS_OBS_COMMAND) {
+        callback = func;
+      }
+    });
+    module.registerSocket({ socket: socketMock, jwtPayload: fakeUser } as AuthenticatedSocket);
+
+    const ackCallback = vi.fn();
+    await callback({ type: "unknownCommand" }, ackCallback);
+    expect(ackCallback).toHaveBeenCalledWith({ success: false, error: "Unknown command" });
+  });
+
+  it("returns error when command throws", async () => {
+    const obsService: ObsService = makeMockObsService();
+    obsService.startRecording = vi.fn().mockRejectedValue(new Error("connection lost"));
+    const module: ObsModule = new ObsModule(obsService);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let callback: any;
+    socketOnMock.mockImplementation((event, func) => {
+      if (event === CTS_OBS_COMMAND) {
+        callback = func;
+      }
+    });
+    module.registerSocket({ socket: socketMock, jwtPayload: fakeUser } as AuthenticatedSocket);
+
+    const ackCallback = vi.fn();
+    await callback({ type: "startRecording" }, ackCallback);
+    expect(ackCallback).toHaveBeenCalledWith({ success: false, error: "connection lost" });
+  });
+
   it.each([true, false])(`registerSocket will attempt a reconnect when ${CTS_OBS_RECONNECT} is received with success=%s`, async (success) => {
     const obsService: ObsService = makeMockObsService();
     const module: ObsModule = new ObsModule(obsService);

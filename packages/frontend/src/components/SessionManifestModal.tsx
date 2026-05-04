@@ -95,9 +95,13 @@ export function SessionManifestModal({ isOpen, onClose }: SessionManifestModalPr
           if (titleList.length === 1 && !titleTemplateId) setTitleTemplateId(titleList[0]!.id);
           if (descList.length === 1 && !descriptionTemplateId) setDescriptionTemplateId(descList[0]!.id);
         }
-      } catch { /* templates optional */ }
+      } catch {
+        /* templates optional */
+      }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const titleTemplates = useMemo(() => templates.filter((t) => t.category === "title"), [templates]);
@@ -152,7 +156,10 @@ export function SessionManifestModal({ isOpen, onClose }: SessionManifestModalPr
         setVerse(storeManifest.scripture.verse);
         setVerseEnd(storeManifest.scripture.verseEnd ?? null);
       } else {
-        setBookId(null); setChapter(null); setVerse(null); setVerseEnd(null);
+        setBookId(null);
+        setChapter(null);
+        setVerse(null);
+        setVerseEnd(null);
       }
       setError("");
     }
@@ -165,7 +172,10 @@ export function SessionManifestModal({ isOpen, onClose }: SessionManifestModalPr
     const patch: Partial<SessionManifest> = { ...draftManifest };
     if (titleTemplateId) patch.titleTemplateId = titleTemplateId;
     if (descriptionTemplateId) patch.descriptionTemplateId = descriptionTemplateId;
-    const timeout = setTimeout(() => { setSaving(false); setError("Save failed — check your connection and try again."); }, ACK_TIMEOUT);
+    const timeout = setTimeout(() => {
+      setSaving(false);
+      setError("Save failed — check your connection and try again.");
+    }, ACK_TIMEOUT);
     socket.emit(CTS_SESSION_MANIFEST_UPDATE, patch, (result: CommandResult) => {
       clearTimeout(timeout);
       setSaving(false);
@@ -175,19 +185,37 @@ export function SessionManifestModal({ isOpen, onClose }: SessionManifestModalPr
   };
 
   const handleClear = (): void => {
-    setSpeaker(""); setTitle(""); setBookId(null); setChapter(null); setVerse(null); setVerseEnd(null); setError("");
+    setSpeaker("");
+    setTitle("");
+    setBookId(null);
+    setChapter(null);
+    setVerse(null);
+    setVerseEnd(null);
+    setError("");
   };
 
   const isLive = obsState.streaming || obsState.recording;
 
   const footer = (
     <div className="manifest-footer">
-      <button data-testid={TEST_ID_MANIFEST_CLEAR} onClick={handleClear} disabled={saving || isLive} className={`button-ghost-danger button-padding-compact ${saving || isLive ? "opacity-disabled" : ""}`}>
+      <button
+        data-testid={TEST_ID_MANIFEST_CLEAR}
+        onClick={handleClear}
+        disabled={saving || isLive}
+        className={`button-ghost-danger button-padding-compact ${saving || isLive ? "opacity-disabled" : ""}`}
+      >
         Clear All
       </button>
       <span className="fill-remaining" />
-      <button data-testid={TEST_ID_MANIFEST_CANCEL} onClick={onClose} disabled={saving} className="button-outline button-padding-standard">Cancel</button>
-      <button data-testid={TEST_ID_MANIFEST_SAVE} onClick={handleSave} disabled={saving} className={`button-primary text-bold button-padding-standard ${saving ? "opacity-disabled" : ""}`}>
+      <button data-testid={TEST_ID_MANIFEST_CANCEL} onClick={onClose} disabled={saving} className="button-outline button-padding-standard">
+        Cancel
+      </button>
+      <button
+        data-testid={TEST_ID_MANIFEST_SAVE}
+        onClick={handleSave}
+        disabled={saving}
+        className={`button-primary text-bold button-padding-standard ${saving ? "opacity-disabled" : ""}`}
+      >
         {saving ? "Saving…" : "Save"}
       </button>
     </div>
@@ -232,13 +260,38 @@ export function SessionManifestModal({ isOpen, onClose }: SessionManifestModalPr
         {hasAnyTemplate && (
           <>
             {needsSpeaker && (
-              <IonInput data-testid={TEST_ID_MANIFEST_SPEAKER} label="Speaker" labelPlacement="stacked" fill="outline" value={speaker} onIonInput={(e) => setSpeaker(e.detail.value ?? "")} clearInput />
+              <IonInput
+                data-testid={TEST_ID_MANIFEST_SPEAKER}
+                label="Speaker"
+                labelPlacement="stacked"
+                fill="outline"
+                value={speaker}
+                onIonInput={(e) => setSpeaker(e.detail.value ?? "")}
+                clearInput
+              />
             )}
             {needsTitle && (
-              <IonInput data-testid={TEST_ID_MANIFEST_TITLE} label="Sermon Title" labelPlacement="stacked" fill="outline" value={title} onIonInput={(e) => setTitle(e.detail.value ?? "")} clearInput />
+              <IonInput
+                data-testid={TEST_ID_MANIFEST_TITLE}
+                label="Sermon Title"
+                labelPlacement="stacked"
+                fill="outline"
+                value={title}
+                onIonInput={(e) => setTitle(e.detail.value ?? "")}
+                clearInput
+              />
             )}
             {needsScripture && (
-              <ScriptureReferenceInput bookId={bookId} chapter={chapter} verse={verse} verseEnd={verseEnd} onBookChange={setBookId} onChapterChange={setChapter} onVerseChange={setVerse} onVerseEndChange={setVerseEnd} />
+              <ScriptureReferenceInput
+                bookId={bookId}
+                chapter={chapter}
+                verse={verse}
+                verseEnd={verseEnd}
+                onBookChange={setBookId}
+                onChapterChange={setChapter}
+                onVerseChange={setVerse}
+                onVerseEndChange={setVerseEnd}
+              />
             )}
           </>
         )}

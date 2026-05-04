@@ -12,14 +12,7 @@ interface ObsControlsProps {
   onStopRecording: () => void;
 }
 
-export function ObsControls({
-  obsState,
-  isPending,
-  manifestReady,
-  onManageStreams,
-  onStartRecording,
-  onStopRecording,
-}: ObsControlsProps): ReactNode {
+export function ObsControls({ obsState, isPending, manifestReady, onManageStreams, onStartRecording, onStopRecording }: ObsControlsProps): ReactNode {
   const recordLabel = obsState.recording ? "Stop Recording" : "Start Recording";
   const manageSubLabel = manifestReady ? undefined : "Enter metadata";
 
@@ -38,11 +31,7 @@ export function ObsControls({
         ) : (
           <div className="layout-column layout-centered">
             <span className="text-button-large">Manage Streams</span>
-            {manageSubLabel && (
-              <span style={{ fontSize: "0.75rem", opacity: 0.7, marginTop: "0.125rem" }}>
-                {manageSubLabel}
-              </span>
-            )}
+            {manageSubLabel && <span style={{ fontSize: "0.75rem", opacity: 0.7, marginTop: "0.125rem" }}>{manageSubLabel}</span>}
           </div>
         )}
       </IonButton>

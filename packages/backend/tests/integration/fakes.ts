@@ -7,7 +7,7 @@
 import { vi } from "vitest";
 import type { StreamingPlatformClient, BroadcastInfo, PlatformHealth, TokenInfo } from "../../src/platforms/platformClient.js";
 import type { NmsFactory, NmsInstance, SpawnFn } from "../../src/services/relayService.js";
-import type { EventEmitter } from "events";
+import { EventEmitter } from "events";
 
 // ── FakePlatformClient ───────────────────────────────────────────────────────
 
@@ -86,8 +86,14 @@ export function createFakeObs() {
       else Object.keys(handlers).forEach((k) => delete handlers[k]);
     }),
     call: vi.fn().mockImplementation((method: string) => {
-      if (method === "StartRecord") { recording = true; return Promise.resolve({}); }
-      if (method === "StopRecord") { recording = false; return Promise.resolve({}); }
+      if (method === "StartRecord") {
+        recording = true;
+        return Promise.resolve({});
+      }
+      if (method === "StopRecord") {
+        recording = false;
+        return Promise.resolve({});
+      }
       if (method === "GetStreamStatus") return Promise.resolve({ outputActive: false });
       if (method === "GetRecordStatus") return Promise.resolve({ outputActive: recording });
       if (method === "GetStreamServiceSettings") return Promise.resolve({ streamServiceSettings: { server: "rtmp://localhost:1935/live/stream" } });
@@ -119,8 +125,8 @@ export function createFakeNmsFactory(): NmsFactory {
 
 export function createFakeSpawn(): SpawnFn {
   return vi.fn().mockImplementation(() => {
-    const child = new (require("events").EventEmitter)() as EventEmitter & { stderr: EventEmitter | null; kill: ReturnType<typeof vi.fn> };
-    child.stderr = new (require("events").EventEmitter)() as EventEmitter;
+    const child = new EventEmitter() as EventEmitter & { stderr: EventEmitter | null; kill: ReturnType<typeof vi.fn> };
+    child.stderr = new EventEmitter() as EventEmitter;
     child.kill = vi.fn();
     // Simulate successful ffmpeg -version
     setTimeout(() => child.emit("close", 0), 0);

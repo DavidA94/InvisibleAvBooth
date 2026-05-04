@@ -45,71 +45,76 @@ _All resolved._
 ## Integration Test Coverage Summary
 
 ### Auth & Security
-| Feature | Status | Test File |
-|---------|--------|-----------|
-| Login (valid/invalid/missing fields) | ✅ | auth.test.ts |
-| Logout (cookie clearing) | ✅ | auth.test.ts |
-| Password change (self-service) | ✅ | auth.test.ts |
-| Admin password reset | ✅ | auth.test.ts |
-| Expired JWT on HTTP routes | ✅ | edge-cases.test.ts |
-| Expired JWT on socket connections | ✅ | edge-cases.test.ts |
-| Invalid JWT on HTTP routes | ✅ | admin-users.test.ts |
-| Invalid JWT on socket connections | ✅ | socket.test.ts |
-| Socket cookie-based auth (valid) | ✅ | edge-cases.test.ts |
-| Socket cookie-based auth (expired) | ✅ | edge-cases.test.ts |
-| Role-based 403 on all 19 admin endpoints | ✅ | edge-cases.test.ts |
-| Password-change enforcement on 9 protected routes | ✅ | edge-cases.test.ts |
-| Self-delete guard | ✅ | admin-users.test.ts |
-| Self-role-change guard | ✅ | admin-users.test.ts |
+
+| Feature                                           | Status | Test File           |
+| ------------------------------------------------- | ------ | ------------------- |
+| Login (valid/invalid/missing fields)              | ✅     | auth.test.ts        |
+| Logout (cookie clearing)                          | ✅     | auth.test.ts        |
+| Password change (self-service)                    | ✅     | auth.test.ts        |
+| Admin password reset                              | ✅     | auth.test.ts        |
+| Expired JWT on HTTP routes                        | ✅     | edge-cases.test.ts  |
+| Expired JWT on socket connections                 | ✅     | edge-cases.test.ts  |
+| Invalid JWT on HTTP routes                        | ✅     | admin-users.test.ts |
+| Invalid JWT on socket connections                 | ✅     | socket.test.ts      |
+| Socket cookie-based auth (valid)                  | ✅     | edge-cases.test.ts  |
+| Socket cookie-based auth (expired)                | ✅     | edge-cases.test.ts  |
+| Role-based 403 on all 19 admin endpoints          | ✅     | edge-cases.test.ts  |
+| Password-change enforcement on 9 protected routes | ✅     | edge-cases.test.ts  |
+| Self-delete guard                                 | ✅     | admin-users.test.ts |
+| Self-role-change guard                            | ✅     | admin-users.test.ts |
 
 ### OBS Control
-| Feature | Status | Test File |
-|---------|--------|-----------|
-| startStream rejected (managed by platform service) | ✅ | socket.test.ts |
-| stopStream rejected (managed by platform service) | ✅ | socket.test.ts |
-| startRecording with state verification | ✅ | streaming.test.ts |
-| stopRecording with state verification | ✅ | streaming.test.ts |
-| Recording failure detection (OBS reports not started) | ✅ | streaming.test.ts |
-| OBS error broadcast to clients | ✅ | socket.test.ts |
-| OBS reconnect command | ✅ | edge-cases.test.ts |
-| OBS commands when disconnected | ✅ | edge-cases.test.ts |
-| Initial state emission (OBS + manifest) | ✅ | socket.test.ts |
+
+| Feature                                               | Status | Test File          |
+| ----------------------------------------------------- | ------ | ------------------ |
+| startStream rejected (managed by platform service)    | ✅     | socket.test.ts     |
+| stopStream rejected (managed by platform service)     | ✅     | socket.test.ts     |
+| startRecording with state verification                | ✅     | streaming.test.ts  |
+| stopRecording with state verification                 | ✅     | streaming.test.ts  |
+| Recording failure detection (OBS reports not started) | ✅     | streaming.test.ts  |
+| OBS error broadcast to clients                        | ✅     | socket.test.ts     |
+| OBS reconnect command                                 | ✅     | edge-cases.test.ts |
+| OBS commands when disconnected                        | ✅     | edge-cases.test.ts |
+| Initial state emission (OBS + manifest)               | ✅     | socket.test.ts     |
 
 ### Streaming Platform
-| Feature | Status | Test File |
-|---------|--------|-----------|
-| startAll (broadcast creation → OBS start → streaming) | ✅ | streaming.test.ts |
-| stopAll (forwarder stop → broadcast end → idle) | ✅ | streaming.test.ts |
-| startPlatform (single platform) | ✅ | streaming.test.ts |
-| stopPlatform (single platform) | ✅ | streaming.test.ts |
-| Broadcast failure → error state | ✅ | streaming.test.ts |
-| Concurrent operation rejection | ✅ | streaming.test.ts |
-| Unknown command type → error | ✅ | streaming.test.ts |
-| No source handling (OBS relay disconnect) | ✅ | streaming.test.ts |
-| Manifest clear blocked while streaming | ✅ | streaming.test.ts |
-| Platform config CRUD | ✅ | platforms.test.ts |
-| OAuth state lifecycle | ✅ | platforms.test.ts |
-| Platform health endpoint | ✅ | platforms.test.ts |
+
+| Feature                                               | Status | Test File         |
+| ----------------------------------------------------- | ------ | ----------------- |
+| startAll (broadcast creation → OBS start → streaming) | ✅     | streaming.test.ts |
+| stopAll (forwarder stop → broadcast end → idle)       | ✅     | streaming.test.ts |
+| startPlatform (single platform)                       | ✅     | streaming.test.ts |
+| stopPlatform (single platform)                        | ✅     | streaming.test.ts |
+| Broadcast failure → error state                       | ✅     | streaming.test.ts |
+| Concurrent operation rejection                        | ✅     | streaming.test.ts |
+| Unknown command type → error                          | ✅     | streaming.test.ts |
+| No source handling (OBS relay disconnect)             | ✅     | streaming.test.ts |
+| Manifest clear blocked while streaming                | ✅     | streaming.test.ts |
+| Platform config CRUD                                  | ✅     | platforms.test.ts |
+| OAuth state lifecycle                                 | ✅     | platforms.test.ts |
+| Platform health endpoint                              | ✅     | platforms.test.ts |
 
 ### CRUD & Config
-| Feature | Status | Test File |
-|---------|--------|-----------|
-| User CRUD (create/read/update/delete) | ✅ | admin-users.test.ts |
-| Device CRUD + encryption round-trip | ✅ | admin-devices.test.ts |
-| Device password update | ✅ | edge-cases.test.ts |
-| Device password preserved on non-password update | ✅ | admin-devices.test.ts |
-| Dashboard CRUD | ✅ | admin-dashboards.test.ts |
-| Widget CRUD + duplicate detection | ✅ | admin-dashboards.test.ts |
-| Dashboard role filtering | ✅ | admin-dashboards.test.ts |
-| Dashboard layout endpoint | ✅ | admin-dashboards.test.ts |
-| Template CRUD + validation | ✅ | admin-templates.test.ts |
-| Template role filtering | ✅ | templates.test.ts |
-| Last title template guard | ✅ | admin-templates.test.ts |
-| KJV verse validation | ✅ | kjv.test.ts |
-| Frontend log ingestion | ✅ | logs.test.ts |
-| Session manifest (get/update) | ✅ | admin-dashboards.test.ts, socket.test.ts |
+
+| Feature                                          | Status | Test File                                |
+| ------------------------------------------------ | ------ | ---------------------------------------- |
+| User CRUD (create/read/update/delete)            | ✅     | admin-users.test.ts                      |
+| Device CRUD + encryption round-trip              | ✅     | admin-devices.test.ts                    |
+| Device password update                           | ✅     | edge-cases.test.ts                       |
+| Device password preserved on non-password update | ✅     | admin-devices.test.ts                    |
+| Dashboard CRUD                                   | ✅     | admin-dashboards.test.ts                 |
+| Widget CRUD + duplicate detection                | ✅     | admin-dashboards.test.ts                 |
+| Dashboard role filtering                         | ✅     | admin-dashboards.test.ts                 |
+| Dashboard layout endpoint                        | ✅     | admin-dashboards.test.ts                 |
+| Template CRUD + validation                       | ✅     | admin-templates.test.ts                  |
+| Template role filtering                          | ✅     | templates.test.ts                        |
+| Last title template guard                        | ✅     | admin-templates.test.ts                  |
+| KJV verse validation                             | ✅     | kjv.test.ts                              |
+| Frontend log ingestion                           | ✅     | logs.test.ts                             |
+| Session manifest (get/update)                    | ✅     | admin-dashboards.test.ts, socket.test.ts |
 
 ### Known Gaps (deferred to unit tests or future work)
+
 - **Health polling interval behavior** — Tested in unit tests; integration tests verify the command path, not the 20s polling timer.
 - **FFmpeg forwarder exit recovery** — The full 2s wait + respawn + 5s verify cycle is tested in unit tests. Integration tests verify the no_source → recovery path via relay state events.
 - **Token refresh flow** — YouTube/Facebook token refresh is tested in unit tests against mock HTTP responses. Integration tests use in-process fakes.

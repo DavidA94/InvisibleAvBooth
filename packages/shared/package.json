@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "build": "tsc --build",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage"
   },
   "exports": {
     ".": {

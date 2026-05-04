@@ -6,7 +6,6 @@
  */
 import Database from "better-sqlite3";
 import request from "supertest";
-import type { Express } from "express";
 import { applySchema } from "../../src/database/schema.js";
 import { seedKjv } from "../../src/database/database.js";
 import { buildApp } from "../../src/app.js";
@@ -43,9 +42,9 @@ export async function buildTestServer(opts?: { seedKjv?: boolean; seedPlatform?:
   // Seed a platform config BEFORE buildApp so loadPlatforms() picks it up
   if (opts?.seedPlatform) {
     const { encrypt } = await import("../../src/crypto.js");
-    database.prepare(
-      "INSERT INTO streaming_platforms (id, platformType, label, enabled, encryptedAccessToken, metadata, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)",
-    ).run("yt-1", "youtube", "Test YouTube", 1, encrypt("fake-token"), '{"privacy":"unlisted"}', new Date().toISOString());
+    database
+      .prepare("INSERT INTO streaming_platforms (id, platformType, label, enabled, encryptedAccessToken, metadata, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)")
+      .run("yt-1", "youtube", "Test YouTube", 1, encrypt("fake-token"), '{"privacy":"unlisted"}', new Date().toISOString());
   }
 
   const fakeObs = createFakeObs();

@@ -4,9 +4,13 @@ import { IonInput, IonButton, IonText, IonSpinner, IonCheckbox } from "@ionic/re
 import { ConfirmationModal } from "../../components/ConfirmationModal";
 import type { DeviceFormProps, DeviceRecord } from "./deviceTypeRegistry";
 import {
-  TEST_ID_DEVICE_FORM_LABEL, TEST_ID_DEVICE_FORM_HOST, TEST_ID_DEVICE_FORM_PORT,
+  TEST_ID_DEVICE_FORM_LABEL,
+  TEST_ID_DEVICE_FORM_HOST,
+  TEST_ID_DEVICE_FORM_PORT,
   TEST_ID_DEVICE_FORM_PASSWORD,
-  TEST_ID_DEVICE_FORM_ENABLED, TEST_ID_DEVICE_FORM_SAVE, TEST_ID_DEVICE_FORM_DELETE,
+  TEST_ID_DEVICE_FORM_ENABLED,
+  TEST_ID_DEVICE_FORM_SAVE,
+  TEST_ID_DEVICE_FORM_DELETE,
   TEST_ID_DEVICE_FORM_ERROR,
 } from "../../constants/testIds";
 
@@ -183,11 +187,7 @@ export function ObsDeviceForm({ device, onSaved, onDeleted, registerDirtyCheck }
 
       {isEdit && (
         <label className="layout-row gap-standard">
-          <IonCheckbox
-            data-testid={TEST_ID_DEVICE_FORM_ENABLED}
-            checked={form.enabled}
-            onIonChange={(e) => updateField("enabled", e.detail.checked)}
-          />
+          <IonCheckbox data-testid={TEST_ID_DEVICE_FORM_ENABLED} checked={form.enabled} onIonChange={(e) => updateField("enabled", e.detail.checked)} />
           Enabled
         </label>
       )}
@@ -199,21 +199,11 @@ export function ObsDeviceForm({ device, onSaved, onDeleted, registerDirtyCheck }
       )}
 
       <div className="layout-row gap-standard">
-        <IonButton
-          data-testid={TEST_ID_DEVICE_FORM_SAVE}
-          disabled={pending || !form.label || !form.host}
-          onClick={() => void handleSave()}
-        >
+        <IonButton data-testid={TEST_ID_DEVICE_FORM_SAVE} disabled={pending || !form.label || !form.host} onClick={() => void handleSave()}>
           {pending ? <IonSpinner name="crescent" /> : "Save"}
         </IonButton>
         {isEdit && (
-          <IonButton
-            data-testid={TEST_ID_DEVICE_FORM_DELETE}
-            fill="outline"
-            color="danger"
-            disabled={deletePending}
-            onClick={() => setDeleteConfirmOpen(true)}
-          >
+          <IonButton data-testid={TEST_ID_DEVICE_FORM_DELETE} fill="outline" color="danger" disabled={deletePending} onClick={() => setDeleteConfirmOpen(true)}>
             {deletePending ? <IonSpinner name="crescent" /> : "Delete"}
           </IonButton>
         )}

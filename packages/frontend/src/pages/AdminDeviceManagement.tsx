@@ -4,14 +4,18 @@ import { IonPage, IonContent, IonButton, IonSpinner } from "@ionic/react";
 import { addOutline } from "ionicons/icons";
 import { IonIcon } from "@ionic/react";
 import { ConfirmationModal } from "../components/ConfirmationModal";
-import {
-  DEVICE_TYPE_REGISTRY, DEVICE_TYPE_KEYS, getDeviceTypeDisplayName,
-} from "./deviceForms/deviceTypeRegistry";
+import { DEVICE_TYPE_REGISTRY, DEVICE_TYPE_KEYS, getDeviceTypeDisplayName } from "./deviceForms/deviceTypeRegistry";
 import type { DeviceRecord, DirtyCheck } from "./deviceForms/deviceTypeRegistry";
 import {
-  TEST_ID_ADMIN_DEVICES_PAGE, TEST_ID_DEVICE_LIST, TEST_ID_DEVICE_LIST_ITEM,
-  TEST_ID_ADD_DEVICE_BUTTON, TEST_ID_ADD_DEVICE_POPOVER, TEST_ID_ADD_DEVICE_TYPE_OPTION,
-  TEST_ID_DEVICE_DETAIL_PANEL, TEST_ID_DEVICE_DETAIL_EMPTY, TEST_ID_DEVICE_LIST_DELETE_BUTTON,
+  TEST_ID_ADMIN_DEVICES_PAGE,
+  TEST_ID_DEVICE_LIST,
+  TEST_ID_DEVICE_LIST_ITEM,
+  TEST_ID_ADD_DEVICE_BUTTON,
+  TEST_ID_ADD_DEVICE_POPOVER,
+  TEST_ID_ADD_DEVICE_TYPE_OPTION,
+  TEST_ID_DEVICE_DETAIL_PANEL,
+  TEST_ID_DEVICE_DETAIL_EMPTY,
+  TEST_ID_DEVICE_LIST_DELETE_BUTTON,
 } from "../constants/testIds";
 
 interface PanelState {
@@ -121,7 +125,7 @@ export function AdminDeviceManagement(): ReactNode {
     return a.label.localeCompare(b.label);
   });
 
-  const selectedDevice = panel.mode === "edit" ? devices.find((d) => d.id === panel.deviceId) ?? null : null;
+  const selectedDevice = panel.mode === "edit" ? (devices.find((d) => d.id === panel.deviceId) ?? null) : null;
   const FormComponent = panel.deviceType ? DEVICE_TYPE_REGISTRY[panel.deviceType]?.formComponent : undefined;
 
   if (loading) {
@@ -139,20 +143,13 @@ export function AdminDeviceManagement(): ReactNode {
       <IonContent className="ion-padding">
         <h2 className="admin-page-title">Device Management</h2>
 
-        {error && (
-          <p className="text-danger text-secondary text-center margin-bottom-wide">{error}</p>
-        )}
+        {error && <p className="text-danger text-secondary text-center margin-bottom-wide">{error}</p>}
 
         <div className="device-management-layout">
           {/* Left panel — device list */}
           <div className="device-management-list-panel">
             <div className="position-relative">
-              <IonButton
-                data-testid={TEST_ID_ADD_DEVICE_BUTTON}
-                expand="block"
-                style={{ minHeight: "3rem" }}
-                onClick={() => setPopoverOpen((prev) => !prev)}
-              >
+              <IonButton data-testid={TEST_ID_ADD_DEVICE_BUTTON} expand="block" style={{ minHeight: "3rem" }} onClick={() => setPopoverOpen((prev) => !prev)}>
                 <IonIcon icon={addOutline} slot="start" />
                 Add Device
               </IonButton>

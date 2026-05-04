@@ -98,13 +98,7 @@ export function buildApp(deps: AppDependencies): AppContext {
   const relayService = new RelayService(nmsFactory, spawnFn, relayPort);
 
   const platformConfigDao = new PlatformConfigDao(database);
-  const platformService = new StreamingPlatformService(
-    platformClients ?? new Map(),
-    relayService,
-    obsService,
-    manifestService,
-    platformConfigDao,
-  );
+  const platformService = new StreamingPlatformService(platformClients ?? new Map(), relayService, obsService, manifestService, platformConfigDao);
 
   const gateway = new SocketGateway(httpServer, authService, [
     new ObsModule(obsService),

@@ -32,7 +32,11 @@ export function ObsMetadataPreview({ interpolatedStreamTitle, interpolatedDescri
         ) : (
           <>
             <div>{interpolatedStreamTitle}</div>
-            {interpolatedDescription && <div className="text-muted" style={{ fontSize: "0.75rem", marginTop: "0.125rem" }}>{interpolatedDescription}</div>}
+            {interpolatedDescription && (
+              <div className="text-muted" style={{ fontSize: "0.75rem", marginTop: "0.125rem" }}>
+                {interpolatedDescription}
+              </div>
+            )}
           </>
         )}
       </div>
@@ -42,7 +46,11 @@ export function ObsMetadataPreview({ interpolatedStreamTitle, interpolatedDescri
       <IonPopover isOpen={popoverOpen} onDidDismiss={() => setPopoverOpen(false)} trigger={triggerId} side="bottom" alignment="start">
         <div className="popover-content">
           <div>{interpolatedStreamTitle}</div>
-          {interpolatedDescription && <div className="text-muted" style={{ fontSize: "0.85rem", marginTop: "0.25rem" }}>{interpolatedDescription}</div>}
+          {interpolatedDescription && (
+            <div className="text-muted" style={{ fontSize: "0.85rem", marginTop: "0.25rem" }}>
+              {interpolatedDescription}
+            </div>
+          )}
         </div>
       </IonPopover>
     </div>

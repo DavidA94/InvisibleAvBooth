@@ -1,4 +1,5 @@
 import "dotenv/config";
+import type { NmsInstance } from "./services/relayService.js";
 import { getDatabase } from "./database/database.js";
 import { buildApp } from "./app.js";
 import { logger } from "./logger.js";
@@ -22,8 +23,12 @@ const templateCount = (database.prepare("SELECT COUNT(*) as cnt FROM metadata_te
 if (templateCount === 0) {
   const { createId } = await import("@paralleldrive/cuid2");
   const now = new Date().toISOString();
-  database.prepare("INSERT INTO metadata_templates (id, name, category, formatString, roleMinimum, createdAt) VALUES (?, ?, ?, ?, ?, ?)").run(createId(), "Default", "title", "{Date} – {Speaker} – {Title}", "AvVolunteer", now);
-  database.prepare("INSERT INTO metadata_templates (id, name, category, formatString, roleMinimum, createdAt) VALUES (?, ?, ?, ?, ?, ?)").run(createId(), "None", "description", "", "AvVolunteer", now);
+  database
+    .prepare("INSERT INTO metadata_templates (id, name, category, formatString, roleMinimum, createdAt) VALUES (?, ?, ?, ?, ?, ?)")
+    .run(createId(), "Default", "title", "{Date} – {Speaker} – {Title}", "AvVolunteer", now);
+  database
+    .prepare("INSERT INTO metadata_templates (id, name, category, formatString, roleMinimum, createdAt) VALUES (?, ?, ?, ?, ?, ?)")
+    .run(createId(), "None", "description", "", "AvVolunteer", now);
   logger.info("Bootstrapped default metadata templates");
 }
 
@@ -32,7 +37,8 @@ const { spawn } = await import("child_process");
 
 const { httpServer, authService, obsService, relayService, platformService } = buildApp({
   database,
-  nmsFactory: () => new NodeMediaServer({ rtmp: { port: relayPort, chunk_size: 60000, gop_cache: false, ping: 5, ping_timeout: 3 }, logType: 0 }) as unknown as import("./services/relayService.js").NmsInstance,
+  nmsFactory: () =>
+    new NodeMediaServer({ rtmp: { port: relayPort, chunk_size: 60000, gop_cache: false, ping: 5, ping_timeout: 3 }, logType: 0 }) as unknown as NmsInstance,
   spawnFn: spawn,
   relayPort,
 });
@@ -53,7 +59,7 @@ httpServer.listen(PORT, () => {
 });
 
 // Graceful shutdown
-const shutdown = () => {
+const shutdown = (): void => {
   logger.info("Shutting down...");
   platformService.destroy();
   relayService.stop();

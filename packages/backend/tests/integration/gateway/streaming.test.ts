@@ -10,10 +10,7 @@ import { buildTestServer, destroyServer, loginAsAdmin } from "../harness.js";
 import type { TestServer } from "../harness.js";
 import { eventBus } from "../../../src/eventBus/eventBus.js";
 import { BUS_RELAY_STATE_CHANGED } from "../../../src/eventBus/types.js";
-import {
-  CTS_PLATFORM_COMMAND, CTS_OBS_COMMAND, CTS_SESSION_MANIFEST_UPDATE,
-  STC_PLATFORM_STATE, STC_OBS_STATE,
-} from "@invisible-av-booth/shared";
+import { CTS_PLATFORM_COMMAND, CTS_OBS_COMMAND, CTS_SESSION_MANIFEST_UPDATE, STC_PLATFORM_STATE } from "@invisible-av-booth/shared";
 
 let s: TestServer;
 let token: string;
@@ -37,9 +34,11 @@ beforeAll(async () => {
   s = await buildTestServer({ seedPlatform: true });
 
   // Insert OBS device and connect
-  s.ctx.database.prepare(
-    "INSERT INTO device_connections (id, deviceType, label, host, port, encryptedPassword, metadata, features, enabled, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-  ).run("obs-1", "obs", "Main OBS", "localhost", 4455, null, "{}", "{}", 1, new Date().toISOString());
+  s.ctx.database
+    .prepare(
+      "INSERT INTO device_connections (id, deviceType, label, host, port, encryptedPassword, metadata, features, enabled, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    )
+    .run("obs-1", "obs", "Main OBS", "localhost", 4455, null, "{}", "{}", 1, new Date().toISOString());
 
   setupObsMock();
   await s.ctx.obsService.connect();
@@ -65,7 +64,11 @@ afterEach(async () => {
   const states = s.ctx.platformService.getPlatformStates();
   for (const [, state] of states) {
     if (state.status === "streaming" || state.status === "no_source" || state.status === "recovering") {
-      try { await s.ctx.platformService.stopAll(); } catch { /* ignore */ }
+      try {
+        await s.ctx.platformService.stopAll();
+      } catch {
+        /* ignore */
+      }
       break;
     }
   }
@@ -186,12 +189,21 @@ describe("Streaming lifecycle via platform commands", () => {
     const client = await connectClient();
 
     // Make createBroadcast slow so the operation is still in progress
-    s.fakePlatformClient.enqueue("createBroadcast", new Promise((resolve) => {
-      setTimeout(() => resolve({
-        broadcastId: "slow-1", rtmpUrl: "rtmp://fake/live/stream",
-        streamUrl: "rtmp://fake/live", streamKey: "stream",
-      }), 500);
-    }));
+    s.fakePlatformClient.enqueue(
+      "createBroadcast",
+      new Promise((resolve) => {
+        setTimeout(
+          () =>
+            resolve({
+              broadcastId: "slow-1",
+              rtmpUrl: "rtmp://fake/live/stream",
+              streamUrl: "rtmp://fake/live",
+              streamKey: "stream",
+            }),
+          500,
+        );
+      }),
+    );
 
     // Start a long operation — don't await
     const p1 = new Promise<{ success: boolean }>((resolve) => {
@@ -230,8 +242,14 @@ describe("Recording lifecycle with state verification", () => {
 
     let isRecording = false;
     s.fakeObs.call.mockImplementation((method: string) => {
-      if (method === "StartRecord") { isRecording = true; return Promise.resolve({}); }
-      if (method === "StopRecord") { isRecording = false; return Promise.resolve({}); }
+      if (method === "StartRecord") {
+        isRecording = true;
+        return Promise.resolve({});
+      }
+      if (method === "StopRecord") {
+        isRecording = false;
+        return Promise.resolve({});
+      }
       if (method === "GetRecordStatus") return Promise.resolve({ outputActive: isRecording });
       if (method === "GetStreamStatus") return Promise.resolve({ outputActive: false });
       if (method === "GetStreamServiceSettings") return Promise.resolve({ streamServiceSettings: { server: "rtmp://localhost:0/live/stream" } });
@@ -251,8 +269,14 @@ describe("Recording lifecycle with state verification", () => {
 
     let isRecording = false;
     s.fakeObs.call.mockImplementation((method: string) => {
-      if (method === "StartRecord") { isRecording = true; return Promise.resolve({}); }
-      if (method === "StopRecord") { isRecording = false; return Promise.resolve({}); }
+      if (method === "StartRecord") {
+        isRecording = true;
+        return Promise.resolve({});
+      }
+      if (method === "StopRecord") {
+        isRecording = false;
+        return Promise.resolve({});
+      }
       if (method === "GetRecordStatus") return Promise.resolve({ outputActive: isRecording });
       if (method === "GetStreamStatus") return Promise.resolve({ outputActive: false });
       if (method === "GetStreamServiceSettings") return Promise.resolve({ streamServiceSettings: { server: "rtmp://localhost:0/live/stream" } });

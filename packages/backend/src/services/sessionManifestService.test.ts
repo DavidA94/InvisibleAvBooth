@@ -393,9 +393,7 @@ describe("Property: manifestReady determinism", () => {
           try {
             if (hasTitleTemplate) {
               freshDatabase
-                .prepare(
-                  "INSERT INTO metadata_templates (id, name, category, formatString, roleMinimum, createdAt) VALUES (?, ?, ?, ?, ?, ?)",
-                )
+                .prepare("INSERT INTO metadata_templates (id, name, category, formatString, roleMinimum, createdAt) VALUES (?, ?, ?, ?, ?, ?)")
                 .run("t1", "Test", "title", "{Speaker} – {Title}", "AvVolunteer", new Date().toISOString());
             }
             const service1 = new SessionManifestService(freshDatabase);

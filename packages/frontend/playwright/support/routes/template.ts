@@ -18,7 +18,11 @@ export async function routeAdminTemplatesApi(page: Page, templates?: TemplatePay
     if (route.request().method() === "GET") {
       await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(data) });
     } else {
-      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ id: "new", ...JSON.parse(route.request().postData() ?? "{}") }) });
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ id: "new", ...JSON.parse(route.request().postData() ?? "{}") }),
+      });
     }
   });
 

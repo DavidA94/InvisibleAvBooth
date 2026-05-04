@@ -4,7 +4,9 @@ import type { TestServer } from "../harness.js";
 
 let s: TestServer;
 
-beforeAll(async () => { s = await buildTestServer(); });
+beforeAll(async () => {
+  s = await buildTestServer();
+});
 afterAll(() => destroyServer(s));
 beforeEach(() => resetServer(s));
 

@@ -61,7 +61,6 @@ test.describe("Admin User Management", () => {
         await route.continue();
       }
     });
-
   });
 
   test("user CRUD flow", async ({ page }) => {
@@ -127,7 +126,6 @@ test.describe("Admin Device Management", () => {
         await route.continue();
       }
     });
-
   });
 
   test("device CRUD flow", async ({ page }) => {

@@ -9,10 +9,18 @@ import { useAuth } from "../hooks/useAuth";
 import { ConfirmationModal } from "../components/ConfirmationModal";
 import type { Role } from "../types";
 import {
-  TEST_ID_ADMIN_USERS_PAGE, TEST_ID_USER_LIST, TEST_ID_USER_LIST_ITEM,
-  TEST_ID_ADD_USER_BUTTON, TEST_ID_USER_DETAIL_PANEL, TEST_ID_USER_DETAIL_EMPTY,
-  TEST_ID_USER_LIST_DELETE_BUTTON, TEST_ID_USER_FORM_USERNAME, TEST_ID_USER_FORM_PASSWORD,
-  TEST_ID_USER_FORM_ROLE_SELECT, TEST_ID_USER_FORM_SAVE, TEST_ID_USER_FORM_DELETE,
+  TEST_ID_ADMIN_USERS_PAGE,
+  TEST_ID_USER_LIST,
+  TEST_ID_USER_LIST_ITEM,
+  TEST_ID_ADD_USER_BUTTON,
+  TEST_ID_USER_DETAIL_PANEL,
+  TEST_ID_USER_DETAIL_EMPTY,
+  TEST_ID_USER_LIST_DELETE_BUTTON,
+  TEST_ID_USER_FORM_USERNAME,
+  TEST_ID_USER_FORM_PASSWORD,
+  TEST_ID_USER_FORM_ROLE_SELECT,
+  TEST_ID_USER_FORM_SAVE,
+  TEST_ID_USER_FORM_DELETE,
   TEST_ID_USER_FORM_ERROR,
 } from "../constants/testIds";
 
@@ -200,9 +208,7 @@ function UserForm({ user, isSelf, onSaved, onDeleted, registerDirtyCheck }: User
           isDisabled={isEdit && isSelf}
           menuPortalTarget={document.body}
         />
-        {isEdit && isSelf && (
-          <div className="text-muted text-caption margin-top-tight">You cannot change your own role</div>
-        )}
+        {isEdit && isSelf && <div className="text-muted text-caption margin-top-tight">You cannot change your own role</div>}
       </div>
 
       {error && (
@@ -212,11 +218,7 @@ function UserForm({ user, isSelf, onSaved, onDeleted, registerDirtyCheck }: User
       )}
 
       <div className="layout-row gap-standard">
-        <IonButton
-          data-testid={TEST_ID_USER_FORM_SAVE}
-          disabled={pending || !canSave}
-          onClick={() => void handleSave()}
-        >
+        <IonButton data-testid={TEST_ID_USER_FORM_SAVE} disabled={pending || !canSave} onClick={() => void handleSave()}>
           {pending ? <IonSpinner name="crescent" /> : "Save"}
         </IonButton>
         {isEdit && (
@@ -224,12 +226,7 @@ function UserForm({ user, isSelf, onSaved, onDeleted, registerDirtyCheck }: User
             {isSelf ? (
               <>
                 <span id={`delete-self-form-${user.id}`}>
-                  <IonButton
-                    data-testid={TEST_ID_USER_FORM_DELETE}
-                    fill="outline"
-                    color="medium"
-                    disabled
-                  >
+                  <IonButton data-testid={TEST_ID_USER_FORM_DELETE} fill="outline" color="medium" disabled>
                     Delete
                   </IonButton>
                 </span>
@@ -363,7 +360,7 @@ export function AdminUserManagement(): ReactNode {
     return a.username.localeCompare(b.username);
   });
 
-  const selectedUser = panel.mode === "edit" ? users.find((u) => u.id === panel.userId) ?? null : null;
+  const selectedUser = panel.mode === "edit" ? (users.find((u) => u.id === panel.userId) ?? null) : null;
 
   if (loading) {
     return (
@@ -380,19 +377,12 @@ export function AdminUserManagement(): ReactNode {
       <IonContent className="ion-padding">
         <h2 className="admin-page-title">User Management</h2>
 
-        {error && (
-          <p className="text-danger text-secondary text-center margin-bottom-wide">{error}</p>
-        )}
+        {error && <p className="text-danger text-secondary text-center margin-bottom-wide">{error}</p>}
 
         <div className="device-management-layout">
           {/* Left panel — user list */}
           <div className="device-management-list-panel">
-            <IonButton
-              data-testid={TEST_ID_ADD_USER_BUTTON}
-              expand="block"
-              style={{ minHeight: "3rem" }}
-              onClick={() => navigatePanel({ mode: "create" })}
-            >
+            <IonButton data-testid={TEST_ID_ADD_USER_BUTTON} expand="block" style={{ minHeight: "3rem" }} onClick={() => navigatePanel({ mode: "create" })}>
               <IonIcon icon={addOutline} slot="start" />
               Add User
             </IonButton>
@@ -417,13 +407,7 @@ export function AdminUserManagement(): ReactNode {
                     {isSelf ? (
                       <>
                         <span id={`delete-self-list-${user.id}`} onClick={(e) => e.stopPropagation()}>
-                          <IonButton
-                            data-testid={`${TEST_ID_USER_LIST_DELETE_BUTTON}-${user.id}`}
-                            size="small"
-                            fill="clear"
-                            color="medium"
-                            disabled
-                          >
+                          <IonButton data-testid={`${TEST_ID_USER_LIST_DELETE_BUTTON}-${user.id}`} size="small" fill="clear" color="medium" disabled>
                             Delete
                           </IonButton>
                         </span>
@@ -460,14 +444,7 @@ export function AdminUserManagement(): ReactNode {
               </div>
             )}
             {panel.mode === "create" && (
-              <UserForm
-                key="create"
-                user={null}
-                isSelf={false}
-                onSaved={handleSaved}
-                onDeleted={handleDeleted}
-                registerDirtyCheck={registerDirtyCheck}
-              />
+              <UserForm key="create" user={null} isSelf={false} onSaved={handleSaved} onDeleted={handleDeleted} registerDirtyCheck={registerDirtyCheck} />
             )}
             {panel.mode === "edit" && selectedUser && (
               <UserForm

@@ -3,14 +3,7 @@ import type { StateCreator } from "zustand";
 // Platform stream lifecycle states — covers the full range from idle through
 // active streaming to error/recovery. The hook (usePlatformState) derives
 // boolean flags (isAnyStarting, isAnyStopping, isAnyStreaming) from these.
-export type PlatformStreamState =
-  | "idle"
-  | "starting"
-  | "streaming"
-  | "stopping"
-  | "error"
-  | "no_source"
-  | "recovering";
+export type PlatformStreamState = "idle" | "starting" | "streaming" | "stopping" | "error" | "no_source" | "recovering";
 
 export interface PlatformConnectionState {
   state: PlatformStreamState;

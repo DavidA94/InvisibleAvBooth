@@ -11,7 +11,9 @@ export function getChaptersForBook(bookId: number | null): number[] {
   if (!bookId) return rangeInclusive(1, MAX_CHAPTERS);
   const bookData = BIBLE_REFERENCES[bookId];
   if (!bookData) return rangeInclusive(1, MAX_CHAPTERS);
-  return Object.keys(bookData).map(Number).sort((a, b) => a - b);
+  return Object.keys(bookData)
+    .map(Number)
+    .sort((a, b) => a - b);
 }
 
 /**

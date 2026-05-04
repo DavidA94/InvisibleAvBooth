@@ -75,7 +75,11 @@ export function ObsWidget(): ReactNode {
     <WidgetContainer title="OBS" connections={connections}>
       <div data-testid={TEST_ID_OBS_WIDGET} className="layout-column full-height">
         <ObsStatusBar obsState={obsState} />
-        <ObsMetadataPreview interpolatedStreamTitle={interpolatedStreamTitle} interpolatedDescription={interpolatedDescription} onEditDetails={() => setShowManifestModal(true)} />
+        <ObsMetadataPreview
+          interpolatedStreamTitle={interpolatedStreamTitle}
+          interpolatedDescription={interpolatedDescription}
+          onEditDetails={() => setShowManifestModal(true)}
+        />
         <WidgetErrorOverlay
           isVisible={!obsState.connected}
           message="OBS Disconnected"

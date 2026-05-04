@@ -69,24 +69,18 @@ describe("duplicate format string", () => {
   });
 
   it("collapses whitespace before comparing", () => {
-    const result = validateTemplate(input({ formatString: "{Speaker}  –  {Title}" }), [
-      existing({ id: "e1", formatString: "{Speaker} – {Title}" }),
-    ]);
+    const result = validateTemplate(input({ formatString: "{Speaker}  –  {Title}" }), [existing({ id: "e1", formatString: "{Speaker} – {Title}" })]);
     expect(result.blockers).toHaveLength(1);
     expect(result.blockers[0]).toContain("Duplicate format string");
   });
 
   it("collapses tabs and newlines", () => {
-    const result = validateTemplate(input({ formatString: "{Speaker}\t–\n{Title}" }), [
-      existing({ id: "e1", formatString: "{Speaker} – {Title}" }),
-    ]);
+    const result = validateTemplate(input({ formatString: "{Speaker}\t–\n{Title}" }), [existing({ id: "e1", formatString: "{Speaker} – {Title}" })]);
     expect(result.blockers).toHaveLength(1);
   });
 
   it("trims leading/trailing whitespace before comparing", () => {
-    const result = validateTemplate(input({ formatString: "  {Speaker} – {Title}  " }), [
-      existing({ id: "e1", formatString: "{Speaker} – {Title}" }),
-    ]);
+    const result = validateTemplate(input({ formatString: "  {Speaker} – {Title}  " }), [existing({ id: "e1", formatString: "{Speaker} – {Title}" })]);
     expect(result.blockers).toHaveLength(1);
   });
 
@@ -164,9 +158,7 @@ describe("AvVolunteer warning", () => {
 
 describe("combined blockers and warnings", () => {
   it("returns both blockers and warnings simultaneously", () => {
-    const result = validateTemplate(input({ name: "Existing Template", formatString: "{Foo}", roleMinimum: "AvVolunteer" }), [
-      existing({ id: "e1" }),
-    ]);
+    const result = validateTemplate(input({ name: "Existing Template", formatString: "{Foo}", roleMinimum: "AvVolunteer" }), [existing({ id: "e1" })]);
     expect(result.blockers.length).toBeGreaterThanOrEqual(2); // unknown token + duplicate name
     expect(result.warnings).toHaveLength(1); // AvVolunteer warning
   });
@@ -225,9 +217,7 @@ describe("Property P27: validate-then-save gate", () => {
 
             // No duplicate format string in same category
             const collapsedInput = collapseWs(validationInput.formatString);
-            const formatConflict = existingTemplates.some(
-              (t) => t.category === validationInput.category && collapseWs(t.formatString) === collapsedInput,
-            );
+            const formatConflict = existingTemplates.some((t) => t.category === validationInput.category && collapseWs(t.formatString) === collapsedInput);
             expect(formatConflict).toBe(false);
           }
         },

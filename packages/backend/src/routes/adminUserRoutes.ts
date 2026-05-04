@@ -54,7 +54,7 @@ export function createAdminUserRouter(authService: AuthService): Router {
 
   // PUT /admin/users/:id
   router.put("/:id", adminOnly, async (request: Request, response: Response): Promise<void> => {
-    const result = await authService.updateUser(request.params["id"]!, request.body as UpdateUserRequest, request.jwtPayload!);
+    const result = await authService.updateUser(request.params["id"] as string, request.body as UpdateUserRequest, request.jwtPayload!);
     if (!result.success) {
       response.status(errorStatus(result.error.code)).json({ error: result.error.message });
       return;
@@ -64,7 +64,7 @@ export function createAdminUserRouter(authService: AuthService): Router {
 
   // DELETE /admin/users/:id
   router.delete("/:id", adminOnly, (request: Request, response: Response): void => {
-    const result = authService.deleteUser(request.params["id"]!, request.jwtPayload!);
+    const result = authService.deleteUser(request.params["id"] as string, request.jwtPayload!);
     if (!result.success) {
       response.status(errorStatus(result.error.code)).json({ error: result.error.message });
       return;
@@ -80,7 +80,7 @@ export function createAdminUserRouter(authService: AuthService): Router {
       return;
     }
 
-    const result = await authService.changePassword(request.params["id"]!, newPassword, request.jwtPayload!);
+    const result = await authService.changePassword(request.params["id"] as string, newPassword, request.jwtPayload!);
     if (!result.success) {
       response.status(errorStatus(result.error.code)).json({ error: result.error.message });
       return;

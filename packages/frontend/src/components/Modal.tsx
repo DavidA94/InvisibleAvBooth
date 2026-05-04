@@ -37,11 +37,7 @@ export function Modal({ isOpen, onClose, size = "small", header, footer, childre
         role="document"
       >
         {header && (
-          <div
-            data-testid={TEST_ID_MODAL_HEADER}
-            className="modal-header"
-            style={{ borderBottom: showBorders ? "1px solid var(--color-border)" : undefined }}
-          >
+          <div data-testid={TEST_ID_MODAL_HEADER} className="modal-header" style={{ borderBottom: showBorders ? "1px solid var(--color-border)" : undefined }}>
             {typeof header === "string" ? <span>{header}</span> : header}
           </div>
         )}
@@ -51,11 +47,7 @@ export function Modal({ isOpen, onClose, size = "small", header, footer, childre
           </div>
         )}
         {footer && (
-          <div
-            data-testid={TEST_ID_MODAL_FOOTER}
-            className="modal-footer"
-            style={{ borderTop: showBorders ? "1px solid var(--color-border)" : undefined }}
-          >
+          <div data-testid={TEST_ID_MODAL_FOOTER} className="modal-footer" style={{ borderTop: showBorders ? "1px solid var(--color-border)" : undefined }}>
             {typeof footer === "string" ? <span>{footer}</span> : footer}
           </div>
         )}

@@ -4,7 +4,9 @@ import type { TestServer } from "../harness.js";
 
 let s: TestServer;
 
-beforeAll(async () => { s = await buildTestServer(); });
+beforeAll(async () => {
+  s = await buildTestServer();
+});
 afterAll(() => destroyServer(s));
 beforeEach(() => resetServer(s));
 
@@ -68,7 +70,10 @@ describe("PUT /api/admin/users/:id", () => {
   it("updates a user", async () => {
     const cookie = await loginAsAdmin(s.agent, s.ctx.authService);
     const createRes = await s.agent.post("/api/admin/users").set("Cookie", cookie).send({ username: "bob", password: "p", role: "AvVolunteer" });
-    const res = await s.agent.put(`/api/admin/users/${createRes.body.id as string}`).set("Cookie", cookie).send({ username: "bobby" });
+    const res = await s.agent
+      .put(`/api/admin/users/${createRes.body.id as string}`)
+      .set("Cookie", cookie)
+      .send({ username: "bobby" });
     expect(res.status).toBe(200);
     expect(res.body.username).toBe("bobby");
   });

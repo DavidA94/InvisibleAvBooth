@@ -17,10 +17,14 @@ const JWT_SECRET = "dev-secret-change-in-production";
 let s: TestServer;
 const clients: ClientSocket[] = [];
 
-beforeAll(async () => { s = await buildTestServer(); });
+beforeAll(async () => {
+  s = await buildTestServer();
+});
 afterAll(() => destroyServer(s));
 beforeEach(() => resetServer(s));
-afterEach(() => { while (clients.length) clients.pop()!.close(); });
+afterEach(() => {
+  while (clients.length) clients.pop()!.close();
+});
 
 function expiredToken(): string {
   return jwt.sign({ sub: "x", username: "x", role: "ADMIN" }, JWT_SECRET, { expiresIn: "-1s" });
@@ -192,9 +196,11 @@ describe("OBS failure paths via socket", () => {
     const tok = match?.[1] ?? "";
 
     // Insert OBS device so reconnect can find config
-    s.ctx.database.prepare(
-      "INSERT INTO device_connections (id, deviceType, label, host, port, encryptedPassword, metadata, features, enabled, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-    ).run("obs-r", "obs", "OBS", "localhost", 4455, null, "{}", "{}", 1, new Date().toISOString());
+    s.ctx.database
+      .prepare(
+        "INSERT INTO device_connections (id, deviceType, label, host, port, encryptedPassword, metadata, features, enabled, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      )
+      .run("obs-r", "obs", "OBS", "localhost", 4455, null, "{}", "{}", 1, new Date().toISOString());
 
     // Reset fake OBS to succeed on connect
     s.fakeObs.connect.mockResolvedValue(undefined);
@@ -222,7 +228,11 @@ describe("Device password update", () => {
   it("updates password when PUT includes a new password", async () => {
     const cookie = await loginAsAdmin(s.agent, s.ctx.authService);
     const created = await s.agent.post("/api/admin/devices").set("Cookie", cookie).send({
-      deviceType: "obs", label: "OBS", host: "localhost", port: 4455, password: "old-secret",
+      deviceType: "obs",
+      label: "OBS",
+      host: "localhost",
+      port: 4455,
+      password: "old-secret",
     });
     const id = created.body.id as string;
 

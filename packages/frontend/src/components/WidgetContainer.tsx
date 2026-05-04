@@ -56,13 +56,18 @@ export function WidgetContainer({ title, connections, children }: WidgetContaine
             <>
               <span>Status</span>
               {connections.map((c) => (
-                <span key={c.label} data-status={c.status} className={DOT_CLASS[c.status]}>●</span>
+                <span key={c.label} data-status={c.status} className={DOT_CLASS[c.status]}>
+                  ●
+                </span>
               ))}
             </>
           ) : (
             connections.map((c) => (
               <span key={c.label} className="layout-row gap-tight">
-                {c.label} <span data-status={c.status} className={DOT_CLASS[c.status]}>●</span>
+                {c.label}{" "}
+                <span data-status={c.status} className={DOT_CLASS[c.status]}>
+                  ●
+                </span>
               </span>
             ))
           )}
@@ -78,7 +83,9 @@ export function WidgetContainer({ title, connections, children }: WidgetContaine
           <div className="padding-standard">
             {connections.map((c) => (
               <div key={c.label} className="popover-status-row">
-                <span data-status={c.status} className={DOT_CLASS[c.status]}>●</span>
+                <span data-status={c.status} className={DOT_CLASS[c.status]}>
+                  ●
+                </span>
                 <span className="popover-status-label">{c.label}</span>
                 <span className="text-muted">{STATUS_LABEL[c.status]}</span>
               </div>

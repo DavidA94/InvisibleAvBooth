@@ -1,13 +1,5 @@
 import { describe, it, expect } from "vitest";
-import {
-  MAX_CHAPTERS,
-  MAX_VERSES,
-  getChaptersForBook,
-  getVerseRange,
-  isChapterValid,
-  isVerseValidForBook,
-  isVerseValidForChapter,
-} from "./scriptureLookup";
+import { MAX_CHAPTERS, MAX_VERSES, getChaptersForBook, getVerseRange, isChapterValid, isVerseValidForBook, isVerseValidForChapter } from "./scriptureLookup";
 
 describe("getChaptersForBook", () => {
   it("returns 1..150 when bookId is null", () => {
@@ -43,7 +35,7 @@ describe("getChaptersForBook", () => {
   it("returns chapters in sorted order", () => {
     const chapters = getChaptersForBook(1);
     for (let i = 1; i < chapters.length; i++) {
-      expect(chapters[i]).toBeGreaterThan(chapters[i - 1]!);
+      expect(chapters[i]).toBeGreaterThan(chapters[i - 1]);
     }
   });
 });

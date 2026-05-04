@@ -26,12 +26,4 @@ export { interpolateTemplate, interpolateStreamTitle, formatScripture } from "./
 export type { ScriptureReference, SessionManifestFields } from "./interpolation.js";
 
 // Scripture lookup
-export {
-  MAX_CHAPTERS,
-  MAX_VERSES,
-  getChaptersForBook,
-  getVerseRange,
-  isChapterValid,
-  isVerseValidForBook,
-  isVerseValidForChapter,
-} from "./scriptureLookup.js";
+export { MAX_CHAPTERS, MAX_VERSES, getChaptersForBook, getVerseRange, isChapterValid, isVerseValidForBook, isVerseValidForChapter } from "./scriptureLookup.js";

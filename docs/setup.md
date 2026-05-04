@@ -223,32 +223,32 @@ Caddy serves the built static files from `packages/frontend/dist` and proxies AP
 
 All admin routes require an authenticated ADMIN JWT cookie. Navigate via the **Admin Pages** link in the title bar (visible to ADMIN users only).
 
-| Route                        | Description                                                                       |
-| ---------------------------- | --------------------------------------------------------------------------------- |
-| `/admin`                     | Admin index — card grid linking to all admin sections                             |
-| `/admin/users`               | Two-panel user management: list + detail form (self-delete/role-change prevented) |
-| `/admin/devices`             | Two-panel device management: list + detail form (supports multiple device types)  |
-| `/admin/templates`           | Metadata template management: title and description templates with validation     |
-| `/admin/platforms/youtube`   | YouTube streaming platform configuration and OAuth connection                     |
-| `/admin/platforms/facebook`  | Facebook streaming platform configuration and OAuth connection                    |
+| Route                       | Description                                                                       |
+| --------------------------- | --------------------------------------------------------------------------------- |
+| `/admin`                    | Admin index — card grid linking to all admin sections                             |
+| `/admin/users`              | Two-panel user management: list + detail form (self-delete/role-change prevented) |
+| `/admin/devices`            | Two-panel device management: list + detail form (supports multiple device types)  |
+| `/admin/templates`          | Metadata template management: title and description templates with validation     |
+| `/admin/platforms/youtube`  | YouTube streaming platform configuration and OAuth connection                     |
+| `/admin/platforms/facebook` | Facebook streaming platform configuration and OAuth connection                    |
 
 Full REST API:
 
-| Route                                     | Method | Description                  |
-| ----------------------------------------- | ------ | ---------------------------- |
-| `/api/admin/users`                        | GET    | List all users               |
-| `/api/admin/users`                        | POST   | Create a user                |
-| `/api/admin/users/:id`                    | GET    | Get a user                   |
-| `/api/admin/users/:id`                    | PUT    | Update a user                |
-| `/api/admin/users/:id`                    | DELETE | Delete a user                |
-| `/api/admin/users/:id/change-password`    | POST   | Reset a user's password      |
-| `/api/admin/devices`                      | GET    | List device connections      |
-| `/api/admin/devices`                      | POST   | Add a device connection      |
-| `/api/admin/devices/:id`                  | GET    | Get a device connection      |
-| `/api/admin/devices/:id`                  | PUT    | Update a device connection   |
-| `/api/admin/devices/:id`                  | DELETE | Delete a device connection   |
-| `/api/admin/dashboards`                   | GET    | List dashboards              |
-| `/api/admin/dashboards`                   | POST   | Create a dashboard           |
+| Route                                    | Method | Description                  |
+| ---------------------------------------- | ------ | ---------------------------- |
+| `/api/admin/users`                       | GET    | List all users               |
+| `/api/admin/users`                       | POST   | Create a user                |
+| `/api/admin/users/:id`                   | GET    | Get a user                   |
+| `/api/admin/users/:id`                   | PUT    | Update a user                |
+| `/api/admin/users/:id`                   | DELETE | Delete a user                |
+| `/api/admin/users/:id/change-password`   | POST   | Reset a user's password      |
+| `/api/admin/devices`                     | GET    | List device connections      |
+| `/api/admin/devices`                     | POST   | Add a device connection      |
+| `/api/admin/devices/:id`                 | GET    | Get a device connection      |
+| `/api/admin/devices/:id`                 | PUT    | Update a device connection   |
+| `/api/admin/devices/:id`                 | DELETE | Delete a device connection   |
+| `/api/admin/dashboards`                  | GET    | List dashboards              |
+| `/api/admin/dashboards`                  | POST   | Create a dashboard           |
 | `/api/admin/dashboards/:id`              | GET    | Get a dashboard              |
 | `/api/admin/dashboards/:id`              | PUT    | Update a dashboard           |
 | `/api/admin/dashboards/:id`              | DELETE | Delete a dashboard           |
