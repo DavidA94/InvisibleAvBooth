@@ -19,6 +19,7 @@ export default defineConfig({
     },
     coverage: {
       provider: "v8",
+      reporter: ["text", "html"],
       include: ["src/**/*.{ts,tsx}"],
       exclude: ["src/main.tsx", "src/App.tsx", "src/test/**", "src/types.ts", "src/vite-env.d.ts", "src/theme/**"],
       thresholds: {
