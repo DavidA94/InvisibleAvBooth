@@ -2,6 +2,15 @@ import { test, expect } from "@playwright/test";
 import { routeAuthLogin, routeAuthLoginFailure, routeAuthLogout, routeAuthCheck, routeChangePassword } from "../support/routes/auth";
 import { routeSocketIo, routeDashboardApi } from "../support/routes/obs";
 import { authLoginRequiresPasswordChange } from "../fixtures/payloads/auth";
+import {
+  TEST_ID_LOGIN_USERNAME,
+  TEST_ID_LOGIN_PASSWORD,
+  TEST_ID_LOGIN_SUBMIT,
+  TEST_ID_LOGIN_ERROR,
+  TEST_ID_CHANGE_PASSWORD_PAGE,
+  TEST_ID_TITLE_BAR_LOGOUT_BUTTON,
+  TEST_ID_DASHBOARD_SELECTION_SCREEN,
+} from "../../src/constants/testIds";
 
 test.describe("Authentication flow", () => {
   test("login success navigates to dashboard selection", async ({ page }) => {
@@ -26,23 +35,23 @@ test.describe("Authentication flow", () => {
     });
 
     await page.goto("/login");
-    await page.getByTestId("login-username").locator("input").fill("admin");
-    await page.getByTestId("login-password").locator("input").fill("password");
-    await page.getByTestId("login-submit").click();
+    await page.getByTestId(TEST_ID_LOGIN_USERNAME).locator("input").fill("admin");
+    await page.getByTestId(TEST_ID_LOGIN_PASSWORD).locator("input").fill("password");
+    await page.getByTestId(TEST_ID_LOGIN_SUBMIT).click();
 
-    await expect(page.getByTestId("dashboard-selection-screen")).toBeVisible({ timeout: 10000 });
+    await expect(page.getByTestId(TEST_ID_DASHBOARD_SELECTION_SCREEN)).toBeVisible({ timeout: 10000 });
   });
 
   test("login failure shows error message", async ({ page }) => {
     await routeAuthLoginFailure(page);
 
     await page.goto("/login");
-    await page.getByTestId("login-username").locator("input").fill("wrong");
-    await page.getByTestId("login-password").locator("input").fill("wrong");
-    await page.getByTestId("login-submit").click();
+    await page.getByTestId(TEST_ID_LOGIN_USERNAME).locator("input").fill("wrong");
+    await page.getByTestId(TEST_ID_LOGIN_PASSWORD).locator("input").fill("wrong");
+    await page.getByTestId(TEST_ID_LOGIN_SUBMIT).click();
 
-    await expect(page.getByTestId("login-error")).toBeVisible();
-    await expect(page.getByTestId("login-error")).toContainText("Invalid credentials");
+    await expect(page.getByTestId(TEST_ID_LOGIN_ERROR)).toBeVisible();
+    await expect(page.getByTestId(TEST_ID_LOGIN_ERROR)).toContainText("Invalid credentials");
   });
 
   test("logout redirects to login", async ({ page }) => {
@@ -69,13 +78,13 @@ test.describe("Authentication flow", () => {
 
     // Login first
     await page.goto("/login");
-    await page.getByTestId("login-username").locator("input").fill("admin");
-    await page.getByTestId("login-password").locator("input").fill("password");
-    await page.getByTestId("login-submit").click();
-    await expect(page.getByTestId("dashboard-selection-screen")).toBeVisible({ timeout: 10000 });
+    await page.getByTestId(TEST_ID_LOGIN_USERNAME).locator("input").fill("admin");
+    await page.getByTestId(TEST_ID_LOGIN_PASSWORD).locator("input").fill("password");
+    await page.getByTestId(TEST_ID_LOGIN_SUBMIT).click();
+    await expect(page.getByTestId(TEST_ID_DASHBOARD_SELECTION_SCREEN)).toBeVisible({ timeout: 10000 });
 
     // Logout
-    await page.getByTestId("title-bar-logout-btn").click();
+    await page.getByTestId(TEST_ID_TITLE_BAR_LOGOUT_BUTTON).click();
     await expect(page).toHaveURL(/\/login/);
   });
 
@@ -87,11 +96,11 @@ test.describe("Authentication flow", () => {
     await routeSocketIo(page);
 
     await page.goto("/login");
-    await page.getByTestId("login-username").locator("input").fill("admin");
-    await page.getByTestId("login-password").locator("input").fill("password");
-    await page.getByTestId("login-submit").click();
+    await page.getByTestId(TEST_ID_LOGIN_USERNAME).locator("input").fill("admin");
+    await page.getByTestId(TEST_ID_LOGIN_PASSWORD).locator("input").fill("password");
+    await page.getByTestId(TEST_ID_LOGIN_SUBMIT).click();
 
-    await expect(page.getByTestId("change-password-page")).toBeVisible({ timeout: 10000 });
+    await expect(page.getByTestId(TEST_ID_CHANGE_PASSWORD_PAGE)).toBeVisible({ timeout: 10000 });
   });
 
   test("session persistence — authenticated user skips login", async ({ page, context }) => {
@@ -110,6 +119,6 @@ test.describe("Authentication flow", () => {
     ]);
 
     await page.goto("/dashboards");
-    await expect(page.getByTestId("dashboard-selection-screen")).toBeVisible({ timeout: 10000 });
+    await expect(page.getByTestId(TEST_ID_DASHBOARD_SELECTION_SCREEN)).toBeVisible({ timeout: 10000 });
   });
 });
