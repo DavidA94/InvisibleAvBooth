@@ -1,6 +1,24 @@
 import { test, expect } from "@playwright/test";
 import { routeAuthLogin, routeAuthCheck } from "../support/routes/auth";
 import { routeSocketIo } from "../support/routes/obs";
+import {
+  TEST_ID_ADMIN_USERS_PAGE,
+  TEST_ID_USER_LIST_ITEM,
+  TEST_ID_ADD_USER_BUTTON,
+  TEST_ID_USER_FORM_USERNAME,
+  TEST_ID_USER_FORM_PASSWORD,
+  TEST_ID_USER_FORM_SAVE,
+  TEST_ID_USER_LIST_DELETE_BUTTON,
+  TEST_ID_ADMIN_DEVICES_PAGE,
+  TEST_ID_DEVICE_LIST_ITEM,
+  TEST_ID_ADD_DEVICE_BUTTON,
+  TEST_ID_ADD_DEVICE_TYPE_OPTION,
+  TEST_ID_DEVICE_FORM_LABEL,
+  TEST_ID_DEVICE_FORM_HOST,
+  TEST_ID_DEVICE_FORM_SAVE,
+  TEST_ID_DEVICE_LIST_DELETE_BUTTON,
+  TEST_ID_CONFIRMATION_CONFIRM_BUTTON,
+} from "../../src/constants/testIds";
 
 const USERS = [
   { id: "u1", username: "admin", role: "ADMIN", requiresPasswordChange: false, createdAt: "2026-01-01" },
@@ -27,7 +45,6 @@ test.describe("Admin User Management", () => {
     await routeAuthCheck(page);
     await routeSocketIo(page);
 
-    // Set auth cookie so full-page navigations preserve auth state
     await context.addCookies([
       {
         name: "user_info",
@@ -65,24 +82,28 @@ test.describe("Admin User Management", () => {
 
   test("user CRUD flow", async ({ page }) => {
     await page.goto("/admin/users");
-    await expect(page.getByTestId("admin-users-page")).toBeVisible({ timeout: 10000 });
+    await expect(page.getByTestId(TEST_ID_ADMIN_USERS_PAGE)).toBeVisible({ timeout: 10000 });
 
-    // List renders
-    await expect(page.getByTestId("user-row-u1")).toBeVisible();
-    await expect(page.getByTestId("user-row-u2")).toBeVisible();
+    // List renders with list+detail panel layout
+    await expect(page.getByTestId(`${TEST_ID_USER_LIST_ITEM}-u1`)).toBeVisible();
+    await expect(page.getByTestId(`${TEST_ID_USER_LIST_ITEM}-u2`)).toBeVisible();
 
-    // Create user
-    await page.getByTestId("create-username").locator("input").fill("newuser");
-    await page.getByTestId("create-password").locator("input").fill("pass123");
-    await page.getByTestId("create-user-submit").click();
+    // Create user via Add User button → detail panel form
+    await page.getByTestId(TEST_ID_ADD_USER_BUTTON).click();
+    await expect(page.getByTestId(TEST_ID_USER_FORM_USERNAME)).toBeVisible();
+    await page.getByTestId(TEST_ID_USER_FORM_USERNAME).locator("input").fill("newuser");
+    await page.getByTestId(TEST_ID_USER_FORM_PASSWORD).locator("input").fill("pass123");
+    await page.getByTestId(TEST_ID_USER_FORM_SAVE).click();
 
-    // Edit user
-    await page.getByTestId("edit-btn-u2").click();
-    await expect(page.getByTestId("edit-username")).toBeVisible();
-    await page.getByTestId("edit-save").click();
+    // Edit user — click list item to open in detail panel
+    await page.getByTestId(`${TEST_ID_USER_LIST_ITEM}-u2`).click();
+    await expect(page.getByTestId(TEST_ID_USER_FORM_USERNAME)).toBeVisible();
+    await page.getByTestId(TEST_ID_USER_FORM_SAVE).click();
 
-    // Delete user
-    await page.getByTestId("delete-btn-u2").click();
+    // Delete user via list delete button
+    await page.getByTestId(`${TEST_ID_USER_LIST_DELETE_BUTTON}-u2`).click();
+    // Confirm deletion in the confirmation modal
+    await page.getByTestId(TEST_ID_CONFIRMATION_CONFIRM_BUTTON).click();
   });
 });
 
@@ -92,7 +113,6 @@ test.describe("Admin Device Management", () => {
     await routeAuthCheck(page);
     await routeSocketIo(page);
 
-    // Set auth cookie so full-page navigations preserve auth state
     await context.addCookies([
       {
         name: "user_info",
@@ -130,22 +150,27 @@ test.describe("Admin Device Management", () => {
 
   test("device CRUD flow", async ({ page }) => {
     await page.goto("/admin/devices");
-    await expect(page.getByTestId("admin-devices-page")).toBeVisible({ timeout: 10000 });
+    await expect(page.getByTestId(TEST_ID_ADMIN_DEVICES_PAGE)).toBeVisible({ timeout: 10000 });
 
-    // List renders
-    await expect(page.getByTestId("device-row-d1")).toBeVisible();
+    // List renders with list+detail panel layout
+    await expect(page.getByTestId(`${TEST_ID_DEVICE_LIST_ITEM}-d1`)).toBeVisible();
 
-    // Create device
-    await page.getByTestId("create-device-label").locator("input").fill("Backup OBS");
-    await page.getByTestId("create-device-host").locator("input").fill("192.168.1.200");
-    await page.getByTestId("create-device-submit").click();
+    // Create device via Add Device button → type dropdown → detail panel form
+    await page.getByTestId(TEST_ID_ADD_DEVICE_BUTTON).click();
+    await page.getByTestId(`${TEST_ID_ADD_DEVICE_TYPE_OPTION}-obs`).click();
+    await expect(page.getByTestId(TEST_ID_DEVICE_FORM_LABEL)).toBeVisible();
+    await page.getByTestId(TEST_ID_DEVICE_FORM_LABEL).locator("input").fill("Backup OBS");
+    await page.getByTestId(TEST_ID_DEVICE_FORM_HOST).locator("input").fill("192.168.1.200");
+    await page.getByTestId(TEST_ID_DEVICE_FORM_SAVE).click();
 
-    // Edit device
-    await page.getByTestId("edit-device-btn-d1").click();
-    await expect(page.getByTestId("edit-device-label")).toBeVisible();
-    await page.getByTestId("edit-device-save").click();
+    // Edit device — click list item to open in detail panel
+    await page.getByTestId(`${TEST_ID_DEVICE_LIST_ITEM}-d1`).click();
+    await expect(page.getByTestId(TEST_ID_DEVICE_FORM_LABEL)).toBeVisible();
+    await page.getByTestId(TEST_ID_DEVICE_FORM_SAVE).click();
 
-    // Delete device
-    await page.getByTestId("delete-device-btn-d1").click();
+    // Delete device via list delete button
+    await page.getByTestId(`${TEST_ID_DEVICE_LIST_DELETE_BUTTON}-d1`).click();
+    // Confirm deletion in the confirmation modal
+    await page.getByTestId(TEST_ID_CONFIRMATION_CONFIRM_BUTTON).click();
   });
 });

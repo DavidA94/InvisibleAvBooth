@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { routeAuthLogin, routeAuthLoginFailure, routeAuthLogout, routeAuthCheck, routeChangePassword } from "../support/routes/auth";
 import { routeSocketIo, routeDashboardApi } from "../support/routes/obs";
-import { authLoginRequiresPasswordChange } from "../fixtures/payloads/auth";
+import { authLoginSuccess, authLoginRequiresPasswordChange } from "../fixtures/payloads/auth";
 import {
   TEST_ID_LOGIN_USERNAME,
   TEST_ID_LOGIN_PASSWORD,
@@ -14,8 +14,10 @@ import {
 
 test.describe("Authentication flow", () => {
   test("login success navigates to dashboard selection", async ({ page }) => {
-    await routeAuthLogin(page);
-    await routeAuthCheck(page);
+    // Use non-ADMIN user — ADMIN users navigate to /admin per Req 11.3
+    const volunteerLogin = authLoginSuccess({ role: "AvVolunteer" });
+    await routeAuthLogin(page, volunteerLogin);
+    await routeAuthCheck(page, volunteerLogin);
     await routeSocketIo(page);
 
     // Return multiple dashboards so auto-forward doesn't trigger
@@ -35,7 +37,7 @@ test.describe("Authentication flow", () => {
     });
 
     await page.goto("/login");
-    await page.getByTestId(TEST_ID_LOGIN_USERNAME).locator("input").fill("admin");
+    await page.getByTestId(TEST_ID_LOGIN_USERNAME).locator("input").fill("volunteer");
     await page.getByTestId(TEST_ID_LOGIN_PASSWORD).locator("input").fill("password");
     await page.getByTestId(TEST_ID_LOGIN_SUBMIT).click();
 
@@ -55,8 +57,10 @@ test.describe("Authentication flow", () => {
   });
 
   test("logout redirects to login", async ({ page }) => {
-    await routeAuthLogin(page);
-    await routeAuthCheck(page);
+    // Use non-ADMIN user — ADMIN users navigate to /admin per Req 11.3
+    const volunteerLogin = authLoginSuccess({ role: "AvVolunteer" });
+    await routeAuthLogin(page, volunteerLogin);
+    await routeAuthCheck(page, volunteerLogin);
     await routeSocketIo(page);
     await routeAuthLogout(page);
 
@@ -78,7 +82,7 @@ test.describe("Authentication flow", () => {
 
     // Login first
     await page.goto("/login");
-    await page.getByTestId(TEST_ID_LOGIN_USERNAME).locator("input").fill("admin");
+    await page.getByTestId(TEST_ID_LOGIN_USERNAME).locator("input").fill("volunteer");
     await page.getByTestId(TEST_ID_LOGIN_PASSWORD).locator("input").fill("password");
     await page.getByTestId(TEST_ID_LOGIN_SUBMIT).click();
     await expect(page.getByTestId(TEST_ID_DASHBOARD_SELECTION_SCREEN)).toBeVisible({ timeout: 10000 });

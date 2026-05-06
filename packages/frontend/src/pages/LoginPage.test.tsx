@@ -8,23 +8,18 @@ import { INITIAL_OBS_STATE } from "../store/obsSlice";
 import { TEST_ID_LOGIN_ERROR, TEST_ID_LOGIN_FORM, TEST_ID_LOGIN_PASSWORD, TEST_ID_LOGIN_REMEMBER, TEST_ID_LOGIN_USERNAME } from "../constants/testIds";
 import userEvent from "@testing-library/user-event";
 
-const mockReplace = vi.fn();
-vi.mock("react-router", async () => {
-  const actual = await vi.importActual("react-router");
-  return { ...actual, useNavigate: () => mockReplace };
-});
-
 const mockFetch = vi.fn();
 vi.stubGlobal("fetch", mockFetch);
 
 beforeEach(() => {
   useStore.setState({ user: null, obsState: INITIAL_OBS_STATE, obsPending: false, manifest: {}, interpolatedStreamTitle: "", notifications: [] });
   vi.clearAllMocks();
+  sessionStorage.clear();
 });
 
 function renderPage(): ReturnType<typeof render> {
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={["/login"]}>
       <LoginPage />
     </MemoryRouter>,
   );
@@ -48,10 +43,11 @@ describe("LoginPage", () => {
         expect.objectContaining({ body: JSON.stringify({ username: "admin", password: "pass123", rememberMe: false }) }),
       );
     });
+    // After login, user is set in store — the <Navigate> guard handles routing
     await waitFor(() => {
-      expect(useStore.getState().user?.username).toBe("admin");
+      expect(useStore.getState().user?.role).toBe("ADMIN");
     });
-    expect(mockReplace).toHaveBeenCalledWith("/admin", { replace: true });
+    expect(sessionStorage.getItem("initialAuth")).toBe("true");
   });
 
   it("navigates to /dashboards for non-ADMIN", async () => {
@@ -62,8 +58,9 @@ describe("LoginPage", () => {
     renderPage();
     fireEvent.submit(screen.getByTestId(TEST_ID_LOGIN_FORM));
     await waitFor(() => {
-      expect(mockReplace).toHaveBeenCalledWith("/dashboards", { replace: true });
+      expect(useStore.getState().user?.role).toBe("AvVolunteer");
     });
+    expect(sessionStorage.getItem("initialAuth")).toBe("true");
   });
 
   it("redirects to /change-password when required", async () => {
@@ -74,8 +71,10 @@ describe("LoginPage", () => {
     renderPage();
     fireEvent.submit(screen.getByTestId(TEST_ID_LOGIN_FORM));
     await waitFor(() => {
-      expect(mockReplace).toHaveBeenCalledWith("/change-password", { replace: true });
+      expect(useStore.getState().user?.requiresPasswordChange).toBe(true);
     });
+    // initialAuth should NOT be set for password change flow
+    expect(sessionStorage.getItem("initialAuth")).toBeNull();
   });
 
   it("shows error on invalid credentials", async () => {

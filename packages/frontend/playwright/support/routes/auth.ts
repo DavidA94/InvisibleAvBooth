@@ -31,7 +31,10 @@ export async function routeAuthLogout(page: Page): Promise<void> {
   await page.route("**/api/auth/logout", async (route) => {
     await route.fulfill({
       status: 302,
-      headers: { Location: "/login", "Set-Cookie": "token=; Path=/; HttpOnly; Max-Age=0" },
+      headers: {
+        Location: "/login",
+        "Set-Cookie": "token=; Path=/; HttpOnly; Max-Age=0, user_info=; Path=/; Max-Age=0",
+      },
     });
   });
 }

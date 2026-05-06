@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
 import { IonPage, IonContent, IonInput, IonButton, IonCheckbox, IonText } from "@ionic/react";
-import { useNavigate, Navigate } from "react-router";
+import { Navigate } from "react-router";
 import { useStore } from "../store";
 import {
   TEST_ID_LOGIN_PAGE,
@@ -20,12 +20,14 @@ export function LoginPage(): ReactNode {
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
-  const navigate = useNavigate();
   const existingUser = useStore((s) => s.user);
 
-  // Already authenticated — skip login
+  // Already authenticated — redirect based on role/state (Req 11.3: ADMIN → /admin)
   if (existingUser) {
-    return <Navigate to="/dashboards" replace />;
+    if (existingUser.requiresPasswordChange) {
+      return <Navigate to="/change-password" replace />;
+    }
+    return <Navigate to={existingUser.role === "ADMIN" ? "/admin" : "/dashboards"} replace />;
   }
 
   const handleSubmit = async (): Promise<void> => {
@@ -46,13 +48,11 @@ export function LoginPage(): ReactNode {
       if (data.user) {
         localStorage.setItem("lastUsername", data.user.user.username);
         const authUser = { ...data.user.user, ...(data.user.requiresPasswordChange ? { requiresPasswordChange: true as const } : {}) };
-        useStore.getState().setUser(authUser);
-        if (data.user.requiresPasswordChange) {
-          navigate("/change-password", { replace: true });
-        } else {
+        if (!data.user.requiresPasswordChange) {
           sessionStorage.setItem("initialAuth", "true");
-          navigate(authUser.role === "ADMIN" ? "/admin" : "/dashboards", { replace: true });
         }
+        // Setting user triggers re-render → existingUser guard handles navigation
+        useStore.getState().setUser(authUser);
       }
     } catch {
       setError("Network error");
