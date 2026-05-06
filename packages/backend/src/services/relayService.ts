@@ -129,8 +129,15 @@ export class RelayService {
 
   private wireNmsEvents(nms: NmsInstance): void {
     nms.on("prePublish", (_id: string, streamPath: string, args: object) => {
+      logger.info("Relay prePublish", { context: { streamPath, hasPublisher: this.publisherSessionId !== null } });
       const rejectArgs = args as { reject?: () => void };
-      if (streamPath !== "/live/stream" || this.publisherSessionId !== null) {
+      if (streamPath !== "/live/stream") {
+        logger.warn("Relay rejected publish: wrong path", { context: { streamPath } });
+        rejectArgs.reject?.();
+        return;
+      }
+      if (this.publisherSessionId !== null) {
+        logger.warn("Relay rejected publish: already has publisher");
         rejectArgs.reject?.();
         return;
       }

@@ -43,9 +43,13 @@ const BASE_CONFIG: PlatformConfig = {
   accessToken: "access-token",
   refreshToken: "refresh-token",
   tokenExpiresAt: null,
-  metadata: { clientId: "client-id", clientSecret: "client-secret" },
+  metadata: { privacy: "unlisted" },
   createdAt: "2026-01-01T00:00:00Z",
 };
+
+// Set env vars that YouTubeClient reads for OAuth2
+process.env["YOUTUBE_CLIENT_ID"] = "client-id";
+process.env["YOUTUBE_CLIENT_SECRET"] = "client-secret";
 
 function makeClient(overrides: Partial<PlatformConfig> = {}): YouTubeClient {
   return new YouTubeClient({ ...BASE_CONFIG, ...overrides });

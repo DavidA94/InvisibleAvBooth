@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import type { ReactNode } from "react";
-import { IonPage, IonContent, IonButton, IonSpinner } from "@ionic/react";
+import { IonPage, IonContent, IonButton, IonSpinner, IonSelect, IonSelectOption } from "@ionic/react";
 import { useSearchParams } from "react-router";
 import { ConfirmationModal } from "../../components/ConfirmationModal";
 import {
@@ -15,6 +15,7 @@ interface PlatformConfig {
   hasToken?: boolean;
   enabled?: boolean;
   metadata?: Record<string, unknown>;
+  tokenExpiresAt?: string | null;
 }
 
 export function YouTubePlatformConfig(): ReactNode {
@@ -80,6 +81,23 @@ export function YouTubePlatformConfig(): ReactNode {
     }
   };
 
+  const handlePrivacyChange = async (privacy: string): Promise<void> => {
+    try {
+      const res = await fetch("/api/platforms/youtube/settings", {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ privacy }),
+      });
+      if (res.ok) {
+        const updated = (await res.json()) as PlatformConfig;
+        setConfig(updated);
+      }
+    } catch {
+      setError("Failed to update privacy setting");
+    }
+  };
+
   if (loading)
     return (
       <IonPage data-testid={TEST_ID_YOUTUBE_CONFIG_PAGE}>
@@ -90,6 +108,9 @@ export function YouTubePlatformConfig(): ReactNode {
     );
 
   const connected = config?.hasToken;
+  const channelTitle = config?.metadata?.channelTitle as string | undefined;
+  const privacy = (config?.metadata?.privacy as string) ?? "unlisted";
+  const tokenExpiry = config?.tokenExpiresAt;
 
   return (
     <IonPage data-testid={TEST_ID_YOUTUBE_CONFIG_PAGE}>
@@ -118,12 +139,26 @@ export function YouTubePlatformConfig(): ReactNode {
                   <span className="widget-dot-healthy">●</span>
                   <span>Connected</span>
                 </div>
-                {typeof config?.metadata?.privacy === "string" && (
-                  <div className="layout-row gap-standard">
-                    <span className="text-muted">Privacy:</span>
-                    <span>{String(config.metadata.privacy)}</span>
+                {channelTitle && (
+                  <div className="layout-row gap-standard margin-bottom-tight">
+                    <span className="text-muted">Channel:</span>
+                    <span>{channelTitle}</span>
                   </div>
                 )}
+                {tokenExpiry && (
+                  <div className="layout-row gap-standard margin-bottom-tight">
+                    <span className="text-muted">Token expires:</span>
+                    <span>{new Date(tokenExpiry).toLocaleString()}</span>
+                  </div>
+                )}
+                <div className="layout-row gap-standard margin-bottom-tight" style={{ alignItems: "center" }}>
+                  <span className="text-muted">Default privacy:</span>
+                  <IonSelect value={privacy} onIonChange={(e) => void handlePrivacyChange(e.detail.value as string)} interface="popover">
+                    <IonSelectOption value="public">Public</IonSelectOption>
+                    <IonSelectOption value="unlisted">Unlisted</IonSelectOption>
+                    <IonSelectOption value="private">Private</IonSelectOption>
+                  </IonSelect>
+                </div>
               </div>
             ) : (
               <p className="text-muted text-center margin-none" style={{ fontStyle: "italic" }}>

@@ -49,7 +49,7 @@ export interface PlatformConfig {
 // ── EventMap slices — merged into root EventMap in eventBus.ts ───────────────
 
 export interface PlatformEventMap {
-  [BUS_PLATFORM_STATE_CHANGED]: { platformId: string; state: PlatformStreamState };
+  [BUS_PLATFORM_STATE_CHANGED]: { platformId: string; platformType: string; state: PlatformStreamState };
   [BUS_PLATFORM_HEALTH_UPDATED]: { platformId: string; health: PlatformHealth };
   [BUS_PLATFORM_READINESS_CHANGED]: { platforms: PlatformHealthSummary[] };
 }

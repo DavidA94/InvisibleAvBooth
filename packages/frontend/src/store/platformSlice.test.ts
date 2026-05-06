@@ -8,7 +8,7 @@ beforeEach(() => {
     platformStates: new Map(),
     relayState: INITIAL_RELAY_STATE,
     platformHealth: new Map(),
-    platformReadiness: false,
+    platformReadiness: [],
   });
 });
 
@@ -18,7 +18,7 @@ describe("platformSlice", () => {
     expect(platformStates.size).toBe(0);
     expect(relayState).toEqual({ running: false, obsConnected: false });
     expect(platformHealth.size).toBe(0);
-    expect(platformReadiness).toBe(false);
+    expect(platformReadiness).toEqual([]);
   });
 
   it("setPlatformState creates a new entry", () => {
@@ -54,9 +54,10 @@ describe("platformSlice", () => {
   });
 
   it("setPlatformReadiness updates readiness", () => {
-    useStore.getState().setPlatformReadiness(true);
-    expect(useStore.getState().platformReadiness).toBe(true);
-    useStore.getState().setPlatformReadiness(false);
-    expect(useStore.getState().platformReadiness).toBe(false);
+    const platforms = [{ platformType: "youtube", label: "YouTube", healthy: true, privacy: "unlisted" }];
+    useStore.getState().setPlatformReadiness(platforms);
+    expect(useStore.getState().platformReadiness).toEqual(platforms);
+    useStore.getState().setPlatformReadiness([]);
+    expect(useStore.getState().platformReadiness).toEqual([]);
   });
 });

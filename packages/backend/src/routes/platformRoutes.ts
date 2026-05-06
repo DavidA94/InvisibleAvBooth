@@ -53,6 +53,30 @@ export function createPlatformRouter(database: Database, authService: AuthServic
     res.status(204).end();
   });
 
+  // ── Platform settings (ADMIN + AvPowerUser can update privacy) ────────────
+
+  router.patch("/platforms/:platformType/settings", requireRole(authService, "AvPowerUser"), (req, res) => {
+    const platformType = req.params["platformType"] as "youtube" | "facebook";
+    const configs = dao.getByType(platformType);
+    if (configs.length === 0) {
+      res.status(404).json({ error: "Platform not configured" });
+      return;
+    }
+    const existing = configs[0]!;
+    const { privacy } = req.body as { privacy?: string };
+    if (privacy && !["public", "unlisted", "private"].includes(privacy)) {
+      res.status(400).json({ error: "Invalid privacy value" });
+      return;
+    }
+    const metadata = { ...existing.metadata, ...(privacy !== undefined ? { privacy } : {}) };
+    const updated = dao.updateMetadata(platformType, metadata);
+    if (!updated) {
+      res.status(404).json({ error: "Platform not configured" });
+      return;
+    }
+    res.json(sanitize(updated));
+  });
+
   // ── Platform health (any authenticated role) ──────────────────────────────
 
   router.get("/platforms/health", (_req, res) => {
@@ -164,7 +188,22 @@ async function exchangeCodeForTokens(database: Database, platformType: string, c
       refreshToken = tokenData.refresh_token;
       tokenExpiresAt = tokenData.expires_in ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString() : undefined;
       label = "YouTube";
-      metadata = { privacy: "unlisted" };
+
+      // Fetch channel info
+      let channelTitle = "";
+      try {
+        const channelRes = await fetch("https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true", {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        if (channelRes.ok) {
+          const channelData = (await channelRes.json()) as { items?: Array<{ snippet?: { title?: string } }> };
+          channelTitle = channelData.items?.[0]?.snippet?.title ?? "";
+        }
+      } catch {
+        // Non-fatal — channel name is informational only
+      }
+
+      metadata = { privacy: "unlisted", ...(channelTitle ? { channelTitle } : {}) };
     } else {
       const appId = process.env["FACEBOOK_APP_ID"] ?? "";
       const appSecret = process.env["FACEBOOK_APP_SECRET"] ?? "";

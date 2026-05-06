@@ -20,7 +20,7 @@ function makeMockObs() {
     call: vi.fn().mockImplementation((method: string) => {
       if (method === "GetStreamStatus") return Promise.resolve({ outputActive: true });
       if (method === "GetRecordStatus") return Promise.resolve({ outputActive: true });
-      if (method === "GetStreamServiceSettings") return Promise.resolve({ streamServiceSettings: { server: "rtmp://localhost:1935/live/stream" } });
+      if (method === "GetStreamServiceSettings") return Promise.resolve({ streamServiceSettings: { server: "rtmp://localhost:1935/live" } });
       return Promise.resolve({});
     }),
     on: vi.fn().mockImplementation((event: string, handler: EventHandler) => {
@@ -118,7 +118,7 @@ describe("ObsService.connect", () => {
     expect(setSettingsCalls).toHaveLength(1);
     expect(setSettingsCalls[0]![1]).toEqual({
       streamServiceType: "rtmp_custom",
-      streamServiceSettings: { server: "rtmp://localhost:1935/live/stream", key: "" },
+      streamServiceSettings: { server: "rtmp://localhost:1935/live", key: "stream" },
     });
   });
 
@@ -161,7 +161,7 @@ describe("ObsService.startStream — relay-aware", () => {
     await service.connect();
     mockObs.call.mockClear();
     mockObs.call.mockImplementation((method: string) => {
-      if (method === "GetStreamServiceSettings") return Promise.resolve({ streamServiceSettings: { server: "rtmp://localhost:1935/live/stream" } });
+      if (method === "GetStreamServiceSettings") return Promise.resolve({ streamServiceSettings: { server: "rtmp://localhost:1935/live" } });
       return Promise.resolve({});
     });
     await service.startStream();
@@ -190,7 +190,7 @@ describe("ObsService.startStream — relay-aware", () => {
     await service.connect();
     mockObs.call.mockClear();
     mockObs.call.mockImplementation((method: string) => {
-      if (method === "GetStreamServiceSettings") return Promise.resolve({ streamServiceSettings: { server: "rtmp://localhost:1935/live/stream" } });
+      if (method === "GetStreamServiceSettings") return Promise.resolve({ streamServiceSettings: { server: "rtmp://localhost:1935/live" } });
       return Promise.resolve({});
     });
     await service.startStream();
@@ -221,7 +221,7 @@ describe("ObsService.startStream — relay-aware", () => {
     const service = makeSvc(makeDatabase(), mockObs);
     await service.connect();
     mockObs.call.mockImplementation((method: string) => {
-      if (method === "GetStreamServiceSettings") return Promise.resolve({ streamServiceSettings: { server: "rtmp://localhost:1935/live/stream" } });
+      if (method === "GetStreamServiceSettings") return Promise.resolve({ streamServiceSettings: { server: "rtmp://localhost:1935/live" } });
       if (method === "StartStream") return Promise.reject(new Error("stream error"));
       return Promise.resolve({});
     });

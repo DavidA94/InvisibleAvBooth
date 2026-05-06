@@ -20,22 +20,29 @@ export const INITIAL_RELAY_STATE: RelayState = {
   obsConnected: false,
 };
 
+export interface PlatformHealthSummary {
+  platformType: string;
+  label: string;
+  healthy: boolean;
+  privacy?: string;
+}
+
 export interface PlatformSlice {
   platformStates: Map<string, PlatformConnectionState>;
   platformHealth: Map<string, Record<string, unknown>>;
   relayState: RelayState;
-  platformReadiness: boolean;
+  platformReadiness: PlatformHealthSummary[];
   setPlatformState: (platformType: string, connectionState: PlatformConnectionState) => void;
   setPlatformHealth: (platformType: string, health: Record<string, unknown>) => void;
   setRelayState: (relayState: RelayState) => void;
-  setPlatformReadiness: (ready: boolean) => void;
+  setPlatformReadiness: (platforms: PlatformHealthSummary[]) => void;
 }
 
 export const createPlatformSlice: StateCreator<PlatformSlice> = (set) => ({
   platformStates: new Map(),
   platformHealth: new Map(),
   relayState: INITIAL_RELAY_STATE,
-  platformReadiness: false,
+  platformReadiness: [],
   setPlatformState: (platformType, connectionState) =>
     set((prev) => {
       const next = new Map(prev.platformStates);

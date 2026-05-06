@@ -159,7 +159,7 @@ describe("StreamingPlatformService", () => {
       });
       const states = service.getPlatformStates();
       expect(states.size).toBe(1);
-      expect(states.get("fb-1")?.status).toBe("idle");
+      expect(states.get("facebook")?.status).toBe("idle");
     });
 
     it.each(["public", "unlisted", undefined, null])("correctly builds the platform privacy for [%s]", (privacy) => {
@@ -207,7 +207,7 @@ describe("StreamingPlatformService", () => {
       const { service } = makeService({ clients: new Map([["youtube", client]]) });
       await service.startAll();
 
-      expect(service.getPlatformStates().get("yt-1")?.status).toBe("error");
+      expect(service.getPlatformStates().get("youtube")?.status).toBe("error");
     });
 
     it("does not transition idle platforms on stopAll", async () => {
@@ -284,7 +284,7 @@ describe("StreamingPlatformService", () => {
       const { service } = makeService({ obs, clients: new Map([["youtube", client]]) });
       await service.startAll();
 
-      expect(service.getPlatformStates().get("yt-1")?.status).toBe("error");
+      expect(service.getPlatformStates().get("youtube")?.status).toBe("error");
       expect(client.endBroadcast).toHaveBeenCalled();
     });
 
@@ -324,7 +324,7 @@ describe("StreamingPlatformService", () => {
       const { service, deps } = makeService();
       await service.startPlatform("youtube");
 
-      expect(service.getPlatformStates().get("yt-1")?.status).toBe("streaming");
+      expect(service.getPlatformStates().get("youtube")?.status).toBe("streaming");
       expect(vi.mocked(deps.relay.startForwarder)).toHaveBeenCalledOnce();
     });
 
@@ -340,7 +340,7 @@ describe("StreamingPlatformService", () => {
       await service.startAll();
       await service.stopAll();
 
-      expect(service.getPlatformStates().get("yt-1")?.status).toBe("idle");
+      expect(service.getPlatformStates().get("youtube")?.status).toBe("idle");
       expect(vi.mocked(deps.relay.stopForwarder)).toHaveBeenCalled();
     });
 
@@ -384,7 +384,7 @@ describe("StreamingPlatformService", () => {
 
       vi.useRealTimers();
 
-      expect(service.getPlatformStates().get("yt-1")?.status).toBe("idle");
+      expect(service.getPlatformStates().get("youtube")?.status).toBe("idle");
     });
   });
 
@@ -394,7 +394,7 @@ describe("StreamingPlatformService", () => {
       await service.startAll();
       await service.stopPlatform("youtube");
 
-      expect(service.getPlatformStates().get("yt-1")?.status).toBe("idle");
+      expect(service.getPlatformStates().get("youtube")?.status).toBe("idle");
       expect(vi.mocked(deps.relay.stopForwarder)).toHaveBeenCalled();
     });
   });
@@ -458,7 +458,7 @@ describe("StreamingPlatformService", () => {
       const { service, deps } = makeService();
       await service.startAll();
 
-      eventBus.emit(BUS_FORWARDER_EXITED, { platformId: "yt-1", code: 1, lastStderr: ["connection lost"] });
+      eventBus.emit(BUS_FORWARDER_EXITED, { platformId: "youtube", code: 1, lastStderr: ["connection lost"] });
       await vi.advanceTimersByTimeAsync(2_000 + 5_000 + 100);
 
       vi.useRealTimers();
@@ -473,7 +473,7 @@ describe("StreamingPlatformService", () => {
       eventBus.emit(BUS_RELAY_STATE_CHANGED, { running: true, obsConnected: false });
 
       const callsBefore = vi.mocked(deps.relay.startForwarder).mock.calls.length;
-      eventBus.emit(BUS_FORWARDER_EXITED, { platformId: "yt-1", code: 1, lastStderr: [] });
+      eventBus.emit(BUS_FORWARDER_EXITED, { platformId: "youtube", code: 1, lastStderr: [] });
 
       await new Promise((resolve) => setTimeout(resolve, 50));
 
@@ -488,7 +488,7 @@ describe("StreamingPlatformService", () => {
 
       eventBus.emit(BUS_RELAY_STATE_CHANGED, { running: true, obsConnected: false });
 
-      expect(service.getPlatformStates().get("yt-1")?.status).toBe("no_source");
+      expect(service.getPlatformStates().get("youtube")?.status).toBe("no_source");
     });
 
     it("transitions no_source to recovering on OBS reconnect", async () => {
@@ -513,7 +513,7 @@ describe("StreamingPlatformService", () => {
 
       await new Promise((resolve) => setTimeout(resolve, 50));
 
-      expect(service.getPlatformStates().get("yt-1")?.status).toBe("streaming");
+      expect(service.getPlatformStates().get("youtube")?.status).toBe("streaming");
     });
 
     it("transitions to error when broadcast ended during disconnect", async () => {
@@ -528,7 +528,7 @@ describe("StreamingPlatformService", () => {
 
       await new Promise((resolve) => setTimeout(resolve, 50));
 
-      expect(service.getPlatformStates().get("yt-1")?.status).toBe("error");
+      expect(service.getPlatformStates().get("youtube")?.status).toBe("error");
     });
 
     it.each`
@@ -541,20 +541,20 @@ describe("StreamingPlatformService", () => {
       const { service } = makeService({ clients: new Map([["youtube", client]]) });
 
       // Walk through valid transitions to reach "recovering"
-      service._transitionPlatform("yt-1", "starting");
-      service._transitionPlatform("yt-1", "streaming");
-      service._transitionPlatform("yt-1", "no_source");
-      service._transitionPlatform("yt-1", "recovering");
+      service._transitionPlatform("youtube", "starting");
+      service._transitionPlatform("youtube", "streaming");
+      service._transitionPlatform("youtube", "no_source");
+      service._transitionPlatform("youtube", "recovering");
 
       // Access the internal entry to set broadcastId
-      const entry = (service as unknown as { platforms: Map<string, PlatformEntry> }).platforms.get("yt-1")!;
+      const entry = (service as unknown as { platforms: Map<string, PlatformEntry> }).platforms.get("youtube")!;
       entry.broadcastId = "broadcast-1";
       entry.rtmpUrl = "rtmp://test/key";
 
       vi.mocked(client.pollHealth).mockImplementation(() => (pollResult instanceof Error ? Promise.reject(pollResult) : Promise.resolve(pollResult)));
 
-      await service._recoverPlatform("yt-1", entry);
-      expect(service.getPlatformStates().get("yt-1")?.status).toBe(expectedStatus);
+      await service._recoverPlatform("youtube", entry);
+      expect(service.getPlatformStates().get("youtube")?.status).toBe(expectedStatus);
     });
 
     it("_recoverPlatform respawns dead forwarder", async () => {
@@ -564,32 +564,32 @@ describe("StreamingPlatformService", () => {
 
       const { service } = makeService({ clients: new Map([["youtube", client]]), relay });
 
-      service._transitionPlatform("yt-1", "starting");
-      service._transitionPlatform("yt-1", "streaming");
-      service._transitionPlatform("yt-1", "no_source");
-      service._transitionPlatform("yt-1", "recovering");
+      service._transitionPlatform("youtube", "starting");
+      service._transitionPlatform("youtube", "streaming");
+      service._transitionPlatform("youtube", "no_source");
+      service._transitionPlatform("youtube", "recovering");
 
-      const entry = (service as unknown as { platforms: Map<string, PlatformEntry> }).platforms.get("yt-1")!;
+      const entry = (service as unknown as { platforms: Map<string, PlatformEntry> }).platforms.get("youtube")!;
       entry.broadcastId = "broadcast-1";
       entry.rtmpUrl = "rtmp://test/key";
 
-      await service._recoverPlatform("yt-1", entry);
-      expect(relay.startForwarder).toHaveBeenCalledWith("yt-1", "rtmp://test/key");
+      await service._recoverPlatform("youtube", entry);
+      expect(relay.startForwarder).toHaveBeenCalledWith("youtube", "rtmp://test/key");
     });
 
     it("_recoverPlatform transitions to error when no broadcastId", async () => {
       const { service } = makeService();
 
-      service._transitionPlatform("yt-1", "starting");
-      service._transitionPlatform("yt-1", "streaming");
-      service._transitionPlatform("yt-1", "no_source");
-      service._transitionPlatform("yt-1", "recovering");
+      service._transitionPlatform("youtube", "starting");
+      service._transitionPlatform("youtube", "streaming");
+      service._transitionPlatform("youtube", "no_source");
+      service._transitionPlatform("youtube", "recovering");
 
-      const entry = (service as unknown as { platforms: Map<string, PlatformEntry> }).platforms.get("yt-1")!;
+      const entry = (service as unknown as { platforms: Map<string, PlatformEntry> }).platforms.get("youtube")!;
       entry.broadcastId = undefined;
 
-      await service._recoverPlatform("yt-1", entry);
-      expect(service.getPlatformStates().get("yt-1")?.status).toBe("error");
+      await service._recoverPlatform("youtube", entry);
+      expect(service.getPlatformStates().get("youtube")?.status).toBe("error");
     });
   });
 
@@ -608,6 +608,7 @@ describe("StreamingPlatformService", () => {
     it("reports unhealthy when token validation fails", async () => {
       const client = makeMockClient("youtube");
       vi.mocked(client.validateToken).mockResolvedValue(false);
+      vi.mocked(client.refreshToken).mockRejectedValue(new Error("refresh failed"));
 
       const events: Array<{ platforms: Array<{ healthy: boolean }> }> = [];
       eventBus.subscribe(BUS_PLATFORM_READINESS_CHANGED, (payload) => events.push(payload));
@@ -637,7 +638,7 @@ describe("StreamingPlatformService", () => {
       service.destroy();
 
       // Emitting events after destroy should not cause errors
-      eventBus.emit(BUS_FORWARDER_EXITED, { platformId: "yt-1", code: 1, lastStderr: [] });
+      eventBus.emit(BUS_FORWARDER_EXITED, { platformId: "youtube", code: 1, lastStderr: [] });
       eventBus.emit(BUS_RELAY_STATE_CHANGED, { running: true, obsConnected: false });
     });
   });

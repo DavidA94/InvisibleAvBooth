@@ -62,8 +62,8 @@ export class StreamingPlatformModule implements SocketModule {
   }
 
   emitInitialState(auth: AuthenticatedSocket): void {
-    for (const [platformId, state] of this.platformService.getPlatformStates()) {
-      auth.socket.emit(STC_PLATFORM_STATE, { platformId, state });
+    for (const [platformType, state] of this.platformService.getPlatformStates()) {
+      auth.socket.emit(STC_PLATFORM_STATE, { platformType, state });
     }
     auth.socket.emit(STC_RELAY_STATE, this.relayService.getRelayState());
     auth.socket.emit(STC_PLATFORM_READINESS, { platforms: this.platformService.getPlatformHealth() });

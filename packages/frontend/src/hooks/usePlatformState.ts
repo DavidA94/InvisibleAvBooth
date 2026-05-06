@@ -2,20 +2,20 @@ import { useCallback } from "react";
 import { useStore } from "../store";
 import { useSocket } from "../providers/SocketProvider";
 import { CTS_PLATFORM_COMMAND } from "@invisible-av-booth/shared";
-import type { PlatformConnectionState } from "../store/platformSlice";
+import type { PlatformConnectionState, PlatformHealthSummary } from "../store/platformSlice";
 
 export interface PlatformCommand {
-  action: "startAll" | "stopAll" | "startPlatform" | "stopPlatform";
+  type: "startAll" | "stopAll" | "startPlatform" | "stopPlatform";
   platformType?: string;
   privacyOverride?: string;
 }
 
-export type { PlatformConnectionState };
+export type { PlatformConnectionState, PlatformHealthSummary };
 
 export function usePlatformState(): {
   platformStates: Map<string, PlatformConnectionState>;
   relayState: { running: boolean; obsConnected: boolean };
-  platformReadiness: boolean;
+  platformReadiness: PlatformHealthSummary[];
   isAnyStarting: boolean;
   isAnyStopping: boolean;
   isAnyStreaming: boolean;

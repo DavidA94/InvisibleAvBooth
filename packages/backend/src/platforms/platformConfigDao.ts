@@ -113,6 +113,14 @@ export class PlatformConfigDao {
       .run(encrypt(accessToken), refreshToken ? encrypt(refreshToken) : null, tokenExpiresAt ?? null, id);
   }
 
+  /** Update only the metadata JSON — used for settings like default privacy. */
+  updateMetadata(platformType: "youtube" | "facebook", metadata: Record<string, unknown>): PlatformConfig | null {
+    const rows = this.database.prepare("SELECT id FROM streaming_platforms WHERE platformType = ?").all(platformType) as { id: string }[];
+    if (rows.length === 0) return null;
+    this.database.prepare("UPDATE streaming_platforms SET metadata = ? WHERE id = ?").run(JSON.stringify(metadata), rows[0]!.id);
+    return this.getById(rows[0]!.id);
+  }
+
   private toConfig(row: PlatformRow): PlatformConfig {
     const config: PlatformConfig = {
       id: row.id,

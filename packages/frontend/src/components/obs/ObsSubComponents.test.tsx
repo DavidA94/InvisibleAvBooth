@@ -34,7 +34,7 @@ function resetPlatformStore(platformStates = new Map()): void {
   useStore.setState({
     platformStates: platformStates as ReturnType<typeof useStore.getState>["platformStates"],
     relayState: { running: false, obsConnected: false },
-    platformReadiness: false,
+    platformReadiness: [],
   });
 }
 

@@ -96,7 +96,7 @@ export function createFakeObs() {
       }
       if (method === "GetStreamStatus") return Promise.resolve({ outputActive: false });
       if (method === "GetRecordStatus") return Promise.resolve({ outputActive: recording });
-      if (method === "GetStreamServiceSettings") return Promise.resolve({ streamServiceSettings: { server: "rtmp://localhost:1935/live/stream" } });
+      if (method === "GetStreamServiceSettings") return Promise.resolve({ streamServiceSettings: { server: "rtmp://localhost:1935/live" } });
       return Promise.resolve({});
     }),
     on: vi.fn().mockImplementation((event: string, handler: EventHandler) => {
@@ -115,21 +115,49 @@ export type FakeObs = ReturnType<typeof createFakeObs>;
 
 // ── Fake NMS / Spawn ─────────────────────────────────────────────────────────
 
-export function createFakeNms(): NmsInstance {
-  return { run: vi.fn(), stop: vi.fn(), on: vi.fn() };
+export interface FakeNmsInstance extends NmsInstance {
+  /** Simulate OBS connecting to the relay */
+  simulatePublish(streamPath?: string): void;
+  /** Simulate OBS disconnecting from the relay */
+  simulateUnpublish(streamPath?: string): void;
+}
+
+export function createFakeNms(): FakeNmsInstance {
+  const handlers: Record<string, Array<(id: string, streamPath: string, args: object) => void>> = {};
+  return {
+    run: vi.fn(),
+    stop: vi.fn(),
+    on: vi.fn().mockImplementation((event: string, handler: (id: string, streamPath: string, args: object) => void) => {
+      handlers[event] = handlers[event] ?? [];
+      handlers[event]!.push(handler);
+    }),
+    simulatePublish(streamPath = "/live/stream") {
+      handlers["prePublish"]?.forEach((h) => h("fake-session", streamPath, {}));
+      handlers["postPublish"]?.forEach((h) => h("fake-session", streamPath, {}));
+    },
+    simulateUnpublish(streamPath = "/live/stream") {
+      handlers["donePublish"]?.forEach((h) => h("fake-session", streamPath, {}));
+    },
+  };
 }
 
 export function createFakeNmsFactory(): NmsFactory {
-  return () => createFakeNms();
+  const instance = createFakeNms();
+  return Object.assign(() => instance, { instance });
 }
 
 export function createFakeSpawn(): SpawnFn {
-  return vi.fn().mockImplementation(() => {
-    const child = new EventEmitter() as EventEmitter & { stderr: EventEmitter | null; kill: ReturnType<typeof vi.fn> };
+  return vi.fn().mockImplementation((_cmd: string, args: string[]) => {
+    const child = new EventEmitter() as EventEmitter & { stderr: EventEmitter | null; kill: ReturnType<typeof vi.fn>; pid: number };
     child.stderr = new EventEmitter() as EventEmitter;
-    child.kill = vi.fn();
-    // Simulate successful ffmpeg -version
-    setTimeout(() => child.emit("close", 0), 0);
+    child.pid = Math.floor(Math.random() * 100000);
+    child.kill = vi.fn().mockImplementation(() => {
+      setTimeout(() => child.emit("close", 0), 0);
+    });
+    // ffmpeg -version check should close immediately with success
+    if (args?.[0] === "-version") {
+      setTimeout(() => child.emit("close", 0), 0);
+    }
     return child;
   });
 }

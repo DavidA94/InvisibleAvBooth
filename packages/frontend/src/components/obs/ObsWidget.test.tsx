@@ -44,7 +44,7 @@ function resetStore(obsState = connectedState): void {
     notifications: [],
     platformStates: new Map(),
     relayState: { running: false, obsConnected: false },
-    platformReadiness: false,
+    platformReadiness: [],
   });
 }
 

@@ -148,7 +148,7 @@ export class ObsService {
 
     // Verify relay target — auto-correct if someone changed it in OBS UI.
     const settings = (await this.obs.call("GetStreamServiceSettings")) as { streamServiceSettings: { server?: string } };
-    const expected = `rtmp://localhost:${process.env["RELAY_PORT"] ?? "1935"}/live/stream`;
+    const expected = `rtmp://localhost:${process.env["RELAY_PORT"] ?? "1935"}/live`;
     if (settings.streamServiceSettings.server !== expected) {
       logger.warn("OBS stream settings changed externally — auto-correcting");
       await this.configureRelayTarget();
@@ -161,6 +161,16 @@ export class ObsService {
       eventBus.emit(BUS_OBS_STATE_CHANGED, { state: this.getState() });
       return { success: true, value: this.getState() };
     } catch (err) {
+      // If OBS reports already streaming (e.g., started externally), treat as success
+      try {
+        const status = (await this.obs.call("GetStreamStatus")) as { outputActive?: boolean };
+        if (status.outputActive) {
+          this.state.streaming = true;
+          return { success: true, value: this.getState() };
+        }
+      } catch {
+        /* fall through to error */
+      }
       eventBus.emit(BUS_OBS_ERROR, {
         error: new ObsError("STREAM_START_FAILED", String(err)) as ObsError & { code: "STREAM_START_FAILED" },
       });
@@ -260,10 +270,10 @@ export class ObsService {
   }
 
   private async configureRelayTarget(): Promise<void> {
-    const relayUrl = `rtmp://localhost:${process.env["RELAY_PORT"] ?? "1935"}/live/stream`;
+    const relayUrl = `rtmp://localhost:${process.env["RELAY_PORT"] ?? "1935"}/live`;
     await this.obs.call("SetStreamServiceSettings", {
       streamServiceType: "rtmp_custom",
-      streamServiceSettings: { server: relayUrl, key: "" },
+      streamServiceSettings: { server: relayUrl, key: "stream" },
     });
   }
 

@@ -195,7 +195,7 @@ describe("emitInitialState", () => {
     const mod = new StreamingPlatformModule(svc, relay);
     mod.emitInitialState({ socket: socketMock, jwtPayload: fakeUser } as AuthenticatedSocket);
 
-    expect(socketEmitMock).toHaveBeenCalledWith(STC_PLATFORM_STATE, { platformId: "youtube", state: { status: "idle" } });
+    expect(socketEmitMock).toHaveBeenCalledWith(STC_PLATFORM_STATE, { platformType: "youtube", state: { status: "idle" } });
     expect(socketEmitMock).toHaveBeenCalledWith(STC_RELAY_STATE, { running: true, obsConnected: false });
     expect(socketEmitMock).toHaveBeenCalledWith(STC_PLATFORM_READINESS, { platforms: expect.any(Array) });
   });

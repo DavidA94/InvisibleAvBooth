@@ -23,7 +23,7 @@ beforeEach(() => {
     platformStates: new Map(),
     platformHealth: new Map(),
     relayState: { running: false, obsConnected: false },
-    platformReadiness: false,
+    platformReadiness: [],
   });
 });
 
@@ -40,7 +40,7 @@ describe("registerPlatformSocketHandlers", () => {
     const fake = makeFakeSocket();
     registerPlatformSocketHandlers(fake as never);
 
-    fake.handlers[STC_PLATFORM_STATE]!({ platformType: "youtube", state: { state: "streaming" } });
+    fake.handlers[STC_PLATFORM_STATE]!({ platformType: "youtube", state: { status: "streaming" } });
 
     expect(useStore.getState().platformStates.get("youtube")).toEqual({ state: "streaming" });
   });
@@ -67,8 +67,9 @@ describe("registerPlatformSocketHandlers", () => {
     const fake = makeFakeSocket();
     registerPlatformSocketHandlers(fake as never);
 
-    fake.handlers[STC_PLATFORM_READINESS]!({ ready: true });
+    const platforms = [{ platformType: "youtube", label: "YouTube", healthy: true }];
+    fake.handlers[STC_PLATFORM_READINESS]!({ platforms });
 
-    expect(useStore.getState().platformReadiness).toBe(true);
+    expect(useStore.getState().platformReadiness).toEqual(platforms);
   });
 });

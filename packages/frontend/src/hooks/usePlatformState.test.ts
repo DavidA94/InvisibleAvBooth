@@ -15,7 +15,7 @@ beforeEach(() => {
   useStore.setState({
     platformStates: new Map(),
     relayState: INITIAL_RELAY_STATE,
-    platformReadiness: false,
+    platformReadiness: [],
   });
   vi.clearAllMocks();
 });
@@ -25,7 +25,7 @@ describe("usePlatformState", () => {
     const { result } = renderHook(() => usePlatformState());
     expect(result.current.platformStates.size).toBe(0);
     expect(result.current.relayState).toEqual(INITIAL_RELAY_STATE);
-    expect(result.current.platformReadiness).toBe(false);
+    expect(result.current.platformReadiness).toEqual([]);
     expect(result.current.isAnyStarting).toBe(false);
     expect(result.current.isAnyStopping).toBe(false);
     expect(result.current.isAnyStreaming).toBe(false);
@@ -94,7 +94,7 @@ describe("usePlatformState", () => {
 
   it("sendCommand emits CTS_PLATFORM_COMMAND with the command payload", () => {
     const { result } = renderHook(() => usePlatformState());
-    const command = { action: "startAll" as const };
+    const command = { type: "startAll" as const };
 
     result.current.sendCommand(command);
 
@@ -104,7 +104,7 @@ describe("usePlatformState", () => {
 
   it("sendCommand includes optional fields when provided", () => {
     const { result } = renderHook(() => usePlatformState());
-    const command = { action: "startPlatform" as const, platformType: "youtube", privacyOverride: "public" };
+    const command = { type: "startPlatform" as const, platformType: "youtube", privacyOverride: "public" };
 
     result.current.sendCommand(command);
 
@@ -112,10 +112,11 @@ describe("usePlatformState", () => {
   });
 
   it("reflects platformReadiness from store", () => {
-    useStore.setState({ platformReadiness: true });
+    const platforms = [{ platformType: "youtube", label: "YouTube", healthy: true }];
+    useStore.setState({ platformReadiness: platforms });
 
     const { result } = renderHook(() => usePlatformState());
-    expect(result.current.platformReadiness).toBe(true);
+    expect(result.current.platformReadiness).toEqual(platforms);
   });
 
   it("reflects relayState from store", () => {

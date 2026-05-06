@@ -17,6 +17,8 @@ import {
 import { eventBus } from "../eventBus/eventBus.js";
 import { logger } from "../logger.js";
 import type { StreamingPlatformClient, BroadcastInfo } from "../platforms/platformClient.js";
+import { YouTubeClient } from "../platforms/youtubeClient.js";
+import { FacebookClient } from "../platforms/facebookClient.js";
 import type { PlatformConfigDao } from "../platforms/platformConfigDao.js";
 import type { RelayService } from "./relayService.js";
 import type { ObsService } from "./obsService.js";
@@ -28,7 +30,7 @@ import type { PlatformStatus, PlatformStreamState, PlatformHealthSummary, Platfo
 const VALID_TRANSITIONS: Record<PlatformStatus, readonly PlatformStatus[]> = {
   idle: ["starting"],
   starting: ["streaming", "error"],
-  streaming: ["stopping", "no_source"],
+  streaming: ["stopping", "no_source", "error"],
   stopping: ["idle"],
   no_source: ["recovering", "error"],
   recovering: ["streaming", "error"],
@@ -55,6 +57,7 @@ export class StreamingPlatformService {
   private readonly platforms = new Map<string, PlatformEntry>();
   private operationInProgress = false;
   private healthPollTimer: ReturnType<typeof setInterval> | null = null;
+  private tokenRefreshTimer: ReturnType<typeof setInterval> | null = null;
   private obsStartMutex: Promise<{ success: boolean }> | null = null;
 
   private readonly handleForwarderExited: (payload: { platformId: string; code: number | null; lastStderr: string[] }) => void;
@@ -68,6 +71,9 @@ export class StreamingPlatformService {
     private readonly platformConfigDao: PlatformConfigDao,
   ) {
     this.handleForwarderExited = (payload) => {
+      if (payload.lastStderr.length > 0) {
+        logger.warn(`FFmpeg stderr for ${payload.platformId}`, { context: { lastLines: payload.lastStderr.slice(-5) } });
+      }
       void this.onForwarderExited(payload.platformId);
     };
     this.handleRelayStateChanged = (payload) => {
@@ -117,7 +123,8 @@ export class StreamingPlatformService {
       // Steps (a)+(b): create broadcasts in parallel
       const results = await Promise.allSettled(
         entries.map(async ([id, entry]): Promise<{ platformId: string; broadcast: BroadcastInfo }> => {
-          const broadcast = await entry.client.createBroadcast(interpolatedStreamTitle, interpolatedDescription);
+          const privacy = typeof entry.config.metadata["privacy"] === "string" ? entry.config.metadata["privacy"] : undefined;
+          const broadcast = await entry.client.createBroadcast(interpolatedStreamTitle, interpolatedDescription, privacy);
           return { platformId: id, broadcast };
         }),
       );
@@ -183,7 +190,8 @@ export class StreamingPlatformService {
       const { interpolatedStreamTitle, interpolatedDescription } = this.manifestService.getInterpolated();
 
       try {
-        const broadcast = await entry.client.createBroadcast(interpolatedStreamTitle, interpolatedDescription);
+        const privacy = typeof entry.config.metadata["privacy"] === "string" ? entry.config.metadata["privacy"] : undefined;
+        const broadcast = await entry.client.createBroadcast(interpolatedStreamTitle, interpolatedDescription, privacy);
         entry.broadcastId = broadcast.broadcastId;
         entry.rtmpUrl = broadcast.rtmpUrl;
       } catch (error: unknown) {
@@ -224,7 +232,7 @@ export class StreamingPlatformService {
       await Promise.allSettled(active.map(([id, entry]) => this.stopSinglePlatform(id, entry)));
 
       this.stopHealthPolling();
-      this.checkAllIdle();
+      await this.checkAllIdle();
     } finally {
       this.operationInProgress = false;
     }
@@ -237,7 +245,7 @@ export class StreamingPlatformService {
       const [id, entry] = this.findEntryByTypeOrThrow(platformType);
       this._transitionPlatform(id, "stopping", "Stopping…");
       await this.stopSinglePlatform(id, entry);
-      this.checkAllIdle();
+      await this.checkAllIdle();
     } finally {
       this.operationInProgress = false;
     }
@@ -248,14 +256,25 @@ export class StreamingPlatformService {
     const summaries: PlatformHealthSummary[] = [];
 
     for (const config of configs) {
-      const client = this.platformClients.get(config.platformType);
+      const client = this.platformClients.get(config.platformType) ?? this.createClient(config);
       if (!client) continue;
 
       let healthy = false;
-      try {
-        healthy = await client.validateToken();
-      } catch {
-        healthy = false;
+
+      // For YouTube: refresh proactively if token is expired or within 5 minutes of expiry
+      if (config.platformType === "youtube" && this.isTokenExpiredOrExpiring(config.tokenExpiresAt)) {
+        healthy = await this.attemptTokenRefresh(config, client);
+      } else {
+        try {
+          healthy = await client.validateToken();
+        } catch {
+          healthy = false;
+        }
+
+        // If validation failed, try refreshing (token may have just expired)
+        if (!healthy && config.platformType === "youtube") {
+          healthy = await this.attemptTokenRefresh(config, client);
+        }
       }
 
       if (!healthy) {
@@ -274,12 +293,69 @@ export class StreamingPlatformService {
     }
 
     eventBus.emit(BUS_PLATFORM_READINESS_CHANGED, { platforms: summaries });
+
+    // Start background timer to check token expiry every 60 seconds
+    this.startTokenRefreshTimer();
   }
 
   destroy(): void {
     this.stopHealthPolling();
+    this.stopTokenRefreshTimer();
     eventBus.unsubscribe(BUS_FORWARDER_EXITED, this.handleForwarderExited);
     eventBus.unsubscribe(BUS_RELAY_STATE_CHANGED, this.handleRelayStateChanged);
+  }
+
+  // ── Token refresh ─────────────────────────────────────────────────────────
+
+  private isTokenExpiredOrExpiring(tokenExpiresAt: string | null): boolean {
+    if (!tokenExpiresAt) return false;
+    const expiresAt = new Date(tokenExpiresAt).getTime();
+    const fiveMinutesFromNow = Date.now() + 5 * 60 * 1000;
+    return expiresAt <= fiveMinutesFromNow;
+  }
+
+  private async attemptTokenRefresh(config: PlatformConfig, client: StreamingPlatformClient): Promise<boolean> {
+    try {
+      const tokenInfo = await client.refreshToken();
+      this.platformConfigDao.updateTokens(config.id, tokenInfo.accessToken, tokenInfo.refreshToken, tokenInfo.expiresAt);
+      logger.info(`Token refreshed for ${config.label}`);
+      return true;
+    } catch (err) {
+      logger.warn(`Token refresh failed for ${config.label}`, {
+        context: { error: err instanceof Error ? err.message : String(err) },
+      });
+      return false;
+    }
+  }
+
+  private startTokenRefreshTimer(): void {
+    if (this.tokenRefreshTimer) return;
+    this.tokenRefreshTimer = setInterval(() => {
+      void this.checkAndRefreshTokens();
+    }, 60_000);
+  }
+
+  private stopTokenRefreshTimer(): void {
+    if (this.tokenRefreshTimer) {
+      clearInterval(this.tokenRefreshTimer);
+      this.tokenRefreshTimer = null;
+    }
+  }
+
+  private async checkAndRefreshTokens(): Promise<void> {
+    const configs = this.platformConfigDao.getAll().filter((c) => c.enabled && c.platformType === "youtube");
+    for (const config of configs) {
+      if (this.isTokenExpiredOrExpiring(config.tokenExpiresAt)) {
+        const client = this.platformClients.get(config.platformType) ?? this.createClient(config);
+        if (!client) continue;
+        const success = await this.attemptTokenRefresh(config, client);
+        if (!success) {
+          eventBus.emit(BUS_PLATFORM_READINESS_CHANGED, {
+            platforms: this.getPlatformHealth(),
+          });
+        }
+      }
+    }
   }
 
   // ── State machine ─────────────────────────────────────────────────────────
@@ -297,7 +373,7 @@ export class StreamingPlatformService {
     entry.state = { status: newStatus, ...(statusMessage !== undefined ? { statusMessage } : {}) };
 
     logger.info(`Platform ${platformId}: ${current} → ${newStatus}`, { context: { platformId, statusMessage } });
-    eventBus.emit(BUS_PLATFORM_STATE_CHANGED, { platformId, state: { ...entry.state } });
+    eventBus.emit(BUS_PLATFORM_STATE_CHANGED, { platformId, platformType: entry.config.platformType, state: { ...entry.state } });
   }
 
   // ── OBS start mutex (Property 22) ─────────────────────────────────────────
@@ -306,14 +382,32 @@ export class StreamingPlatformService {
     if (this.obsStartMutex) return this.obsStartMutex;
 
     this.obsStartMutex = (async (): Promise<{ success: boolean }> => {
-      if (this.obsService.getState().streaming) return { success: true };
+      // Already streaming and connected to relay — no work needed
+      if (this.obsService.getState().streaming && this.relayService.getRelayState().obsConnected) {
+        return { success: true };
+      }
 
       const timeout = new Promise<{ success: false }>((resolve) => {
         setTimeout(() => resolve({ success: false }), OBS_START_TIMEOUT_MS);
       });
+
       const start = (async (): Promise<{ success: boolean }> => {
+        // Start OBS stream (idempotent — OBS ignores if already streaming)
         const result = await this.obsService.startStream();
-        return { success: result.success };
+        if (!result.success) return { success: false };
+
+        // Wait for OBS to actually connect to the relay
+        if (this.relayService.getRelayState().obsConnected) return { success: true };
+
+        return new Promise<{ success: boolean }>((resolve) => {
+          const handler = (state: RelayState): void => {
+            if (state.obsConnected) {
+              eventBus.unsubscribe(BUS_RELAY_STATE_CHANGED, handler);
+              resolve({ success: true });
+            }
+          };
+          eventBus.subscribe(BUS_RELAY_STATE_CHANGED, handler);
+        });
       })();
 
       return Promise.race([start, timeout]);
@@ -470,13 +564,13 @@ export class StreamingPlatformService {
 
   // ── OBS stop when all idle (Req 7.7, Property 28) ─────────────────────────
 
-  private checkAllIdle(): void {
+  private async checkAllIdle(): Promise<void> {
     const activeStates: readonly PlatformStatus[] = ["streaming", "starting", "stopping", "no_source", "recovering"];
     const anyActive = [...this.platforms.values()].some((e) => activeStates.includes(e.state.status));
 
     if (!anyActive) {
       if (this.obsService.getState().streaming) {
-        void this.obsService.stopStream();
+        await this.obsService.stopStream();
       }
       this.stopHealthPolling();
     }
@@ -486,11 +580,10 @@ export class StreamingPlatformService {
 
   private loadPlatforms(): void {
     const configs = this.platformConfigDao.getAll().filter((c) => c.enabled);
-    logger.info(JSON.stringify(configs));
     for (const config of configs) {
-      const client = this.platformClients.get(config.platformType);
+      const client = this.platformClients.get(config.platformType) ?? this.createClient(config);
       if (!client) continue;
-      this.platforms.set(config.id, {
+      this.platforms.set(config.platformType, {
         config,
         client,
         state: { status: "idle" },
@@ -498,6 +591,17 @@ export class StreamingPlatformService {
         rtmpUrl: undefined,
         healthFailureCount: 0,
       });
+    }
+  }
+
+  private createClient(config: PlatformConfig): StreamingPlatformClient | null {
+    switch (config.platformType) {
+      case "youtube":
+        return new YouTubeClient(config);
+      case "facebook":
+        return new FacebookClient(config);
+      default:
+        return null;
     }
   }
 

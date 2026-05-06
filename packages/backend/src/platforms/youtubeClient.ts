@@ -18,8 +18,9 @@ export class YouTubeClient implements StreamingPlatformClient {
   private boundStreamId: string | null = null;
 
   constructor(private readonly config: PlatformConfig) {
-    const metadata = config.metadata as { clientId?: string; clientSecret?: string };
-    this.oauth2 = new google.auth.OAuth2(metadata.clientId, metadata.clientSecret);
+    const clientId = process.env["YOUTUBE_CLIENT_ID"] ?? "";
+    const clientSecret = process.env["YOUTUBE_CLIENT_SECRET"] ?? "";
+    this.oauth2 = new google.auth.OAuth2(clientId, clientSecret);
     const credentials: { access_token: string; refresh_token?: string } = { access_token: config.accessToken };
     if (config.refreshToken) credentials.refresh_token = config.refreshToken;
     this.oauth2.setCredentials(credentials);

@@ -8,8 +8,6 @@ import { io as ioClient } from "socket.io-client";
 import type { Socket as ClientSocket } from "socket.io-client";
 import { buildTestServer, destroyServer, loginAsAdmin } from "../harness.js";
 import type { TestServer } from "../harness.js";
-import { eventBus } from "../../../src/eventBus/eventBus.js";
-import { BUS_RELAY_STATE_CHANGED } from "../../../src/eventBus/types.js";
 import { CTS_PLATFORM_COMMAND, CTS_OBS_COMMAND, CTS_SESSION_MANIFEST_UPDATE, STC_PLATFORM_STATE } from "@invisible-av-booth/shared";
 
 let s: TestServer;
@@ -20,11 +18,15 @@ function setupObsMock() {
   s.fakeObs.call.mockImplementation((method: string) => {
     if (method === "GetStreamStatus") return Promise.resolve({ outputActive: false });
     if (method === "GetRecordStatus") return Promise.resolve({ outputActive: false });
-    if (method === "StartStream") return Promise.resolve({});
+    if (method === "StartStream") {
+      // Simulate OBS connecting to relay shortly after StartStream
+      setTimeout(() => s.fakeNms.simulatePublish(), 10);
+      return Promise.resolve({});
+    }
     if (method === "StopStream") return Promise.resolve({});
     if (method === "StartRecord") return Promise.resolve({});
     if (method === "StopRecord") return Promise.resolve({});
-    if (method === "GetStreamServiceSettings") return Promise.resolve({ streamServiceSettings: { server: "rtmp://localhost:0/live/stream" } });
+    if (method === "GetStreamServiceSettings") return Promise.resolve({ streamServiceSettings: { server: "rtmp://localhost:1935/live" } });
     if (method === "SetStreamServiceSettings") return Promise.resolve({});
     return Promise.resolve({});
   });
@@ -55,6 +57,8 @@ beforeEach(() => {
   s.fakePlatformClient.reset();
   s.fakeObs.call.mockClear();
   setupObsMock();
+  // Reset relay state so each test starts with OBS not connected
+  s.fakeNms.simulateUnpublish();
 });
 
 afterEach(async () => {
@@ -252,7 +256,7 @@ describe("Recording lifecycle with state verification", () => {
       }
       if (method === "GetRecordStatus") return Promise.resolve({ outputActive: isRecording });
       if (method === "GetStreamStatus") return Promise.resolve({ outputActive: false });
-      if (method === "GetStreamServiceSettings") return Promise.resolve({ streamServiceSettings: { server: "rtmp://localhost:0/live/stream" } });
+      if (method === "GetStreamServiceSettings") return Promise.resolve({ streamServiceSettings: { server: "rtmp://localhost:1935/live" } });
       return Promise.resolve({});
     });
 
@@ -279,7 +283,7 @@ describe("Recording lifecycle with state verification", () => {
       }
       if (method === "GetRecordStatus") return Promise.resolve({ outputActive: isRecording });
       if (method === "GetStreamStatus") return Promise.resolve({ outputActive: false });
-      if (method === "GetStreamServiceSettings") return Promise.resolve({ streamServiceSettings: { server: "rtmp://localhost:0/live/stream" } });
+      if (method === "GetStreamServiceSettings") return Promise.resolve({ streamServiceSettings: { server: "rtmp://localhost:1935/live" } });
       return Promise.resolve({});
     });
 
@@ -303,7 +307,7 @@ describe("Recording lifecycle with state verification", () => {
       if (method === "StartRecord") return Promise.resolve({});
       if (method === "GetRecordStatus") return Promise.resolve({ outputActive: false });
       if (method === "GetStreamStatus") return Promise.resolve({ outputActive: false });
-      if (method === "GetStreamServiceSettings") return Promise.resolve({ streamServiceSettings: { server: "rtmp://localhost:0/live/stream" } });
+      if (method === "GetStreamServiceSettings") return Promise.resolve({ streamServiceSettings: { server: "rtmp://localhost:1935/live" } });
       return Promise.resolve({});
     });
 
@@ -356,7 +360,7 @@ describe("No source handling", () => {
     });
 
     // Simulate OBS disconnecting from relay
-    eventBus.emit(BUS_RELAY_STATE_CHANGED, { running: true, obsConnected: false });
+    s.fakeNms.simulateUnpublish();
 
     await new Promise((r) => setTimeout(r, 200));
 

@@ -1,5 +1,5 @@
 export interface PlatformStatePayload {
-  platformId: string;
+  platformType: string;
   state: { status: string; statusMessage?: string };
 }
 
@@ -9,23 +9,23 @@ export interface RelayStatePayload {
 }
 
 export interface PlatformReadinessPayload {
-  platforms: Array<{ platformType: string; label: string; healthy: boolean }>;
+  platforms: Array<{ platformType: string; label: string; healthy: boolean; privacy?: string }>;
 }
 
-export function platformStateIdle(platformId = "youtube"): PlatformStatePayload {
-  return { platformId, state: { status: "idle" } };
+export function platformStateIdle(platformType = "youtube"): PlatformStatePayload {
+  return { platformType, state: { status: "idle" } };
 }
 
-export function platformStateStreaming(platformId = "youtube"): PlatformStatePayload {
-  return { platformId, state: { status: "streaming" } };
+export function platformStateStreaming(platformType = "youtube"): PlatformStatePayload {
+  return { platformType, state: { status: "streaming" } };
 }
 
-export function platformStateStarting(platformId = "youtube"): PlatformStatePayload {
-  return { platformId, state: { status: "starting" } };
+export function platformStateStarting(platformType = "youtube", statusMessage = "Creating broadcast…"): PlatformStatePayload {
+  return { platformType, state: { status: "starting", statusMessage } };
 }
 
-export function platformStateError(platformId = "youtube", message = "API error"): PlatformStatePayload {
-  return { platformId, state: { status: "error", statusMessage: message } };
+export function platformStateError(platformType = "youtube", message = "API error"): PlatformStatePayload {
+  return { platformType, state: { status: "error", statusMessage: message } };
 }
 
 export function relayStateDefault(): RelayStatePayload {
@@ -37,5 +37,5 @@ export function relayStateRunning(): RelayStatePayload {
 }
 
 export function platformReadinessDefault(): PlatformReadinessPayload {
-  return { platforms: [{ platformType: "youtube", label: "YouTube", healthy: true }] };
+  return { platforms: [{ platformType: "youtube", label: "YouTube", healthy: true, privacy: "unlisted" }] };
 }

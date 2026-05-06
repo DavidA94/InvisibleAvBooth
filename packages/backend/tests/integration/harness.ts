@@ -12,7 +12,7 @@ import { buildApp } from "../../src/app.js";
 import type { AppContext } from "../../src/app.js";
 import { eventBus } from "../../src/eventBus/eventBus.js";
 import { createFakeObs, createFakeNmsFactory, createFakeSpawn, FakePlatformClient } from "./fakes.js";
-import type { FakeObs } from "./fakes.js";
+import type { FakeObs, FakeNmsInstance } from "./fakes.js";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 
@@ -22,6 +22,7 @@ const KJV_SQL_PATH = join(__dirname, "..", "..", "..", "..", "bibledb_kjv.sql");
 export interface TestServer {
   ctx: AppContext;
   fakeObs: FakeObs;
+  fakeNms: FakeNmsInstance;
   fakePlatformClient: FakePlatformClient;
   port: number;
   /** Supertest agent bound to the app */
@@ -49,10 +50,12 @@ export async function buildTestServer(opts?: { seedKjv?: boolean; seedPlatform?:
 
   const fakeObs = createFakeObs();
   const fakePlatformClient = new FakePlatformClient();
+  const nmsFactory = createFakeNmsFactory();
+  const fakeNms = (nmsFactory as unknown as { instance: FakeNmsInstance }).instance;
 
   const ctx = buildApp({
     database,
-    nmsFactory: createFakeNmsFactory(),
+    nmsFactory,
     spawnFn: createFakeSpawn(),
     obsClient: fakeObs,
     // Key must match platformType in DB for loadPlatforms() to find it
@@ -63,7 +66,10 @@ export async function buildTestServer(opts?: { seedKjv?: boolean; seedPlatform?:
   await new Promise<void>((resolve) => ctx.httpServer.listen(0, resolve));
   const port = (ctx.httpServer.address() as { port: number }).port;
 
-  return { ctx, fakeObs, fakePlatformClient, port, agent: request(ctx.app) };
+  // Start relay (mirrors index.ts behavior)
+  await ctx.relayService.start().catch(() => {});
+
+  return { ctx, fakeObs, fakeNms, fakePlatformClient, port, agent: request(ctx.app) };
 }
 
 export function resetServer(server: TestServer): void {

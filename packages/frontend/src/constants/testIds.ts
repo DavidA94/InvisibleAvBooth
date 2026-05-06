@@ -79,6 +79,8 @@ export const TEST_ID_MANAGE_STREAMS_MODAL = "manage-streams-modal";
 export const TEST_ID_PLATFORM_START_ALL = "platform-start-all";
 export const TEST_ID_PLATFORM_STOP_ALL = "platform-stop-all";
 export const TEST_ID_PLATFORM_ROW = "platform-row";
+export const TEST_ID_PLATFORM_START_SINGLE = "platform-start-single";
+export const TEST_ID_PLATFORM_STOP_SINGLE = "platform-stop-single";
 
 // ── Session Manifest Modal ─────────────────────────────────────────────────────
 export const TEST_ID_SESSION_MANIFEST_MODAL = "session-manifest-modal";
