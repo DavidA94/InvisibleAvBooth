@@ -7,6 +7,7 @@ describe("cascadeBookChange", () => {
     ${"null book — no resets"}            | ${null}   | ${{ chapter: 5, verse: 3, verseEnd: 7 }}       | ${{ chapter: undefined, verse: undefined, verseEnd: undefined }}
     ${"valid chapter stays"}              | ${1}      | ${{ chapter: 1, verse: null, verseEnd: null }} | ${{ chapter: undefined, verse: undefined, verseEnd: undefined }}
     ${"invalid chapter clears all"}       | ${1}      | ${{ chapter: 999, verse: 3, verseEnd: 5 }}     | ${{ chapter: null, verse: null, verseEnd: null }}
+    ${"no chapter valid verse hept"}      | ${1}      | ${{ chapter: null, verse: 3, verseEnd: null }} | ${{ chapter: undefined, verse: undefined, verseEnd: undefined }}
     ${"invalid verse clears verse+end"}   | ${1}      | ${{ chapter: 1, verse: 999, verseEnd: 5 }}     | ${{ chapter: undefined, verse: null, verseEnd: null }}
     ${"invalid verseEnd clears only end"} | ${1}      | ${{ chapter: 1, verse: 1, verseEnd: 999 }}     | ${{ chapter: undefined, verse: undefined, verseEnd: null }}
     ${"all valid — no resets"}            | ${1}      | ${{ chapter: 1, verse: 1, verseEnd: 5 }}       | ${{ chapter: undefined, verse: undefined, verseEnd: undefined }}

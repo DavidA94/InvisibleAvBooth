@@ -306,3 +306,142 @@ describe("AdminDeviceManagement — unsaved changes guard", () => {
     expect(screen.getByText("Edit Backup OBS")).toBeInTheDocument();
   });
 });
+
+describe("AdminDeviceManagement — list delete", () => {
+  it("deleting currently-edited device resets panel to empty", async () => {
+    mockListDevices();
+    // Re-fetch after delete
+    mockFetch.mockResolvedValueOnce({ ok: true });
+    mockFetch.mockResolvedValueOnce({ ok: true, json: async () => DEVICES.filter((d) => d.id !== "d1") });
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByTestId(`${TEST_ID_DEVICE_LIST_ITEM}-d1`)).toBeInTheDocument();
+    });
+
+    // Open edit for d1
+    fireEvent.click(screen.getByTestId(`${TEST_ID_DEVICE_LIST_ITEM}-d1`));
+    expect(screen.getByText("Edit Main OBS")).toBeInTheDocument();
+
+    // Click list delete for d1
+    fireEvent.click(screen.getByTestId(`${TEST_ID_DEVICE_LIST_DELETE_BUTTON}-d1`));
+    await act(async () => {
+      fireEvent.click(screen.getByTestId(TEST_ID_CONFIRMATION_CONFIRM_BUTTON));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId(TEST_ID_DEVICE_DETAIL_EMPTY)).toBeInTheDocument();
+    });
+  });
+
+  it("shows API error when delete returns non-ok", async () => {
+    mockListDevices();
+    mockFetch.mockResolvedValueOnce({ ok: false, json: async () => ({ error: "Device in use" }) });
+    mockFetch.mockResolvedValueOnce({ ok: true, json: async () => DEVICES });
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByTestId(`${TEST_ID_DEVICE_LIST_ITEM}-d1`)).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByTestId(`${TEST_ID_DEVICE_LIST_DELETE_BUTTON}-d1`));
+    await act(async () => {
+      fireEvent.click(screen.getByTestId(TEST_ID_CONFIRMATION_CONFIRM_BUTTON));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("Device in use")).toBeInTheDocument();
+    });
+  });
+
+  it("shows network error when delete fetch throws", async () => {
+    mockListDevices();
+    mockFetch.mockRejectedValueOnce(new Error("network"));
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByTestId(`${TEST_ID_DEVICE_LIST_ITEM}-d1`)).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByTestId(`${TEST_ID_DEVICE_LIST_DELETE_BUTTON}-d1`));
+    await act(async () => {
+      fireEvent.click(screen.getByTestId(TEST_ID_CONFIRMATION_CONFIRM_BUTTON));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("Network error")).toBeInTheDocument();
+    });
+  });
+
+  it("cancel on list delete confirmation closes modal without deleting", async () => {
+    mockListDevices();
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByTestId(`${TEST_ID_DEVICE_LIST_ITEM}-d1`)).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByTestId(`${TEST_ID_DEVICE_LIST_DELETE_BUTTON}-d1`));
+    expect(screen.getByText("Delete Device")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId(TEST_ID_CONFIRMATION_CANCEL_BUTTON));
+
+    await waitFor(() => {
+      expect(screen.queryByText("Delete Device")).not.toBeInTheDocument();
+    });
+    // Only the initial list fetch, no DELETE call
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("AdminDeviceManagement — other branches", () => {
+  it("shows error banner on initial fetch failure", async () => {
+    mockFetch.mockRejectedValueOnce(new Error("network"));
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText("Failed to load devices")).toBeInTheDocument();
+    });
+  });
+
+  it("Enter key on device list item selects it", async () => {
+    mockListDevices();
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByTestId(`${TEST_ID_DEVICE_LIST_ITEM}-d1`)).toBeInTheDocument();
+    });
+
+    fireEvent.keyDown(screen.getByTestId(`${TEST_ID_DEVICE_LIST_ITEM}-d1`), { key: "Enter" });
+    expect(screen.getByText("Edit Main OBS")).toBeInTheDocument();
+  });
+
+  it("non-Enter key on list item does not select it", async () => {
+    mockListDevices();
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByTestId(`${TEST_ID_DEVICE_LIST_ITEM}-d1`)).toBeInTheDocument();
+    });
+
+    fireEvent.keyDown(screen.getByTestId(`${TEST_ID_DEVICE_LIST_ITEM}-d1`), { key: "Space" });
+    expect(screen.queryByText("Edit Main OBS")).not.toBeInTheDocument();
+  });
+
+  it("devices with the same type sort alphabetically by label", async () => {
+    const sameTypeDevices = [
+      { ...DEVICES[0]!, id: "x", label: "Zebra" },
+      { ...DEVICES[0]!, id: "y", label: "Alpha" },
+    ];
+    mockListDevices(sameTypeDevices);
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByTestId(`${TEST_ID_DEVICE_LIST_ITEM}-x`)).toBeInTheDocument();
+    });
+
+    const items = screen.getAllByTestId(/^device-list-item-/);
+    expect(items[0]).toHaveTextContent("Alpha");
+    expect(items[1]).toHaveTextContent("Zebra");
+  });
+});

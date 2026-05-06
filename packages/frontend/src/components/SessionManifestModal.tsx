@@ -8,6 +8,7 @@ import { useStore } from "../store";
 import { useSocket } from "../providers/SocketProvider";
 import { Modal } from "./Modal";
 import { ScriptureReferenceInput } from "./scripture/ScriptureReferenceInput";
+import { buildDraftManifest, computeRequiredTokens, hasDescriptionContent, type Template } from "./sessionManifestLogic";
 import {
   TEST_ID_SESSION_MANIFEST_MODAL,
   TEST_ID_MANIFEST_SPEAKER,
@@ -21,16 +22,9 @@ import {
   TEST_ID_MANIFEST_DESCRIPTION_TEMPLATE,
   TEST_ID_MANIFEST_DESCRIPTION_PREVIEW,
 } from "../constants/testIds";
-import type { SessionManifest, ScriptureReference, CommandResult } from "../types";
+import type { SessionManifest, CommandResult } from "../types";
 
 const ACK_TIMEOUT = 5000;
-
-interface Template {
-  id: string;
-  name: string;
-  category: "title" | "description";
-  formatString: string;
-}
 
 type TemplateOption = { value: string; label: string };
 
@@ -41,15 +35,6 @@ interface SessionManifestModalProps {
 
 const LS_TITLE_TEMPLATE_KEY = "manifest_titleTemplateId";
 const LS_DESC_TEMPLATE_KEY = "manifest_descriptionTemplateId";
-
-/** Extract token names from a format string */
-function extractTokens(formatString: string): Set<string> {
-  const tokens = new Set<string>();
-  for (const match of formatString.matchAll(/\{(\w+)\}/g)) {
-    tokens.add(match[1]!);
-  }
-  return tokens;
-}
 
 export function SessionManifestModal({ isOpen, onClose }: SessionManifestModalProps): ReactNode {
   const storeManifest = useStore((s) => s.manifest);
@@ -114,33 +99,21 @@ export function SessionManifestModal({ isOpen, onClose }: SessionManifestModalPr
   const selectedDescTemplate = useMemo(() => descriptionTemplates.find((t) => t.id === descriptionTemplateId), [descriptionTemplates, descriptionTemplateId]);
 
   // Determine which fields are needed by the selected templates
-  const requiredTokens = useMemo(() => {
-    const tokens = new Set<string>();
-    if (selectedTitleTemplate) for (const t of extractTokens(selectedTitleTemplate.formatString)) tokens.add(t);
-    if (selectedDescTemplate && selectedDescTemplate.formatString) for (const t of extractTokens(selectedDescTemplate.formatString)) tokens.add(t);
-    return tokens;
-  }, [selectedTitleTemplate, selectedDescTemplate]);
+  const requiredTokens = useMemo(() => computeRequiredTokens(selectedTitleTemplate, selectedDescTemplate), [selectedTitleTemplate, selectedDescTemplate]);
 
   const needsSpeaker = requiredTokens.has("Speaker");
   const needsTitle = requiredTokens.has("Title");
   const needsScripture = requiredTokens.has("Scripture") || requiredTokens.has("verseText");
   const hasAnyTemplate = !!titleTemplateId;
 
-  const draftManifest = useMemo((): Partial<SessionManifest> => {
-    const draft: Partial<SessionManifest> = {};
-    if (speaker) draft.speaker = speaker;
-    if (title) draft.title = title;
-    if (bookId && chapter && verse) {
-      const ref: ScriptureReference = { bookId, chapter, verse };
-      if (verseEnd) ref.verseEnd = verseEnd;
-      draft.scripture = ref;
-    }
-    return draft;
-  }, [speaker, title, bookId, chapter, verse, verseEnd]);
+  const draftManifest = useMemo(
+    (): Partial<SessionManifest> => buildDraftManifest({ speaker, title, bookId, chapter, verse, verseEnd }),
+    [speaker, title, bookId, chapter, verse, verseEnd],
+  );
 
   const titlePreview = useMemo(() => interpolateTemplate(draftManifest, selectedTitleTemplate?.formatString), [draftManifest, selectedTitleTemplate]);
 
-  const descHasContent = selectedDescTemplate && selectedDescTemplate.name !== "None" && selectedDescTemplate.formatString;
+  const descHasContent = hasDescriptionContent(selectedDescTemplate);
   const descriptionPreview = useMemo(
     () => (descHasContent ? interpolateTemplate(draftManifest, selectedDescTemplate!.formatString) : ""),
     [draftManifest, descHasContent, selectedDescTemplate],

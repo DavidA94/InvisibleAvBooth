@@ -45,6 +45,17 @@ describe("WidgetErrorOverlay", () => {
     expect(onAction).toHaveBeenCalledOnce();
   });
 
+  it("onAction fires on enter", () => {
+    const onAction = vi.fn();
+    render(
+      <WidgetErrorOverlay isVisible={true} message="Error" actionLabel="Retry" isPending={false} onAction={onAction}>
+        <div>Content</div>
+      </WidgetErrorOverlay>,
+    );
+    fireEvent.keyDown(screen.getByTestId(TEST_ID_WIDGET_ERROR_OVERLAY), { key: "Enter" });
+    expect(onAction).toHaveBeenCalledOnce();
+  });
+
   it("non-interactive when onAction absent", () => {
     render(
       <WidgetErrorOverlay isVisible={true} message="Error" actionLabel="Contact Admin" isPending={false}>

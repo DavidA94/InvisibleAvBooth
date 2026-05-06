@@ -2,7 +2,8 @@ import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import type { ReactNode } from "react";
 import { IonInput, IonButton, IonText, IonSpinner, IonCheckbox } from "@ionic/react";
 import { ConfirmationModal } from "../../components/ConfirmationModal";
-import type { DeviceFormProps, DeviceRecord } from "./deviceTypeRegistry";
+import type { DeviceFormProps } from "./deviceTypeRegistry";
+import { buildInitialState, isFormDirty, DEFAULT_PORT, type ObsFormState } from "./obsDeviceFormLogic";
 import {
   TEST_ID_DEVICE_FORM_LABEL,
   TEST_ID_DEVICE_FORM_HOST,
@@ -13,43 +14,6 @@ import {
   TEST_ID_DEVICE_FORM_DELETE,
   TEST_ID_DEVICE_FORM_ERROR,
 } from "../../constants/testIds";
-
-const DEFAULT_PORT = "4455";
-
-interface ObsFormState {
-  label: string;
-  host: string;
-  port: string;
-  password: string;
-  enabled: boolean;
-}
-
-function buildInitialState(device: DeviceRecord | null): ObsFormState {
-  if (device) {
-    return {
-      label: device.label,
-      host: device.host,
-      port: String(device.port),
-      password: "",
-      enabled: device.enabled,
-    };
-  }
-  return { label: "", host: "", port: DEFAULT_PORT, password: "", enabled: true };
-}
-
-/**
- * Compare current form state to the initial snapshot.
- * Password is excluded from dirty-check when editing (blank = "keep existing").
- */
-function isFormDirty(current: ObsFormState, initial: ObsFormState, isEdit: boolean): boolean {
-  if (current.label !== initial.label) return true;
-  if (current.host !== initial.host) return true;
-  if (current.port !== initial.port) return true;
-  if (current.enabled !== initial.enabled) return true;
-  if (!isEdit && current.password !== initial.password) return true;
-  if (isEdit && current.password !== "") return true;
-  return false;
-}
 
 export function ObsDeviceForm({ device, onSaved, onDeleted, registerDirtyCheck }: DeviceFormProps): ReactNode {
   const isEdit = device !== null;

@@ -1,6 +1,25 @@
 import { describe, it, expect, vi } from "vitest";
+import type { ReactNode } from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { ObsMetadataPreview } from "./ObsMetadataPreview";
+
+// Mock IonPopover — render as a div when open with a close button that invokes onDidDismiss.
+// This lets us verify the dismiss handler clears popoverOpen state.
+vi.mock("@ionic/react", async () => {
+  const actual = await vi.importActual<Record<string, unknown>>("@ionic/react");
+  return {
+    ...actual,
+    IonPopover: ({ isOpen, onDidDismiss, children }: { isOpen: boolean; onDidDismiss: () => void; children: ReactNode }) =>
+      isOpen ? (
+        <div data-testid="mock-popover">
+          {children}
+          <button data-testid="mock-popover-dismiss" onClick={onDidDismiss}>
+            Close
+          </button>
+        </div>
+      ) : null,
+  };
+});
 
 describe("ObsMetadataPreview", () => {
   it.each`
@@ -34,9 +53,25 @@ describe("ObsMetadataPreview", () => {
   it("title area is clickable when title present", () => {
     render(<ObsMetadataPreview interpolatedStreamTitle="Title" interpolatedDescription="Desc" onEditDetails={vi.fn()} />);
     const previewArea = screen.getByText("Title").closest("[role='button']")!;
-    // Clicking doesn't throw — popover opens (Ionic handles rendering)
+    expect(screen.queryByTestId("mock-popover")).not.toBeInTheDocument();
     fireEvent.click(previewArea);
-    expect(previewArea).toBeInTheDocument();
+    expect(screen.getByTestId("mock-popover")).toBeInTheDocument();
+  });
+
+  it("popover closes when dismissed", () => {
+    render(<ObsMetadataPreview interpolatedStreamTitle="Title" onEditDetails={vi.fn()} />);
+    fireEvent.click(screen.getByText("Title").closest("[role='button']")!);
+    expect(screen.getByTestId("mock-popover")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("mock-popover-dismiss"));
+    expect(screen.queryByTestId("mock-popover")).not.toBeInTheDocument();
+  });
+
+  it("Enter key on preview area opens popover", () => {
+    render(<ObsMetadataPreview interpolatedStreamTitle="Title" onEditDetails={vi.fn()} />);
+    const previewArea = screen.getByText("Title").closest("[role='button']")!;
+    fireEvent.keyDown(previewArea, { key: "Enter" });
+    expect(screen.getByTestId("mock-popover")).toBeInTheDocument();
   });
 
   it("has keyboard support when title is present", () => {

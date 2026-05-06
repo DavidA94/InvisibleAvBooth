@@ -1,10 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { GlobalTitleBar } from "./GlobalTitleBar";
 import { useStore } from "../store";
 import { INITIAL_OBS_STATE } from "../store/obsSlice";
 import {
+  TEST_ID_GLOBAL_TITLE_BAR,
   TEST_ID_TITLE_BAR_DASHBOARD_NAV,
   TEST_ID_TITLE_BAR_LOGOUT_BUTTON,
   TEST_ID_TITLE_BAR_ROLE,
@@ -12,9 +13,10 @@ import {
   TEST_ID_TITLE_BAR_ADMIN_LINK,
 } from "../constants/testIds";
 
+const mockNavigate = vi.fn();
 vi.mock("react-router", async () => {
   const actual = await vi.importActual("react-router");
-  return { ...actual };
+  return { ...actual, useNavigate: () => mockNavigate };
 });
 
 beforeEach(() => {
@@ -27,6 +29,7 @@ beforeEach(() => {
     notifications: [],
   });
   localStorage.clear();
+  mockNavigate.mockClear();
 });
 
 function renderBar(path = "/dashboard/default"): ReturnType<typeof render> {
@@ -87,5 +90,24 @@ describe("GlobalTitleBar", () => {
     useStore.setState({ user: { id: "u1", username: "Jane", role: "AvPowerUser" } });
     renderBar();
     expect(screen.queryByTestId(TEST_ID_TITLE_BAR_ADMIN_LINK)).not.toBeInTheDocument();
+  });
+
+  it("returns null when user is not set", () => {
+    useStore.setState({ user: null });
+    renderBar();
+    expect(screen.queryByTestId(TEST_ID_GLOBAL_TITLE_BAR)).not.toBeInTheDocument();
+  });
+
+  it("(CHANGE) button navigates to /dashboards", () => {
+    renderBar();
+    fireEvent.click(screen.getByText("(CHANGE)"));
+    expect(mockNavigate).toHaveBeenCalledWith("/dashboards");
+  });
+
+  it("Admin Pages button navigates to /admin", () => {
+    useStore.setState({ user: { id: "u1", username: "Admin", role: "ADMIN" } });
+    renderBar();
+    fireEvent.click(screen.getByTestId(TEST_ID_TITLE_BAR_ADMIN_LINK));
+    expect(mockNavigate).toHaveBeenCalledWith("/admin");
   });
 });

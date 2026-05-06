@@ -42,16 +42,16 @@ const OLD_TESTAMENT_IDS = Array.from({ length: 39 }, (_, i) => i + 1);
 const NEW_TESTAMENT_IDS = Array.from({ length: 27 }, (_, i) => i + 40);
 
 const BOOK_GROUPS: BookGroup[] = [
-  { label: "Old Testament", options: OLD_TESTAMENT_IDS.map((id) => ({ value: id, label: BIBLE_BOOKS[id] ?? "" })) },
-  { label: "New Testament", options: NEW_TESTAMENT_IDS.map((id) => ({ value: id, label: BIBLE_BOOKS[id] ?? "" })) },
+  { label: "Old Testament", options: OLD_TESTAMENT_IDS.map((id) => ({ value: id, label: BIBLE_BOOKS[id]! })) },
+  { label: "New Testament", options: NEW_TESTAMENT_IDS.map((id) => ({ value: id, label: BIBLE_BOOKS[id]! })) },
 ];
-
-const DEFAULT_CHAPTER_OPTIONS: NumberOption[] = Array.from({ length: MAX_CHAPTERS }, (_, i) => ({ value: i + 1, label: String(i + 1) }));
-const DEFAULT_VERSE_OPTIONS: NumberOption[] = Array.from({ length: MAX_VERSES + 1 }, (_, i) => ({ value: i, label: String(i) }));
 
 function toNumberOptions(numbers: number[]): NumberOption[] {
   return numbers.map((n) => ({ value: n, label: String(n) }));
 }
+
+const DEFAULT_CHAPTER_OPTIONS: NumberOption[] = toNumberOptions(Array.from({ length: MAX_CHAPTERS }, (_, i) => i + 1));
+const DEFAULT_VERSE_OPTIONS: NumberOption[] = toNumberOptions(Array.from({ length: MAX_VERSES + 1 }, (_, i) => i));
 
 function buildChapterOptions(bookId: number | null): NumberOption[] {
   if (!bookId) return DEFAULT_CHAPTER_OPTIONS;

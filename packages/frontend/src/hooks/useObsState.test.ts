@@ -9,9 +9,10 @@ import type { CommandResult } from "../types";
 // ── Mock SocketProvider context ───────────────────────────────────────────────
 
 const mockEmit = vi.fn();
+let mockSocket: { emit: typeof mockEmit } | null = { emit: mockEmit };
 
 vi.mock("../providers/SocketProvider", () => ({
-  useSocket: () => ({ emit: mockEmit }),
+  useSocket: () => mockSocket,
 }));
 
 beforeEach(() => {
@@ -23,6 +24,7 @@ beforeEach(() => {
     interpolatedStreamTitle: "",
     notifications: [],
   });
+  mockSocket = { emit: mockEmit };
   vi.clearAllMocks();
 });
 
@@ -84,5 +86,19 @@ describe("useObsState", () => {
     });
 
     expect(useStore.getState().obsPending).toBe(false);
+  });
+
+  it("sendCommand resolves with 'Not connected' when socket is null", async () => {
+    mockSocket = null;
+    const { result } = renderHook(() => useObsState());
+
+    let commandResult: CommandResult | undefined;
+    await act(async () => {
+      commandResult = await result.current.sendCommand({ type: "startStream" });
+    });
+
+    expect(commandResult).toEqual({ success: false, error: "Not connected" });
+    expect(useStore.getState().obsPending).toBe(false);
+    expect(mockEmit).not.toHaveBeenCalled();
   });
 });

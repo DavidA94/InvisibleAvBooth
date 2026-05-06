@@ -11,6 +11,7 @@ import {
   TEST_ID_DEVICE_FORM_DELETE,
   TEST_ID_DEVICE_FORM_ERROR,
   TEST_ID_CONFIRMATION_CONFIRM_BUTTON,
+  TEST_ID_CONFIRMATION_CANCEL_BUTTON,
 } from "../../constants/testIds";
 
 const mockFetch = vi.fn();
@@ -201,6 +202,109 @@ describe("ObsDeviceForm — dirty check", () => {
 
     fireEvent(screen.getByTestId(TEST_ID_DEVICE_FORM_PASSWORD), new CustomEvent("ionInput", { detail: { value: "newpass" } }));
     fireEvent(screen.getByTestId(TEST_ID_DEVICE_FORM_PASSWORD), new CustomEvent("ionInput", { detail: { value: "" } }));
+    expect(dirtyCheck.isDirty()).toBe(false);
+  });
+});
+
+describe("ObsDeviceForm — error paths", () => {
+  it("shows network error when save fetch throws", async () => {
+    mockFetch.mockRejectedValueOnce(new Error("network down"));
+    renderCreate();
+
+    fireEvent(screen.getByTestId(TEST_ID_DEVICE_FORM_LABEL), new CustomEvent("ionInput", { detail: { value: "New" } }));
+    fireEvent(screen.getByTestId(TEST_ID_DEVICE_FORM_HOST), new CustomEvent("ionInput", { detail: { value: "10.0.0.1" } }));
+    await act(async () => {
+      fireEvent.click(screen.getByTestId(TEST_ID_DEVICE_FORM_SAVE));
+    });
+
+    expect(screen.getByTestId(TEST_ID_DEVICE_FORM_ERROR)).toHaveTextContent("Network error");
+  });
+
+  it("shows API error when delete returns non-ok", async () => {
+    mockFetch.mockResolvedValueOnce({ ok: false, json: async () => ({ error: "Device in use" }) });
+    renderEdit();
+
+    fireEvent.click(screen.getByTestId(TEST_ID_DEVICE_FORM_DELETE));
+    await act(async () => {
+      fireEvent.click(screen.getByTestId(TEST_ID_CONFIRMATION_CONFIRM_BUTTON));
+    });
+
+    expect(screen.getByTestId(TEST_ID_DEVICE_FORM_ERROR)).toHaveTextContent("Device in use");
+  });
+
+  it("shows default Delete failed when response has no error field", async () => {
+    mockFetch.mockResolvedValueOnce({ ok: false, json: async () => ({}) });
+    renderEdit();
+
+    fireEvent.click(screen.getByTestId(TEST_ID_DEVICE_FORM_DELETE));
+    await act(async () => {
+      fireEvent.click(screen.getByTestId(TEST_ID_CONFIRMATION_CONFIRM_BUTTON));
+    });
+
+    expect(screen.getByTestId(TEST_ID_DEVICE_FORM_ERROR)).toHaveTextContent("Delete failed");
+  });
+
+  it("shows network error when delete fetch throws", async () => {
+    mockFetch.mockRejectedValueOnce(new Error("network down"));
+    renderEdit();
+
+    fireEvent.click(screen.getByTestId(TEST_ID_DEVICE_FORM_DELETE));
+    await act(async () => {
+      fireEvent.click(screen.getByTestId(TEST_ID_CONFIRMATION_CONFIRM_BUTTON));
+    });
+
+    expect(screen.getByTestId(TEST_ID_DEVICE_FORM_ERROR)).toHaveTextContent("Network error");
+  });
+
+  it("shows default Save failed when POST response has no error field", async () => {
+    mockFetch.mockResolvedValueOnce({ ok: false, json: async () => ({}) });
+    renderCreate();
+
+    fireEvent(screen.getByTestId(TEST_ID_DEVICE_FORM_LABEL), new CustomEvent("ionInput", { detail: { value: "New" } }));
+    fireEvent(screen.getByTestId(TEST_ID_DEVICE_FORM_HOST), new CustomEvent("ionInput", { detail: { value: "10.0.0.1" } }));
+    await act(async () => {
+      fireEvent.click(screen.getByTestId(TEST_ID_DEVICE_FORM_SAVE));
+    });
+
+    expect(screen.getByTestId(TEST_ID_DEVICE_FORM_ERROR)).toHaveTextContent("Save failed");
+  });
+
+  it("cancel delete closes the confirmation modal without calling DELETE", () => {
+    renderEdit();
+
+    fireEvent.click(screen.getByTestId(TEST_ID_DEVICE_FORM_DELETE));
+    expect(screen.getByTestId(TEST_ID_CONFIRMATION_CONFIRM_BUTTON)).toBeInTheDocument();
+
+    const cancelBtn = screen.getByTestId(TEST_ID_CONFIRMATION_CANCEL_BUTTON);
+    fireEvent.click(cancelBtn);
+
+    expect(screen.queryByTestId(TEST_ID_CONFIRMATION_CONFIRM_BUTTON)).not.toBeInTheDocument();
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it("toggling enabled checkbox marks form dirty", () => {
+    let dirtyCheck: DirtyCheck = { isDirty: () => false };
+    renderEdit({
+      registerDirtyCheck: (c) => {
+        dirtyCheck = c;
+      },
+    });
+
+    fireEvent(screen.getByTestId(TEST_ID_DEVICE_FORM_ENABLED), new CustomEvent("ionChange", { detail: { checked: false } }));
+    expect(dirtyCheck.isDirty()).toBe(true);
+  });
+
+  it("port field preserves previous port when input empty", () => {
+    let dirtyCheck: DirtyCheck = { isDirty: () => false };
+    renderEdit({
+      registerDirtyCheck: (c) => {
+        dirtyCheck = c;
+      },
+    });
+
+    // Fire ionInput with undefined value → handler fallback to DEFAULT_PORT
+    fireEvent(screen.getByTestId("device-form-port"), new CustomEvent("ionInput", { detail: { value: undefined } }));
+    // Port was "4455" (from device), handler now set it to DEFAULT_PORT (also "4455") — not dirty
     expect(dirtyCheck.isDirty()).toBe(false);
   });
 });
