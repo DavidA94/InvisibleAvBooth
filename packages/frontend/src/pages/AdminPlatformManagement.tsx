@@ -91,6 +91,12 @@ export function AdminPlatformManagement(): ReactNode {
     void fetchPlatforms();
   }, [fetchPlatforms]);
 
+  const handleDisconnected = useCallback((): void => {
+    dirtyCheckRef.current = { isDirty: () => false };
+    setPanel({ mode: "empty" });
+    void fetchPlatforms();
+  }, [fetchPlatforms]);
+
   const handleDelete = async (platform: PlatformConfig): Promise<void> => {
     try {
       await fetch(`/api/admin/platforms/${platform.platformType}`, { method: "DELETE", credentials: "include" });
@@ -170,28 +176,52 @@ export function AdminPlatformManagement(): ReactNode {
           {/* Left panel — platform list */}
           <div className="device-management-list-panel">
             <div className="position-relative">
-              <IonButton expand="block" style={{ minHeight: "3rem" }} disabled={hasYouTube && hasFacebook} onClick={() => setPopoverOpen((prev) => !prev)}>
+              <IonButton expand="block" style={{ minHeight: "3rem" }} onClick={() => setPopoverOpen((prev) => !prev)}>
                 <IonIcon icon={addOutline} slot="start" />
                 Add Connection
               </IonButton>
 
               {popoverOpen && (
                 <div className="add-device-dropdown surface-raised">
-                  {!hasYouTube && (
-                    <button className="button-unstyled add-device-dropdown-option" type="button" onClick={() => handleAddPlatform("youtube")}>
-                      YouTube
-                    </button>
-                  )}
-                  {!hasFacebook && (
-                    <>
-                      <button className="button-unstyled add-device-dropdown-option" type="button" onClick={() => handleAddPlatform("facebook-page")}>
-                        Facebook Page
-                      </button>
-                      <button className="button-unstyled add-device-dropdown-option" type="button" onClick={() => handleAddPlatform("facebook-profile")}>
-                        Facebook Profile
-                      </button>
-                    </>
-                  )}
+                  <button
+                    className="button-unstyled add-device-dropdown-option"
+                    type="button"
+                    disabled={hasYouTube}
+                    onClick={() => !hasYouTube && handleAddPlatform("youtube")}
+                  >
+                    <span style={{ flex: 1 }}>YouTube</span>
+                    {hasYouTube && (
+                      <span className="text-muted" style={{ fontStyle: "italic" }}>
+                        Already Added
+                      </span>
+                    )}
+                  </button>
+                  <button
+                    className="button-unstyled add-device-dropdown-option"
+                    type="button"
+                    disabled={hasFacebook}
+                    onClick={() => !hasFacebook && handleAddPlatform("facebook-page")}
+                  >
+                    <span style={{ flex: 1 }}>Facebook Page</span>
+                    {hasFacebook && (
+                      <span className="text-muted" style={{ fontStyle: "italic" }}>
+                        Already Added
+                      </span>
+                    )}
+                  </button>
+                  <button
+                    className="button-unstyled add-device-dropdown-option"
+                    type="button"
+                    disabled={hasFacebook}
+                    onClick={() => !hasFacebook && handleAddPlatform("facebook-profile")}
+                  >
+                    <span style={{ flex: 1 }}>Facebook Profile</span>
+                    {hasFacebook && (
+                      <span className="text-muted" style={{ fontStyle: "italic" }}>
+                        Already Added
+                      </span>
+                    )}
+                  </button>
                 </div>
               )}
             </div>
@@ -219,7 +249,7 @@ export function AdminPlatformManagement(): ReactNode {
                       setDeleteConfirmPlatform(platform);
                     }}
                   >
-                    Delete
+                    Disconnect
                   </IonButton>
                 </div>
               ))}
@@ -235,7 +265,13 @@ export function AdminPlatformManagement(): ReactNode {
               </div>
             )}
             {panel.mode === "edit" && selectedPlatform?.platformType === "youtube" && (
-              <YouTubePlatformDetail key={selectedPlatform.id} config={selectedPlatform} onSaved={handleSaved} registerDirtyCheck={registerDirtyCheck} />
+              <YouTubePlatformDetail
+                key={selectedPlatform.id}
+                config={selectedPlatform}
+                onSaved={handleSaved}
+                onDisconnected={handleDisconnected}
+                registerDirtyCheck={registerDirtyCheck}
+              />
             )}
             {panel.mode === "edit" && selectedPlatform?.platformType === "facebook" && (
               <FacebookPlatformDetail
@@ -243,6 +279,7 @@ export function AdminPlatformManagement(): ReactNode {
                 config={selectedPlatform}
                 onSaved={handleSaved}
                 onRefresh={fetchPlatforms}
+                onDisconnected={handleDisconnected}
                 registerDirtyCheck={registerDirtyCheck}
               />
             )}
@@ -261,10 +298,10 @@ export function AdminPlatformManagement(): ReactNode {
           onCancel={cancelNavigation}
         />
 
-        {/* Delete confirmation */}
+        {/* Disconnect confirmation */}
         <ConfirmationModal
           isOpen={deleteConfirmPlatform !== null}
-          title="Delete Platform"
+          title="Disconnect Platform"
           body={`Disconnect ${PRETTY_NAMES[deleteConfirmPlatform?.platformType ?? ""] ?? "this platform"}? Active streams will be affected.`}
           confirmLabel="Disconnect"
           cancelLabel="Cancel"

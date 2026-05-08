@@ -1,6 +1,9 @@
 import { useState, useEffect } from "react";
 import type { ReactNode } from "react";
-import { IonButton, IonSelect, IonSelectOption } from "@ionic/react";
+import { IonButton, IonSpinner } from "@ionic/react";
+import Select from "react-select";
+import { darkSelectStyles } from "../../theme/selectStyles";
+import { ConfirmationModal } from "../../components/ConfirmationModal";
 import type { DirtyCheck } from "../deviceForms/deviceTypeRegistry";
 
 interface PlatformConfig {
@@ -13,28 +16,44 @@ interface PlatformConfig {
 }
 
 interface PageOption {
-  id: string;
-  name: string;
+  value: string;
+  label: string;
+}
+
+interface PrivacyOption {
+  value: string;
+  label: string;
 }
 
 interface Props {
   config: PlatformConfig;
   onSaved: () => void;
   onRefresh: () => void;
+  onDisconnected: () => void;
   registerDirtyCheck: (check: DirtyCheck) => void;
 }
 
-export function FacebookPlatformDetail({ config, onSaved, onRefresh, registerDirtyCheck }: Props): ReactNode {
+const PRIVACY_OPTIONS: PrivacyOption[] = [
+  { value: "EVERYONE", label: "Public" },
+  { value: "ALL_FRIENDS", label: "Friends" },
+  { value: "SELF", label: "Only Me" },
+];
+
+const privacyStyles = darkSelectStyles<PrivacyOption>();
+const pageStyles = darkSelectStyles<PageOption>();
+
+export function FacebookPlatformDetail({ config, onSaved, onRefresh, onDisconnected, registerDirtyCheck }: Props): ReactNode {
   const targetType = config.metadata.targetType as string | undefined;
   const pageName = config.metadata.pageName as string | undefined;
   const userName = config.metadata.userName as string | undefined;
-  const pages = (config.metadata.pages as PageOption[] | undefined) ?? [];
+  const pages = (config.metadata.pages as Array<{ id: string; name: string }> | undefined) ?? [];
   const currentPrivacy = (config.metadata.privacy as string) ?? "SELF";
   const needsPageSelection = targetType === "pending";
 
   const [privacy, setPrivacy] = useState(currentPrivacy);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [disconnectConfirm, setDisconnectConfirm] = useState(false);
 
   const isDirty = targetType === "user" && privacy !== currentPrivacy;
 
@@ -52,9 +71,8 @@ export function FacebookPlatformDetail({ config, onSaved, onRefresh, registerDir
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ privacy }),
       });
-      if (res.ok) {
-        onSaved();
-      } else {
+      if (res.ok) onSaved();
+      else {
         const data = (await res.json()) as { error?: string };
         setError(data.error ?? "Save failed");
       }
@@ -73,72 +91,113 @@ export function FacebookPlatformDetail({ config, onSaved, onRefresh, registerDir
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ pageId }),
       });
-      if (res.ok) {
-        onRefresh();
-      } else {
-        setError("Failed to select target");
-      }
+      if (res.ok) onRefresh();
+      else setError("Failed to select target");
     } catch {
       setError("Network error");
     }
   };
 
+  const handleDisconnect = async (): Promise<void> => {
+    try {
+      await fetch("/api/admin/platforms/facebook", { method: "DELETE", credentials: "include" });
+      onDisconnected();
+    } catch {
+      setError("Failed to disconnect");
+    } finally {
+      setDisconnectConfirm(false);
+    }
+  };
+
+  const pageOptions: PageOption[] = [
+    { value: "user", label: `My Profile (${userName ?? "User"})` },
+    ...pages.map((p) => ({ value: p.id, label: `${p.name} (Page)` })),
+  ];
+
   if (needsPageSelection) {
     return (
       <div>
-        <h3 style={{ marginTop: 0 }}>Facebook</h3>
+        <h3 className="margin-none margin-bottom-wide">Edit Facebook</h3>
         <p>Select where to stream:</p>
-        <IonSelect placeholder="Choose a target" onIonChange={(e) => void handlePageSelect(e.detail.value as string)} interface="popover">
-          <IonSelectOption value="user">My Profile ({userName ?? "User"})</IonSelectOption>
-          {pages.map((page) => (
-            <IonSelectOption key={page.id} value={page.id}>
-              {page.name} (Page)
-            </IonSelectOption>
-          ))}
-        </IonSelect>
+        <div style={{ maxWidth: "20rem" }}>
+          <Select<PageOption>
+            options={pageOptions}
+            onChange={(option) => option && void handlePageSelect(option.value)}
+            styles={pageStyles}
+            isSearchable={false}
+            placeholder="Choose a target…"
+            menuPortalTarget={document.body}
+          />
+        </div>
+        {error && <p className="text-danger margin-top-tight">{error}</p>}
       </div>
     );
   }
 
   return (
     <div>
-      <h3 style={{ marginTop: 0 }}>Facebook</h3>
+      <h3 className="margin-none margin-bottom-wide">Edit Facebook</h3>
 
-      <div className="layout-row gap-standard margin-bottom-tight">
-        <span className="text-muted">Status:</span>
-        <span className="widget-dot-healthy">●</span>
-        <span>Connected</span>
-      </div>
-
-      <div className="layout-row gap-standard margin-bottom-tight">
-        <span className="text-muted">Target:</span>
-        <span>{targetType === "page" ? (pageName ?? "Page") : (userName ?? "My Profile")}</span>
-        <span className="text-muted">({targetType === "page" ? "Page" : "Profile"})</span>
-      </div>
-
-      {targetType === "user" ? (
-        <div className="layout-row gap-standard margin-bottom-spacious" style={{ alignItems: "center" }}>
-          <span className="text-muted">Default privacy:</span>
-          <IonSelect value={privacy} onIonChange={(e) => setPrivacy(e.detail.value as string)} interface="popover">
-            <IonSelectOption value="EVERYONE">Public</IonSelectOption>
-            <IonSelectOption value="ALL_FRIENDS">Friends</IonSelectOption>
-            <IonSelectOption value="SELF">Only Me</IonSelectOption>
-          </IonSelect>
+      <div className="platform-detail-fields">
+        <div className="platform-detail-row">
+          <span className="platform-detail-label">Status:</span>
+          <span>
+            <span className="widget-dot-healthy">●</span> Connected
+          </span>
         </div>
-      ) : (
-        <div className="layout-row gap-standard margin-bottom-spacious">
-          <span className="text-muted">Privacy:</span>
-          <span>Public (Pages are always public)</span>
+
+        <div className="platform-detail-row">
+          <span className="platform-detail-label">Target:</span>
+          <span>
+            {targetType === "page" ? (pageName ?? "Page") : (userName ?? "My Profile")} ({targetType === "page" ? "Page" : "Profile"})
+          </span>
         </div>
-      )}
+
+        {targetType === "user" ? (
+          <div className="platform-detail-row">
+            <span className="platform-detail-label">Default privacy:</span>
+            <div style={{ minWidth: "10rem" }}>
+              <Select<PrivacyOption>
+                options={PRIVACY_OPTIONS}
+                value={PRIVACY_OPTIONS.find((o) => o.value === privacy) ?? null}
+                onChange={(option) => setPrivacy(option?.value ?? "SELF")}
+                styles={privacyStyles}
+                isSearchable={false}
+                menuPortalTarget={document.body}
+              />
+            </div>
+          </div>
+        ) : (
+          <div className="platform-detail-row">
+            <span className="platform-detail-label">Privacy:</span>
+            <span>Public (Pages are always public)</span>
+          </div>
+        )}
+      </div>
 
       {error && <p className="text-danger margin-bottom-tight">{error}</p>}
 
-      {targetType === "user" && (
-        <IonButton disabled={!isDirty || saving} onClick={() => void handleSave()}>
-          {saving ? "Saving…" : "Save"}
+      <div className="layout-row gap-standard margin-top-wide">
+        {targetType === "user" && (
+          <IonButton disabled={!isDirty || saving} onClick={() => void handleSave()}>
+            {saving ? <IonSpinner name="crescent" /> : "Save"}
+          </IonButton>
+        )}
+        <IonButton fill="outline" color="danger" onClick={() => setDisconnectConfirm(true)}>
+          Disconnect
         </IonButton>
-      )}
+      </div>
+
+      <ConfirmationModal
+        isOpen={disconnectConfirm}
+        title="Disconnect Facebook"
+        body="Are you sure? Active streams will be affected."
+        confirmLabel="Disconnect"
+        cancelLabel="Cancel"
+        confirmVariant="danger"
+        onConfirm={() => void handleDisconnect()}
+        onCancel={() => setDisconnectConfirm(false)}
+      />
     </div>
   );
 }

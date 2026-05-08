@@ -127,6 +127,26 @@
   white-space: nowrap;
 }
 
+/* Platform detail — aligned label/value rows */
+.platform-detail-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+.platform-detail-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.platform-detail-label {
+  white-space: nowrap;
+  color: var(--color-text-muted);
+  min-width: 8rem;
+  flex-shrink: 0;
+}
+
 .text-button-large {
   font-size: 1.125rem;
 }

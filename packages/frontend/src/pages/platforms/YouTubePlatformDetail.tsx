@@ -1,6 +1,9 @@
 import { useState, useEffect } from "react";
 import type { ReactNode } from "react";
-import { IonButton, IonSelect, IonSelectOption } from "@ionic/react";
+import { IonButton, IonSpinner } from "@ionic/react";
+import Select from "react-select";
+import { darkSelectStyles } from "../../theme/selectStyles";
+import { ConfirmationModal } from "../../components/ConfirmationModal";
 import type { DirtyCheck } from "../deviceForms/deviceTypeRegistry";
 
 interface PlatformConfig {
@@ -16,15 +19,30 @@ interface PlatformConfig {
 interface Props {
   config: PlatformConfig;
   onSaved: () => void;
+  onDisconnected: () => void;
   registerDirtyCheck: (check: DirtyCheck) => void;
 }
 
-export function YouTubePlatformDetail({ config, onSaved, registerDirtyCheck }: Props): ReactNode {
+interface PrivacyOption {
+  value: string;
+  label: string;
+}
+
+const PRIVACY_OPTIONS: PrivacyOption[] = [
+  { value: "public", label: "Public" },
+  { value: "unlisted", label: "Unlisted" },
+  { value: "private", label: "Private" },
+];
+
+const privacyStyles = darkSelectStyles<PrivacyOption>();
+
+export function YouTubePlatformDetail({ config, onSaved, onDisconnected, registerDirtyCheck }: Props): ReactNode {
   const channelTitle = (config.metadata.channelTitle as string) ?? "";
   const currentPrivacy = (config.metadata.privacy as string) ?? "unlisted";
   const [privacy, setPrivacy] = useState(currentPrivacy);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [disconnectConfirm, setDisconnectConfirm] = useState(false);
 
   const isDirty = privacy !== currentPrivacy;
 
@@ -42,9 +60,8 @@ export function YouTubePlatformDetail({ config, onSaved, registerDirtyCheck }: P
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ privacy }),
       });
-      if (res.ok) {
-        onSaved();
-      } else {
+      if (res.ok) onSaved();
+      else {
         const data = (await res.json()) as { error?: string };
         setError(data.error ?? "Save failed");
       }
@@ -55,44 +72,79 @@ export function YouTubePlatformDetail({ config, onSaved, registerDirtyCheck }: P
     }
   };
 
+  const handleDisconnect = async (): Promise<void> => {
+    try {
+      await fetch("/api/admin/platforms/youtube", { method: "DELETE", credentials: "include" });
+      onDisconnected();
+    } catch {
+      setError("Failed to disconnect");
+    } finally {
+      setDisconnectConfirm(false);
+    }
+  };
+
   return (
     <div>
-      <h3 style={{ marginTop: 0 }}>YouTube</h3>
+      <h3 className="margin-none margin-bottom-wide">Edit YouTube</h3>
 
-      <div className="layout-row gap-standard margin-bottom-tight">
-        <span className="text-muted">Status:</span>
-        <span className="widget-dot-healthy">●</span>
-        <span>Connected</span>
-      </div>
-
-      {channelTitle && (
-        <div className="layout-row gap-standard margin-bottom-tight">
-          <span className="text-muted">Channel:</span>
-          <span>{channelTitle}</span>
+      <div className="platform-detail-fields">
+        <div className="platform-detail-row">
+          <span className="platform-detail-label">Status:</span>
+          <span>
+            <span className="widget-dot-healthy">●</span> Connected
+          </span>
         </div>
-      )}
 
-      {config.tokenExpiresAt && (
-        <div className="layout-row gap-standard margin-bottom-tight">
-          <span className="text-muted">Token expires:</span>
-          <span>{new Date(config.tokenExpiresAt).toLocaleString()}</span>
+        {channelTitle && (
+          <div className="platform-detail-row">
+            <span className="platform-detail-label">Channel:</span>
+            <span>{channelTitle}</span>
+          </div>
+        )}
+
+        {config.tokenExpiresAt && (
+          <div className="platform-detail-row">
+            <span className="platform-detail-label">Token expires:</span>
+            <span>{new Date(config.tokenExpiresAt).toLocaleString()}</span>
+          </div>
+        )}
+
+        <div className="platform-detail-row">
+          <span className="platform-detail-label">Default privacy:</span>
+          <div style={{ minWidth: "10rem" }}>
+            <Select<PrivacyOption>
+              options={PRIVACY_OPTIONS}
+              value={PRIVACY_OPTIONS.find((o) => o.value === privacy) ?? null}
+              onChange={(option) => setPrivacy(option?.value ?? "unlisted")}
+              styles={privacyStyles}
+              isSearchable={false}
+              menuPortalTarget={document.body}
+            />
+          </div>
         </div>
-      )}
-
-      <div className="layout-row gap-standard margin-bottom-spacious" style={{ alignItems: "center" }}>
-        <span className="text-muted">Default privacy:</span>
-        <IonSelect value={privacy} onIonChange={(e) => setPrivacy(e.detail.value as string)} interface="popover">
-          <IonSelectOption value="public">Public</IonSelectOption>
-          <IonSelectOption value="unlisted">Unlisted</IonSelectOption>
-          <IonSelectOption value="private">Private</IonSelectOption>
-        </IonSelect>
       </div>
 
       {error && <p className="text-danger margin-bottom-tight">{error}</p>}
 
-      <IonButton disabled={!isDirty || saving} onClick={() => void handleSave()}>
-        {saving ? "Saving…" : "Save"}
-      </IonButton>
+      <div className="layout-row gap-standard margin-top-wide">
+        <IonButton disabled={!isDirty || saving} onClick={() => void handleSave()}>
+          {saving ? <IonSpinner name="crescent" /> : "Save"}
+        </IonButton>
+        <IonButton fill="outline" color="danger" onClick={() => setDisconnectConfirm(true)}>
+          Disconnect
+        </IonButton>
+      </div>
+
+      <ConfirmationModal
+        isOpen={disconnectConfirm}
+        title="Disconnect YouTube"
+        body="Are you sure? Active streams will be affected."
+        confirmLabel="Disconnect"
+        cancelLabel="Cancel"
+        confirmVariant="danger"
+        onConfirm={() => void handleDisconnect()}
+        onCancel={() => setDisconnectConfirm(false)}
+      />
     </div>
   );
 }
