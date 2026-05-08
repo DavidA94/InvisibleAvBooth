@@ -30,6 +30,19 @@ export function AdminDeviceManagement(): ReactNode {
   const [error, setError] = useState("");
   const [panel, setPanel] = useState<PanelState>({ mode: "empty" });
   const [popoverOpen, setPopoverOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    if (!popoverOpen) return;
+    const handler = (e: MouseEvent): void => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setPopoverOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [popoverOpen]);
 
   // Unsaved changes guard
   const dirtyCheckRef = useRef<DirtyCheck>({ isDirty: () => false });
@@ -148,7 +161,7 @@ export function AdminDeviceManagement(): ReactNode {
         <div className="device-management-layout">
           {/* Left panel — device list */}
           <div className="device-management-list-panel">
-            <div className="position-relative">
+            <div className="position-relative" ref={dropdownRef}>
               <IonButton data-testid={TEST_ID_ADD_DEVICE_BUTTON} expand="block" style={{ minHeight: "3rem" }} onClick={() => setPopoverOpen((prev) => !prev)}>
                 <IonIcon icon={addOutline} slot="start" />
                 Add Device

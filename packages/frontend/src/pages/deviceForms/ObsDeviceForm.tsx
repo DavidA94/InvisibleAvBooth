@@ -105,7 +105,7 @@ export function ObsDeviceForm({ device, onSaved, onDeleted, registerDirtyCheck }
 
   return (
     <div className="form-layout">
-      <h3 className="margin-none margin-bottom-wide">{isEdit ? `Edit ${device.label}` : "New OBS Connection"}</h3>
+      <h3 className="detail-header">{isEdit ? `Edit ${device.label}` : "New OBS Connection"}</h3>
 
       <IonInput
         data-testid={TEST_ID_DEVICE_FORM_LABEL}

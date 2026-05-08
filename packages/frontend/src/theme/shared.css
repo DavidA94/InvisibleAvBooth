@@ -147,6 +147,21 @@
   flex-shrink: 0;
 }
 
+/* Shared detail panel header — used by device forms and platform details */
+.detail-header {
+  margin: 0 0 var(--space-grid-gap) 0;
+  padding-bottom: var(--space-grid-gap);
+  border-bottom: 2px solid var(--color-primary);
+}
+
+/* Shared detail panel footer — consistent button spacing */
+.detail-footer {
+  margin-top: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: var(--space-control-gap);
+}
+
 .text-button-large {
   font-size: 1.125rem;
 }
@@ -736,15 +751,22 @@
 }
 
 .add-device-dropdown-option {
-  display: block;
+  display: flex;
+  align-items: center;
   width: 100%;
   text-align: left;
-  padding: 0.5rem 0.75rem;
+  padding: 0.75rem;
+  min-height: 2.75rem;
   color: var(--color-text);
   font-size: 0.875rem;
 }
 
-.add-device-dropdown-option:hover {
+.add-device-dropdown-option:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.add-device-dropdown-option:hover:not(:disabled) {
   background: var(--color-primary);
 }
 

@@ -85,7 +85,7 @@ export function YouTubePlatformDetail({ config, onSaved, onDisconnected, registe
 
   return (
     <div>
-      <h3 className="margin-none margin-bottom-wide">Edit YouTube</h3>
+      <h3 className="detail-header">Edit YouTube</h3>
 
       <div className="platform-detail-fields">
         <div className="platform-detail-row">
@@ -126,7 +126,7 @@ export function YouTubePlatformDetail({ config, onSaved, onDisconnected, registe
 
       {error && <p className="text-danger margin-bottom-tight">{error}</p>}
 
-      <div className="layout-row gap-standard margin-top-wide">
+      <div className="detail-footer">
         <IonButton disabled={!isDirty || saving} onClick={() => void handleSave()}>
           {saving ? <IonSpinner name="crescent" /> : "Save"}
         </IonButton>

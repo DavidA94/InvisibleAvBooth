@@ -117,7 +117,7 @@ export function FacebookPlatformDetail({ config, onSaved, onRefresh, onDisconnec
   if (needsPageSelection) {
     return (
       <div>
-        <h3 className="margin-none margin-bottom-wide">Edit Facebook</h3>
+        <h3 className="detail-header">Edit Facebook</h3>
         <p>Select where to stream:</p>
         <div style={{ maxWidth: "20rem" }}>
           <Select<PageOption>
@@ -136,7 +136,7 @@ export function FacebookPlatformDetail({ config, onSaved, onRefresh, onDisconnec
 
   return (
     <div>
-      <h3 className="margin-none margin-bottom-wide">Edit Facebook</h3>
+      <h3 className="detail-header">Edit Facebook</h3>
 
       <div className="platform-detail-fields">
         <div className="platform-detail-row">
@@ -177,7 +177,7 @@ export function FacebookPlatformDetail({ config, onSaved, onRefresh, onDisconnec
 
       {error && <p className="text-danger margin-bottom-tight">{error}</p>}
 
-      <div className="layout-row gap-standard margin-top-wide">
+      <div className="detail-footer">
         {targetType === "user" && (
           <IonButton disabled={!isDirty || saving} onClick={() => void handleSave()}>
             {saving ? <IonSpinner name="crescent" /> : "Save"}
