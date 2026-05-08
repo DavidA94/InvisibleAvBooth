@@ -126,7 +126,7 @@ graph TD
 
 **SessionManifestService owns interpolation, reads templates via DAO**: Template CRUD is handled by REST route handlers talking to `MetadataTemplateDao`. `SessionManifestService` reads templates from the same DAO when it needs to interpolate. No separate template service class — the DAO is sufficient for data access.
 
-**OBS stream settings always point at the relay**: `ObsService` configures OBS to stream to `rtmp://localhost:{RELAY_PORT}/live/stream` on every connection (not just on stream start). Before starting the OBS stream, it verifies the settings haven't been changed externally and auto-corrects if needed.
+**OBS stream settings always point at the relay**: `ObsService` configures OBS to stream to the local relay on every connection (not just on stream start). The RTMP URL is split per RTMP convention: server=`rtmp://localhost:{RELAY_PORT}/live`, key=`stream`. Before starting the OBS stream, it verifies the settings haven't been changed externally and auto-corrects if needed. `ensureObsStreamingToRelay()` waits for the relay to confirm OBS has connected (via `BUS_RELAY_STATE_CHANGED` with `obsConnected: true`) before spawning FFmpeg forwarders — this prevents forwarders from starting before data is available.
 
 ---
 
@@ -202,12 +202,17 @@ interface PlatformConfig {
 
 interface YouTubeMetadata {
   privacy: "public" | "unlisted" | "private";
-  channelId: string;
+  channelTitle?: string;
 }
 
 interface FacebookMetadata {
-  pageId: string;
-  pageName: string;
+  targetType: "page" | "user" | "pending";
+  pageId?: string;
+  pageName?: string;
+  userId?: string;
+  userName?: string;
+  privacy?: "EVERYONE" | "ALL_FRIENDS" | "SELF"; // User profile only
+  pages?: Array<{ id: string; name: string }>; // Present when targetType is "pending"
 }
 ```
 
@@ -226,14 +231,15 @@ interface StreamingPlatformService {
   // Platform configuration
   getEnabledPlatforms(): PlatformConfig[];
   getPlatformHealth(): PlatformHealthSummary[]; // Token validity + page access for each platform
+  reloadPlatforms(): void; // Re-reads DB and emits readiness update; called after admin CRUD
 
   // Broadcast lifecycle — reads manifest from SessionManifestService internally
   startAll(): Promise<void>;
-  startPlatform(platformId: string): Promise<void>;
+  startPlatform(platformType: string): Promise<void>;
   stopAll(): Promise<void>;
-  stopPlatform(platformId: string): Promise<void>;
+  stopPlatform(platformType: string): Promise<void>;
 
-  // State
+  // State — keyed by platformType (e.g., "youtube", "facebook")
   getPlatformStates(): Map<string, PlatformStreamState>;
 
   // Called by index.ts on startup
@@ -285,6 +291,7 @@ interface StreamingPlatformService {
 | Starting   | Error      | Timeout (30s) or API failure                                                 |
 | Streaming  | Stopping   | User taps Stop / Stop All                                                    |
 | Streaming  | No Source  | OBS disconnects from relay (publisher disconnect event)                      |
+| Streaming  | Error      | FFmpeg recovery failed after forwarder crash                                 |
 | Stopping   | Idle       | FFmpeg killed + broadcast ended via API, or 30-second stop timeout (Req 7.4) |
 | No Source  | Recovering | OBS reconnects to relay (publisher connect event)                            |
 | Recovering | Streaming  | Platform API confirms broadcast still active                                 |

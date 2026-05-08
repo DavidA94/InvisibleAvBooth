@@ -8,7 +8,7 @@ import { io as ioClient } from "socket.io-client";
 import type { Socket as ClientSocket } from "socket.io-client";
 import { buildTestServer, destroyServer, loginAsAdmin } from "../harness.js";
 import type { TestServer } from "../harness.js";
-import { CTS_PLATFORM_COMMAND, CTS_OBS_COMMAND, CTS_SESSION_MANIFEST_UPDATE, STC_PLATFORM_STATE } from "@invisible-av-booth/shared";
+import { CTS_PLATFORM_COMMAND, CTS_OBS_COMMAND, CTS_SESSION_MANIFEST_UPDATE, STC_PLATFORM_STATE, STC_PLATFORM_READINESS } from "@invisible-av-booth/shared";
 
 let s: TestServer;
 let token: string;
@@ -365,5 +365,29 @@ describe("No source handling", () => {
     await new Promise((r) => setTimeout(r, 200));
 
     expect(states.some((s) => s.state.status === "no_source")).toBe(true);
+  });
+});
+
+// ── Hot-reload after platform CRUD ────────────────────────────────────────────
+
+describe("reloadPlatforms (hot-reload)", () => {
+  it("emits updated platform readiness after a platform is deleted via REST", async () => {
+    const client = await connectClient();
+    const cookie = await loginAsAdmin(s.agent, s.ctx.authService);
+
+    const readiness: Array<{ platforms: Array<{ platformType: string }> }> = [];
+    client.on(STC_PLATFORM_READINESS, (payload: { platforms: Array<{ platformType: string }> }) => {
+      readiness.push(payload);
+    });
+
+    // Delete the seeded YouTube platform via REST
+    await s.agent.delete("/api/admin/platforms/youtube").set("Cookie", cookie);
+
+    await new Promise((r) => setTimeout(r, 100));
+
+    // Should have received a readiness update with empty platforms
+    expect(readiness.length).toBeGreaterThanOrEqual(1);
+    const last = readiness[readiness.length - 1]!;
+    expect(last.platforms).toEqual([]);
   });
 });
