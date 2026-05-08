@@ -88,6 +88,13 @@ export class StreamingPlatformService {
 
   // ── Public API ─────────────────────────────────────────────────────────────
 
+  /** Reload platforms from the database. Called after admin CRUD operations. */
+  reloadPlatforms(): void {
+    this.platforms.clear();
+    this.loadPlatforms();
+    eventBus.emit(BUS_PLATFORM_READINESS_CHANGED, { platforms: this.getPlatformHealth() });
+  }
+
   getPlatformStates(): Map<string, PlatformStreamState> {
     const result = new Map<string, PlatformStreamState>();
     for (const [id, entry] of this.platforms) {

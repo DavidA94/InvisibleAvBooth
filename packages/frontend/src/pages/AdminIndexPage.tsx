@@ -7,8 +7,7 @@ const ADMIN_SECTIONS = [
   { label: "User Management", path: "/admin/users" },
   { label: "Device Management", path: "/admin/devices" },
   { label: "Templates", path: "/admin/templates" },
-  { label: "YouTube", path: "/admin/platforms/youtube" },
-  { label: "Facebook", path: "/admin/platforms/facebook" },
+  { label: "Streaming Platforms", path: "/admin/platforms" },
 ] as const;
 
 export function AdminIndexPage(): ReactNode {

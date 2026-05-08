@@ -30,8 +30,7 @@ describe("AdminIndexPage", () => {
     expect(screen.getByText("User Management")).toBeInTheDocument();
     expect(screen.getByText("Device Management")).toBeInTheDocument();
     expect(screen.getByText("Templates")).toBeInTheDocument();
-    expect(screen.getByText("YouTube")).toBeInTheDocument();
-    expect(screen.getByText("Facebook")).toBeInTheDocument();
+    expect(screen.getByText("Streaming Platforms")).toBeInTheDocument();
   });
 
   it("navigates to the correct path when a card is clicked", async () => {
@@ -48,10 +47,10 @@ describe("AdminIndexPage", () => {
     expect(mockNavigate).toHaveBeenCalledWith("/admin/templates");
   });
 
-  it("navigates to YouTube path", async () => {
+  it("navigates to Streaming Platforms path", async () => {
     const user = userEvent.setup();
     renderPage();
-    await user.click(screen.getByText("YouTube"));
-    expect(mockNavigate).toHaveBeenCalledWith("/admin/platforms/youtube");
+    await user.click(screen.getByText("Streaming Platforms"));
+    expect(mockNavigate).toHaveBeenCalledWith("/admin/platforms");
   });
 });

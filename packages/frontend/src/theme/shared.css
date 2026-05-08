@@ -121,6 +121,12 @@
   font-size: 0.75rem;
 }
 
+.text-ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .text-button-large {
   font-size: 1.125rem;
 }

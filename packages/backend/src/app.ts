@@ -77,7 +77,11 @@ export function buildApp(deps: AppDependencies): AppContext {
 
   app.use("/api/auth", createAuthRouter(authService));
 
-  const platformRouter = createPlatformRouter(database, authService);
+  // Lazy reference — platformService is created later but the callback is only invoked at runtime
+  let platformServiceRef: { reloadPlatforms: () => void } | null = null;
+  const onPlatformChangedLazy = (): void => platformServiceRef?.reloadPlatforms();
+
+  const platformRouter = createPlatformRouter(database, authService, onPlatformChangedLazy);
   app.use("/api/auth", platformRouter);
 
   const mustBeAuthenticated = authenticate(authService);
@@ -91,7 +95,6 @@ export function buildApp(deps: AppDependencies): AppContext {
   app.use("/api/kjv", mustBeAuthenticated, mustHaveChangedPassword, createKjvRouter(database, authService));
   app.use("/api/admin/templates", mustBeAuthenticated, mustHaveChangedPassword, createAdminTemplateRouter(database, authService));
   app.use("/api/templates", mustBeAuthenticated, mustHaveChangedPassword, createTemplateRouter(database, authService));
-  app.use("/api", mustBeAuthenticated, mustHaveChangedPassword, createPlatformRouter(database, authService));
 
   const httpServer = createServer(app);
 
@@ -99,6 +102,10 @@ export function buildApp(deps: AppDependencies): AppContext {
 
   const platformConfigDao = new PlatformConfigDao(database);
   const platformService = new StreamingPlatformService(platformClients ?? new Map(), relayService, obsService, manifestService, platformConfigDao);
+  platformServiceRef = platformService;
+
+  const onPlatformChanged = (): void => platformServiceRef?.reloadPlatforms();
+  app.use("/api", mustBeAuthenticated, mustHaveChangedPassword, createPlatformRouter(database, authService, onPlatformChanged));
 
   const gateway = new SocketGateway(httpServer, authService, [
     new ObsModule(obsService),

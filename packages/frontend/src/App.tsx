@@ -27,8 +27,7 @@ import { AdminUserManagement } from "./pages/AdminUserManagement";
 import { AdminDeviceManagement } from "./pages/AdminDeviceManagement";
 import { AdminIndexPage } from "./pages/AdminIndexPage";
 import { AdminTemplatesPage } from "./pages/AdminTemplatesPage";
-import { YouTubePlatformConfig } from "./pages/platforms/YouTubePlatformConfig";
-import { FacebookPlatformConfig } from "./pages/platforms/FacebookPlatformConfig";
+import { AdminPlatformManagement } from "./pages/AdminPlatformManagement";
 import { useStore } from "./store";
 
 setupIonicReact({ mode: "md" });
@@ -61,8 +60,9 @@ export function App(): ReactNode {
                         <Route path="/admin/users" element={<AdminUserManagement />} />
                         <Route path="/admin/devices" element={<AdminDeviceManagement />} />
                         <Route path="/admin/templates" element={<AdminTemplatesPage />} />
-                        <Route path="/admin/platforms/youtube" element={<YouTubePlatformConfig />} />
-                        <Route path="/admin/platforms/facebook" element={<FacebookPlatformConfig />} />
+                        <Route path="/admin/platforms" element={<AdminPlatformManagement />} />
+                        <Route path="/admin/platforms/youtube" element={<AdminPlatformManagement />} />
+                        <Route path="/admin/platforms/facebook" element={<AdminPlatformManagement />} />
                         <Route path="*" element={<RoleRedirect />} />
                       </Routes>
                     </div>

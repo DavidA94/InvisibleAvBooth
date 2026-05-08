@@ -9,18 +9,18 @@ import { logger } from "../logger.js";
 
 const OAUTH_STATE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
-export function createPlatformRouter(database: Database, authService: AuthService): Router {
+export function createPlatformRouter(database: Database, authService: AuthService, onPlatformChanged?: () => void): Router {
   const router = Router();
   const dao = new PlatformConfigDao(database);
 
   // ── OAuth callbacks (no auth required — redirected from provider) ──────────
 
   router.get("/callback/youtube", (req, res) => {
-    handleOAuthCallback(database, "youtube", req.query["state"] as string | undefined, req.query["code"] as string | undefined, res);
+    handleOAuthCallback(database, "youtube", req.query["state"] as string | undefined, req.query["code"] as string | undefined, res, onPlatformChanged);
   });
 
   router.get("/callback/facebook", (req, res) => {
-    handleOAuthCallback(database, "facebook", req.query["state"] as string | undefined, req.query["code"] as string | undefined, res);
+    handleOAuthCallback(database, "facebook", req.query["state"] as string | undefined, req.query["code"] as string | undefined, res, onPlatformChanged);
   });
 
   // ── Admin platform CRUD (ADMIN only) ──────────────────────────────────────
@@ -41,6 +41,7 @@ export function createPlatformRouter(database: Database, authService: AuthServic
   router.put("/admin/platforms/:platformType", requireRole(authService, "ADMIN"), (req, res) => {
     try {
       const result = dao.upsert({ ...req.body, platformType: req.params["platformType"] });
+      onPlatformChanged?.();
       res.json(sanitize(result));
     } catch (err) {
       res.status(400).json({ error: err instanceof Error ? err.message : String(err) });
@@ -50,6 +51,7 @@ export function createPlatformRouter(database: Database, authService: AuthServic
   router.delete("/admin/platforms/:platformType", requireRole(authService, "ADMIN"), (req, res) => {
     const configs = dao.getByType(req.params["platformType"] as "youtube" | "facebook");
     for (const c of configs) dao.delete(c.id);
+    onPlatformChanged?.();
     res.status(204).end();
   });
 
@@ -97,6 +99,7 @@ export function createPlatformRouter(database: Database, authService: AuthServic
       const userId = existing.metadata["userId"] as string | undefined;
       const userName = existing.metadata["userName"] as string | undefined;
       dao.updateMetadata("facebook", { targetType: "user", userId, userName, privacy: "SELF" });
+      onPlatformChanged?.();
       res.json(sanitize(dao.getByType("facebook")[0]!));
       return;
     }
@@ -109,6 +112,7 @@ export function createPlatformRouter(database: Database, authService: AuthServic
     }
     dao.updateMetadata("facebook", { targetType: "page", pageId: selected.id, pageName: selected.name });
     dao.updateTokens(existing.id, selected.access_token);
+    onPlatformChanged?.();
     res.json(sanitize(dao.getByType("facebook")[0]!));
   });
 
@@ -155,6 +159,7 @@ function handleOAuthCallback(
   state: string | undefined,
   code: string | undefined,
   res: { status: (n: number) => { json: (o: object) => void; end: () => void }; redirect: (url: string) => void },
+  onPlatformChanged?: () => void,
 ): void {
   if (!state || !code) {
     res.redirect(`/admin/platforms/${platformType}?error=missing_params`);
@@ -186,7 +191,7 @@ function handleOAuthCallback(
   logger.info(`OAuth callback received for ${platformType}`, { context: { code: code.slice(0, 8) + "..." } });
 
   // Exchange code for tokens
-  void exchangeCodeForTokens(database, platformType, code).then((success) => {
+  void exchangeCodeForTokens(database, platformType, code, onPlatformChanged).then((success) => {
     if (success) {
       res.redirect(`/admin/platforms/${platformType}?connected=true`);
     } else {
@@ -195,7 +200,7 @@ function handleOAuthCallback(
   });
 }
 
-async function exchangeCodeForTokens(database: Database, platformType: string, code: string): Promise<boolean> {
+async function exchangeCodeForTokens(database: Database, platformType: string, code: string, onPlatformChanged?: () => void): Promise<boolean> {
   try {
     const dao = new PlatformConfigDao(database);
     let accessToken: string;
@@ -310,6 +315,7 @@ async function exchangeCodeForTokens(database: Database, platformType: string, c
       enabled: true,
     });
     logger.info(`${platformType} OAuth tokens saved successfully`);
+    onPlatformChanged?.();
     return true;
   } catch (err) {
     logger.error(`${platformType} token exchange error`, { context: { error: String(err) } });
