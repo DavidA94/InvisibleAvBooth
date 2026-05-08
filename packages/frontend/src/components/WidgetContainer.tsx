@@ -81,15 +81,19 @@ export function WidgetContainer({ title, connections, children }: WidgetContaine
           alignment="end"
         >
           <div className="padding-standard">
-            {connections.map((c) => (
-              <div key={c.label} className="popover-status-row">
-                <span data-status={c.status} className={DOT_CLASS[c.status]}>
-                  ●
-                </span>
-                <span className="popover-status-label">{c.label}</span>
-                <span className="text-muted">{STATUS_LABEL[c.status]}</span>
-              </div>
-            ))}
+            <div className="popover-status-grid">
+              {connections.map((c) => (
+                <div key={c.label} className="popover-status-row">
+                  <span className="popover-status-label">
+                    <span data-status={c.status} className={DOT_CLASS[c.status]}>
+                      ●
+                    </span>{" "}
+                    {c.label}
+                  </span>
+                  <span className="text-muted">{STATUS_LABEL[c.status]}</span>
+                </div>
+              ))}
+            </div>
           </div>
         </IonPopover>
       </div>

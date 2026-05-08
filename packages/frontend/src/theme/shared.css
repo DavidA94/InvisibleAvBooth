@@ -127,24 +127,36 @@
   white-space: nowrap;
 }
 
-/* Platform detail — aligned label/value rows */
+/* Two-column label/value layout — labels right-aligned, values left-aligned */
+.detail-fields {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.5rem var(--space-control-gap);
+  align-items: center;
+}
+
+.detail-fields-label {
+  text-align: right;
+  white-space: nowrap;
+  color: var(--color-text-muted);
+}
+
+/* Legacy alias */
 .platform-detail-fields {
-  display: flex;
-  flex-direction: column;
-  gap: 0.625rem;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.5rem var(--space-control-gap);
+  align-items: center;
 }
 
 .platform-detail-row {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
+  display: contents;
 }
 
 .platform-detail-label {
+  text-align: right;
   white-space: nowrap;
   color: var(--color-text-muted);
-  min-width: 8rem;
-  flex-shrink: 0;
 }
 
 /* Shared detail panel header — used by device forms and platform details */
@@ -432,11 +444,14 @@
 /* Widget container */
 /* Health popover grid */
 .popover-status-row {
+  display: contents;
+}
+
+.popover-status-grid {
   display: grid;
-  grid-template-columns: 1rem auto auto;
-  gap: 0.25rem 0.5rem;
+  grid-template-columns: auto 1fr;
+  gap: 0.375rem var(--space-control-gap);
   align-items: center;
-  margin-bottom: 0.25rem;
 }
 
 .popover-status-label {
