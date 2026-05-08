@@ -113,7 +113,9 @@ export function ManageStreamsModal({ isOpen, onClose }: ManageStreamsModalProps)
               {platforms.map(([key, platform]) => {
                 const name = prettyName(key);
                 const privacy = privacyMap.get(key);
-                const privacyLabel = key === "youtube" && privacy ? ` (${privacy.charAt(0).toUpperCase() + privacy.slice(1)})` : "";
+                const privacyLabel = privacy
+                  ? ` (${privacy === "EVERYONE" ? "Public" : privacy === "ALL_FRIENDS" ? "Friends" : privacy === "SELF" ? "Only Me" : privacy.charAt(0).toUpperCase() + privacy.slice(1)})`
+                  : "";
                 const showSpinner = SPINNER_STATES.includes(platform.state);
                 const actionable = platform.state === "idle" || platform.state === "error" || platform.state === "streaming";
 

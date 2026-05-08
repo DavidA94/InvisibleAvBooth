@@ -64,7 +64,7 @@ export function createPlatformRouter(database: Database, authService: AuthServic
     }
     const existing = configs[0]!;
     const { privacy } = req.body as { privacy?: string };
-    if (privacy && !["public", "unlisted", "private"].includes(privacy)) {
+    if (privacy && !["public", "unlisted", "private", "EVERYONE", "ALL_FRIENDS", "SELF"].includes(privacy)) {
       res.status(400).json({ error: "Invalid privacy value" });
       return;
     }
@@ -75,6 +75,41 @@ export function createPlatformRouter(database: Database, authService: AuthServic
       return;
     }
     res.json(sanitize(updated));
+  });
+
+  // ── Facebook Page selection (ADMIN only) ──────────────────────────────────
+
+  router.post("/admin/platforms/facebook/select-page", requireRole(authService, "ADMIN"), (req, res) => {
+    const configs = dao.getByType("facebook");
+    if (configs.length === 0) {
+      res.status(404).json({ error: "Facebook not configured" });
+      return;
+    }
+    const existing = configs[0]!;
+    const { pageId } = req.body as { pageId?: string };
+    if (!pageId) {
+      res.status(400).json({ error: "pageId required" });
+      return;
+    }
+
+    // "user" means stream to the connected User profile
+    if (pageId === "user") {
+      const userId = existing.metadata["userId"] as string | undefined;
+      const userName = existing.metadata["userName"] as string | undefined;
+      dao.updateMetadata("facebook", { targetType: "user", userId, userName, privacy: "SELF" });
+      res.json(sanitize(dao.getByType("facebook")[0]!));
+      return;
+    }
+
+    const pages = (existing.metadata["pages"] as Array<{ id: string; name: string; access_token: string }>) ?? [];
+    const selected = pages.find((p) => p.id === pageId);
+    if (!selected) {
+      res.status(400).json({ error: "Invalid page selection" });
+      return;
+    }
+    dao.updateMetadata("facebook", { targetType: "page", pageId: selected.id, pageName: selected.name });
+    dao.updateTokens(existing.id, selected.access_token);
+    res.json(sanitize(dao.getByType("facebook")[0]!));
   });
 
   // ── Platform health (any authenticated role) ──────────────────────────────
@@ -99,7 +134,9 @@ export function createPlatformRouter(database: Database, authService: AuthServic
     } else {
       const appId = process.env["FACEBOOK_APP_ID"] ?? "";
       const redirectUri = encodeURIComponent("https://localhost/api/auth/callback/facebook");
-      authUrl = `https://www.facebook.com/v19.0/dialog/oauth?client_id=${appId}&redirect_uri=${redirectUri}&state=${state}&scope=pages_manage_posts,pages_read_engagement`;
+      const target = (req.body as { target?: string } | undefined)?.target;
+      const scopes = target === "profile" ? "publish_video" : "publish_video,pages_manage_posts,pages_read_engagement";
+      authUrl = `https://www.facebook.com/v25.0/dialog/oauth?client_id=${appId}&redirect_uri=${redirectUri}&state=${state}&scope=${scopes}`;
     }
 
     if (!authUrl.includes("client_id=&") && authUrl.includes("client_id=")) {
@@ -210,7 +247,7 @@ async function exchangeCodeForTokens(database: Database, platformType: string, c
       const redirectUri = "https://localhost/api/auth/callback/facebook";
 
       const tokenRes = await fetch(
-        `https://graph.facebook.com/v19.0/oauth/access_token?client_id=${appId}&client_secret=${appSecret}&redirect_uri=${encodeURIComponent(redirectUri)}&code=${code}`,
+        `https://graph.facebook.com/v25.0/oauth/access_token?client_id=${appId}&client_secret=${appSecret}&redirect_uri=${encodeURIComponent(redirectUri)}&code=${code}`,
       );
 
       if (!tokenRes.ok) {
@@ -222,6 +259,45 @@ async function exchangeCodeForTokens(database: Database, platformType: string, c
       accessToken = tokenData.access_token;
       tokenExpiresAt = tokenData.expires_in ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString() : undefined;
       label = "Facebook";
+
+      // Fetch Pages the user manages and user info
+      try {
+        const meRes = await fetch(`https://graph.facebook.com/v25.0/me?fields=id,name&access_token=${accessToken}`);
+        const meData = meRes.ok ? ((await meRes.json()) as { id?: string; name?: string }) : {};
+
+        // Try fetching pages — will fail or return empty if profile-only scopes
+        let pages: Array<{ id: string; name: string; access_token: string }> = [];
+        try {
+          const pagesRes = await fetch(`https://graph.facebook.com/v25.0/me/accounts?access_token=${accessToken}`);
+          if (pagesRes.ok) {
+            const pagesData = (await pagesRes.json()) as { data?: Array<{ id: string; name: string; access_token: string }> };
+            pages = pagesData.data ?? [];
+          }
+        } catch {
+          // No page access — profile-only flow
+        }
+
+        if (pages.length === 1) {
+          // Auto-select the single Page
+          accessToken = pages[0]!.access_token;
+          metadata = { targetType: "page", pageId: pages[0]!.id, pageName: pages[0]!.name };
+          tokenExpiresAt = undefined;
+        } else if (pages.length > 1) {
+          // Store pages list + user info for frontend selection
+          metadata = {
+            targetType: "pending",
+            userId: meData.id,
+            userName: meData.name,
+            pages: pages.map((p) => ({ id: p.id, name: p.name, access_token: p.access_token })),
+          };
+        } else {
+          // No Pages — use User profile with privacy default "SELF" (safe for testing)
+          metadata = { targetType: "user", userId: meData.id, userName: meData.name, privacy: "SELF" };
+        }
+      } catch {
+        // Fallback: store as user profile
+        metadata = { targetType: "user", privacy: "SELF" };
+      }
     }
 
     dao.upsert({

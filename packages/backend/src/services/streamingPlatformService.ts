@@ -595,13 +595,18 @@ export class StreamingPlatformService {
   }
 
   private createClient(config: PlatformConfig): StreamingPlatformClient | null {
-    switch (config.platformType) {
-      case "youtube":
-        return new YouTubeClient(config);
-      case "facebook":
-        return new FacebookClient(config);
-      default:
-        return null;
+    try {
+      switch (config.platformType) {
+        case "youtube":
+          return new YouTubeClient(config);
+        case "facebook":
+          return new FacebookClient(config);
+        default:
+          return null;
+      }
+    } catch (err) {
+      logger.warn(`Failed to create client for ${config.label}`, { context: { error: err instanceof Error ? err.message : String(err) } });
+      return null;
     }
   }
 

@@ -280,18 +280,58 @@ Full REST API:
 
 ## Facebook OAuth Setup (optional)
 
-1. Go to [Facebook Developer Portal](https://developers.facebook.com/)
-2. Create an app (type: **Business**)
-3. Add the **Facebook Login** product and the **Live Video API** product
-4. Under Facebook Login → Settings, add valid OAuth redirect URI: `https://localhost/api/auth/callback/facebook`
-5. Copy the App ID and App Secret to your `.env` file
-6. In the app, go to `/admin/platforms/facebook` and click **Connect**
+### Create the Meta App
 
-> **Why `localhost`?** Same reason as YouTube — Facebook rejects non-public domains. The admin must perform the one-time OAuth connection from a browser on the server machine. After tokens are stored, streaming works from any device.
+1. Go to [Meta for Developers](https://developers.facebook.com/) and log in
+2. Navigate to [**My Apps**](https://developers.facebook.com/apps/) → **Create App**
+3. Enter an app name (e.g., "Church Livestream") and contact email → **Next**
+4. Under **Use cases**, select **Other** → **Next**
+5. Select app type **Business** → **Next**
+6. Connect a business portfolio (or select "I don't want to connect a business portfolio yet") → **Next**
+7. Review and click **Go to dashboard**
+
+### Configure permissions
+
+1. In the left sidebar, click **App Review** → **Permissions and Features**
+2. Find and request **Standard Access** for:
+   - `publish_video` — required for live streaming
+   - `pages_manage_posts` — required if streaming to a Page
+   - `pages_read_engagement` — required for reading Page info
+3. In development mode, these permissions work immediately for app admins and test users. For production use with other accounts, submit for App Review.
+
+### Add Facebook Login product
+
+1. In the left sidebar, click **Add Product**
+2. Find **Facebook Login for Business** and click **Set Up**
+3. Under **Facebook Login for Business** → **Settings**:
+   - Set **Valid OAuth Redirect URIs** to: `https://localhost/api/auth/callback/facebook`
+   - Save changes
+
+### Get credentials
+
+1. In the left sidebar, click **App Settings** → **Basic**
+2. Copy the **App ID** and **App Secret** to your `.env` file:
+   ```
+   FACEBOOK_APP_ID=<your app id>
+   FACEBOOK_APP_SECRET=<your app secret>
+   ```
+
+### Connect in the app
+
+1. Go to `/admin/platforms/facebook` and click **Connect Facebook**
+2. Authorize the app in the Facebook dialog
+3. After redirect, choose your streaming target:
+   - **A Page** — if your account manages Pages. Page streams are always public.
+   - **My Profile** — streams to your personal profile. Supports privacy settings (Public, Friends, Only Me). Requires the account to be 60+ days old with 100+ followers.
+4. If only one Page exists and no other options, it's auto-selected.
+
+> **Why `localhost`?** Meta rejects non-public domains like `invisible.av` as redirect URIs. The admin must perform the one-time OAuth connection from a browser on the server machine. After tokens are stored, streaming works from any device via `invisible.av`.
 >
-> **Facebook Page selection:** After connecting, if the authorized Facebook account manages multiple Pages, you'll be prompted to select which Page to stream to. If only one Page is managed, it's auto-selected.
+> **Privacy:** User profile connections default to "Only Me" for safe testing. Change the default in `/admin/platforms/facebook`. ADMIN and AvPowerUser can override per-stream in the Manage Streams modal.
 >
-> **Using a real domain:** Same as YouTube — if you have a public domain, update the redirect URI in the Facebook Developer Portal and set `APP_URL` in your `.env`.
+> **Development mode:** Only app admins and test users (added under **App Roles** in the dashboard) can use the app's permissions. For production use with other Facebook accounts, submit permissions for App Review.
+>
+> **Using a real domain:** If you have a public domain, update the Valid OAuth Redirect URI in Facebook Login settings and set `APP_URL` in your `.env`.
 
 ---
 

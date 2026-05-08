@@ -8,21 +8,28 @@ import { logger } from "../logger.js";
 import type { StreamingPlatformClient, BroadcastInfo, PlatformHealthDetails, PlatformConfig, TokenInfo } from "./platformClient.js";
 import { PlatformError } from "./platformClient.js";
 
-const GRAPH_API_BASE = "https://graph.facebook.com/v19.0";
+const GRAPH_API_BASE = "https://graph.facebook.com/v25.0";
 
 export class FacebookClient implements StreamingPlatformClient {
-  private readonly pageId: string;
+  private readonly targetId: string;
   private readonly accessToken: string;
+  private readonly targetType: "page" | "user";
   private currentVideoId: string | null = null;
 
   constructor(config: PlatformConfig) {
-    const metadata = config.metadata as { pageId?: string };
-    if (!metadata.pageId) throw new PlatformError("PAGE_INACCESSIBLE", "Facebook config missing pageId in metadata");
-    this.pageId = metadata.pageId;
+    const metadata = config.metadata as { pageId?: string; userId?: string; targetType?: string };
+    this.targetType = metadata.targetType === "user" ? "user" : "page";
+    if (this.targetType === "page") {
+      if (!metadata.pageId) throw new PlatformError("PAGE_INACCESSIBLE", "Facebook config missing pageId in metadata");
+      this.targetId = metadata.pageId;
+    } else {
+      if (!metadata.userId) throw new PlatformError("PAGE_INACCESSIBLE", "Facebook config missing userId in metadata");
+      this.targetId = metadata.userId;
+    }
     this.accessToken = config.accessToken;
   }
 
-  async createBroadcast(title: string, description: string, privacy = "SELF"): Promise<BroadcastInfo> {
+  async createBroadcast(title: string, description: string, privacy?: string): Promise<BroadcastInfo> {
     try {
       const body = new URLSearchParams({
         title,
@@ -30,9 +37,12 @@ export class FacebookClient implements StreamingPlatformClient {
         status: "LIVE_NOW",
         access_token: this.accessToken,
       });
-      if (privacy) body.set("privacy", JSON.stringify({ value: privacy }));
+      // User profiles require and support privacy; Pages are always public
+      if (this.targetType === "user") {
+        body.set("privacy", JSON.stringify({ value: privacy ?? "SELF" }));
+      }
 
-      const response = await fetch(`${GRAPH_API_BASE}/${this.pageId}/live_videos`, {
+      const response = await fetch(`${GRAPH_API_BASE}/${this.targetId}/live_videos`, {
         method: "POST",
         body,
       });
@@ -119,7 +129,7 @@ export class FacebookClient implements StreamingPlatformClient {
 
   async validateToken(): Promise<boolean> {
     try {
-      const url = `${GRAPH_API_BASE}/${this.pageId}?fields=id&access_token=${this.accessToken}`;
+      const url = `${GRAPH_API_BASE}/${this.targetId}?fields=id&access_token=${this.accessToken}`;
       const response = await fetch(url);
       return response.ok;
     } catch {

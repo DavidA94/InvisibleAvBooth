@@ -161,11 +161,13 @@ describe("OAuth token exchange", () => {
 
 describe("OAuth start", () => {
   it("returns auth URL for facebook", async () => {
+    process.env["FACEBOOK_APP_ID"] = "test-app-id";
     const cookie = await loginAsAdmin(s.agent, s.ctx.authService);
     const res = await s.agent.post("/api/admin/platforms/facebook/oauth-start").set("Cookie", cookie);
     expect(res.status).toBe(200);
     expect(res.body.authUrl).toContain("facebook.com");
     expect(res.body.state).toBeDefined();
+    delete process.env["FACEBOOK_APP_ID"];
   });
 });
 

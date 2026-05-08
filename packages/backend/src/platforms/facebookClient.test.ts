@@ -13,7 +13,7 @@ const BASE_CONFIG: PlatformConfig = {
   enabled: true,
   accessToken: "page-access-token",
   tokenExpiresAt: null,
-  metadata: { pageId: "123456" },
+  metadata: { targetType: "page", pageId: "123456" },
   createdAt: "2026-01-01T00:00:00Z",
 };
 
