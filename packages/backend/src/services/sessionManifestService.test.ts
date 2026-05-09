@@ -260,7 +260,7 @@ describe("verseTextResolver", () => {
     insertKjvVerse(43, 3, 16, "For God so loved the world");
     const service = makeSvc();
     service.update({ descriptionTemplateId: "d1", scripture: { bookId: 43, chapter: 3, verse: 16 } }, actor);
-    expect(service.getInterpolated().interpolatedDescription).toBe("For God so loved the world");
+    expect(service.getInterpolated().interpolatedDescription).toBe("John 3:16 – For God so loved the world");
   });
 
   it("resolves verse range from KJV table", () => {
@@ -269,7 +269,7 @@ describe("verseTextResolver", () => {
     insertKjvVerse(43, 3, 17, "For God sent not his Son");
     const service = makeSvc();
     service.update({ descriptionTemplateId: "d1", scripture: { bookId: 43, chapter: 3, verse: 16, verseEnd: 17 } }, actor);
-    expect(service.getInterpolated().interpolatedDescription).toBe("For God so loved the world For God sent not his Son");
+    expect(service.getInterpolated().interpolatedDescription).toBe("John 3:16-17\n16. For God so loved the world\n17. For God sent not his Son");
   });
 
   it("returns [Verse not found] for missing verse", () => {
@@ -285,7 +285,7 @@ describe("verseTextResolver", () => {
     insertKjvVerse(19, 23, 2, "He maketh me to lie down");
     const service = makeSvc();
     service.update({ descriptionTemplateId: "d1", scripture: { bookId: 19, chapter: 23, verse: 0 } }, actor);
-    expect(service.getInterpolated().interpolatedDescription).toBe("The LORD is my shepherd He maketh me to lie down");
+    expect(service.getInterpolated().interpolatedDescription).toBe("Psalms 23\n1. The LORD is my shepherd\n2. He maketh me to lie down");
   });
 });
 

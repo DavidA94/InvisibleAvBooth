@@ -31,20 +31,21 @@ export class FacebookClient implements StreamingPlatformClient {
 
   async createBroadcast(title: string, description: string, privacy?: string): Promise<BroadcastInfo> {
     try {
-      const body = new URLSearchParams({
+      const params: Record<string, string> = {
         title,
         description,
         status: "LIVE_NOW",
         access_token: this.accessToken,
-      });
+      };
       // User profiles require and support privacy; Pages are always public
       if (this.targetType === "user") {
-        body.set("privacy", JSON.stringify({ value: privacy ?? "SELF" }));
+        params.privacy = JSON.stringify({ value: privacy ?? "SELF" });
       }
 
       const response = await fetch(`${GRAPH_API_BASE}/${this.targetId}/live_videos`, {
         method: "POST",
-        body,
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams(params).toString(),
       });
       const data = (await response.json()) as FacebookLiveVideoResponse;
       if (!response.ok) throw this.parseGraphError(data);

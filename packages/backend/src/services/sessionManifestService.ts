@@ -1,6 +1,6 @@
 import type { Database } from "better-sqlite3";
 import { BUS_OBS_STATE_CHANGED, BUS_SESSION_MANIFEST_UPDATED } from "../eventBus/types.js";
-import { interpolateTemplate } from "@invisible-av-booth/shared";
+import { interpolateTemplate, formatScripture } from "@invisible-av-booth/shared";
 import type { ScriptureReference } from "@invisible-av-booth/shared";
 import { eventBus } from "../eventBus/eventBus.js";
 import type { SessionManifest } from "../gateway/modules/sessionManifest/types.js";
@@ -150,20 +150,45 @@ export class SessionManifestService {
     return (ref: ScriptureReference): string => {
       if (ref.verseEnd) {
         const rows = this.database
-          .prepare("SELECT VERSETEXT FROM kjv WHERE BOOKID = ? AND CHAPTERNO = ? AND VERSENO BETWEEN ? AND ? ORDER BY VERSENO")
-          .all(ref.bookId, ref.chapter, ref.verse || 1, ref.verseEnd) as { VERSETEXT: string }[];
-        return rows.map((row) => row.VERSETEXT).join(" ");
+          .prepare("SELECT VERSENO, VERSETEXT FROM kjv WHERE BOOKID = ? AND CHAPTERNO = ? AND VERSENO BETWEEN ? AND ? ORDER BY VERSENO")
+          .all(ref.bookId, ref.chapter, ref.verse || 1, ref.verseEnd) as { VERSENO: number; VERSETEXT: string }[];
+        if (rows.length === 0) return "[No Verse Text]";
+        const refLine = formatScripture(ref);
+        const lines = [refLine];
+        for (const row of rows) {
+          if (row.VERSENO === 0) {
+            lines.push(row.VERSETEXT);
+          } else {
+            lines.push(`${row.VERSENO}. ${row.VERSETEXT}`);
+          }
+        }
+        return lines.join("\n");
       }
       if (ref.verse === 0) {
-        const rows = this.database.prepare("SELECT VERSETEXT FROM kjv WHERE BOOKID = ? AND CHAPTERNO = ? ORDER BY VERSENO").all(ref.bookId, ref.chapter) as {
+        const rows = this.database
+          .prepare("SELECT VERSENO, VERSETEXT FROM kjv WHERE BOOKID = ? AND CHAPTERNO = ? ORDER BY VERSENO")
+          .all(ref.bookId, ref.chapter) as {
+          VERSENO: number;
           VERSETEXT: string;
         }[];
-        return rows.map((row) => row.VERSETEXT).join(" ");
+        if (rows.length === 0) return "[No Verse Text]";
+        const refLine = formatScripture(ref);
+        const lines = [refLine];
+        for (const row of rows) {
+          if (row.VERSENO === 0) {
+            lines.push(row.VERSETEXT);
+          } else {
+            lines.push(`${row.VERSENO}. ${row.VERSETEXT}`);
+          }
+        }
+        return lines.join("\n");
       }
       const row = this.database
         .prepare("SELECT VERSETEXT FROM kjv WHERE BOOKID = ? AND CHAPTERNO = ? AND VERSENO = ?")
         .get(ref.bookId, ref.chapter, ref.verse) as { VERSETEXT: string } | undefined;
-      return row?.VERSETEXT ?? "[Verse not found]";
+      if (!row) return "[Verse not found]";
+      // Single verse: reference – text (inline format)
+      return `${formatScripture(ref)} – ${row.VERSETEXT}`;
     };
   }
 }

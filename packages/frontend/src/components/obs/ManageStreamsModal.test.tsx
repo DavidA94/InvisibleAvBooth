@@ -64,7 +64,7 @@ describe("ManageStreamsModal", () => {
   });
 
   it("shows privacy label for YouTube", () => {
-    resetStore(new Map([["youtube", { state: "idle" }]]));
+    resetStore(new Map([["youtube", { state: "idle" }]]), "AvVolunteer");
     render(<ManageStreamsModal isOpen={true} onClose={vi.fn()} />);
     expect(screen.getByTestId(TEST_ID_PLATFORM_ROW)).toHaveTextContent("(Unlisted)");
   });

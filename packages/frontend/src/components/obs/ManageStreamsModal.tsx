@@ -1,9 +1,12 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
 import { IonButton, IonSpinner } from "@ionic/react";
+import Select from "react-select";
+import { darkSelectStyles } from "../../theme/selectStyles";
 import { Modal } from "../Modal";
 import { ConfirmationModal } from "../ConfirmationModal";
 import { usePlatformState } from "../../hooks/usePlatformState";
+import { useStore } from "../../store";
 import {
   TEST_ID_MANAGE_STREAMS_MODAL,
   TEST_ID_PLATFORM_START_ALL,
@@ -47,11 +50,33 @@ const STATUS_DOT_CLASS: Record<PlatformStreamState, string> = {
 
 const SPINNER_STATES: PlatformStreamState[] = ["starting", "stopping", "recovering"];
 
+interface PrivacyOption {
+  value: string;
+  label: string;
+}
+
+const YT_PRIVACY_OPTIONS: PrivacyOption[] = [
+  { value: "public", label: "Public" },
+  { value: "unlisted", label: "Unlisted" },
+  { value: "private", label: "Private" },
+];
+
+const FB_PRIVACY_OPTIONS: PrivacyOption[] = [
+  { value: "EVERYONE", label: "Public" },
+  { value: "ALL_FRIENDS", label: "Friends" },
+  { value: "SELF", label: "Only Me" },
+];
+
+const privacySelectStyles = darkSelectStyles<PrivacyOption>();
+
 export function ManageStreamsModal({ isOpen, onClose }: ManageStreamsModalProps): ReactNode {
   const { platformStates, platformReadiness, isAnyStarting, isAnyStopping, isAnyStreaming, sendCommand } = usePlatformState();
+  const userRole = useStore((s) => s.user?.role);
+  const canOverridePrivacy = userRole === "ADMIN" || userRole === "AvPowerUser";
   const platforms = [...platformStates.entries()];
   const empty = platforms.length === 0;
   const [confirmAction, setConfirmAction] = useState<"startAll" | "stopAll" | { type: "start" | "stop"; platformType: string } | null>(null);
+  const [privacyOverrides, setPrivacyOverrides] = useState<Record<string, string>>({});
 
   // Build privacy map from readiness data
   const privacyMap = new Map<string, string>();
@@ -112,10 +137,12 @@ export function ManageStreamsModal({ isOpen, onClose }: ManageStreamsModalProps)
             <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
               {platforms.map(([key, platform]) => {
                 const name = prettyName(key);
-                const privacy = privacyMap.get(key);
+                const privacy = privacyOverrides[key] ?? privacyMap.get(key);
                 const privacyLabel = privacy
                   ? ` (${privacy === "EVERYONE" ? "Public" : privacy === "ALL_FRIENDS" ? "Friends" : privacy === "SELF" ? "Only Me" : privacy.charAt(0).toUpperCase() + privacy.slice(1)})`
                   : "";
+                const privacyOptions = key === "youtube" ? YT_PRIVACY_OPTIONS : FB_PRIVACY_OPTIONS;
+                const showPrivacyDropdown = canOverridePrivacy && privacy;
                 const showSpinner = SPINNER_STATES.includes(platform.state);
                 const actionable = platform.state === "idle" || platform.state === "error" || platform.state === "streaming";
 
@@ -137,9 +164,23 @@ export function ManageStreamsModal({ isOpen, onClose }: ManageStreamsModalProps)
 
                     {/* Platform name + privacy */}
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: 500 }}>
+                      <div style={{ fontWeight: 500, display: "flex", alignItems: "center", gap: "0.5rem" }}>
                         {name}
-                        <span className="text-muted">{privacyLabel}</span>
+                        {showPrivacyDropdown ? (
+                          <div style={{ minWidth: "7rem" }} onClick={(e) => e.stopPropagation()}>
+                            <Select<PrivacyOption>
+                              options={privacyOptions}
+                              value={privacyOptions.find((o) => o.value === privacy) ?? null}
+                              onChange={(opt) => opt && setPrivacyOverrides((prev) => ({ ...prev, [key]: opt.value }))}
+                              styles={privacySelectStyles}
+                              isSearchable={false}
+                              menuPortalTarget={document.body}
+                              menuPlacement="auto"
+                            />
+                          </div>
+                        ) : (
+                          <span className="text-muted">{privacyLabel}</span>
+                        )}
                       </div>
                       <div className="text-muted" style={{ fontSize: "0.8rem" }}>
                         {getStatusLabel(platform.state, platform.error)}
@@ -152,7 +193,7 @@ export function ManageStreamsModal({ isOpen, onClose }: ManageStreamsModalProps)
                         {(platform.state === "idle" || platform.state === "error") && (
                           <IonButton
                             data-testid={TEST_ID_PLATFORM_START_SINGLE}
-                            size="small"
+                            className="button-touch-target"
                             onClick={() => setConfirmAction({ type: "start", platformType: key })}
                           >
                             Start Stream
@@ -161,7 +202,7 @@ export function ManageStreamsModal({ isOpen, onClose }: ManageStreamsModalProps)
                         {platform.state === "streaming" && (
                           <IonButton
                             data-testid={TEST_ID_PLATFORM_STOP_SINGLE}
-                            size="small"
+                            className="button-touch-target"
                             color="danger"
                             onClick={() => setConfirmAction({ type: "stop", platformType: key })}
                           >
