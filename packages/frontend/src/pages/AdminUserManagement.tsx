@@ -382,7 +382,7 @@ export function AdminUserManagement(): ReactNode {
         <div className="device-management-layout">
           {/* Left panel — user list */}
           <div className="device-management-list-panel">
-            <IonButton data-testid={TEST_ID_ADD_USER_BUTTON} expand="block" style={{ minHeight: "3rem" }} onClick={() => navigatePanel({ mode: "create" })}>
+            <IonButton data-testid={TEST_ID_ADD_USER_BUTTON} expand="block" className="add-connection-button" onClick={() => navigatePanel({ mode: "create" })}>
               <IonIcon icon={addOutline} slot="start" />
               Add User
             </IonButton>

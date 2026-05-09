@@ -151,7 +151,7 @@ export function YouTubePlatformConfig(): ReactNode {
                     <span>{new Date(tokenExpiry).toLocaleString()}</span>
                   </div>
                 )}
-                <div className="layout-row gap-standard margin-bottom-tight" style={{ alignItems: "center" }}>
+                <div className="layout-row gap-standard margin-bottom-tight">
                   <span className="text-muted">Default privacy:</span>
                   <IonSelect value={privacy} onIonChange={(e) => void handlePrivacyChange(e.detail.value as string)} interface="popover">
                     <IonSelectOption value="public">Public</IonSelectOption>
@@ -161,7 +161,7 @@ export function YouTubePlatformConfig(): ReactNode {
                 </div>
               </div>
             ) : (
-              <p className="text-muted text-center margin-none" style={{ fontStyle: "italic" }}>
+              <p className="text-muted text-center margin-none text-italic">
                 YouTube is not configured. Click the button above to connect your account via OAuth.
               </p>
             )}

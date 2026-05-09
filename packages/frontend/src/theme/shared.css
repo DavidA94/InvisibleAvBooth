@@ -89,6 +89,7 @@
   align-items: center;
   justify-content: center;
   background: rgba(0, 0, 0, 0.7);
+  z-index: 9999;
 }
 
 .overlay-scrim {
@@ -286,6 +287,27 @@
   max-width: 20rem;
 }
 
+.manage-streams-sublabel {
+  opacity: 0.7;
+  margin-top: 0.125rem;
+}
+
+.input-port {
+  max-width: 6rem;
+}
+
+.modal-size-small {
+  width: 50%;
+  max-width: 90vw;
+  max-height: 80vh;
+}
+
+.modal-size-large {
+  width: 80%;
+  max-width: 90vw;
+  max-height: 80vh;
+}
+
 .text-button-large {
   font-size: 1.125rem;
 }
@@ -445,6 +467,10 @@
   font-size: 1.125rem;
 }
 
+.modal-header-bordered {
+  border-bottom: 1px solid var(--color-border);
+}
+
 .modal-body {
   padding: 1.25rem;
   overflow: auto;
@@ -453,6 +479,10 @@
 
 .modal-footer {
   padding: 1rem 1.25rem;
+}
+
+.modal-footer-bordered {
+  border-top: 1px solid var(--color-border);
 }
 
 .modal-spacer {
@@ -551,6 +581,11 @@
   text-align: right;
   color: var(--color-text-muted);
   white-space: nowrap;
+}
+
+.tpl-form-label-top {
+  align-self: start;
+  padding-top: 0.5rem;
 }
 
 /* Widget container */

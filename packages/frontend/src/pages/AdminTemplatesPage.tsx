@@ -260,9 +260,7 @@ export function AdminTemplatesPage(): ReactNode {
               }}
             />
 
-            <label className="tpl-form-label" style={{ alignSelf: isDescription ? "start" : "center", paddingTop: isDescription ? "0.5rem" : undefined }}>
-              Format String:
-            </label>
+            <label className={`tpl-form-label ${isDescription ? "tpl-form-label-top" : ""}`}>Format String:</label>
             {isDescription ? (
               <IonTextarea
                 data-testid={TEST_ID_TEMPLATE_FORM_FORMAT}

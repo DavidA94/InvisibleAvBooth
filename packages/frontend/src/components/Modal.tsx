@@ -22,7 +22,6 @@ export function Modal({ isOpen, onClose, size = "small", header, footer, childre
     <div
       data-testid={TEST_ID_MODAL_BACKDROP}
       className="overlay-backdrop"
-      style={{ zIndex: 9999 }}
       onClick={onClose}
       onKeyDown={(e) => e.key === "Escape" && onClose()}
       role="dialog"
@@ -30,14 +29,13 @@ export function Modal({ isOpen, onClose, size = "small", header, footer, childre
     >
       <div
         data-testid={TEST_ID_MODAL_CONTAINER}
-        className="modal-container"
-        style={{ width: size === "small" ? "50%" : "80%", maxWidth: "90vw", maxHeight: "80vh" }}
+        className={`modal-container ${size === "small" ? "modal-size-small" : "modal-size-large"}`}
         onClick={(e) => e.stopPropagation()}
         onKeyDown={(e) => e.stopPropagation()}
         role="document"
       >
         {header && (
-          <div data-testid={TEST_ID_MODAL_HEADER} className="modal-header" style={{ borderBottom: showBorders ? "1px solid var(--color-border)" : undefined }}>
+          <div data-testid={TEST_ID_MODAL_HEADER} className={`modal-header ${showBorders ? "modal-header-bordered" : ""}`}>
             {typeof header === "string" ? <span>{header}</span> : header}
           </div>
         )}
@@ -47,7 +45,7 @@ export function Modal({ isOpen, onClose, size = "small", header, footer, childre
           </div>
         )}
         {footer && (
-          <div data-testid={TEST_ID_MODAL_FOOTER} className="modal-footer" style={{ borderTop: showBorders ? "1px solid var(--color-border)" : undefined }}>
+          <div data-testid={TEST_ID_MODAL_FOOTER} className={`modal-footer ${showBorders ? "modal-footer-bordered" : ""}`}>
             {typeof footer === "string" ? <span>{footer}</span> : footer}
           </div>
         )}

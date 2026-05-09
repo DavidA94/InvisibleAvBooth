@@ -31,7 +31,7 @@ export function ObsControls({ obsState, isPending, manifestReady, onManageStream
         ) : (
           <div className="layout-column layout-centered">
             <span className="text-button-large">Manage Streams</span>
-            {manageSubLabel && <span style={{ fontSize: "0.75rem", opacity: 0.7, marginTop: "0.125rem" }}>{manageSubLabel}</span>}
+            {manageSubLabel && <span className="text-caption manage-streams-sublabel">{manageSubLabel}</span>}
           </div>
         )}
       </IonButton>

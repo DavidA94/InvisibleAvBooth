@@ -88,12 +88,12 @@ describe("Modal", () => {
 
   it("size=large sets 80% width", () => {
     render(<Modal isOpen={true} onClose={vi.fn()} header="H" size="large" />);
-    expect(screen.getByTestId(TEST_ID_MODAL_CONTAINER)).toHaveStyle({ width: "80%" });
+    expect(screen.getByTestId(TEST_ID_MODAL_CONTAINER).className).toContain("modal-size-large");
   });
 
   it("size=small (default) sets 50% width", () => {
     render(<Modal isOpen={true} onClose={vi.fn()} header="H" />);
-    expect(screen.getByTestId(TEST_ID_MODAL_CONTAINER)).toHaveStyle({ width: "50%" });
+    expect(screen.getByTestId(TEST_ID_MODAL_CONTAINER).className).toContain("modal-size-small");
   });
 
   it("does not render header when not provided", () => {

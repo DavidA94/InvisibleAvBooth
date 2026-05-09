@@ -135,7 +135,7 @@ export function ObsDeviceForm({ device, onSaved, onDeleted, registerDirtyCheck }
           type="number"
           value={form.port}
           onIonInput={(e) => updateField("port", e.detail.value ?? DEFAULT_PORT)}
-          style={{ maxWidth: "6rem" }}
+          className="input-port"
         />
       </div>
       <IonInput

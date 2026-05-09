@@ -118,7 +118,7 @@ function ModalManager(): ReactNode {
       onClose={handleAcknowledge}
       header="Error"
       footer={
-        <div data-testid={TEST_ID_NOTIFICATION_MODAL} style={{ display: "flex", justifyContent: "flex-end" }}>
+        <div data-testid={TEST_ID_NOTIFICATION_MODAL} className="layout-row justify-end">
           <button onClick={handleAcknowledge} className="button-primary button-padding-standard text-bold">
             Acknowledge
           </button>

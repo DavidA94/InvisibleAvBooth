@@ -162,7 +162,12 @@ export function AdminDeviceManagement(): ReactNode {
           {/* Left panel — device list */}
           <div className="device-management-list-panel">
             <div className="position-relative" ref={dropdownRef}>
-              <IonButton data-testid={TEST_ID_ADD_DEVICE_BUTTON} expand="block" style={{ minHeight: "3rem" }} onClick={() => setPopoverOpen((prev) => !prev)}>
+              <IonButton
+                data-testid={TEST_ID_ADD_DEVICE_BUTTON}
+                expand="block"
+                className="add-connection-button"
+                onClick={() => setPopoverOpen((prev) => !prev)}
+              >
                 <IonIcon icon={addOutline} slot="start" />
                 Add Device
               </IonButton>
