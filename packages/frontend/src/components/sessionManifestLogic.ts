@@ -48,7 +48,7 @@ export function buildDraftManifest(inputs: ManifestInputs): Partial<SessionManif
   const draft: Partial<SessionManifest> = {};
   if (inputs.speaker) draft.speaker = inputs.speaker;
   if (inputs.title) draft.title = inputs.title;
-  if (inputs.bookId && inputs.chapter && inputs.verse) {
+  if (inputs.bookId && inputs.chapter && inputs.verse !== null && inputs.verse !== undefined) {
     const ref: ScriptureReference = { bookId: inputs.bookId, chapter: inputs.chapter, verse: inputs.verse };
     if (inputs.verseEnd) ref.verseEnd = inputs.verseEnd;
     draft.scripture = ref;

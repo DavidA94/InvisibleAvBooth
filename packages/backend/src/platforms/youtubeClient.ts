@@ -29,6 +29,7 @@ export class YouTubeClient implements StreamingPlatformClient {
 
   async createBroadcast(title: string, description: string, privacy = "unlisted"): Promise<BroadcastInfo> {
     try {
+      logger.info("YouTube API: creating broadcast", { context: { title, descriptionLength: description.length, privacy } });
       // Step 1: create the liveBroadcast resource
       const broadcastResponse = await this.youtube.liveBroadcasts.insert({
         part: ["snippet", "contentDetails", "status"],
@@ -110,6 +111,7 @@ export class YouTubeClient implements StreamingPlatformClient {
       const response = await this.youtube.liveStreams.list({ id: [this.boundStreamId], part: ["status"] });
       const status = response.data.items?.[0]?.status;
       const health = status?.healthStatus?.status ?? "noData";
+      logger.info("YouTube pollHealth", { context: { streamId: this.boundStreamId, health, streamStatus: status?.streamStatus } });
       return {
         healthy: health === "good",
         streamHealth: health,

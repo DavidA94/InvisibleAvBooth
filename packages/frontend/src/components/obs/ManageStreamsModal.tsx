@@ -105,7 +105,7 @@ export function ManageStreamsModal({ isOpen, onClose }: ManageStreamsModalProps)
         expand="block"
         disabled={isAnyStarting || isAnyStreaming}
         onClick={() => setConfirmAction("startAll")}
-        style={{ flex: 1 }}
+        style={{ flex: 1, minHeight: "2.75rem" }}
       >
         Start All
       </IonButton>
@@ -115,7 +115,7 @@ export function ManageStreamsModal({ isOpen, onClose }: ManageStreamsModalProps)
         color="danger"
         disabled={!isAnyStreaming || isAnyStopping}
         onClick={() => setConfirmAction("stopAll")}
-        style={{ flex: 1 }}
+        style={{ flex: 1, minHeight: "2.75rem" }}
       >
         Stop All
       </IonButton>

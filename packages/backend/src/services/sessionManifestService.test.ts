@@ -272,6 +272,18 @@ describe("verseTextResolver", () => {
     expect(service.getInterpolated().interpolatedDescription).toBe("John 3:16-17\n16. For God so loved the world\n17. For God sent not his Son");
   });
 
+  it("includes verse 0 (unnumbered) when range starts at 0", () => {
+    insertTemplate("d1", "Desc", "description", "{verseText}");
+    insertKjvVerse(19, 3, 0, "A Psalm of David.");
+    insertKjvVerse(19, 3, 1, "LORD, how are they increased");
+    insertKjvVerse(19, 3, 2, "Many there be which say");
+    const service = makeSvc();
+    service.update({ descriptionTemplateId: "d1", scripture: { bookId: 19, chapter: 3, verse: 0, verseEnd: 2 } }, actor);
+    expect(service.getInterpolated().interpolatedDescription).toBe(
+      "Psalms 3:1-2\nA Psalm of David.\n1. LORD, how are they increased\n2. Many there be which say",
+    );
+  });
+
   it("returns [Verse not found] for missing verse", () => {
     insertTemplate("d1", "Desc", "description", "{verseText}");
     const service = makeSvc();

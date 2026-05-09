@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import type { ReactNode } from "react";
-import { IonInput, IonText } from "@ionic/react";
+import { IonInput, IonText, IonPopover } from "@ionic/react";
 import Select from "react-select";
 import { CTS_SESSION_MANIFEST_UPDATE, interpolateTemplate } from "@invisible-av-booth/shared";
 import { darkSelectStyles } from "../theme/selectStyles";
@@ -39,6 +39,7 @@ const LS_DESC_TEMPLATE_KEY = "manifest_descriptionTemplateId";
 export function SessionManifestModal({ isOpen, onClose }: SessionManifestModalProps): ReactNode {
   const storeManifest = useStore((s) => s.manifest);
   const obsState = useStore((s) => s.obsState);
+  const storeDescription = useStore((s) => s.interpolatedDescription);
   const socket = useSocket();
 
   const [speaker, setSpeaker] = useState("");
@@ -49,6 +50,8 @@ export function SessionManifestModal({ isOpen, onClose }: SessionManifestModalPr
   const [verseEnd, setVerseEnd] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [descPopoverOpen, setDescPopoverOpen] = useState(false);
+  const [descPopoverEvent, setDescPopoverEvent] = useState<Event | undefined>(undefined);
 
   const [templates, setTemplates] = useState<Template[]>([]);
   const [titleTemplateId, setTitleTemplateId] = useState<string>(() => localStorage.getItem(LS_TITLE_TEMPLATE_KEY) ?? "");
@@ -288,7 +291,31 @@ export function SessionManifestModal({ isOpen, onClose }: SessionManifestModalPr
           <div data-testid={TEST_ID_MANIFEST_DESCRIPTION_PREVIEW} className="manifest-preview">
             <span className="text-muted">Description preview</span>
             {descHasContent ? (
-              <p className="text-bold margin-top-tight margin-none">{descriptionPreview}</p>
+              <>
+                <div
+                  className="margin-top-tight"
+                  style={{ cursor: "pointer" }}
+                  onClick={(e) => {
+                    setDescPopoverEvent(e.nativeEvent);
+                    setDescPopoverOpen(true);
+                  }}
+                  onKeyDown={(e) => e.key === "Enter" && setDescPopoverOpen(true)}
+                  role="button"
+                  tabIndex={0}
+                >
+                  <div className="text-bold text-ellipsis">{descriptionPreview.split("\n")[0]}</div>
+                  {descriptionPreview.includes("\n") && (
+                    <div className="text-muted text-italic" style={{ fontSize: "0.8rem" }}>
+                      Tap for full preview
+                    </div>
+                  )}
+                </div>
+                <IonPopover isOpen={descPopoverOpen} onDidDismiss={() => setDescPopoverOpen(false)} event={descPopoverEvent} className="popover-description">
+                  <div className="padding-standard" style={{ whiteSpace: "pre-wrap" }}>
+                    {storeDescription || descriptionPreview}
+                  </div>
+                </IonPopover>
+              </>
             ) : (
               <p className="margin-top-tight margin-none" style={{ fontStyle: "italic", color: "var(--color-text-muted)" }}>
                 No description template selected

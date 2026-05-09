@@ -139,9 +139,9 @@ export function ScriptureReferenceInput({
     return { value: bookId, label: BIBLE_BOOKS[bookId] ?? "" };
   }, [bookId]);
 
-  const selectedChapter = useMemo(() => (chapter ? { value: chapter, label: String(chapter) } : null), [chapter]);
-  const selectedVerse = useMemo(() => (verse ? { value: verse, label: String(verse) } : null), [verse]);
-  const selectedVerseEnd = useMemo(() => (verseEnd ? { value: verseEnd, label: String(verseEnd) } : null), [verseEnd]);
+  const selectedChapter = useMemo(() => (chapter !== null && chapter !== undefined ? { value: chapter, label: String(chapter) } : null), [chapter]);
+  const selectedVerse = useMemo(() => (verse !== null && verse !== undefined ? { value: verse, label: String(verse) } : null), [verse]);
+  const selectedVerseEnd = useMemo(() => (verseEnd !== null && verseEnd !== undefined ? { value: verseEnd, label: String(verseEnd) } : null), [verseEnd]);
 
   return (
     <>

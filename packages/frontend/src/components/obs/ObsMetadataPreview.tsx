@@ -31,10 +31,11 @@ export function ObsMetadataPreview({ interpolatedStreamTitle, interpolatedDescri
           <span className="text-muted text-italic">No session details set</span>
         ) : (
           <>
-            <div>{interpolatedStreamTitle}</div>
+            <div className="text-ellipsis">{interpolatedStreamTitle}</div>
             {interpolatedDescription && (
-              <div className="text-muted" style={{ fontSize: "0.75rem", marginTop: "0.125rem" }}>
-                {interpolatedDescription}
+              <div className="text-muted text-ellipsis" style={{ fontSize: "0.75rem", marginTop: "0.125rem" }}>
+                {interpolatedDescription.split("\n")[0]}
+                {interpolatedDescription.includes("\n") ? " …" : ""}
               </div>
             )}
           </>
@@ -45,9 +46,9 @@ export function ObsMetadataPreview({ interpolatedStreamTitle, interpolatedDescri
       </button>
       <IonPopover isOpen={popoverOpen} onDidDismiss={() => setPopoverOpen(false)} trigger={triggerId} side="bottom" alignment="start">
         <div className="popover-content">
-          <div>{interpolatedStreamTitle}</div>
+          <div style={{ fontWeight: 500 }}>{interpolatedStreamTitle}</div>
           {interpolatedDescription && (
-            <div className="text-muted" style={{ fontSize: "0.85rem", marginTop: "0.25rem" }}>
+            <div className="text-muted" style={{ fontSize: "0.85rem", marginTop: "0.5rem", whiteSpace: "pre-wrap" }}>
               {interpolatedDescription}
             </div>
           )}

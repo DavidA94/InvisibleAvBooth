@@ -67,7 +67,7 @@ export function ObsWidget(): ReactNode {
 
   const connections: ConnectionStatus[] = [
     { label: "OBS", status: obsState.connected ? "healthy" : "unhealthy" },
-    { label: "Relay", status: relayState.running ? (relayState.obsConnected ? "healthy" : "degraded") : "inactive" },
+    { label: "Relay", status: relayState.running ? (relayState.obsConnected ? "healthy" : isAnyStreaming ? "degraded" : "inactive") : "inactive" },
     { label: "Stream", status: isAnyStreaming ? "healthy" : "inactive" },
   ];
 

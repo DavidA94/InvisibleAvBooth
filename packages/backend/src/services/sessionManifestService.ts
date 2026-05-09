@@ -151,7 +151,7 @@ export class SessionManifestService {
       if (ref.verseEnd) {
         const rows = this.database
           .prepare("SELECT VERSENO, VERSETEXT FROM kjv WHERE BOOKID = ? AND CHAPTERNO = ? AND VERSENO BETWEEN ? AND ? ORDER BY VERSENO")
-          .all(ref.bookId, ref.chapter, ref.verse || 1, ref.verseEnd) as { VERSENO: number; VERSETEXT: string }[];
+          .all(ref.bookId, ref.chapter, ref.verse, ref.verseEnd) as { VERSENO: number; VERSETEXT: string }[];
         if (rows.length === 0) return "[No Verse Text]";
         const refLine = formatScripture(ref);
         const lines = [refLine];

@@ -42,12 +42,23 @@ export class FacebookClient implements StreamingPlatformClient {
         params.privacy = JSON.stringify({ value: privacy ?? "SELF" });
       }
 
-      const response = await fetch(`${GRAPH_API_BASE}/${this.targetId}/live_videos`, {
+      const requestUrl = `${GRAPH_API_BASE}/${this.targetId}/live_videos`;
+      const requestBody = new URLSearchParams(params).toString();
+      logger.info("Facebook API request", {
+        context: {
+          method: "POST",
+          url: requestUrl,
+          params: { title, description: description.slice(0, 100), status: "LIVE_NOW", targetType: this.targetType },
+        },
+      });
+
+      const response = await fetch(requestUrl, {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams(params).toString(),
+        body: requestBody,
       });
       const data = (await response.json()) as FacebookLiveVideoResponse;
+      logger.info("Facebook API response", { context: { status: response.status, hasId: !!data.id, hasStreamUrl: !!data.stream_url } });
       if (!response.ok) throw this.parseGraphError(data);
 
       if (!data.id || !data.stream_url) {
@@ -110,6 +121,9 @@ export class FacebookClient implements StreamingPlatformClient {
       const url = `${GRAPH_API_BASE}/${this.currentVideoId}?fields=status,live_views&access_token=${this.accessToken}`;
       const response = await fetch(url);
       const data = (await response.json()) as { status?: string; live_views?: number };
+      logger.info("Facebook pollHealth", {
+        context: { videoId: this.currentVideoId, httpStatus: response.status, status: data.status, liveViews: data.live_views },
+      });
       if (!response.ok) throw this.parseGraphError(data);
       const result: PlatformHealthDetails = {
         healthy: data.status === "LIVE",

@@ -49,20 +49,27 @@ function makeMockRelayService(): RelayService {
 }
 
 function makeMockObsService(): ObsService {
+  let streaming = false;
   return {
-    getState: vi.fn().mockReturnValue({
+    getState: vi.fn().mockImplementation(() => ({
       connected: true,
-      streaming: false,
+      streaming,
       recording: false,
-      commandedState: { streaming: false, recording: false },
+      commandedState: { streaming, recording: false },
+    })),
+    startStream: vi.fn().mockImplementation(async () => {
+      streaming = true;
+      return {
+        success: true,
+        value: { connected: true, streaming: true, recording: false, commandedState: { streaming: true, recording: false } },
+      };
     }),
-    startStream: vi.fn().mockResolvedValue({
-      success: true,
-      value: { connected: true, streaming: true, recording: false, commandedState: { streaming: true, recording: false } },
-    }),
-    stopStream: vi.fn().mockResolvedValue({
-      success: true,
-      value: { connected: true, streaming: false, recording: false, commandedState: { streaming: false, recording: false } },
+    stopStream: vi.fn().mockImplementation(async () => {
+      streaming = false;
+      return {
+        success: true,
+        value: { connected: true, streaming: false, recording: false, commandedState: { streaming: false, recording: false } },
+      };
     }),
   } as unknown as ObsService;
 }

@@ -490,6 +490,7 @@ export class StreamingPlatformService {
       } catch {
         entry.healthFailureCount++;
         if (entry.healthFailureCount >= HEALTH_FAILURE_THRESHOLD) {
+          this._transitionPlatform(id, "error", `${entry.config.label} broadcast ended or unreachable`);
           eventBus.emit(BUS_PLATFORM_HEALTH_UPDATED, { platformId: id, health: "noData" });
         }
       }
@@ -529,10 +530,18 @@ export class StreamingPlatformService {
 
   private onRelayStateChanged(payload: RelayState): void {
     if (payload.running && !payload.obsConnected) {
-      // OBS disconnected → No Source for streaming platforms
+      // OBS disconnected from relay
+      const obsStoppedIntentionally = !this.obsService.getState().streaming;
       for (const [id, entry] of this.platforms) {
         if (entry.state.status === "streaming") {
-          this._transitionPlatform(id, "no_source", "No source — waiting for OBS…");
+          if (obsStoppedIntentionally) {
+            // User stopped OBS externally — treat as a full stop
+            this._transitionPlatform(id, "stopping", "OBS stopped — ending stream…");
+            void this.stopSinglePlatform(id, entry).then(() => this.checkAllIdle());
+          } else {
+            // Unexpected disconnect — enter No Source for recovery
+            this._transitionPlatform(id, "no_source", "No source — waiting for OBS…");
+          }
         }
       }
     } else if (payload.running && payload.obsConnected) {

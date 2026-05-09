@@ -118,7 +118,7 @@ export function FacebookPlatformConfig(): ReactNode {
 
   const connected = config?.hasToken;
   const targetType = config?.metadata?.targetType as string | undefined;
-  const pageId = config?.metadata?.pageId as string | undefined;
+  const _pageId = config?.metadata?.pageId as string | undefined;
   const pageName = config?.metadata?.pageName as string | undefined;
   const userName = config?.metadata?.userName as string | undefined;
   const privacy = (config?.metadata?.privacy as string) ?? "SELF";

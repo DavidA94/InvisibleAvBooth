@@ -51,6 +51,8 @@ describe("buildDraftManifest", () => {
     ${"speaker only"}                   | ${{ ...BLANK, speaker: "John" }}                                                 | ${{ speaker: "John" }}
     ${"title only"}                     | ${{ ...BLANK, title: "Grace" }}                                                  | ${{ title: "Grace" }}
     ${"single verse"}                   | ${{ ...BLANK, bookId: 1, chapter: 2, verse: 3 }}                                 | ${{ scripture: { bookId: 1, chapter: 2, verse: 3 } }}
+    ${"verse zero (chapter only)"}      | ${{ ...BLANK, bookId: 19, chapter: 23, verse: 0 }}                               | ${{ scripture: { bookId: 19, chapter: 23, verse: 0 } }}
+    ${"verse zero with range"}          | ${{ ...BLANK, bookId: 19, chapter: 23, verse: 0, verseEnd: 2 }}                  | ${{ scripture: { bookId: 19, chapter: 23, verse: 0, verseEnd: 2 } }}
     ${"verse range"}                    | ${{ ...BLANK, bookId: 1, chapter: 2, verse: 3, verseEnd: 5 }}                    | ${{ scripture: { bookId: 1, chapter: 2, verse: 3, verseEnd: 5 } }}
     ${"partial scripture (no verse)"}   | ${{ ...BLANK, bookId: 1, chapter: 2 }}                                           | ${{}}
     ${"partial scripture (no chapter)"} | ${{ ...BLANK, bookId: 1, verse: 3 }}                                             | ${{}}

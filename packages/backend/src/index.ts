@@ -16,6 +16,7 @@ if (!/^[0-9a-f]{64}$/.test(secretKey)) {
 const PORT = parseInt(process.env["PORT"] ?? "3001", 10);
 const relayPort = parseInt(process.env["RELAY_PORT"] ?? "1935", 10);
 
+logger.info("Opening database…");
 const database = getDatabase();
 
 // Bootstrap default metadata templates if none exist.
@@ -32,9 +33,11 @@ if (templateCount === 0) {
   logger.info("Bootstrapped default metadata templates");
 }
 
+logger.info("Loading streaming modules…");
 const { default: NodeMediaServer } = await import("node-media-server");
 const { spawn } = await import("child_process");
 
+logger.info("Building application…");
 const { httpServer, authService, obsService, relayService, platformService } = buildApp({
   database,
   nmsFactory: () =>
