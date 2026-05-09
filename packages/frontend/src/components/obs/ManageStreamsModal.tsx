@@ -93,19 +93,18 @@ export function ManageStreamsModal({ isOpen, onClose }: ManageStreamsModalProps)
   }
 
   const footer = empty ? (
-    <div style={{ display: "flex", justifyContent: "flex-end" }}>
+    <div className="layout-row justify-end">
       <IonButton fill="outline" onClick={onClose}>
         Close
       </IonButton>
     </div>
   ) : (
-    <div style={{ display: "flex", gap: "0.75rem" }}>
+    <div className="manage-streams-footer">
       <IonButton
         data-testid={TEST_ID_PLATFORM_START_ALL}
         expand="block"
         disabled={isAnyStarting || isAnyStreaming}
         onClick={() => setConfirmAction("startAll")}
-        style={{ flex: 1, minHeight: "2.75rem" }}
       >
         Start All
       </IonButton>
@@ -115,7 +114,6 @@ export function ManageStreamsModal({ isOpen, onClose }: ManageStreamsModalProps)
         color="danger"
         disabled={!isAnyStreaming || isAnyStopping}
         onClick={() => setConfirmAction("stopAll")}
-        style={{ flex: 1, minHeight: "2.75rem" }}
       >
         Stop All
       </IonButton>
@@ -127,14 +125,12 @@ export function ManageStreamsModal({ isOpen, onClose }: ManageStreamsModalProps)
       <Modal isOpen={isOpen} onClose={onClose} header="Manage Streams" footer={footer}>
         <div data-testid={TEST_ID_MANAGE_STREAMS_MODAL}>
           {empty ? (
-            <div style={{ textAlign: "center" }}>
+            <div className="manage-streams-empty">
               <p className="text-muted">No streaming platforms configured.</p>
-              <p className="text-muted" style={{ fontSize: "0.85rem" }}>
-                Add platforms in Admin Pages → YouTube / Facebook.
-              </p>
+              <p className="text-muted text-secondary">Add platforms in Admin Pages → YouTube / Facebook.</p>
             </div>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+            <div className="manage-streams-list">
               {platforms.map(([key, platform]) => {
                 const name = prettyName(key);
                 const privacy = privacyOverrides[key] ?? privacyMap.get(key);
@@ -147,27 +143,20 @@ export function ManageStreamsModal({ isOpen, onClose }: ManageStreamsModalProps)
                 const actionable = platform.state === "idle" || platform.state === "error" || platform.state === "streaming";
 
                 return (
-                  <div
-                    key={key}
-                    data-testid={TEST_ID_PLATFORM_ROW}
-                    className="platform-row"
-                    style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.5rem 0", borderBottom: "1px solid var(--color-border)" }}
-                  >
+                  <div key={key} data-testid={TEST_ID_PLATFORM_ROW} className="platform-row">
                     {/* Status indicator */}
                     {showSpinner ? (
-                      <IonSpinner name="crescent" style={{ width: "1rem", height: "1rem", flexShrink: 0 }} />
+                      <IonSpinner name="crescent" className="platform-row-spinner" />
                     ) : (
-                      <span className={STATUS_DOT_CLASS[platform.state]} style={{ fontSize: "0.75rem", flexShrink: 0 }}>
-                        ●
-                      </span>
+                      <span className={`${STATUS_DOT_CLASS[platform.state]} platform-row-dot`}>●</span>
                     )}
 
                     {/* Platform name + privacy */}
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: 500, display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                    <div className="platform-row-info">
+                      <div className="platform-row-name">
                         {name}
                         {showPrivacyDropdown ? (
-                          <div style={{ minWidth: "7rem" }} onClick={(e) => e.stopPropagation()}>
+                          <div className="platform-row-privacy-select" onClick={(e) => e.stopPropagation()}>
                             <Select<PrivacyOption>
                               options={privacyOptions}
                               value={privacyOptions.find((o) => o.value === privacy) ?? null}
@@ -182,9 +171,7 @@ export function ManageStreamsModal({ isOpen, onClose }: ManageStreamsModalProps)
                           <span className="text-muted">{privacyLabel}</span>
                         )}
                       </div>
-                      <div className="text-muted" style={{ fontSize: "0.8rem" }}>
-                        {getStatusLabel(platform.state, platform.error)}
-                      </div>
+                      <div className="text-muted text-small">{getStatusLabel(platform.state, platform.error)}</div>
                     </div>
 
                     {/* Action button */}

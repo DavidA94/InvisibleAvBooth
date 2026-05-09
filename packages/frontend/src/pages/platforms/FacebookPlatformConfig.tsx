@@ -153,7 +153,7 @@ export function FacebookPlatformConfig(): ReactNode {
                 Disconnect Facebook
               </IonButton>
             ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", alignItems: "center" }}>
+              <div className="layout-column gap-standard items-center">
                 <IonButton data-testid={TEST_ID_PLATFORM_CONNECT_BUTTON} onClick={() => void handleConnect("page")}>
                   Connect Facebook Page
                 </IonButton>
@@ -190,7 +190,7 @@ export function FacebookPlatformConfig(): ReactNode {
                   <span className="text-muted">({targetType === "page" ? "Page" : "Profile"})</span>
                 </div>
                 {targetType === "user" ? (
-                  <div className="layout-row gap-standard margin-bottom-tight" style={{ alignItems: "center" }}>
+                  <div className="layout-row gap-standard margin-bottom-tight">
                     <span className="text-muted">Default privacy:</span>
                     <IonSelect value={privacy} onIonChange={(e) => void handlePrivacyChange(e.detail.value as string)} interface="popover">
                       <IonSelectOption value="EVERYONE">Public</IonSelectOption>
@@ -214,7 +214,7 @@ export function FacebookPlatformConfig(): ReactNode {
                 </div>
               </div>
             ) : (
-              <p className="text-muted text-center margin-none" style={{ fontStyle: "italic" }}>
+              <p className="text-muted text-center margin-none text-italic">
                 Facebook is not configured. Click the button above to connect your Page via OAuth.
               </p>
             )}

@@ -111,7 +111,7 @@ export function YouTubePlatformDetail({ config, onSaved, onDisconnected, registe
 
         <div className="platform-detail-row">
           <span className="platform-detail-label">Default privacy:</span>
-          <div style={{ minWidth: "10rem" }}>
+          <div className="select-container-narrow">
             <Select<PrivacyOption>
               options={PRIVACY_OPTIONS}
               value={PRIVACY_OPTIONS.find((o) => o.value === privacy) ?? null}

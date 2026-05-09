@@ -119,7 +119,7 @@ export function FacebookPlatformDetail({ config, onSaved, onRefresh, onDisconnec
       <div>
         <h3 className="detail-header">Edit Facebook</h3>
         <p>Select where to stream:</p>
-        <div style={{ maxWidth: "20rem" }}>
+        <div className="select-container-wide">
           <Select<PageOption>
             options={pageOptions}
             onChange={(option) => option && void handlePageSelect(option.value)}
@@ -156,7 +156,7 @@ export function FacebookPlatformDetail({ config, onSaved, onRefresh, onDisconnec
         {targetType === "user" ? (
           <div className="platform-detail-row">
             <span className="platform-detail-label">Default privacy:</span>
-            <div style={{ minWidth: "10rem" }}>
+            <div className="select-container-narrow">
               <Select<PrivacyOption>
                 options={PRIVACY_OPTIONS}
                 value={PRIVACY_OPTIONS.find((o) => o.value === privacy) ?? null}

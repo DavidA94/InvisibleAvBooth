@@ -273,9 +273,7 @@ export function SessionManifestModal({ isOpen, onClose }: SessionManifestModalPr
         )}
 
         {!hasAnyTemplate && templates.length > 0 && (
-          <p className="text-muted" style={{ fontStyle: "italic", textAlign: "center", padding: "0.5rem 0" }}>
-            Select a title format to enter session details.
-          </p>
+          <p className="text-muted text-italic text-center padding-standard">Select a title format to enter session details.</p>
         )}
 
         {/* Title preview */}
@@ -293,8 +291,7 @@ export function SessionManifestModal({ isOpen, onClose }: SessionManifestModalPr
             {descHasContent ? (
               <>
                 <div
-                  className="margin-top-tight"
-                  style={{ cursor: "pointer" }}
+                  className="margin-top-tight cursor-pointer"
                   onClick={(e) => {
                     setDescPopoverEvent(e.nativeEvent);
                     setDescPopoverOpen(true);
@@ -304,22 +301,14 @@ export function SessionManifestModal({ isOpen, onClose }: SessionManifestModalPr
                   tabIndex={0}
                 >
                   <div className="text-bold text-ellipsis">{descriptionPreview.split("\n")[0]}</div>
-                  {descriptionPreview.includes("\n") && (
-                    <div className="text-muted text-italic" style={{ fontSize: "0.8rem" }}>
-                      Tap for full preview
-                    </div>
-                  )}
+                  {descriptionPreview.includes("\n") && <div className="text-muted text-italic text-small">Tap for full preview</div>}
                 </div>
                 <IonPopover isOpen={descPopoverOpen} onDidDismiss={() => setDescPopoverOpen(false)} event={descPopoverEvent} className="popover-description">
-                  <div className="padding-standard" style={{ whiteSpace: "pre-wrap" }}>
-                    {storeDescription || descriptionPreview}
-                  </div>
+                  <div className="padding-standard whitespace-pre-wrap">{storeDescription || descriptionPreview}</div>
                 </IonPopover>
               </>
             ) : (
-              <p className="margin-top-tight margin-none" style={{ fontStyle: "italic", color: "var(--color-text-muted)" }}>
-                No description template selected
-              </p>
+              <p className="margin-top-tight margin-none text-italic text-muted">No description template selected</p>
             )}
           </div>
         )}

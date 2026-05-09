@@ -189,7 +189,7 @@ export function AdminPlatformManagement(): ReactNode {
           {/* Left panel — platform list */}
           <div className="device-management-list-panel">
             <div className="position-relative" ref={dropdownRef}>
-              <IonButton expand="block" style={{ minHeight: "3rem" }} onClick={() => setPopoverOpen((prev) => !prev)}>
+              <IonButton expand="block" className="add-connection-button" onClick={() => setPopoverOpen((prev) => !prev)}>
                 <IonIcon icon={addOutline} slot="start" />
                 Add Connection
               </IonButton>
@@ -202,12 +202,8 @@ export function AdminPlatformManagement(): ReactNode {
                     disabled={hasYouTube}
                     onClick={() => !hasYouTube && handleAddPlatform("youtube")}
                   >
-                    <span style={{ flex: 1 }}>YouTube</span>
-                    {hasYouTube && (
-                      <span className="text-muted" style={{ fontStyle: "italic" }}>
-                        Already Added
-                      </span>
-                    )}
+                    <span className="add-connection-option-label">YouTube</span>
+                    {hasYouTube && <span className="text-muted text-italic">Already Added</span>}
                   </button>
                   <button
                     className="button-unstyled add-device-dropdown-option"
@@ -215,12 +211,8 @@ export function AdminPlatformManagement(): ReactNode {
                     disabled={hasFacebook}
                     onClick={() => !hasFacebook && handleAddPlatform("facebook-page")}
                   >
-                    <span style={{ flex: 1 }}>Facebook Page</span>
-                    {hasFacebook && (
-                      <span className="text-muted" style={{ fontStyle: "italic" }}>
-                        Already Added
-                      </span>
-                    )}
+                    <span className="add-connection-option-label">Facebook Page</span>
+                    {hasFacebook && <span className="text-muted text-italic">Already Added</span>}
                   </button>
                   <button
                     className="button-unstyled add-device-dropdown-option"
@@ -228,12 +220,8 @@ export function AdminPlatformManagement(): ReactNode {
                     disabled={hasFacebook}
                     onClick={() => !hasFacebook && handleAddPlatform("facebook-profile")}
                   >
-                    <span style={{ flex: 1 }}>Facebook Profile</span>
-                    {hasFacebook && (
-                      <span className="text-muted" style={{ fontStyle: "italic" }}>
-                        Already Added
-                      </span>
-                    )}
+                    <span className="add-connection-option-label">Facebook Profile</span>
+                    {hasFacebook && <span className="text-muted text-italic">Already Added</span>}
                   </button>
                 </div>
               )}

@@ -224,3 +224,32 @@ Two distinct attributes are used — they serve different purposes and should no
 - `prefer-const` — use `let` only when reassignment is needed
 - No `console.log` in committed code — use a proper logger (warning enforced by ESLint)
 - No `debugger` statements
+
+---
+
+## Styling
+
+### No Inline Styles
+
+Do not use inline `style={{}}` attributes in React components. All styling must be done via CSS classes defined in the theme files (`shared.css`, `variables.css`, or component-specific CSS).
+
+**Why:** Inline styles scatter visual decisions across component files, making them impossible to find, override, or maintain consistently. They also bypass the cascade, making responsive adjustments harder.
+
+**Rules:**
+
+- If a style is used in more than one place, it must be a shared utility class (e.g., `text-ellipsis`, `margin-top-tight`)
+- If a style is specific to one component, define a class in the appropriate CSS file
+- If a truly one-off dynamic value is needed (e.g., a computed width from JS), document why inline is necessary with a comment
+
+**Exceptions (must be commented):**
+
+- Dynamic values computed at runtime that cannot be expressed as CSS (e.g., `style={{ gridTemplateColumns: \`repeat(\${count}, 1fr)\` }}`)
+- Third-party component overrides where className is not supported
+
+```tsx
+// Bad
+<div style={{ display: "flex", gap: "0.5rem", padding: "0.75rem" }}>
+
+// Good
+<div className="layout-row gap-standard padding-standard">
+```
