@@ -39,7 +39,6 @@ const LS_DESC_TEMPLATE_KEY = "manifest_descriptionTemplateId";
 export function SessionManifestModal({ isOpen, onClose }: SessionManifestModalProps): ReactNode {
   const storeManifest = useStore((s) => s.manifest);
   const obsState = useStore((s) => s.obsState);
-  const storeDescription = useStore((s) => s.interpolatedDescription);
   const socket = useSocket();
 
   const [speaker, setSpeaker] = useState("");
@@ -304,7 +303,7 @@ export function SessionManifestModal({ isOpen, onClose }: SessionManifestModalPr
                   {descriptionPreview.includes("\n") && <div className="text-muted text-italic text-small">Tap for full preview</div>}
                 </div>
                 <IonPopover isOpen={descPopoverOpen} onDidDismiss={() => setDescPopoverOpen(false)} event={descPopoverEvent} className="popover-description">
-                  <div className="padding-standard whitespace-pre-wrap">{storeDescription || descriptionPreview}</div>
+                  <div className="padding-standard whitespace-pre-wrap">{descriptionPreview}</div>
                 </IonPopover>
               </>
             ) : (

@@ -11,7 +11,8 @@ export function ProtectedRoutes({ children }: ProtectedRoutesProps): ReactNode {
   const location = useLocation();
 
   if (!user) {
-    return <Navigate to="/login" replace />;
+    const returnTo = location.pathname !== "/" ? `?returnTo=${encodeURIComponent(location.pathname)}` : "";
+    return <Navigate to={`/login${returnTo}`} replace />;
   }
 
   if (user.requiresPasswordChange && location.pathname !== "/change-password") {

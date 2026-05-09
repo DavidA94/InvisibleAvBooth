@@ -109,9 +109,20 @@ export class YouTubeClient implements StreamingPlatformClient {
     }
     try {
       const response = await this.youtube.liveStreams.list({ id: [this.boundStreamId], part: ["status"] });
-      const status = response.data.items?.[0]?.status;
+      const item = response.data.items?.[0];
+      // If the stream resource is gone (broadcast deleted), report unhealthy
+      if (!item) {
+        logger.warn("YouTube pollHealth: stream resource not found", { context: { streamId: this.boundStreamId } });
+        return { healthy: false, streamHealth: "deleted" };
+      }
+      const status = item.status;
       const health = status?.healthStatus?.status ?? "noData";
-      logger.info("YouTube pollHealth", { context: { streamId: this.boundStreamId, health, streamStatus: status?.streamStatus } });
+      const streamStatus = status?.streamStatus;
+      logger.info("YouTube pollHealth", { context: { streamId: this.boundStreamId, health, streamStatus } });
+      // If stream is inactive/error, the broadcast has ended
+      if (streamStatus === "inactive" || streamStatus === "error") {
+        return { healthy: false, streamHealth: streamStatus };
+      }
       return {
         healthy: health === "good",
         streamHealth: health,

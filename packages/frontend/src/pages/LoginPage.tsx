@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
 import { IonPage, IonContent, IonInput, IonButton, IonCheckbox, IonText } from "@ionic/react";
-import { Navigate } from "react-router";
+import { Navigate, useSearchParams } from "react-router";
 import { useStore } from "../store";
 import {
   TEST_ID_LOGIN_PAGE,
@@ -21,11 +21,16 @@ export function LoginPage(): ReactNode {
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
   const existingUser = useStore((s) => s.user);
+  const [searchParams] = useSearchParams();
+  const returnTo = searchParams.get("returnTo");
 
-  // Already authenticated — redirect based on role/state (Req 11.3: ADMIN → /admin)
+  // Already authenticated — redirect based on returnTo, role/state (Req 11.3: ADMIN → /admin)
   if (existingUser) {
     if (existingUser.requiresPasswordChange) {
       return <Navigate to="/change-password" replace />;
+    }
+    if (returnTo) {
+      return <Navigate to={returnTo} replace />;
     }
     return <Navigate to={existingUser.role === "ADMIN" ? "/admin" : "/dashboards"} replace />;
   }
