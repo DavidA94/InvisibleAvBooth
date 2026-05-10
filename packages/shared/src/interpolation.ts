@@ -45,7 +45,7 @@ export function interpolateTemplate(manifest: SessionManifestFields, template?: 
   result = result.replace(/\{verseText\}/g, () => {
     if (!manifest.scripture) return "[No Verse Text]";
     if (!verseTextResolver) {
-      return `${formatScripture(manifest.scripture)} (full text included on stream)`;
+      return `${formatScripture(manifest.scripture)} (full text included on stream; visible here after saving)`;
     }
     return verseTextResolver(manifest.scripture);
   });
