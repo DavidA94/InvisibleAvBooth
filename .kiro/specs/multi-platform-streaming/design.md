@@ -17,7 +17,7 @@ This is an extension document — it references and builds on the original desig
 - Platform state machine (Idle → Starting → Streaming → Stopping → Idle, plus No Source → Recovering)
 - Extended `ConnectionStatus` model (boolean `healthy` → four-value `status` field)
 - Admin Index Page (`/admin`) as the ADMIN post-login landing page
-- Template management page (`/admin/templates`) with side-by-side category lists
+- Template management page (`/admin/templates`) with two-panel layout (grouped list + edit panel)
 
 ### Breaking Changes to the Original Design
 
@@ -48,8 +48,8 @@ graph TD
     SessionManifestModal[SessionManifestModal — modified]
     AdminIndex[Admin Index Page — new]
     AdminTemplates[Admin Templates Page — new]
-    AdminYouTube[YouTube Platform Config — new]
-    AdminFacebook[Facebook Platform Config — new]
+    AdminYouTube[YouTube Platform Detail — new]
+    AdminFacebook[Facebook Platform Detail — new]
   end
 
   subgraph Backend [packages/backend]
@@ -1141,36 +1141,9 @@ No animation on degraded or inactive — only `widget-dot-unhealthy` blinks. The
   gap: 0.375rem;
 }
 
-/* Template admin page — side-by-side lists */
-.template-lists {
-  display: flex;
-  gap: var(--space-grid-gap);
-}
-
-.template-list {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-}
-
-.template-list-scroll {
-  height: 20rem;
-  overflow-y: auto;
-  border: 1px solid var(--color-border);
-  border-radius: 0.375rem;
-  background: var(--color-surface);
-}
-
-.template-item {
-  display: flex;
-  align-items: center;
-  padding: 0.625rem var(--space-widget-inner);
-  border-bottom: 1px solid var(--color-border);
-}
-
-.template-item:last-child {
-  border-bottom: none;
-}
+/* Template admin page — reuses device-management-layout classes.
+   Additional class: .tpl-group-header for category section headers,
+   .tpl-form-grid for the edit form layout, .tpl-form-label for labels. */
 
 /* Platform readiness icons below Manage Streams button */
 .platform-readiness {
@@ -1473,23 +1446,13 @@ Each card links to the corresponding admin route. Uses `dashboard-option` class 
 
 Route: `/admin/templates`. Accessible only to ADMIN users.
 
-Two side-by-side scrollable lists with create/edit/delete functionality. See Req 3.5–3.9 for the full specification. Each list item shows the template name, a muted `roleMinimum` badge (e.g., "AvVolunteer"), and Edit/Delete buttons.
+Uses the same two-panel layout as Device Management and Platform Management: left list panel with grouped templates, right detail panel for editing. The left list is grouped by category (Title, Description) with group headers. Within each group, templates are sorted alphabetically, except the "None" description template which is pinned to the top of the Description group. Each list item shows the template name as title and "Title/Description · Role" as subtitle.
 
-**Delete confirmation**: The `ConfirmationModal` body shows the template's display name and full format string. For long format strings (e.g., description templates with `{verseText}`), the modal body uses `overflow-y: auto` with `max-height: 12rem` to remain scrollable without overflowing the viewport.
+**Add Template** dropdown offers: "Title Template" / "Description Template".
 
-**Template create/edit modal** uses the validate-then-save flow:
+**Right panel** shows the edit form inline (not a modal) with the validate-then-save flow. Fields: Name, Format String (single-line for title, textarea for description), Minimum Role (react-select dropdown). Available tokens hint shown below the format string field.
 
-```
-┌──────────────────────────────────────────┐
-│  Create Title Template             [X]   │
-├──────────────────────────────────────────┤
-│                                          │
-│  Name     [___________________________]  │
-│  Role     [AvVolunteer ▼]               │
-│  Template [{Date} – {Speaker} – {Title}] │  ← single-line for title
-│                                          │
-│  ⚠ Volunteers will see multiple title    │  ← amber warning (if applicable)
-│    templates and must choose between them│
+**Delete**: Available via button in the right panel and in the list item. "None" template cannot be deleted or edited.
 │                                          │
 │  ✗ Unknown token: {Foo}                  │  ← red blocker (if applicable)
 │                                          │
@@ -1511,8 +1474,7 @@ For description templates, the Template field is a multi-line `<textarea>` inste
 | --------------------------- | ------------- | ---------------------------------------------- |
 | `/admin`                    | ADMIN only    | Admin Index Page — links to all admin sections |
 | `/admin/templates`          | ADMIN only    | Metadata template management                   |
-| `/admin/platforms/youtube`  | ADMIN only    | YouTube platform configuration + OAuth         |
-| `/admin/platforms/facebook` | ADMIN only    | Facebook platform configuration + OAuth        |
+| `/admin/platforms`          | ADMIN only    | Unified streaming platform management (YouTube + Facebook) |
 
 ### New REST Endpoints
 

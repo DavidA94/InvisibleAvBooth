@@ -211,13 +211,13 @@ See `docs/architecture-decisions/001-multi-platform-streaming.md` for the archit
 
 ### Requirement 10: Platform Admin Page Modularity
 
-**User Story:** As a developer, I want each streaming platform's admin configuration page to be a separate, self-contained module, so that adding support for a new platform (e.g., Twitch) requires creating a new file without modifying existing platform pages.
+**User Story:** As a developer, I want each streaming platform's admin configuration to be a separate, self-contained detail component, so that adding support for a new platform (e.g., Twitch) requires creating a new component file without modifying existing platform components.
 
 #### Acceptance Criteria
 
-1. EACH streaming platform's admin page SHALL be implemented as a separate file (e.g., `YouTubePlatformConfig.tsx`, `FacebookPlatformConfig.tsx`).
-2. THE platform admin pages SHALL be registered via a platform registry pattern so that adding a new platform requires: (a) creating a new page component file, (b) adding an entry to the registry. No existing platform files are modified.
-3. EACH platform admin page SHALL handle its own OAuth flow, display its own configuration fields, and manage its own connection status independently.
+1. EACH streaming platform's configuration detail panel SHALL be implemented as a separate file (e.g., `YouTubePlatformDetail.tsx`, `FacebookPlatformDetail.tsx`).
+2. THE unified platform management page (`/admin/platforms`) SHALL render the appropriate detail component based on the selected platform's `platformType`. Adding a new platform requires: (a) creating a new detail component file, (b) adding a conditional render in the management page. No existing platform detail files are modified.
+3. EACH platform detail component SHALL display its own configuration fields (privacy, connection info) and manage its own save/disconnect actions independently.
 4. THE Backend SHALL use a similar modular pattern for platform API integrations — each platform's API client is a separate module implementing a common `StreamingPlatformClient` interface.
 
 ---
@@ -229,7 +229,7 @@ See `docs/architecture-decisions/001-multi-platform-streaming.md` for the archit
 #### Acceptance Criteria
 
 1. THE Frontend SHALL provide an Admin Index Page at `/admin` accessible only to authenticated ADMIN users.
-2. THE Admin Index Page SHALL display links to all admin management sections: User Management (`/admin/users`), Device Management (`/admin/devices`), Streaming Platforms (`/admin/platforms/youtube`, `/admin/platforms/facebook`), Metadata Templates (`/admin/templates`), and the Dashboard Chooser.
+2. THE Admin Index Page SHALL display links to all admin management sections: User Management (`/admin/users`), Device Management (`/admin/devices`), Streaming Platforms (`/admin/platforms`), Metadata Templates (`/admin/templates`), and the Dashboard Chooser.
 3. WHEN an ADMIN user logs in (and has completed any required password change), THE Frontend SHALL navigate to `/admin` instead of the Dashboard Selection Screen. Non-ADMIN users continue to navigate to the Dashboard Selection Screen.
 4. THE `GlobalTitleBar` SHALL display an "Admin Pages" link (visible only to ADMIN users) after the dashboard navigation label, linking to `/admin`. The dashboard navigation label continues to link to the Dashboard Selection Screen for all users — it is NOT changed to link to `/admin`. The word "CHANGE" next to the dashboard name SHALL be defined as a UI constant to prevent drift.
 

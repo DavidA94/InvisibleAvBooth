@@ -22,7 +22,7 @@ Invisible A/V Booth is a web-based, touch-first control interface for managing c
 - **GlobalTitleBar**: The persistent title bar shown on all fully-authenticated screens, displaying the active user's name, role, and a dashboard navigation label ("Choose Dashboard" when no dashboard is loaded, or the active dashboard name when one is loaded). Provides logout access and dashboard navigation.
 - **DashboardSelectionScreen**: The intermediate screen shown after login (or when no dashboard is cached) that lists all dashboards accessible to the user, with name and description.
 - **ConfirmationModal**: A reusable platform modal component used for all confirmation dialogs in the system — both destructive actions and significant pre-flight confirmations.
-- **ConnectionStatus**: A named health indicator (label + healthy boolean) displayed in the `WidgetContainer` title bar for each connection associated with a widget.
+- **ConnectionStatus**: A named health indicator (label + status) displayed in the `WidgetContainer` title bar for each connection associated with a widget. Status is one of: `"healthy"`, `"degraded"`, `"unhealthy"`, or `"inactive"`. _(Modified by multi-platform-streaming spec: expanded from boolean `healthy` to four-value `status` field.)_
 - **space-screen-edge**: Spacing token (1rem) — dashboard outer padding on all four sides.
 - **space-grid-gap**: Spacing token (0.75rem) — gap between widgets in the dashboard grid.
 - **space-widget-inner**: Spacing token (0.75rem) — inner padding enforced by `WidgetContainer` on all sides.
