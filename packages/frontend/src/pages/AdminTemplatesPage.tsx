@@ -343,6 +343,10 @@ export function AdminTemplatesPage(): ReactNode {
                       }}
                     />
                   )}
+                  <span />
+                  <div className="text-muted text-caption">
+                    Available tokens: {"{Date}"} {"{Speaker}"} {"{Title}"} {"{Scripture}"} {"{verseText}"}
+                  </div>
 
                   <label className="tpl-form-label">Minimum Role:</label>
                   <div data-testid={TEST_ID_TEMPLATE_FORM_ROLE}>
