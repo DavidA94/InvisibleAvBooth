@@ -588,6 +588,13 @@
   padding-top: 0.5rem;
 }
 
+.tpl-group-header {
+  padding: 0.5rem 0.75rem 0.25rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: bold;
+}
+
 /* Widget container */
 /* Health popover grid */
 .popover-status-row {

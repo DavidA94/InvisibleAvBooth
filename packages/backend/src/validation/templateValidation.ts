@@ -92,7 +92,7 @@ export function validateTemplate(input: ValidationInput, existing: ExistingTempl
 
   // (d) AvVolunteer with multiple templates in same category
   if (input.roleMinimum === "AvVolunteer") {
-    const sameCategoryCount = candidates.filter((template) => template.category === input.category).length;
+    const sameCategoryCount = candidates.filter((template) => template.category === input.category && template.name !== "None").length;
     if (sameCategoryCount > 0) {
       warnings.push("AvVolunteer role with multiple templates in the same category — volunteers may find this confusing");
     }
