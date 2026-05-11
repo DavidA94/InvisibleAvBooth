@@ -12,6 +12,7 @@ inclusion: always
 - **Database:** SQLite via `better-sqlite3` — single-file embedded database (`data/app.db`), no external server required. WAL mode for concurrent read performance.
 - **Authentication:** JWT issued as HttpOnly cookies (`token`), bcrypt for password hashing, role-based access control (ADMIN > AvPowerUser > AvVolunteer). A non-HttpOnly `user_info` cookie (`{ id, username, role }`) is set alongside the JWT so the frontend can hydrate auth state without decoding the token.
 - **Device Integration:** obs-websocket-js for OBS Studio communication. Device passwords encrypted at rest with AES-256-GCM via `DEVICE_SECRET_KEY` environment variable.
+- **Streaming Infrastructure:** `node-media-server` as a local RTMP relay (accepts OBS stream, fans out to platforms). FFmpeg child processes forward from the relay to each platform's RTMP ingest URL (`-c copy`, no re-encoding). `googleapis` npm package for YouTube Live Streaming API; native `fetch` for Facebook Graph API (v25.0). OAuth tokens encrypted at rest alongside device passwords.
 - **Structure:** Monorepo with a shared root ESLint + Prettier config and a `tsconfig.base.json`. Includes `packages/shared` (`@invisible-av-booth/shared`) for constants, types, and utilities shared between frontend and backend — socket event names (`CTS_*`/`STC_*`), REST URL constants, shared TypeScript types (`ObsState`, `Notification`, `GridManifest`, etc.), `BIBLE_BOOKS` data, and interpolation/scripture utilities. Consumed via TypeScript project references — no separate build step required.
 - **Code style:** See `code-style.md` for naming conventions, formatting rules, and TypeScript patterns
 
@@ -23,7 +24,8 @@ The system provides **modular control of livestream operations** for a church en
 
 ### Initial Release Responsibilities
 
-- **OBS Control:** Start/stop recording, start/stop streaming.
+- **OBS Control:** Start/stop recording, start/stop streaming (via RTMP relay).
+- **Multi-Platform Streaming:** Simultaneous streaming to YouTube and Facebook from a single OBS source, with per-platform lifecycle management, health monitoring, and auto-recovery.
 
 ### Future Releases (out of scope for initial release)
 
@@ -77,6 +79,7 @@ The system provides **modular control of livestream operations** for a church en
 - **Reverse Proxy (Caddy):** All traffic flows through Caddy on port 443 (HTTPS). Caddy routes `/api/*` and `/socket.io/*` to the Express backend on port 3001; all other requests go to the frontend (Vite dev server in development, static files in production). This eliminates CORS, simplifies cookie scoping, and ensures the frontend never needs to know the backend's port. See `Caddyfile` (production) and `Caddyfile.dev` (development).
 - **Frontend ↔ Backend:** JSON-based commands and status updates over REST and Socket.io; backend mediates all device communication. All requests use relative URLs (`/api/...`, `/socket.io/...`) — Caddy handles routing to the correct server.
 - **Backend ↔ Devices:** Handles all network/API calls to devices and reconciling reported states.
+- **Backend ↔ Streaming Platforms:** `StreamingPlatformService` orchestrates the full broadcast lifecycle (create → stream → end) via platform-specific clients (`YouTubeClient`, `FacebookClient`). OBS streams to a local RTMP relay; per-platform FFmpeg forwarders read from the relay and push to platform ingest URLs. The relay runs for the lifetime of the backend process. Platform configurations are hot-reloaded after admin CRUD operations (`reloadPlatforms()`) — no server restart required for new connections to take effect.
 - **Widget Responsibilities:**
   - Display device state and updates.
   - Communicate errors or alerts to the frontend via the `WidgetErrorOverlay` component (full scrim with action card) for unavailable states, and via the notification system for recoverable errors.
