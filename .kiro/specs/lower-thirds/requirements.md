@@ -1,4 +1,4 @@
-# Requirements Document — Lower Thirds with Preview
+# Requirements Document — Lower Thirds
 
 ## Introduction
 
