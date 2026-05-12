@@ -423,6 +423,16 @@ WidgetContainer (title: "Lower Thirds", connections: [{ label: "Overlay", status
 
 Each row uses a swipeable container (e.g., CSS `transform: translateX()` with touch event handlers). Actions are revealed as icon+label buttons (icon on top, label below, 2.5rem × 2.5rem). Only one row may be swiped open at a time — opening a new row closes the previous.
 
+### Widget Registration and Connection Indicator
+
+The widget is registered with `widgetId: "lower-thirds"`, configurable per-dashboard via `widget_configurations`.
+
+**Connection indicator state derivation** (from `LowerThirdState` → `ConnectionStatus`):
+- `healthy`: `overlayConnected === true && overlayResolutionCorrect === true`
+- `degraded`: `overlayConnected === true && overlayResolutionCorrect === false`
+- `unhealthy`: `overlayConnected === false`
+- `inactive`: no lower-third templates exist in the database (checked via DAO on initial load)
+
 ---
 
 ## Frontend — Overlay Page
@@ -444,7 +454,7 @@ Each row uses a swipeable container (e.g., CSS `transform: translateX()` with to
 - Measures scripture in hidden container on `measure` command
 - When receiving `CTO_LOWER_THIRD_SHOW` for a scripture item with no cached pages, measures first, reports pages via `OTC_LOWER_THIRD_PAGES`, then animates
 - A `show` command cancels any in-progress measurement for a different item (the measured item is no longer relevant)
-- 15-second disconnect timeout for stuck graphic prevention
+- 15-second disconnect timeout for stuck graphic prevention (configurable via `OVERLAY_DISCONNECT_TIMEOUT_MS` env var, default 15000)
 - Logs via `POST /api/overlay/logs`
 - Force Clear: immediately sets `display: none`, reports `hidden`
 
