@@ -435,6 +435,7 @@ Each row uses a swipeable container (e.g., CSS `transform: translateX()` with to
 - Handles all CTO commands, reports phases via OTC
 - Measures scripture in hidden container on `measure` command
 - When receiving `CTO_LOWER_THIRD_SHOW` for a scripture item with no cached pages, measures first, reports pages via `OTC_LOWER_THIRD_PAGES`, then animates
+- A `show` command cancels any in-progress measurement for a different item (the measured item is no longer relevant)
 - 15-second disconnect timeout for stuck graphic prevention
 - Logs via `POST /api/overlay/logs`
 - Force Clear: immediately sets `display: none`, reports `hidden`
