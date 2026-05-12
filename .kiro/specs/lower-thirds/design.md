@@ -31,7 +31,7 @@ This is an extension document — it references and builds on the original desig
 This spec introduces patterns not yet documented in the steering doc. The following updates are required during implementation:
 - **§3 (Interfaces & Boundaries)**: Add `file://` and `/overlay` namespace boundaries
 - **§6 (Logging)**: Add `"overlay"` as a third `source` value
-- **§7 (Event Naming)**: Add `cto:` and `otc:` prefix rows; add overlay namespace exception note
+- **§7 (Event Naming)**: Add `sto:` and `ots:` prefix rows; add overlay namespace exception note
 - **§10 (Responsive Sizing)**: Clarify rem applies to dashboard; overlay uses `cqw`/`cqh`
 
 ---
@@ -52,13 +52,13 @@ graph TD
   subgraph Frontend [packages/frontend]
     LowerThirdWidget[Lower Third Widget — new]
     AdminTemplates[Admin Templates Page — modified]
-    OverlayRoute[/overlay/lower-thirds route — new, outside ProtectedRoutes]
+    OverlayRoute["/overlay/lower-thirds route — new, outside ProtectedRoutes"]
   end
 
   subgraph Backend [packages/backend]
     LowerThirdService[LowerThirdService — new]
     LowerThirdModule[LowerThirdModule — new socket module]
-    OverlayNamespace[/overlay namespace — new, unauthenticated]
+    OverlayNamespace["/overlay namespace — new, unauthenticated"]
     SessionManifestService[SessionManifestService — existing]
     MetadataTemplateDao[MetadataTemplateDao — modified]
     EventBus[EventBus]
@@ -276,18 +276,18 @@ export const CTS_LOWER_THIRD_COMMAND = "cts:lower-third:command" as const;
 export const STC_LOWER_THIRD_STATE = "stc:lower-third:state" as const;
 
 // Controller → Overlay (backend → overlay, /overlay namespace)
-export const CTO_LOWER_THIRD_SHOW = "cto:lower-third:show" as const;
-export const CTO_LOWER_THIRD_DISMISS = "cto:lower-third:dismiss" as const;
-export const CTO_LOWER_THIRD_PUSH_UP = "cto:lower-third:push-up" as const;
-export const CTO_LOWER_THIRD_PAGE = "cto:lower-third:page" as const;
-export const CTO_LOWER_THIRD_STATE = "cto:lower-third:state" as const;
-export const CTO_LOWER_THIRD_MEASURE = "cto:lower-third:measure" as const;
-export const CTO_LOWER_THIRD_FORCE_CLEAR = "cto:lower-third:force-clear" as const;
+export const STO_LOWER_THIRD_SHOW = "sto:lower-third:show" as const;
+export const STO_LOWER_THIRD_DISMISS = "sto:lower-third:dismiss" as const;
+export const STO_LOWER_THIRD_PUSH_UP = "sto:lower-third:push-up" as const;
+export const STO_LOWER_THIRD_PAGE = "sto:lower-third:page" as const;
+export const STO_LOWER_THIRD_STATE = "sto:lower-third:state" as const;
+export const STO_LOWER_THIRD_MEASURE = "sto:lower-third:measure" as const;
+export const STO_LOWER_THIRD_FORCE_CLEAR = "sto:lower-third:force-clear" as const;
 
 // Overlay → Controller (overlay → backend, /overlay namespace)
-export const OTC_LOWER_THIRD_PHASE = "otc:lower-third:phase" as const;
-export const OTC_LOWER_THIRD_RESOLUTION = "otc:lower-third:resolution" as const;
-export const OTC_LOWER_THIRD_PAGES = "otc:lower-third:pages" as const;
+export const OTS_LOWER_THIRD_PHASE = "ots:lower-third:phase" as const;
+export const OTS_LOWER_THIRD_RESOLUTION = "ots:lower-third:resolution" as const;
+export const OTS_LOWER_THIRD_PAGES = "ots:lower-third:pages" as const;
 ```
 
 ---
@@ -333,16 +333,16 @@ export function registerOverlayNamespace(io: Server, service: LowerThirdService)
 
     // Initial state with skipEntrance flag
     const state = service.getFullState();
-    socket.emit(CTO_LOWER_THIRD_STATE, { ...state, skipEntrance: state.phase === "visible" });
+    socket.emit(STO_LOWER_THIRD_STATE, { ...state, skipEntrance: state.phase === "visible" });
 
     // Pending measurements
     service.getPendingMeasurements().forEach((item) => {
-      socket.emit(CTO_LOWER_THIRD_MEASURE, { itemId: item.id, verses: item.content.verses });
+      socket.emit(STO_LOWER_THIRD_MEASURE, { itemId: item.id, verses: item.content.verses });
     });
 
-    socket.on(OTC_LOWER_THIRD_PHASE, (phase) => service.reportPhase(phase));
-    socket.on(OTC_LOWER_THIRD_RESOLUTION, (data) => service.handleResolutionReport(data));
-    socket.on(OTC_LOWER_THIRD_PAGES, (data) => service.reportPages(data.itemId, data.pages));
+    socket.on(OTS_LOWER_THIRD_PHASE, (phase) => service.reportPhase(phase));
+    socket.on(OTS_LOWER_THIRD_RESOLUTION, (data) => service.handleResolutionReport(data));
+    socket.on(OTS_LOWER_THIRD_PAGES, (data) => service.reportPages(data.itemId, data.pages));
 
     socket.on("disconnect", () => {
       currentSocket = null;
@@ -450,9 +450,9 @@ The widget is registered with `widgetId: "lower-thirds"`, configurable per-dashb
 - Waits for `document.fonts.ready` before sending `overlay-ready` postMessage
 - Sends heartbeat postMessages every 5s to parent (static wrapper health check)
 - Renders Aspect Ratio Jail + active lower-third
-- Handles all CTO commands, reports phases via OTC
+- Handles all STO commands, reports phases via OTS
 - Measures scripture in hidden container on `measure` command
-- When receiving `CTO_LOWER_THIRD_SHOW` for a scripture item with no cached pages, measures first, reports pages via `OTC_LOWER_THIRD_PAGES`, then animates
+- When receiving `STO_LOWER_THIRD_SHOW` for a scripture item with no cached pages, measures first, reports pages via `OTS_LOWER_THIRD_PAGES`, then animates
 - A `show` command cancels any in-progress measurement for a different item (the measured item is no longer relevant)
 - 15-second disconnect timeout for stuck graphic prevention (configurable via `OVERLAY_DISCONNECT_TIMEOUT_MS` env var, default 15000)
 - Logs via `POST /api/overlay/logs`
@@ -510,15 +510,17 @@ This is a static file directory, NOT an npm package. It does not participate in 
 <script>
 const URL = document.body.dataset.overlayUrl;
 const iframe = document.getElementById('overlay');
+let loadTimer = null;
 let heartbeatTimer = null;
 
 function load() {
   iframe.src = URL;
-  setTimeout(() => { if (iframe.style.display === 'none') { iframe.src = ''; setTimeout(load, 3000); } }, 10000);
+  loadTimer = setTimeout(() => { iframe.src = ''; setTimeout(load, 3000); }, 10000);
 }
 
 window.addEventListener('message', (e) => {
   if (e.data?.type === 'overlay-ready') {
+    clearTimeout(loadTimer);
     iframe.style.display = 'block';
     resetHeartbeat();
   } else if (e.data?.type === 'overlay-heartbeat') {

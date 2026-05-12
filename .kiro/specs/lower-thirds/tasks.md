@@ -9,7 +9,7 @@ Tests are part of each task's definition of done. Unit tests follow the unit or 
 - [ ] 1. Add shared types — `LowerThirdItem`, `LowerThirdState`, `LowerThirdCommand`, `AnimationPhase`, `LowerThirdType`, `LowerThirdStyle`, `PageBreakdown`, `PageInfo`, `TitleContent`, `TitleSubtitleContent`, `ScriptureContent`, `VerseData`, `AddLowerThirdInput`, `EditLowerThirdInput` to `packages/shared/src/types/`
   - _Requirements: 4, 5, 6, 7, 8_
 
-- [ ] 2. Add socket event constants — `CTS_LOWER_THIRD_COMMAND`, `STC_LOWER_THIRD_STATE`, `CTO_LOWER_THIRD_SHOW`, `CTO_LOWER_THIRD_DISMISS`, `CTO_LOWER_THIRD_PUSH_UP`, `CTO_LOWER_THIRD_PAGE`, `CTO_LOWER_THIRD_STATE`, `CTO_LOWER_THIRD_MEASURE`, `CTO_LOWER_THIRD_FORCE_CLEAR`, `OTC_LOWER_THIRD_PHASE`, `OTC_LOWER_THIRD_RESOLUTION`, `OTC_LOWER_THIRD_PAGES` to `packages/shared/src/constants/socketEvents.ts`. Update header comment to document `CTO_`/`OTC_` prefixes.
+- [ ] 2. Add socket event constants — `CTS_LOWER_THIRD_COMMAND`, `STC_LOWER_THIRD_STATE`, `STO_LOWER_THIRD_SHOW`, `STO_LOWER_THIRD_DISMISS`, `STO_LOWER_THIRD_PUSH_UP`, `STO_LOWER_THIRD_PAGE`, `STO_LOWER_THIRD_STATE`, `STO_LOWER_THIRD_MEASURE`, `STO_LOWER_THIRD_FORCE_CLEAR`, `OTS_LOWER_THIRD_PHASE`, `OTS_LOWER_THIRD_RESOLUTION`, `OTS_LOWER_THIRD_PAGES` to `packages/shared/src/constants/socketEvents.ts`. Update header comment to document `STO_`/`OTS_` prefixes.
   - _Requirements: 8_
 
 - [ ] 3. Add `BUS_LOWER_THIRD_STATE_CHANGED` constant and `LowerThirdEventMap` to backend EventBus types. Extend root `EventMap`.
@@ -151,7 +151,7 @@ Tests are part of each task's definition of done. Unit tests follow the unit or 
 - [ ] 43. Implement Force Clear — instant `display: none`, immediate `hidden` phase report.
   - _Requirements: 6_
 
-- [ ] 44. Implement scripture measurement — hidden container with matching CSS, 70%/80% width optimization, page break calculation (4-line max, no verse split, single-verse overflow), report via `OTC_LOWER_THIRD_PAGES`. Cancel in-progress measurement on new `show` command.
+- [ ] 44. Implement scripture measurement — hidden container with matching CSS, 70%/80% width optimization, page break calculation (4-line max, no verse split, single-verse overflow), report via `OTS_LOWER_THIRD_PAGES`. Cancel in-progress measurement on new `show` command.
   - _Requirements: 7_
 
 - [ ] 45. Implement scripture page display and transitions — fixed reference line, verse content pagination, page-chunk slide-up animation, plate height adaptation.
@@ -160,7 +160,7 @@ Tests are part of each task's definition of done. Unit tests follow the unit or 
 - [ ] 46. Implement overlay reconnect logic — handle `skipEntrance`, restart animation on `showing` phase, complete dismiss on `dismissing` phase, report `hidden` immediately if backend phase is `dismissing`/`hidden`.
   - _Requirements: 8_
 
-- [ ] 47. Implement resolution telemetry — detect dimensions on init, report `OTC_LOWER_THIRD_RESOLUTION` with `isCorrect` flag.
+- [ ] 47. Implement resolution telemetry — detect dimensions on init, report `OTS_LOWER_THIRD_RESOLUTION` with `isCorrect` flag.
   - _Requirements: 2_
 
 - [ ] 48. Implement overlay logging — batch log entries, send via `POST /api/overlay/logs`, fire-and-forget (no retry).
@@ -189,7 +189,7 @@ Tests are part of each task's definition of done. Unit tests follow the unit or 
 - [ ] 53. Update `docs/setup.md` — OBS browser source configuration (1920×1080, unchecked shutdown/refresh, `data-overlay-url` configuration), `OVERLAY_DISCONNECT_TIMEOUT_MS` env var.
   - _Requirements: 1, 2_
 
-- [ ] 54. Update steering doc — add `cto:`/`otc:` prefixes to §7, add `"overlay"` source to §6, add overlay namespace exception note to §7, add `cqw`/`cqh` note to §10, add overlay boundaries to §3.
+- [ ] 54. Update steering doc — add `sto:`/`ots:` prefixes to §7, add `"overlay"` source to §6, add overlay namespace exception note to §7, add `cqw`/`cqh` note to §10, add overlay boundaries to §3.
   - _Requirements: 8_
 
 - [ ] 55. Write integration tests — full flow (add scripture → measure → activate → paginate → dismiss), auto-dismiss lifecycle, push-up transition, template resolution on manifest change, overlay reconnect with skipEntrance, Force Clear mid-animation.
