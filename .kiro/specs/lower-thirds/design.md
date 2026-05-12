@@ -25,7 +25,6 @@ This is an extension document — it references and builds on the original desig
 - **`metadata_templates` table**: `category` CHECK constraint expanded from `('title', 'description')` to `('title', 'description', 'lower_third')`. Two new nullable columns added: `lowerThirdType TEXT` and `autoDismissMs INTEGER`.
 - **`MetadataTemplateDao`**: `TemplateCategory` type expanded. New methods for lower-third queries.
 - **Admin Templates Page**: Third section added for lower-third templates.
-- **`WidgetContainer`**: Modified to hide indicators area when `connections` is empty.
 
 ### Steering Document Updates Required
 
@@ -203,7 +202,7 @@ interface TitleSubtitleContent { title: string; subtitle: string; }
 interface ScriptureContent {
   reference: ScriptureReference;
   formattedReference: string;
-  verses: VerseData[] | null;
+  verses: VerseData[]; // always populated after successful add (Req 3.10 ensures KJV data exists)
 }
 interface VerseData { verseNumber: number; text: string; }
 
@@ -220,6 +219,7 @@ interface LowerThirdState {
   phase: AnimationPhase;
   autoDismissAt: string | null;
   overlayConnected: boolean;
+  overlayResolutionCorrect: boolean;
   transitionLocked: boolean;
 }
 
@@ -370,6 +370,7 @@ export function createOverlayLogRouter(): Router {
       return;
     }
     for (const entry of entries) {
+      if (JSON.stringify(entry).length > 1024) continue; // skip oversized entries
       logger[entry.level ?? "info"](entry.message, { source: "overlay", ...(entry.context ? { context: entry.context } : {}) });
     }
     res.status(204).send();
@@ -394,7 +395,7 @@ interface LowerThirdSlice {
 ### Widget: `LowerThirdWidget`
 
 ```
-WidgetContainer (title: "Lower Thirds", connections: [])
+WidgetContainer (title: "Lower Thirds", connections: [{ label: "Overlay", status }])
 ├── ActiveSection
 │   ├── ActiveRow (dismiss button visible, swipe-left for Force Clear)
 │   │   ├── CountdownIndicator (if auto-dismiss)
@@ -402,7 +403,7 @@ WidgetContainer (title: "Lower Thirds", connections: [])
 │   └── PaginationRow (if paginated scripture)
 ├── LibrarySection
 │   ├── TemplateItems (sorted by name)
-│   │   └── Row (Show button visible, swipe-right for Go Live)
+│   │   └── Row (Show button visible, swipe-left for Go Live, swipe-right for Go Live)
 │   └── VolunteerItems (sorted by creation time)
 │       └── Row (Show button visible, swipe-left for Edit/Delete, swipe-right for Go Live)
 ├── EmptyStates ("Nothing active", "No items available")
@@ -433,6 +434,7 @@ Each row uses a swipeable container (e.g., CSS `transform: translateX()` with to
 - Renders Aspect Ratio Jail + active lower-third
 - Handles all CTO commands, reports phases via OTC
 - Measures scripture in hidden container on `measure` command
+- When receiving `CTO_LOWER_THIRD_SHOW` for a scripture item with no cached pages, measures first, reports pages via `OTC_LOWER_THIRD_PAGES`, then animates
 - 15-second disconnect timeout for stuck graphic prevention
 - Logs via `POST /api/overlay/logs`
 - Force Clear: immediately sets `display: none`, reports `hidden`
@@ -523,10 +525,12 @@ load();
 1. **At most one active lower-third**: The service atomically swaps via push-up or clears via dismiss.
 2. **Transition lock prevents race conditions**: No activate or dismiss accepted during `showing`/`dismissing`. Force Clear bypasses.
 3. **Auto-dismiss timer isolation**: Each timer is per-item. Cancellation is explicit. A timer never dismisses a different item.
-4. **Backend phase is authoritative**: 5-second fallback advances state if overlay is unresponsive.
-5. **Canonical JSON prevents false duplicates**: Stored in sorted-key form; compared directly.
-6. **Library items are stable**: Template items keyed by template ID. Volunteer items maintain creation-time order regardless of edits.
-7. **Single overlay client**: New connections forcibly disconnect the previous. No doubled graphics.
+4. **No-auto-dismiss items are never auto-dismissed**: An item with `autoDismissMs: null` never has a timer started, regardless of the previous item's timer state.
+5. **Backend phase is authoritative**: 5-second fallback advances state if overlay is unresponsive.
+6. **Canonical JSON prevents false duplicates**: Stored in sorted-key form; compared directly.
+7. **Library items are stable**: Template items keyed by template ID. Volunteer items maintain creation-time order regardless of edits.
+8. **Single overlay client**: New connections forcibly disconnect the previous. No doubled graphics.
+9. **Overlay connection status is visible**: The widget's connection indicator reflects real-time overlay connectivity and resolution correctness.
 
 ---
 
