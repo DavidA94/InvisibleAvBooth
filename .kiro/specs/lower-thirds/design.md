@@ -719,3 +719,16 @@ A hidden `<div>` with the same CSS as the live display (same container width, fo
 - OBS browser source at wrong resolution: verify dashboard banner appears
 - Scene switch: verify overlay stays connected (no shutdown)
 - Backend restart: verify overlay dismisses after 30s, reconnects cleanly
+
+### Overlay Integration Tests (Playwright)
+
+End-to-end tests that load the overlay page in a real browser and verify the full command → render → phase report loop against a running backend.
+
+- **Show command**: backend sends `CTO_LOWER_THIRD_SHOW` → verify overlay renders the lower-third element → verify backend receives `showing` then `visible` phase reports
+- **Dismiss command**: backend sends `CTO_LOWER_THIRD_DISMISS` → verify overlay runs exit animation → verify backend receives `dismissing` then `hidden` phase reports → verify DOM is empty
+- **Push-up transition**: activate item A → send `CTO_LOWER_THIRD_PUSH_UP` with item B → verify old text exits, new text enters → verify backend receives `showing` then `visible`
+- **Scripture measurement**: backend sends `CTO_LOWER_THIRD_MEASURE` with verse data → verify overlay reports `OTC_LOWER_THIRD_PAGES` with correct page breakdown (page count, verse ranges per page)
+- **Disconnect timeout**: establish connection → disconnect backend → wait 30s → verify overlay locally dismisses (DOM empty) without backend phase report
+- **Reconnect with skipEntrance**: activate item → disconnect overlay → reconnect → verify overlay renders immediately (no entrance animation) and reports `visible`
+- **Reconnect after timer fired**: activate item with auto-dismiss → disconnect overlay → wait for timer to fire on backend → reconnect → verify overlay does NOT render the item (backend phase is `dismissing`/`hidden`)
+- **Resolution telemetry**: load overlay at non-1920×1080 viewport → verify `OTC_LOWER_THIRD_RESOLUTION` reports `isCorrect: false` with detected dimensions
