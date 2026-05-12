@@ -13,18 +13,27 @@ This is an extension document — it references and builds on the original desig
 - Unauthenticated `/overlay` Socket.io namespace for display commands
 - `LowerThirdService` — backend state management, auto-dismiss timers, transition locks
 - `LowerThirdModule` — Socket.io gateway module for dashboard ↔ backend communication
-- Overlay socket module — backend ↔ overlay communication
-- Lower-third widget for the volunteer dashboard
+- Overlay namespace handler — backend ↔ overlay communication
+- Lower-third widget with swipe-to-reveal action pattern
 - Extension of `metadata_templates` table for lower-third templates
-- `POST /api/overlay/logs` — unauthenticated logging endpoint for the overlay
-- Blue Rhombus animation style (entrance, exit, push-up transitions)
-- Scripture pagination protocol (measure-on-add, cached page breaks)
+- `POST /api/overlay/logs` — unauthenticated, rate-limited logging endpoint for the overlay
+- Blue Rhombus animation style (entrance, exit, push-up, force-clear)
+- Scripture pagination protocol (measure-on-add, cached page breaks, 10s timeout fallback)
 
 ### Breaking Changes
 
 - **`metadata_templates` table**: `category` CHECK constraint expanded from `('title', 'description')` to `('title', 'description', 'lower_third')`. Two new nullable columns added: `lowerThirdType TEXT` and `autoDismissMs INTEGER`.
 - **`MetadataTemplateDao`**: `TemplateCategory` type expanded. New methods for lower-third queries.
 - **Admin Templates Page**: Third section added for lower-third templates.
+- **`WidgetContainer`**: Modified to hide indicators area when `connections` is empty.
+
+### Steering Document Updates Required
+
+This spec introduces patterns not yet documented in the steering doc. The following updates are required during implementation:
+- **§3 (Interfaces & Boundaries)**: Add `file://` and `/overlay` namespace boundaries
+- **§6 (Logging)**: Add `"overlay"` as a third `source` value
+- **§7 (Event Naming)**: Add `cto:` and `otc:` prefix rows; add overlay namespace exception note
+- **§10 (Responsive Sizing)**: Clarify rem applies to dashboard; overlay uses `cqw`/`cqh`
 
 ---
 
@@ -36,7 +45,7 @@ This is an extension document — it references and builds on the original desig
 graph TD
   subgraph OBS [OBS Studio]
     BrowserSource[Browser Source — file://overlay/lower-thirds.html]
-    StaticWrapper[Static Wrapper — polls frontend, manages iFrame]
+    StaticWrapper[Static Wrapper — manages iFrame lifecycle]
     OverlayPage[Overlay Page — /overlay/lower-thirds]
     StaticWrapper --> OverlayPage
   end
@@ -44,17 +53,17 @@ graph TD
   subgraph Frontend [packages/frontend]
     LowerThirdWidget[Lower Third Widget — new]
     AdminTemplates[Admin Templates Page — modified]
-    OverlayRoute[/overlay/lower-thirds route — new]
+    OverlayRoute[/overlay/lower-thirds route — new, outside ProtectedRoutes]
   end
 
   subgraph Backend [packages/backend]
     LowerThirdService[LowerThirdService — new]
     LowerThirdModule[LowerThirdModule — new socket module]
-    OverlayNamespace[/overlay namespace — new]
+    OverlayNamespace[/overlay namespace — new, unauthenticated]
     SessionManifestService[SessionManifestService — existing]
     MetadataTemplateDao[MetadataTemplateDao — modified]
     EventBus[EventBus]
-    OverlayLogRoute[POST /api/overlay/logs — new]
+    OverlayLogRoute[POST /api/overlay/logs — new, unauthenticated, rate-limited]
   end
 
   subgraph Storage
@@ -64,7 +73,7 @@ graph TD
   end
 
   BrowserSource -->|file://| StaticWrapper
-  StaticWrapper -->|iFrame src| OverlayRoute
+  StaticWrapper -->|iFrame + postMessage| OverlayRoute
   OverlayPage -->|Socket.io /overlay| OverlayNamespace
   OverlayPage -->|POST /api/overlay/logs| OverlayLogRoute
 
@@ -81,36 +90,27 @@ graph TD
   LowerThirdService -->|bus:lower-third:state:changed| EventBus
 ```
 
-### New Communication Boundaries
-
-| Boundary | Protocol | Notes |
-|----------|----------|-------|
-| Static Wrapper → Frontend | HTTP HEAD poll | Checks if `/overlay/lower-thirds` returns 200 |
-| Static Wrapper ↔ Overlay Page | postMessage | Only `{ type: "overlay-ready" }` from iFrame to parent |
-| Overlay Page ↔ Backend | Socket.io `/overlay` ns | Unauthenticated; display commands + phase reports |
-| Dashboard ↔ Backend (lower-thirds) | Socket.io default ns | Authenticated; control commands + state updates |
-| Overlay Page → Backend (logs) | REST POST | `POST /api/overlay/logs` — unauthenticated |
-| Backend → KJV table | SQLite query | Verse text lookup for scripture lower-thirds |
-
 ### Key Architectural Decisions
 
-**Two-layer overlay (static wrapper + iFrame)**: The static HTML file is loaded via `file://` in OBS, making it immune to frontend/backend availability at OBS startup time. The iFrame loads the React page only when the frontend is confirmed healthy. This eliminates the need to refresh the OBS browser source after system startup.
+**Two-layer overlay (static wrapper + iFrame)**: The static HTML file is loaded via `file://` in OBS, making it immune to frontend/backend availability at OBS startup time. The iFrame loads the React page only when the frontend signals readiness via postMessage. This eliminates the need to refresh the OBS browser source after system startup.
 
-**Unauthenticated `/overlay` namespace**: The overlay page runs in OBS with no user interaction — there's no way to log in. The `/overlay` namespace accepts connections without JWT but only emits display commands and accepts phase reports. No control commands (promote, dismiss, etc.) are accepted on this namespace.
+**Unauthenticated `/overlay` namespace**: The overlay page runs in OBS with no user interaction — there's no way to log in. The `/overlay` namespace accepts connections without JWT but only emits display commands and accepts phase reports. No control commands are accepted on this namespace. The namespace enforces single-client: new connections forcibly disconnect the previous client.
 
-**Backend owns all state**: The overlay is a pure renderer — it displays what the backend tells it to and reports animation phases back. The dashboard is a pure controller — it sends commands and displays state. The backend is the single source of truth for what's active, staged, in the library, and what animation phase the system is in.
+**No Staged section — Preview Dialog instead**: Rather than a persistent "Staged" queue, the volunteer sees a Preview Dialog before activation. This reduces widget complexity (two sections instead of three), provides a clear confirmation step, and eliminates the confusion of "what does staged mean?" The preview is ephemeral — dismissing the dialog cancels the action.
 
-**Measurement-on-add for scripture**: Scripture pagination is computed when an item is added to the library (not when activated). The overlay measures in a hidden container and reports page breaks. The backend caches results so activation is instant. This gives the volunteer immediate visibility into page counts before staging.
+**Swipe-to-reveal actions**: Each row shows one primary button. Secondary actions are revealed by swiping. This reduces visual clutter while maintaining discoverability. The pattern is consistent across all rows.
 
-**Auto-dismiss timers are backend-owned**: Timers fire regardless of dashboard or overlay connectivity. The backend transitions its own phase state when a timer fires. This ensures correct behavior even if the overlay disconnects mid-countdown.
+**Force Clear bypasses everything**: The emergency clear action skips animation, ignores transition locks, and immediately hides the overlay. This is the "wrong content on screen" panic button.
+
+**Backend owns all state**: The overlay is a pure renderer. The dashboard is a pure controller. The backend is the single source of truth.
+
+**5-second fallback timeout**: If the overlay doesn't report phase completion, the backend advances state and notifies the dashboard. This prevents permanent lock-up from a crashed overlay.
 
 ---
 
 ## Backend Services
 
 ### LowerThirdService (New)
-
-Manages the full lower-third lifecycle: library, staging, activation, animation phase tracking, auto-dismiss timers, and transition locks.
 
 ```typescript
 interface LowerThirdService {
@@ -120,15 +120,10 @@ interface LowerThirdService {
   removeFromLibrary(itemId: string): Result<void, string>;
   editLibraryItem(itemId: string, patch: EditLowerThirdInput): Result<LowerThirdItem, string>;
 
-  // Staging
-  getStaged(): LowerThirdItem | null;
-  promoteToStaged(itemId: string): Result<void, string>;
-  demoteFromStaged(): Result<void, string>;
-
-  // Activation
-  getActive(): LowerThirdItem | null;
-  promoteToActive(): Result<void, string>; // from staged
+  // Activation (directly from library)
+  activate(itemId: string): Result<void, string>;
   dismissActive(): Result<void, string>;
+  forceClear(): void; // always succeeds, bypasses lock
 
   // Pagination (scripture)
   pageNext(): Result<void, string>;
@@ -138,22 +133,24 @@ interface LowerThirdService {
   reportPhase(phase: AnimationPhase): void;
   reportPages(itemId: string, pages: PageBreakdown): void;
 
+  // Overlay connection
+  setOverlayConnected(connected: boolean): void;
+  getPendingMeasurements(): LowerThirdItem[];
+  handleResolutionReport(data: ResolutionReport): void;
+
   // State
   getFullState(): LowerThirdState;
-  getAnimationPhase(): AnimationPhase;
   isTransitionLocked(): boolean;
 
   destroy(): void;
 }
 ```
 
-**Constructor dependencies**: `MetadataTemplateDao`, `Database` (for KJV queries), `SessionManifestService` (to read current manifest for template resolution).
+**Constructor dependencies**: `MetadataTemplateDao`, `Database` (for KJV queries), `SessionManifestService`.
 
-**EventBus subscriptions**:
-- `BUS_SESSION_MANIFEST_UPDATED` — recomputes template-derived library items
+**EventBus subscriptions**: `BUS_SESSION_MANIFEST_UPDATED` — recomputes template-derived library items.
 
-**EventBus emissions**:
-- `BUS_LOWER_THIRD_STATE_CHANGED` — emitted on any state change (active, staged, library, phase, pages)
+**EventBus emissions**: `BUS_LOWER_THIRD_STATE_CHANGED` — emitted on any state change.
 
 ### Animation State Machine
 
@@ -170,22 +167,22 @@ interface LowerThirdService {
        └──────────────│ dismissing│◀────────────┘
           overlay     └───────────┘
           reports
+
+  Force Clear: ANY state ──────────────────────▶ hidden (instant)
 ```
 
-**Transition lock**: The system is locked (rejects promote/dismiss commands) when phase is `showing` or `dismissing`. Unlocked when phase is `visible` or `hidden`.
+**Transition lock**: Locked when phase is `showing` or `dismissing`. Unlocked when `visible` or `hidden`. Force Clear bypasses the lock.
 
-**Push-up transition**: When promoting a new item while one is already active, the phase goes directly from `visible` → `showing` (no `dismissing` step). The overlay handles the push-up animation internally.
+**Push-up**: `visible` → `showing` directly (no `dismissing` step). Overlay handles internally.
 
-**Backend phase transitions without overlay**:
-- Auto-dismiss timer fires → backend sets phase to `dismissing` (even if overlay offline)
-- After a configurable timeout (5s) with no `hidden` report from overlay → backend sets phase to `hidden` and clears active item (safety fallback for crashed overlay)
+**5-second fallback**: If overlay doesn't report within 5s, backend advances phase and emits warning notification.
 
 ### Core Types
 
 ```typescript
 type LowerThirdType = "Title" | "TitleSubtitle" | "Scripture";
 type AnimationPhase = "hidden" | "showing" | "visible" | "dismissing";
-type LowerThirdStyle = "blue_rhombus"; // extensible in future
+type LowerThirdStyle = "blue_rhombus";
 
 interface LowerThirdItem {
   id: string;
@@ -194,51 +191,34 @@ interface LowerThirdItem {
   content: TitleContent | TitleSubtitleContent | ScriptureContent;
   autoDismissMs: number | null;
   source: "template" | "volunteer";
-  templateId: string | null; // non-null for template-derived items
-  templateName: string | null; // display name from template
-  used: boolean; // has been active this session
+  templateId: string | null;
+  templateName: string | null;
+  used: boolean;
   createdAt: string;
-  pages: PageBreakdown | null; // non-null for scripture items after measurement
+  pages: PageBreakdown | null;
 }
 
-interface TitleContent {
-  title: string;
-}
-
-interface TitleSubtitleContent {
-  title: string;
-  subtitle: string;
-}
-
+interface TitleContent { title: string; }
+interface TitleSubtitleContent { title: string; subtitle: string; }
 interface ScriptureContent {
-  reference: ScriptureReference; // structured { bookId, chapter, verse, verseEnd? }
-  formattedReference: string; // display string e.g. "Genesis 1:1-3"
-  verses: VerseData[] | null; // populated by backend from KJV table; null until lookup
+  reference: ScriptureReference;
+  formattedReference: string;
+  verses: VerseData[] | null;
 }
-
-interface VerseData {
-  verseNumber: number;
-  text: string;
-}
+interface VerseData { verseNumber: number; text: string; }
 
 interface PageBreakdown {
   totalPages: number;
   currentPage: number;
   pages: PageInfo[];
 }
-
-interface PageInfo {
-  pageNumber: number;
-  startVerse: number;
-  endVerse: number;
-}
+interface PageInfo { pageNumber: number; startVerse: number; endVerse: number; }
 
 interface LowerThirdState {
   active: LowerThirdItem | null;
-  staged: LowerThirdItem | null;
   library: LowerThirdItem[];
   phase: AnimationPhase;
-  autoDismissAt: string | null; // ISO timestamp, null if no timer
+  autoDismissAt: string | null;
   overlayConnected: boolean;
   transitionLocked: boolean;
 }
@@ -254,16 +234,6 @@ interface EditLowerThirdInput {
   autoDismissMs?: number;
 }
 ```
-
-### Template-Derived Library Computation
-
-When `BUS_SESSION_MANIFEST_UPDATED` fires, the service:
-
-1. Queries `MetadataTemplateDao` for all lower-third templates accessible to the minimum role (AvVolunteer — library items are visible to all)
-2. For each template, parses the JSON `formatString` and checks if all tokens are resolvable from the current manifest
-3. For resolvable templates, interpolates the format strings and creates/updates library items
-4. For templates that are no longer resolvable, removes their library items (unless currently active/staged — those retain their last-interpolated content)
-5. For Scripture templates, triggers a measurement request to the overlay (if connected)
 
 ---
 
@@ -284,110 +254,55 @@ CREATE TABLE IF NOT EXISTS metadata_templates (
 );
 ```
 
-**Migration**: The existing table is altered via `ALTER TABLE` statements in `applySchema()`:
-- `ALTER TABLE metadata_templates ADD COLUMN lowerThirdType TEXT CHECK(...)`
-- `ALTER TABLE metadata_templates ADD COLUMN autoDismissMs INTEGER`
-- The `category` CHECK constraint cannot be altered in SQLite — the schema creation uses `IF NOT EXISTS` so existing tables keep their constraint. A migration step recreates the table with the new constraint if needed (copy data → drop → recreate → restore).
+**Migration strategy**: SQLite cannot alter CHECK constraints. The migration in `applySchema()` SHALL:
+1. Check if `lowerThirdType` column exists (via `PRAGMA table_info(metadata_templates)`)
+2. If not: create a temp table with the new schema, copy all data, drop the original, rename temp to original
+3. This runs once on first startup after upgrade; subsequent startups hit `IF NOT EXISTS` and skip
 
-**`formatString` column semantics**:
-- For `category = 'title'` or `'description'`: plain string (e.g., `"{Date} – {Speaker} – {Title}"`)
-- For `category = 'lower_third'`: JSON object in canonical form (keys sorted alphabetically). Shape depends on `lowerThirdType`:
-  - Title: `{"title":"{Speaker}"}`
-  - TitleSubtitle: `{"subtitle":"{Title}","title":"{Speaker}"}`
-  - Scripture: `{"title":"{Scripture}"}`
-
-**Canonical JSON**: All lower-third `formatString` values are stored with keys sorted alphabetically and no extraneous whitespace. The DAO normalizes on write: `JSON.stringify(obj, Object.keys(obj).sort())`. Duplicate detection compares the normalized form.
+**Canonical JSON**: Lower-third `formatString` values are stored with keys sorted alphabetically. The DAO normalizes on write: `JSON.stringify(obj, Object.keys(obj).sort())`. This only applies to flat objects (which all lower-third format strings are).
 
 ---
 
 ## Event Constants
 
-### Backend-Only EventBus Constants
-
-Added to `packages/backend/src/eventBus/types.ts`:
-
 ```typescript
+// Backend-only EventBus
 export const BUS_LOWER_THIRD_STATE_CHANGED = "bus:lower-third:state:changed" as const;
-```
 
-### EventMap Extension
-
-```typescript
-interface LowerThirdEventMap {
-  [BUS_LOWER_THIRD_STATE_CHANGED]: LowerThirdState;
-}
-
-// Root EventMap gains the new slice
-export interface EventMap extends ObsEventMap, SessionManifestEventMap, RelayEventMap, PlatformEventMap, LowerThirdEventMap {}
-```
-
-### Shared Socket.io Event Constants
-
-Added to `packages/shared/src/constants/socketEvents.ts`:
-
-```typescript
-// Client → Server (dashboard → backend, authenticated)
+// Client → Server (dashboard → backend)
 export const CTS_LOWER_THIRD_COMMAND = "cts:lower-third:command" as const;
 
-// Server → Client (backend → dashboard, authenticated)
+// Server → Client (backend → dashboard)
 export const STC_LOWER_THIRD_STATE = "stc:lower-third:state" as const;
 
-// Controller → Overlay (backend → overlay page, /overlay namespace)
+// Controller → Overlay (backend → overlay, /overlay namespace)
 export const CTO_LOWER_THIRD_SHOW = "cto:lower-third:show" as const;
 export const CTO_LOWER_THIRD_DISMISS = "cto:lower-third:dismiss" as const;
 export const CTO_LOWER_THIRD_PUSH_UP = "cto:lower-third:push-up" as const;
 export const CTO_LOWER_THIRD_PAGE = "cto:lower-third:page" as const;
 export const CTO_LOWER_THIRD_STATE = "cto:lower-third:state" as const;
 export const CTO_LOWER_THIRD_MEASURE = "cto:lower-third:measure" as const;
+export const CTO_LOWER_THIRD_FORCE_CLEAR = "cto:lower-third:force-clear" as const;
 
-// Overlay → Controller (overlay page → backend, /overlay namespace)
+// Overlay → Controller (overlay → backend, /overlay namespace)
 export const OTC_LOWER_THIRD_PHASE = "otc:lower-third:phase" as const;
 export const OTC_LOWER_THIRD_RESOLUTION = "otc:lower-third:resolution" as const;
 export const OTC_LOWER_THIRD_PAGES = "otc:lower-third:pages" as const;
-export const OTC_LOWER_THIRD_LOG = "otc:lower-third:log" as const;
 ```
 
 ---
 
 ## Socket.io Gateway
 
-### LowerThirdModule (New — Default Namespace)
+### LowerThirdModule (Default Namespace)
 
-Handles dashboard ↔ backend communication for lower-third control. Implements `SocketModule`.
-
-```typescript
-export class LowerThirdModule implements SocketModule {
-  constructor(private readonly lowerThirdService: LowerThirdService) {}
-
-  register(io: Server): void {
-    eventBus.subscribe(BUS_LOWER_THIRD_STATE_CHANGED, (state) => {
-      io.emit(STC_LOWER_THIRD_STATE, state);
-    });
-  }
-
-  registerSocket(auth: AuthenticatedSocket): void {
-    auth.socket.on(CTS_LOWER_THIRD_COMMAND, (command: LowerThirdCommand, ack) => {
-      const result = this.handleCommand(command);
-      ack(result);
-    });
-  }
-
-  emitInitialState(auth: AuthenticatedSocket): void {
-    auth.socket.emit(STC_LOWER_THIRD_STATE, this.lowerThirdService.getFullState());
-  }
-
-  private handleCommand(command: LowerThirdCommand): CommandResult { /* ... */ }
-}
-```
-
-### LowerThirdCommand Type
+Implements `SocketModule`. Handles dashboard commands and broadcasts state.
 
 ```typescript
 type LowerThirdCommand =
-  | { type: "promote-to-active" }
+  | { type: "activate"; itemId: string }
   | { type: "dismiss-active" }
-  | { type: "promote-to-staged"; itemId: string }
-  | { type: "demote-from-staged" }
+  | { type: "force-clear" }
   | { type: "add-to-library"; input: AddLowerThirdInput }
   | { type: "remove-from-library"; itemId: string }
   | { type: "edit-library-item"; itemId: string; patch: EditLowerThirdInput }
@@ -395,54 +310,43 @@ type LowerThirdCommand =
   | { type: "page-previous" };
 ```
 
-### Overlay Namespace (New — `/overlay`)
+Command acknowledgments use the existing `CommandResult` type: `{ success: true } | { success: false; error: string }`.
 
-A separate Socket.io namespace with no authentication middleware. Registered in `socketGateway.ts` alongside the default namespace.
+### Overlay Namespace (`/overlay`)
+
+Registered as a standalone function (not a `SocketModule`) because it is unauthenticated and cannot satisfy the `AuthenticatedSocket` interface. This is a justified divergence from the standard pattern — documented in the steering doc update notes above.
+
+**Single-client enforcement**: On new connection, forcibly disconnect any existing overlay client. Log a warning if this occurs.
 
 ```typescript
-export function registerOverlayNamespace(io: Server, lowerThirdService: LowerThirdService): void {
+export function registerOverlayNamespace(io: Server, service: LowerThirdService): void {
   const overlay = io.of("/overlay");
+  let currentSocket: Socket | null = null;
 
   overlay.on("connection", (socket) => {
-    lowerThirdService.setOverlayConnected(true);
+    if (currentSocket) {
+      currentSocket.disconnect(true);
+      logger.warn("Previous overlay client forcibly disconnected");
+    }
+    currentSocket = socket;
+    service.setOverlayConnected(true);
 
-    // Send initial state
-    const state = lowerThirdService.getFullState();
-    const skipEntrance = state.phase === "visible";
-    socket.emit(CTO_LOWER_THIRD_STATE, { ...state, skipEntrance });
+    // Initial state with skipEntrance flag
+    const state = service.getFullState();
+    socket.emit(CTO_LOWER_THIRD_STATE, { ...state, skipEntrance: state.phase === "visible" });
 
-    // Send pending measurement requests
-    lowerThirdService.getPendingMeasurements().forEach((item) => {
+    // Pending measurements
+    service.getPendingMeasurements().forEach((item) => {
       socket.emit(CTO_LOWER_THIRD_MEASURE, { itemId: item.id, verses: item.content.verses });
     });
 
-    // Resolution telemetry
-    socket.on(OTC_LOWER_THIRD_RESOLUTION, (data: { width: number; height: number; isCorrect: boolean }) => {
-      lowerThirdService.handleResolutionReport(data);
-    });
-
-    // Phase reports
-    socket.on(OTC_LOWER_THIRD_PHASE, (phase: AnimationPhase) => {
-      lowerThirdService.reportPhase(phase);
-    });
-
-    // Page breakdown reports
-    socket.on(OTC_LOWER_THIRD_PAGES, (data: { itemId: string; pages: PageBreakdown }) => {
-      lowerThirdService.reportPages(data.itemId, data.pages);
-    });
-
-    // Logging
-    socket.on(OTC_LOWER_THIRD_LOG, (entries: LogEntry[]) => {
-      for (const entry of entries) {
-        logger[entry.level ?? "info"](entry.message, {
-          source: "overlay",
-          ...(entry.context ? { context: entry.context } : {}),
-        });
-      }
-    });
+    socket.on(OTC_LOWER_THIRD_PHASE, (phase) => service.reportPhase(phase));
+    socket.on(OTC_LOWER_THIRD_RESOLUTION, (data) => service.handleResolutionReport(data));
+    socket.on(OTC_LOWER_THIRD_PAGES, (data) => service.reportPages(data.itemId, data.pages));
 
     socket.on("disconnect", () => {
-      lowerThirdService.setOverlayConnected(false);
+      currentSocket = null;
+      service.setOverlayConnected(false);
     });
   });
 }
@@ -452,42 +356,33 @@ export function registerOverlayNamespace(io: Server, lowerThirdService: LowerThi
 
 ## REST Routes
 
-### Overlay Log Route (New)
+### Overlay Log Route
 
-Mounted at `/api/overlay/logs` without authentication middleware.
+Mounted at `/api/overlay/logs` **without** authentication middleware. Rate-limited to 10 requests/minute per IP, max 10 entries per batch, max 1KB per entry.
 
 ```typescript
 export function createOverlayLogRouter(): Router {
   const router = Router();
-
-  router.post("/", (request: Request, response: Response): void => {
-    const entries = request.body as LogEntry[];
-    if (!Array.isArray(entries)) {
-      response.status(400).json({ error: "body must be an array of log entries" });
+  router.post("/", rateLimiter, (req, res) => {
+    const entries = req.body as LogEntry[];
+    if (!Array.isArray(entries) || entries.length > 10) {
+      res.status(400).json({ error: "Invalid payload" });
       return;
     }
     for (const entry of entries) {
-      logger[entry.level ?? "info"](entry.message, {
-        source: "overlay",
-        ...(entry.context ? { context: entry.context } : {}),
-      });
+      logger[entry.level ?? "info"](entry.message, { source: "overlay", ...(entry.context ? { context: entry.context } : {}) });
     }
-    response.status(204).send();
+    res.status(204).send();
   });
-
   return router;
 }
 ```
-
-### Modified Admin Template Routes
-
-The existing admin template CRUD routes are extended to handle `category: 'lower_third'` with the additional fields (`lowerThirdType`, `autoDismissMs`). The validation endpoint accepts JSON `formatString` for lower-third templates and validates tokens within the JSON values.
 
 ---
 
 ## Frontend — Dashboard
 
-### Zustand Slice: `lowerThirdSlice`
+### Zustand Slice
 
 ```typescript
 interface LowerThirdSlice {
@@ -496,112 +391,61 @@ interface LowerThirdSlice {
 }
 ```
 
-The slice stores the full `LowerThirdState` received from the backend. The widget reads from this slice; the socket module writes to it.
-
-### Socket Module: `lowerThirdSocketModule`
-
-Registers `socket.on(STC_LOWER_THIRD_STATE, ...)` and wires to `useStore.getState().setLowerThirdState()`.
-
 ### Widget: `LowerThirdWidget`
 
-Located at `packages/frontend/src/components/lower-thirds/LowerThirdWidget.tsx`.
-
-**Structure**:
 ```
 WidgetContainer (title: "Lower Thirds", connections: [])
 ├── ActiveSection
-│   ├── ActiveItem (with dismiss button, countdown, status overlay)
-│   └── PaginationRow (if scripture with pages)
-├── StagedSection
-│   └── StagedItem (with promote/demote/edit buttons)
+│   ├── ActiveRow (dismiss button visible, swipe-left for Force Clear)
+│   │   ├── CountdownIndicator (if auto-dismiss)
+│   │   └── StatusOverlay ("Dismissing...", blocks interaction)
+│   └── PaginationRow (if paginated scripture)
 ├── LibrarySection
-│   ├── TemplateItems (sorted by name, no delete/edit)
-│   └── VolunteerItems (sorted by creation time, with delete/edit)
-└── AddButton (dropdown → type selection → input dialog)
+│   ├── TemplateItems (sorted by name)
+│   │   └── Row (Show button visible, swipe-right for Go Live)
+│   └── VolunteerItems (sorted by creation time)
+│       └── Row (Show button visible, swipe-left for Edit/Delete, swipe-right for Go Live)
+├── EmptyStates ("Nothing active", "No items available")
+├── AddButton (dropdown → type → input dialog)
+└── PreviewDialog (modal: content preview + Cancel/Go Live)
 ```
 
-**Sub-components** (all presentational, receive props):
-- `LowerThirdRow` — shared row component for all sections (title, subtitle, action buttons, used indicator, status overlay)
-- `ActiveCountdown` — circular countdown indicator, receives `autoDismissAt`
-- `PaginationControls` — Previous/Next buttons with current page reference display
-- `AddLowerThirdDialog` — modal with type-specific input fields
-- `EditLowerThirdDialog` — modal pre-populated with existing values
+### Swipe-to-Reveal Implementation
 
-**Hook**: `useLowerThirdState()` — reads from store, provides `sendCommand(command)` via socket.
-
-### Widget Registration
-
-The Lower Thirds widget is registered in the widget system with `widgetId: "lower-thirds"`. It is configurable per-dashboard via the `widget_configurations` table, following the same pattern as the OBS widget.
+Each row uses a swipeable container (e.g., CSS `transform: translateX()` with touch event handlers). Actions are revealed as icon+label buttons (icon on top, label below, 2.5rem × 2.5rem). Only one row may be swiped open at a time — opening a new row closes the previous.
 
 ---
 
 ## Frontend — Overlay Page
 
-### Route: `/overlay/lower-thirds`
-
-A dedicated React route with no layout wrapper, no `IonPage`, no navigation. Renders only the overlay content with a transparent background.
+### Route Registration
 
 ```typescript
-// In router configuration
-{ path: "/overlay/lower-thirds", element: <LowerThirdOverlay /> }
+// Outside ProtectedRoutes — no auth wrapper, no layout
+<Route path="/overlay/lower-thirds" element={<LowerThirdOverlay />} />
 ```
 
 ### Component: `LowerThirdOverlay`
 
-Located at `packages/frontend/src/overlay/LowerThirdOverlay.tsx`.
-
-**Responsibilities**:
-- Connects to `/overlay` Socket.io namespace (no auth)
-- Manages animation state machine locally (as safety backup to backend)
-- Renders the Aspect Ratio Jail container
-- Renders the active lower-third with the appropriate style component
-- Handles show/dismiss/push-up/page commands from backend
-- Reports phase changes back to backend
-- Measures scripture items in hidden container on `measure` command
-- Sends `postMessage({ type: "overlay-ready" })` to parent on mount
-- Implements 30-second disconnect timeout for stuck graphic prevention
-- Sends logs via `POST /api/overlay/logs`
-
-**No visible UI other than lower-thirds**: No error messages, no loading indicators, no diagnostic boxes. Fully transparent when no lower-third is active.
-
-### Component: `BlueRhombusStyle`
-
-Located at `packages/frontend/src/overlay/styles/BlueRhombusStyle.tsx`.
-
-Renders the Blue Rhombus visual:
-- Thin royal blue rhombus (CSS `transform: skewX()` or clip-path)
-- Dark semi-transparent plate (`rgba(0, 0, 0, 0.85)`)
-- Text content area with type-specific layout (Title / TitleSubtitle / Scripture)
-- All sizing in `cqw`/`cqh` units relative to the Aspect Ratio Jail container
+- Connects to `/overlay` namespace (no auth)
+- Waits for `document.fonts.ready` before sending `overlay-ready` postMessage
+- Sends heartbeat postMessages every 5s to parent (static wrapper health check)
+- Renders Aspect Ratio Jail + active lower-third
+- Handles all CTO commands, reports phases via OTC
+- Measures scripture in hidden container on `measure` command
+- 15-second disconnect timeout for stuck graphic prevention
+- Logs via `POST /api/overlay/logs`
+- Force Clear: immediately sets `display: none`, reports `hidden`
 
 ### Animation Implementation
 
-Animations use CSS transitions and keyframes where possible, with JavaScript coordination for sequenced multi-step animations.
+**Entrance**: Rhombus `scaleY(0→1)` from center (~200ms) → plate+text unfold right (~400ms)
 
-**Entrance (show)**:
-1. Rhombus: `scaleY(0)` → `scaleY(1)` with `transform-origin: center` (~200ms)
-2. Plate + text: `width: 0; opacity: 0` → `width: auto; opacity: 1` (~400ms, starts after step 1)
+**Exit**: Rhombus slides right as traveling curtain (~600ms) → rhombus `scaleY(1→0)` to center (~200ms)
 
-**Exit (dismiss)**:
-1. Rhombus slides right across plate width (~600ms) — plate/text masked by `overflow: hidden` on a wrapper that shrinks from the left as rhombus moves
-2. Rhombus: `scaleY(1)` → `scaleY(0)` with `transform-origin: center` (~200ms)
+**Push-up**: Container `overflow: hidden`, old `translateY(-100%)` + new `translateY(0)` (~300ms), plate height transitions
 
-**Push-up**:
-- Container has `overflow: hidden`
-- Old content: `translateY(0)` → `translateY(-100%)` (~300ms)
-- New content: `translateY(100%)` → `translateY(0)` (~300ms, simultaneous)
-- Plate height: CSS `transition: height 300ms`
-
-**Phase reporting**: `onAnimationEnd` / `onTransitionEnd` event handlers trigger phase reports to the backend.
-
-### Scripture Measurement
-
-A hidden `<div>` with the same CSS as the live display (same container width, fonts, padding) is used for off-screen measurement. When a `measure` command arrives:
-
-1. Render all verses into the hidden container at 70% width
-2. Measure total height; if > 4 lines, try 80% width to check if it reduces line count
-3. Determine page breaks (no verse split across pages, max 4 lines per page, single-verse overflow allowed)
-4. Report `PageBreakdown` to backend via `OTC_LOWER_THIRD_PAGES`
+**Force Clear**: `display: none` — instant, no animation
 
 ### Aspect Ratio Jail CSS
 
@@ -619,11 +463,7 @@ A hidden `<div>` with the same CSS as the live display (same container width, fo
   container-type: size;
   container-name: overlay;
 }
-
-.lower-third-container {
-  margin-bottom: 15cqh;
-  margin-left: 3cqw;
-}
+.lower-third-container { margin-bottom: 15cqh; margin-left: 3cqw; }
 ```
 
 ---
@@ -632,51 +472,46 @@ A hidden `<div>` with the same CSS as the live display (same container width, fo
 
 ### File: `packages/overlay/lower-thirds.html`
 
+This is a static file directory, NOT an npm package. It does not participate in the build system. It is loaded directly by OBS via `file://` and documented in `docs/setup.md`.
+
 ```html
 <!DOCTYPE html>
 <html>
-<head>
-  <meta charset="utf-8">
-  <style>
-    * { margin: 0; padding: 0; }
-    html, body { width: 100%; height: 100%; overflow: hidden; background: transparent; }
-    iframe { border: none; width: 100%; height: 100%; display: none; }
-  </style>
+<head><meta charset="utf-8">
+<style>
+  * { margin: 0; padding: 0; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: transparent; }
+  iframe { border: none; width: 100%; height: 100%; display: none; }
+</style>
 </head>
-<body>
-  <iframe id="overlay"></iframe>
-  <script>
-    const IFRAME_URL = 'https://invisible.av/overlay/lower-thirds';
-    const POLL_INTERVAL = 3000;
-    const READY_TIMEOUT = 10000;
-    const iframe = document.getElementById('overlay');
-    let polling = true;
-    let readyTimer = null;
+<body data-overlay-url="https://invisible.av/overlay/lower-thirds">
+<iframe id="overlay"></iframe>
+<script>
+const URL = document.body.dataset.overlayUrl;
+const iframe = document.getElementById('overlay');
+let heartbeatTimer = null;
 
-    function poll() {
-      if (!polling) return;
-      fetch(IFRAME_URL, { method: 'HEAD', mode: 'no-cors' })
-        .then(() => {
-          iframe.src = IFRAME_URL;
-          readyTimer = setTimeout(() => {
-            iframe.style.display = 'none';
-            iframe.src = '';
-            setTimeout(poll, POLL_INTERVAL);
-          }, READY_TIMEOUT);
-        })
-        .catch(() => setTimeout(poll, POLL_INTERVAL));
-    }
+function load() {
+  iframe.src = URL;
+  setTimeout(() => { if (iframe.style.display === 'none') { iframe.src = ''; setTimeout(load, 3000); } }, 10000);
+}
 
-    window.addEventListener('message', (e) => {
-      if (e.data && e.data.type === 'overlay-ready') {
-        clearTimeout(readyTimer);
-        iframe.style.display = 'block';
-        polling = false;
-      }
-    });
+window.addEventListener('message', (e) => {
+  if (e.data?.type === 'overlay-ready') {
+    iframe.style.display = 'block';
+    resetHeartbeat();
+  } else if (e.data?.type === 'overlay-heartbeat') {
+    resetHeartbeat();
+  }
+});
 
-    poll();
-  </script>
+function resetHeartbeat() {
+  clearTimeout(heartbeatTimer);
+  heartbeatTimer = setTimeout(() => { iframe.style.display = 'none'; iframe.src = ''; setTimeout(load, 3000); }, 10000);
+}
+
+load();
+</script>
 </body>
 </html>
 ```
@@ -685,50 +520,46 @@ A hidden `<div>` with the same CSS as the live display (same container width, fo
 
 ## Correctness Properties
 
-1. **At most one active lower-third**: The service rejects any command that would result in two simultaneous active items. Push-up transitions atomically swap the active item.
-2. **Transition lock prevents race conditions**: No promote or dismiss command is accepted while phase is `showing` or `dismissing`. This is enforced by the backend regardless of frontend button state.
-3. **Auto-dismiss timer isolation**: Each timer is associated with a specific item ID. Cancellation is explicit (manual dismiss, push-up, or item deactivation). A timer can never dismiss an item it wasn't started for.
-4. **Backend phase is authoritative**: The overlay reports phases, but the backend maintains its own phase state. If the overlay crashes mid-animation, the backend's 5-second fallback timeout transitions to the next phase.
-5. **Canonical JSON prevents false duplicates**: `formatString` is always stored in sorted-key canonical form. Comparison uses the stored form directly.
-6. **Library items are stable**: Template-derived items are keyed by template ID. Manifest changes add/remove items but never duplicate them. Volunteer items are keyed by unique ID and maintain creation-time ordering regardless of edits.
+1. **At most one active lower-third**: The service atomically swaps via push-up or clears via dismiss.
+2. **Transition lock prevents race conditions**: No activate or dismiss accepted during `showing`/`dismissing`. Force Clear bypasses.
+3. **Auto-dismiss timer isolation**: Each timer is per-item. Cancellation is explicit. A timer never dismisses a different item.
+4. **Backend phase is authoritative**: 5-second fallback advances state if overlay is unresponsive.
+5. **Canonical JSON prevents false duplicates**: Stored in sorted-key form; compared directly.
+6. **Library items are stable**: Template items keyed by template ID. Volunteer items maintain creation-time order regardless of edits.
+7. **Single overlay client**: New connections forcibly disconnect the previous. No doubled graphics.
 
 ---
 
-## Testing Strategy Additions
+## Testing Strategy
 
 ### Unit Tests
-
-- `LowerThirdService` — state transitions, transition lock enforcement, auto-dismiss timer lifecycle, template resolution, library computation
-- `MetadataTemplateDao` — lower-third CRUD, canonical JSON normalization, duplicate detection
-- `LowerThirdModule` — command handling, initial state emission
-- `BlueRhombusStyle` — renders correct structure for each type
-- `LowerThirdWidget` — section rendering, button states, countdown display
-- `LowerThirdOverlay` — phase reporting, measurement, disconnect timeout
+- `LowerThirdService` — state transitions, transition lock, auto-dismiss lifecycle, template resolution, force clear
+- `MetadataTemplateDao` — lower-third CRUD, canonical JSON, duplicate detection
+- `LowerThirdModule` — command handling, ack responses, initial state
+- `LowerThirdWidget` — sections, swipe actions, preview dialog, countdown
+- `LowerThirdOverlay` — phase reporting, measurement, disconnect timeout, force clear
 
 ### Integration Tests
-
-- Full flow: add scripture → measure → stage → activate → paginate → dismiss
+- Full flow: add scripture → measure → activate via preview → paginate → dismiss
 - Auto-dismiss: activate with timer → verify dismiss fires → verify phase transitions
-- Push-up: activate item A → promote item B from staged → verify push-up command sent
-- Template resolution: update manifest → verify library items recompute
-- Overlay reconnect: disconnect → reconnect → verify correct state with skipEntrance
-
-### Manual Testing
-
-- OBS browser source at 1920×1080: verify aspect ratio jail, positioning, animations
-- OBS browser source at wrong resolution: verify dashboard banner appears
-- Scene switch: verify overlay stays connected (no shutdown)
-- Backend restart: verify overlay dismisses after 30s, reconnects cleanly
+- Push-up: activate A → activate B → verify push-up command
+- Template resolution: update manifest → verify library recomputes
+- Overlay reconnect: disconnect → reconnect → verify skipEntrance
+- Force Clear: mid-animation → force clear → verify instant hidden
 
 ### Overlay Integration Tests (Playwright)
+- **Show**: backend sends show → overlay renders → reports `showing` then `visible`
+- **Dismiss**: backend sends dismiss → overlay animates → reports `dismissing` then `hidden`
+- **Push-up**: activate A → push-up B → verify content swap → reports `showing` then `visible`
+- **Measurement**: send measure → verify correct PageBreakdown response
+- **Disconnect timeout**: disconnect → wait 15s → verify local dismiss
+- **Reconnect skipEntrance**: activate → disconnect → reconnect → immediate render, reports `visible`
+- **Reconnect after timer**: activate with auto-dismiss → disconnect → timer fires → reconnect → no render
+- **Force Clear**: mid-animation → force-clear → instant hide, reports `hidden`
+- **Resolution telemetry**: non-1920×1080 viewport → reports `isCorrect: false`
 
-End-to-end tests that load the overlay page in a real browser and verify the full command → render → phase report loop against a running backend.
-
-- **Show command**: backend sends `CTO_LOWER_THIRD_SHOW` → verify overlay renders the lower-third element → verify backend receives `showing` then `visible` phase reports
-- **Dismiss command**: backend sends `CTO_LOWER_THIRD_DISMISS` → verify overlay runs exit animation → verify backend receives `dismissing` then `hidden` phase reports → verify DOM is empty
-- **Push-up transition**: activate item A → send `CTO_LOWER_THIRD_PUSH_UP` with item B → verify old text exits, new text enters → verify backend receives `showing` then `visible`
-- **Scripture measurement**: backend sends `CTO_LOWER_THIRD_MEASURE` with verse data → verify overlay reports `OTC_LOWER_THIRD_PAGES` with correct page breakdown (page count, verse ranges per page)
-- **Disconnect timeout**: establish connection → disconnect backend → wait 30s → verify overlay locally dismisses (DOM empty) without backend phase report
-- **Reconnect with skipEntrance**: activate item → disconnect overlay → reconnect → verify overlay renders immediately (no entrance animation) and reports `visible`
-- **Reconnect after timer fired**: activate item with auto-dismiss → disconnect overlay → wait for timer to fire on backend → reconnect → verify overlay does NOT render the item (backend phase is `dismissing`/`hidden`)
-- **Resolution telemetry**: load overlay at non-1920×1080 viewport → verify `OTC_LOWER_THIRD_RESOLUTION` reports `isCorrect: false` with detected dimensions
+### Manual Testing
+- OBS at 1920×1080: verify positioning, animations
+- OBS wrong resolution: verify dashboard banner
+- Scene switch: verify overlay stays connected
+- Backend restart: verify overlay dismisses after 15s, reconnects cleanly
