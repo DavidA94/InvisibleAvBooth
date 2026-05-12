@@ -369,8 +369,16 @@ export function createOverlayLogRouter(): Router {
       res.status(400).json({ error: "Invalid payload" });
       return;
     }
+    const oversized = entries.filter((e) => JSON.stringify(e).length > 1024);
+    if (oversized.length > 0) {
+      logger.warn("Overlay log entries rejected: exceeds 1KB limit", {
+        source: "backend",
+        context: { count: oversized.length, ip: req.ip, userAgent: req.headers["user-agent"] },
+      });
+      res.status(413).json({ error: `${oversized.length} entry/entries exceed 1KB limit` });
+      return;
+    }
     for (const entry of entries) {
-      if (JSON.stringify(entry).length > 1024) continue; // skip oversized entries
       logger[entry.level ?? "info"](entry.message, { source: "overlay", ...(entry.context ? { context: entry.context } : {}) });
     }
     res.status(204).send();
