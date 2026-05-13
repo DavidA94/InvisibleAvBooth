@@ -114,13 +114,13 @@ Tests are part of each task's definition of done. Unit tests follow the unit or 
 - [x] 32. Create `PreviewDialog` component — modal showing item content/type/style, Cancel and Go Live buttons, disabled during transition lock.
   - _Requirements: 5_
 
-- [ ] 33. Create `AddLowerThirdDialog` — type dropdown, type-specific input fields (Title: title input; TitleSubtitle: title+subtitle inputs; Scripture: ScriptureReferenceInput), Cancel/Save actions.
+- [x] 33. Create `AddLowerThirdDialog` — type dropdown, type-specific input fields (Title: title input; TitleSubtitle: title+subtitle inputs; Scripture: ScriptureReferenceInput), Cancel/Save actions.
   - _Requirements: 5_
 
-- [ ] 34. Create `EditLowerThirdDialog` — pre-populated from existing item, same fields as Add, preserves sort position on save.
+- [x] 34. Create `EditLowerThirdDialog` — pre-populated from existing item, same fields as Add, preserves sort position on save.
   - _Requirements: 5, 9_
 
-- [ ] 35. Write unit tests for widget components — section rendering, button states, swipe actions, countdown, pagination, preview dialog, add/edit dialogs, empty states, connection indicator.
+- [x] 35. Write unit tests for widget components — section rendering, button states, swipe actions, countdown, pagination, preview dialog, add/edit dialogs, empty states, connection indicator.
   - _Requirements: 5_
 
 ---
