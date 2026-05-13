@@ -154,6 +154,61 @@ describe("AvVolunteer warning", () => {
   });
 });
 
+// ── Lower-Third Validation ────────────────────────────────────────────────────
+
+describe("lower-third validation", () => {
+  it("extracts and validates tokens from JSON formatString", () => {
+    const result = validateTemplate(
+      { name: "Test", category: "lower_third", formatString: '{"title":"{Speaker}","subtitle":"{BadToken}"}', roleMinimum: "AvVolunteer" },
+      [],
+    );
+    expect(result.blockers.some((b) => b.includes("{BadToken}"))).toBe(true);
+  });
+
+  it("accepts valid tokens in JSON formatString", () => {
+    const result = validateTemplate(
+      { name: "Test", category: "lower_third", formatString: '{"title":"{Speaker}","subtitle":"{Title}"}', roleMinimum: "AvVolunteer" },
+      [],
+    );
+    expect(result.blockers).toHaveLength(0);
+  });
+
+  it("detects duplicate formatString using canonical JSON comparison", () => {
+    const existingTemplates = [
+      { id: "e1", name: "Existing", category: "lower_third" as const, formatString: '{"subtitle":"{Title}","title":"{Speaker}"}', roleMinimum: "AvVolunteer" as const },
+    ];
+    // Same content, different key order
+    const result = validateTemplate(
+      { name: "New", category: "lower_third", formatString: '{"title":"{Speaker}","subtitle":"{Title}"}', roleMinimum: "AvVolunteer" },
+      existingTemplates,
+    );
+    expect(result.blockers.some((b) => b.includes("Duplicate format string"))).toBe(true);
+  });
+
+  it("does not trigger AvVolunteer warning for lower_third category", () => {
+    const existingTemplates = [
+      { id: "e1", name: "Existing", category: "lower_third" as const, formatString: '{"title":"{Speaker}"}', roleMinimum: "AvVolunteer" as const },
+    ];
+    const result = validateTemplate(
+      { name: "New", category: "lower_third", formatString: '{"title":"{Title}"}', roleMinimum: "AvVolunteer" },
+      existingTemplates,
+    );
+    expect(result.warnings).toHaveLength(0);
+  });
+
+  it("name uniqueness is within lower_third category only", () => {
+    const existingTemplates = [
+      { id: "e1", name: "Speaker", category: "title" as const, formatString: "{Speaker}", roleMinimum: "AvVolunteer" as const },
+    ];
+    // Same name but different category — should be allowed
+    const result = validateTemplate(
+      { name: "Speaker", category: "lower_third", formatString: '{"title":"{Speaker}"}', roleMinimum: "AvVolunteer" },
+      existingTemplates,
+    );
+    expect(result.blockers.filter((b) => b.includes("Duplicate template name"))).toHaveLength(0);
+  });
+});
+
 // ── Combined blockers + warnings ──────────────────────────────────────────────
 
 describe("combined blockers and warnings", () => {

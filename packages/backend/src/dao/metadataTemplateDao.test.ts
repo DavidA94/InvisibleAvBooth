@@ -260,3 +260,108 @@ describe("MetadataTemplateDao", () => {
     });
   });
 });
+
+// ── Lower-Third Template Tests ────────────────────────────────────────────────
+
+describe("MetadataTemplateDao — lower-third support", () => {
+  let database: Database.Database;
+  let dao: MetadataTemplateDao;
+
+  beforeEach(() => {
+    database = makeDatabase();
+    dao = makeDao(database);
+  });
+
+  it("creates a lower-third template with lowerThirdType and autoDismissMs", () => {
+    const row = dao.create({
+      name: "Speaker Name",
+      category: "lower_third",
+      formatString: '{"title":"{Speaker}"}',
+      roleMinimum: "AvVolunteer",
+      lowerThirdType: "Title",
+      autoDismissMs: 5000,
+    });
+    expect(row.category).toBe("lower_third");
+    expect(row.lowerThirdType).toBe("Title");
+    expect(row.autoDismissMs).toBe(5000);
+  });
+
+  it("stores formatString in canonical JSON form (keys sorted)", () => {
+    const row = dao.create({
+      name: "Speaker+Title",
+      category: "lower_third",
+      formatString: '{"subtitle":"{Title}","title":"{Speaker}"}',
+      roleMinimum: "AvVolunteer",
+      lowerThirdType: "TitleSubtitle",
+    });
+    // Keys should be sorted: subtitle before title
+    expect(row.formatString).toBe('{"subtitle":"{Title}","title":"{Speaker}"}');
+
+    // Even if input has different key order, output is canonical
+    const row2 = dao.create({
+      name: "Speaker+Title2",
+      category: "lower_third",
+      formatString: '{"title":"{Speaker}","subtitle":"{Title}"}',
+      roleMinimum: "AvVolunteer",
+      lowerThirdType: "TitleSubtitle",
+    });
+    expect(row2.formatString).toBe('{"subtitle":"{Title}","title":"{Speaker}"}');
+  });
+
+  it("allows null autoDismissMs for templates without auto-dismiss", () => {
+    const row = dao.create({
+      name: "Main Scripture",
+      category: "lower_third",
+      formatString: '{"title":"{Scripture}"}',
+      roleMinimum: "AvVolunteer",
+      lowerThirdType: "Scripture",
+    });
+    expect(row.autoDismissMs).toBeNull();
+  });
+
+  it("getLowerThirdTemplates returns only lower_third category", () => {
+    dao.create({ name: "Title", category: "title", formatString: "{Speaker}", roleMinimum: "AvVolunteer" });
+    dao.create({
+      name: "LT Speaker",
+      category: "lower_third",
+      formatString: '{"title":"{Speaker}"}',
+      roleMinimum: "AvVolunteer",
+      lowerThirdType: "Title",
+    });
+    const results = dao.getLowerThirdTemplates();
+    expect(results).toHaveLength(1);
+    expect(results[0]!.name).toBe("LT Speaker");
+  });
+
+  it("update handles lowerThirdType and autoDismissMs", () => {
+    const row = dao.create({
+      name: "Speaker",
+      category: "lower_third",
+      formatString: '{"title":"{Speaker}"}',
+      roleMinimum: "AvVolunteer",
+      lowerThirdType: "Title",
+      autoDismissMs: 5000,
+    });
+    const updated = dao.update(row.id, { autoDismissMs: 10000, lowerThirdType: "Title" });
+    expect(updated!.autoDismissMs).toBe(10000);
+  });
+
+  it("update canonicalizes formatString for lower_third", () => {
+    const row = dao.create({
+      name: "Test",
+      category: "lower_third",
+      formatString: '{"title":"x"}',
+      roleMinimum: "AvVolunteer",
+      lowerThirdType: "Title",
+    });
+    const updated = dao.update(row.id, { formatString: '{"subtitle":"y","title":"x"}' });
+    expect(updated!.formatString).toBe('{"subtitle":"y","title":"x"}');
+  });
+
+  it("existing title/description templates are unaffected by lower-third changes", () => {
+    const title = dao.create({ name: "Standard", category: "title", formatString: "{Date} – {Speaker}", roleMinimum: "AvVolunteer" });
+    expect(title.lowerThirdType).toBeNull();
+    expect(title.autoDismissMs).toBeNull();
+    expect(title.formatString).toBe("{Date} – {Speaker}"); // not canonicalized as JSON
+  });
+});
