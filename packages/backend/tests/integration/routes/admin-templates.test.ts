@@ -181,3 +181,102 @@ describe("ADMIN-only access", () => {
     expect((await s.agent.get("/api/admin/templates").set("Cookie", cookie)).status).toBe(403);
   });
 });
+
+// ── Lower-Third Templates ─────────────────────────────────────────────────────
+
+describe("POST /api/admin/templates — lower_third", () => {
+  it("creates a lower-third template with lowerThirdType and autoDismissMs", async () => {
+    const cookie = await loginAsAdmin(s.agent, s.ctx.authService);
+    const res = await s.agent.post("/api/admin/templates").set("Cookie", cookie).send({
+      name: "Speaker LT",
+      category: "lower_third",
+      formatString: '{"title":"{Speaker}"}',
+      roleMinimum: "AvVolunteer",
+      lowerThirdType: "Title",
+      autoDismissMs: 5000,
+    });
+    expect(res.status).toBe(201);
+    expect(res.body.category).toBe("lower_third");
+    expect(res.body.lowerThirdType).toBe("Title");
+    expect(res.body.autoDismissMs).toBe(5000);
+  });
+
+  it("returns 400 when lowerThirdType is missing for lower_third category", async () => {
+    const cookie = await loginAsAdmin(s.agent, s.ctx.authService);
+    const res = await s.agent.post("/api/admin/templates").set("Cookie", cookie).send({
+      name: "Bad LT",
+      category: "lower_third",
+      formatString: '{"title":"{Speaker}"}',
+      roleMinimum: "AvVolunteer",
+    });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toContain("lowerThirdType");
+  });
+
+  it("allows null autoDismissMs (no auto-dismiss)", async () => {
+    const cookie = await loginAsAdmin(s.agent, s.ctx.authService);
+    const res = await s.agent.post("/api/admin/templates").set("Cookie", cookie).send({
+      name: "Scripture LT",
+      category: "lower_third",
+      formatString: '{"title":"{Scripture}"}',
+      roleMinimum: "AvVolunteer",
+      lowerThirdType: "Scripture",
+    });
+    expect(res.status).toBe(201);
+    expect(res.body.autoDismissMs).toBeNull();
+  });
+
+  it("rejects unknown tokens in JSON formatString", async () => {
+    const cookie = await loginAsAdmin(s.agent, s.ctx.authService);
+    const res = await s.agent.post("/api/admin/templates").set("Cookie", cookie).send({
+      name: "Bad Tokens",
+      category: "lower_third",
+      formatString: '{"title":"{BadToken}"}',
+      roleMinimum: "AvVolunteer",
+      lowerThirdType: "Title",
+    });
+    expect(res.status).toBe(422);
+    expect(res.body.blockers[0]).toContain("{BadToken}");
+  });
+
+  it("detects duplicate formatString via canonical JSON comparison", async () => {
+    const cookie = await loginAsAdmin(s.agent, s.ctx.authService);
+    await s.agent.post("/api/admin/templates").set("Cookie", cookie).send({
+      name: "First",
+      category: "lower_third",
+      formatString: '{"title":"{Speaker}","subtitle":"{Title}"}',
+      roleMinimum: "AvVolunteer",
+      lowerThirdType: "TitleSubtitle",
+    });
+    // Same content, different key order
+    const res = await s.agent.post("/api/admin/templates").set("Cookie", cookie).send({
+      name: "Second",
+      category: "lower_third",
+      formatString: '{"subtitle":"{Title}","title":"{Speaker}"}',
+      roleMinimum: "AvVolunteer",
+      lowerThirdType: "TitleSubtitle",
+    });
+    expect(res.status).toBe(422);
+    expect(res.body.blockers[0]).toContain("Duplicate format string");
+  });
+});
+
+describe("PUT /api/admin/templates/:id — lower_third", () => {
+  it("updates autoDismissMs on a lower-third template", async () => {
+    const cookie = await loginAsAdmin(s.agent, s.ctx.authService);
+    const created = await s.agent.post("/api/admin/templates").set("Cookie", cookie).send({
+      name: "Updatable",
+      category: "lower_third",
+      formatString: '{"title":"{Speaker}"}',
+      roleMinimum: "AvVolunteer",
+      lowerThirdType: "Title",
+      autoDismissMs: 5000,
+    });
+    const res = await s.agent
+      .put(`/api/admin/templates/${created.body.id as string}`)
+      .set("Cookie", cookie)
+      .send({ autoDismissMs: 10000 });
+    expect(res.status).toBe(200);
+    expect(res.body.autoDismissMs).toBe(10000);
+  });
+});

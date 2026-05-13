@@ -25,13 +25,13 @@ Tests are part of each task's definition of done. Unit tests follow the unit or 
 
 ## Phase 2: Backend Service & DAO
 
-- [ ] 6. Extend `MetadataTemplateDao` — expand `TemplateCategory` type, add `getByCategory('lower_third')` support, add canonical JSON normalization on write for lower-third templates, add duplicate detection for lower-third category.
+- [x] 6. Extend `MetadataTemplateDao` — expand `TemplateCategory` type, add `getByCategory('lower_third')` support, add canonical JSON normalization on write for lower-third templates, add duplicate detection for lower-third category.
   - _Requirements: 3_
 
-- [ ] 7. Write unit tests for DAO lower-third support — canonical JSON storage, duplicate detection, CRUD with new columns, existing title/description methods unaffected.
+- [x] 7. Write unit tests for DAO lower-third support — canonical JSON storage, duplicate detection, CRUD with new columns, existing title/description methods unaffected.
   - _Requirements: 3_
 
-- [ ] 8. Extend admin template routes — accept `lowerThirdType` and `autoDismissMs` fields for lower-third category, validate JSON formatString structure per type, validate tokens within JSON values.
+- [x] 8. Extend admin template routes — accept `lowerThirdType` and `autoDismissMs` fields for lower-third category, validate JSON formatString structure per type, validate tokens within JSON values.
   - _Requirements: 3_
 
 - [ ] 9. Write unit/integration tests for admin template routes — create/update/delete lower-third templates, validation rejects unknown tokens in JSON, duplicate detection works on canonical form.
