@@ -7,7 +7,7 @@ export interface ValidationResult {
   warnings: string[];
 }
 
-export type TemplateCategory = "title" | "description";
+export type TemplateCategory = "title" | "description" | "lower_third";
 
 export interface ValidationInput {
   name: string;
@@ -51,8 +51,10 @@ function collapseWhitespace(value: string): string {
  * Checks (in order):
  *  (a) Unknown tokens — any {Foo} not in VALID_TOKENS → BLOCKER
  *  (b) Duplicate format string (whitespace-collapsed, same category) → BLOCKER
- *  (c) Duplicate name (across all categories) → BLOCKER
+ *      For lower_third: uses canonical JSON comparison
+ *  (c) Duplicate name (within same category) → BLOCKER
  *  (d) AvVolunteer roleMinimum when category already has other templates → WARNING
+ *      (skipped for lower_third — multiple templates per role are expected)
  *
  * On edit, pass `excludeId` so the template being edited is not compared against itself.
  */
@@ -62,36 +64,36 @@ export function validateTemplate(input: ValidationInput, existing: ExistingTempl
 
   const candidates = input.excludeId ? existing.filter((template) => template.id !== input.excludeId) : existing;
 
-  // (a) Unknown tokens
-  const unknownTokens: string[] = [];
-  let match: RegExpExecArray | null;
-  // Reset lastIndex before iterating since TOKEN_PATTERN has the global flag
-  TOKEN_PATTERN.lastIndex = 0;
-  while ((match = TOKEN_PATTERN.exec(input.formatString)) !== null) {
-    const token = match[1];
-    if (token !== undefined && !VALID_TOKENS.has(token)) {
-      unknownTokens.push(token);
-    }
-  }
+  // (a) Unknown tokens — for lower_third, parse JSON and check tokens in all values
+  const tokensToCheck = input.category === "lower_third" ? extractTokensFromJson(input.formatString) : extractTokensFromString(input.formatString);
+  const unknownTokens = tokensToCheck.filter((t) => !VALID_TOKENS.has(t));
   if (unknownTokens.length > 0) {
     blockers.push(`Unknown token(s): ${unknownTokens.map((t) => `{${t}}`).join(", ")}`);
   }
 
-  // (b) Duplicate format string (whitespace-collapsed, same category)
-  const collapsed = collapseWhitespace(input.formatString);
-  const duplicateFormat = candidates.find((template) => template.category === input.category && collapseWhitespace(template.formatString) === collapsed);
-  if (duplicateFormat) {
-    blockers.push(`Duplicate format string in ${input.category} category (matches "${duplicateFormat.name}")`);
+  // (b) Duplicate format string (same category)
+  if (input.category === "lower_third") {
+    const canonical = canonicalizeForComparison(input.formatString);
+    const duplicate = candidates.find((t) => t.category === "lower_third" && canonicalizeForComparison(t.formatString) === canonical);
+    if (duplicate) {
+      blockers.push(`Duplicate format string in lower_third category (matches "${duplicate.name}")`);
+    }
+  } else {
+    const collapsed = collapseWhitespace(input.formatString);
+    const duplicate = candidates.find((t) => t.category === input.category && collapseWhitespace(t.formatString) === collapsed);
+    if (duplicate) {
+      blockers.push(`Duplicate format string in ${input.category} category (matches "${duplicate.name}")`);
+    }
   }
 
-  // (c) Duplicate name
-  const duplicateName = candidates.find((template) => template.name === input.name);
+  // (c) Duplicate name (within same category)
+  const duplicateName = candidates.find((template) => template.category === input.category && template.name === input.name);
   if (duplicateName) {
     blockers.push(`Duplicate template name "${input.name}"`);
   }
 
-  // (d) AvVolunteer with multiple templates in same category
-  if (input.roleMinimum === "AvVolunteer") {
+  // (d) AvVolunteer with multiple templates in same category (skip for lower_third)
+  if (input.category !== "lower_third" && input.roleMinimum === "AvVolunteer") {
     const sameCategoryCount = candidates.filter((template) => template.category === input.category && template.name !== "None").length;
     if (sameCategoryCount > 0) {
       warnings.push("AvVolunteer role with multiple templates in the same category — volunteers may find this confusing");
@@ -99,4 +101,41 @@ export function validateTemplate(input: ValidationInput, existing: ExistingTempl
   }
 
   return { blockers, warnings };
+}
+
+function extractTokensFromString(formatString: string): string[] {
+  const tokens: string[] = [];
+  TOKEN_PATTERN.lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = TOKEN_PATTERN.exec(formatString)) !== null) {
+    if (match[1] !== undefined) tokens.push(match[1]);
+  }
+  return tokens;
+}
+
+function extractTokensFromJson(formatString: string): string[] {
+  try {
+    const obj = JSON.parse(formatString) as Record<string, string>;
+    const tokens: string[] = [];
+    for (const value of Object.values(obj)) {
+      tokens.push(...extractTokensFromString(value));
+    }
+    return tokens;
+  } catch {
+    return []; // invalid JSON will be caught elsewhere
+  }
+}
+
+function canonicalizeForComparison(json: string): string {
+  try {
+    const obj = JSON.parse(json) as Record<string, unknown>;
+    const sorted = Object.keys(obj).sort();
+    const canonical: Record<string, unknown> = {};
+    for (const key of sorted) {
+      canonical[key] = obj[key];
+    }
+    return JSON.stringify(canonical);
+  } catch {
+    return json;
+  }
 }

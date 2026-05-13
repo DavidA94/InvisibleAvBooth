@@ -118,9 +118,9 @@ describe("duplicate name", () => {
     expect(nameBlockers).toHaveLength(0);
   });
 
-  it("detects duplicate name across categories", () => {
+  it("allows same name across different categories", () => {
     const result = validateTemplate(input({ name: "Existing Template", category: "description" }), [existing({ id: "e1" })]);
-    expect(result.blockers.some((b) => b.includes("Duplicate template name"))).toBe(true);
+    expect(result.blockers.some((b) => b.includes("Duplicate template name"))).toBe(false);
   });
 });
 

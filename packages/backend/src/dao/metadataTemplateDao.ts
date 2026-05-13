@@ -1,8 +1,8 @@
 import type { Database } from "better-sqlite3";
-import type { Role } from "@invisible-av-booth/shared";
+import type { Role, LowerThirdType } from "@invisible-av-booth/shared";
 import { createId } from "@paralleldrive/cuid2";
 
-export type TemplateCategory = "title" | "description";
+export type TemplateCategory = "title" | "description" | "lower_third";
 
 export interface MetadataTemplateRow {
   id: string;
@@ -10,6 +10,8 @@ export interface MetadataTemplateRow {
   category: TemplateCategory;
   formatString: string;
   roleMinimum: Role;
+  lowerThirdType: LowerThirdType | null;
+  autoDismissMs: number | null;
   createdAt: string;
 }
 
@@ -18,12 +20,16 @@ export interface CreateTemplateInput {
   category: TemplateCategory;
   formatString: string;
   roleMinimum: Role;
+  lowerThirdType?: LowerThirdType;
+  autoDismissMs?: number | null;
 }
 
 export interface UpdateTemplateInput {
   name?: string;
   formatString?: string;
   roleMinimum?: Role;
+  lowerThirdType?: LowerThirdType;
+  autoDismissMs?: number | null;
 }
 
 /**
@@ -62,9 +68,12 @@ export class MetadataTemplateDao {
   create(input: CreateTemplateInput): MetadataTemplateRow {
     const id = createId();
     const createdAt = new Date().toISOString();
+    const formatString = input.category === "lower_third" ? canonicalizeJson(input.formatString) : input.formatString;
     this.database
-      .prepare("INSERT INTO metadata_templates (id, name, category, formatString, roleMinimum, createdAt) VALUES (?, ?, ?, ?, ?, ?)")
-      .run(id, input.name, input.category, input.formatString, input.roleMinimum, createdAt);
+      .prepare(
+        "INSERT INTO metadata_templates (id, name, category, formatString, roleMinimum, lowerThirdType, autoDismissMs, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+      )
+      .run(id, input.name, input.category, formatString, input.roleMinimum, input.lowerThirdType ?? null, input.autoDismissMs ?? null, createdAt);
     return this.getById(id)!;
   }
 
@@ -82,12 +91,21 @@ export class MetadataTemplateDao {
       values.push(patch.name);
     }
     if (patch.formatString !== undefined) {
+      const formatString = existing.category === "lower_third" ? canonicalizeJson(patch.formatString) : patch.formatString;
       fields.push("formatString = ?");
-      values.push(patch.formatString);
+      values.push(formatString);
     }
     if (patch.roleMinimum !== undefined) {
       fields.push("roleMinimum = ?");
       values.push(patch.roleMinimum);
+    }
+    if (patch.lowerThirdType !== undefined) {
+      fields.push("lowerThirdType = ?");
+      values.push(patch.lowerThirdType);
+    }
+    if (patch.autoDismissMs !== undefined) {
+      fields.push("autoDismissMs = ?");
+      values.push(patch.autoDismissMs);
     }
     if (fields.length === 0) return existing;
 
@@ -122,4 +140,22 @@ export class MetadataTemplateDao {
     const row = this.database.prepare("SELECT COUNT(*) as count FROM metadata_templates WHERE category = 'title'").get() as { count: number };
     return row.count;
   }
+
+  getLowerThirdTemplates(): MetadataTemplateRow[] {
+    return this.database.prepare("SELECT * FROM metadata_templates WHERE category = 'lower_third'").all() as MetadataTemplateRow[];
+  }
+}
+
+/**
+ * Normalizes a JSON string to canonical form (keys sorted alphabetically, no extra whitespace).
+ * Used for lower-third formatString deduplication.
+ */
+export function canonicalizeJson(json: string): string {
+  const obj = JSON.parse(json) as Record<string, unknown>;
+  const sorted = Object.keys(obj).sort();
+  const canonical: Record<string, unknown> = {};
+  for (const key of sorted) {
+    canonical[key] = obj[key];
+  }
+  return JSON.stringify(canonical);
 }
