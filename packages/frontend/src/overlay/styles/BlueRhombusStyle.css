@@ -1,0 +1,178 @@
+/* Blue Rhombus Style — lower-third visual */
+
+.br-wrapper {
+  display: flex;
+  align-items: stretch;
+  position: relative;
+}
+
+/* ── Rhombus ─────────────────────────────────────────────────────────────── */
+
+.br-rhombus {
+  width: 0.6cqw;
+  background: #1a5ab8; /* royal blue */
+  transform: skewX(-6deg);
+  transform-origin: center;
+  flex-shrink: 0;
+}
+
+/* ── Plate (dark semi-transparent background) ────────────────────────────── */
+
+.br-plate {
+  background: rgba(0, 0, 0, 0.85);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+}
+
+.br-content {
+  padding: 1.2cqh 2cqw 1.2cqh 1.5cqw;
+}
+
+/* ── Text styles ─────────────────────────────────────────────────────────── */
+
+.br-text {
+  color: #f5f5f5;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.br-text--title {
+  font-weight: 700;
+  font-size: 2.2cqh;
+}
+
+.br-text--subtitle {
+  font-weight: 400;
+  font-style: italic;
+  font-size: 1.8cqh;
+  margin-top: 0.4cqh;
+  color: #d0d0d0;
+}
+
+.br-text--reference {
+  font-weight: 700;
+  font-size: 2cqh;
+  margin-bottom: 0.6cqh;
+}
+
+.br-verses {
+  max-width: 70%;
+  transition: max-width 300ms ease;
+}
+
+.br-verse {
+  color: #e8e8e8;
+  font-size: 1.7cqh;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.br-verse--zero {
+  font-style: italic;
+}
+
+.br-verse-num {
+  font-weight: 600;
+  color: #a0a0a0;
+}
+
+/* ── Phase: Hidden ───────────────────────────────────────────────────────── */
+
+.br-phase--hidden {
+  display: none;
+}
+
+/* ── Phase: Showing (Entrance Animation) ─────────────────────────────────── */
+/* Step 1: Rhombus grows vertically from center
+   Step 2: Plate + text unfolds to the right */
+
+.br-phase--showing .br-rhombus {
+  animation: br-rhombus-grow 200ms ease-out forwards;
+}
+
+.br-phase--showing .br-plate {
+  animation: br-plate-unfold 400ms ease-out 200ms forwards;
+  max-width: 0;
+  opacity: 0;
+}
+
+@keyframes br-rhombus-grow {
+  0% {
+    transform: skewX(-6deg) scaleY(0);
+  }
+  100% {
+    transform: skewX(-6deg) scaleY(1);
+  }
+}
+
+@keyframes br-plate-unfold {
+  0% {
+    max-width: 0;
+    opacity: 0;
+  }
+  100% {
+    max-width: 70cqw;
+    opacity: 1;
+  }
+}
+
+/* ── Phase: Visible ──────────────────────────────────────────────────────── */
+
+.br-phase--visible .br-rhombus {
+  transform: skewX(-6deg) scaleY(1);
+}
+
+.br-phase--visible .br-plate {
+  max-width: 70cqw;
+  opacity: 1;
+}
+
+/* ── Phase: Dismissing (Exit Animation) ──────────────────────────────────── */
+/* Step 1: Rhombus slides right across plate as traveling curtain
+   Step 2: Rhombus shrinks vertically back to center */
+
+.br-phase--dismissing {
+  position: relative;
+  overflow: hidden;
+}
+
+.br-phase--dismissing .br-rhombus {
+  animation: br-rhombus-slide 600ms ease-in forwards, br-rhombus-shrink 200ms ease-in 600ms forwards;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 2;
+}
+
+.br-phase--dismissing .br-plate {
+  animation: br-plate-erase 600ms ease-in forwards;
+}
+
+@keyframes br-rhombus-slide {
+  0% {
+    transform: skewX(-6deg) translateX(0) scaleY(1);
+  }
+  100% {
+    transform: skewX(-6deg) translateX(calc(70cqw + 1cqw)) scaleY(1);
+  }
+}
+
+@keyframes br-rhombus-shrink {
+  0% {
+    transform: skewX(-6deg) translateX(calc(70cqw + 1cqw)) scaleY(1);
+  }
+  100% {
+    transform: skewX(-6deg) translateX(calc(70cqw + 1cqw)) scaleY(0);
+  }
+}
+
+@keyframes br-plate-erase {
+  0% {
+    clip-path: inset(0 0 0 0);
+  }
+  100% {
+    clip-path: inset(0 0 0 100%);
+  }
+}

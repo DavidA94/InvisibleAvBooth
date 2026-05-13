@@ -15,6 +15,7 @@ import {
   OTS_LOWER_THIRD_RESOLUTION,
   OTS_LOWER_THIRD_PAGES,
 } from "@invisible-av-booth/shared";
+import { BlueRhombusStyle } from "./styles/BlueRhombusStyle";
 import "./overlay.css";
 
 const DISCONNECT_TIMEOUT_MS = 15000;
@@ -205,15 +206,8 @@ export function LowerThirdOverlay(): ReactNode {
     <div className="overlay-root">
       <div className="aspect-ratio-jail">
         {activeItem && phase !== "hidden" && (
-          <div
-            className={`lower-third-container lt-phase-${phase}`}
-            onAnimationEnd={handleAnimationEnd}
-            onTransitionEnd={handleAnimationEnd}
-          >
-            {/* BlueRhombusStyle will be implemented in task 39 */}
-            <div className="lt-placeholder" data-testid="lt-overlay-active">
-              <span>{JSON.stringify(activeItem.content)}</span>
-            </div>
+          <div className="lower-third-container">
+            <BlueRhombusStyle item={activeItem} phase={phase} onAnimationEnd={handleAnimationEnd} />
           </div>
         )}
       </div>

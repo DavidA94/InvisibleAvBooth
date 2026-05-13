@@ -136,13 +136,13 @@ Tests are part of each task's definition of done. Unit tests follow the unit or 
 - [x] 38. Create Aspect Ratio Jail CSS — `aspect-ratio: 16/9`, `container-type: size`, centered, `max-width: 100vw`, `max-height: 100vh`.
   - _Requirements: 2_
 
-- [ ] 39. Create `BlueRhombusStyle` component — rhombus shape, dark plate, text area with type-specific layouts (Title, TitleSubtitle, Scripture), all sizing in `cqw`/`cqh`.
+- [x] 39. Create `BlueRhombusStyle` component — rhombus shape, dark plate, text area with type-specific layouts (Title, TitleSubtitle, Scripture), all sizing in `cqw`/`cqh`.
   - _Requirements: 6_
 
-- [ ] 40. Implement entrance animation — rhombus `scaleY` from center, plate+text unfold right, phase reporting (`showing` → `visible`).
+- [x] 40. Implement entrance animation — rhombus `scaleY` from center, plate+text unfold right, phase reporting (`showing` → `visible`).
   - _Requirements: 6_
 
-- [ ] 41. Implement exit animation — rhombus slides right as traveling curtain, shrinks to center, phase reporting (`dismissing` → `hidden`).
+- [x] 41. Implement exit animation — rhombus slides right as traveling curtain, shrinks to center, phase reporting (`dismissing` → `hidden`).
   - _Requirements: 6_
 
 - [ ] 42. Implement push-up transition — `overflow: hidden` clipping, old text up/out + new text up/in, plate height transition, cross-type reference line behavior, phase reporting.
