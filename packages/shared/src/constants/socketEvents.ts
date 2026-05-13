@@ -3,9 +3,11 @@
 // Naming convention:
 //   CTS_*  — client-to-server events (frontend emits, backend handles)
 //   STC_*  — server-to-client events (backend emits, frontend handles)
+//   STO_*  — server-to-overlay events (backend emits on /overlay ns, overlay handles)
+//   OTS_*  — overlay-to-server events (overlay emits on /overlay ns, backend handles)
 //
 // BUS_* (internal EventBus) constants are backend-only and live in
-// packages/backend/src/socketEvents.ts.
+// packages/backend/src/eventBus/types.ts.
 
 // ── Client → Server ───────────────────────────────────────────────────────────
 
@@ -26,3 +28,27 @@ export const STC_PLATFORM_STATE = "stc:platform:state" as const;
 export const STC_PLATFORM_HEALTH = "stc:platform:health" as const;
 export const STC_RELAY_STATE = "stc:relay:state" as const;
 export const STC_PLATFORM_READINESS = "stc:platform:readiness" as const;
+
+// ── Lower Thirds: Client → Server ─────────────────────────────────────────────
+
+export const CTS_LOWER_THIRD_COMMAND = "cts:lower-third:command" as const;
+
+// ── Lower Thirds: Server → Client ─────────────────────────────────────────────
+
+export const STC_LOWER_THIRD_STATE = "stc:lower-third:state" as const;
+
+// ── Lower Thirds: Server → Overlay (/overlay namespace) ───────────────────────
+
+export const STO_LOWER_THIRD_SHOW = "sto:lower-third:show" as const;
+export const STO_LOWER_THIRD_DISMISS = "sto:lower-third:dismiss" as const;
+export const STO_LOWER_THIRD_PUSH_UP = "sto:lower-third:push-up" as const;
+export const STO_LOWER_THIRD_PAGE = "sto:lower-third:page" as const;
+export const STO_LOWER_THIRD_STATE = "sto:lower-third:state" as const;
+export const STO_LOWER_THIRD_MEASURE = "sto:lower-third:measure" as const;
+export const STO_LOWER_THIRD_FORCE_CLEAR = "sto:lower-third:force-clear" as const;
+
+// ── Lower Thirds: Overlay → Server (/overlay namespace) ───────────────────────
+
+export const OTS_LOWER_THIRD_PHASE = "ots:lower-third:phase" as const;
+export const OTS_LOWER_THIRD_RESOLUTION = "ots:lower-third:resolution" as const;
+export const OTS_LOWER_THIRD_PAGES = "ots:lower-third:pages" as const;

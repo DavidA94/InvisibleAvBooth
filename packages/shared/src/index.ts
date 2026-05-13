@@ -21,6 +21,24 @@ export type {
   GridCell,
 } from "./types.js";
 
+// Lower-Third Types
+export type {
+  LowerThirdType,
+  AnimationPhase,
+  LowerThirdStyle,
+  TitleContent,
+  TitleSubtitleContent,
+  VerseData,
+  ScriptureContent,
+  PageInfo,
+  PageBreakdown,
+  LowerThirdItem,
+  LowerThirdState,
+  AddLowerThirdInput,
+  EditLowerThirdInput,
+  LowerThirdCommand,
+} from "./types/lowerThirds.js";
+
 // Interpolation
 export { interpolateTemplate, interpolateStreamTitle, formatScripture } from "./interpolation.js";
 export type { ScriptureReference, SessionManifestFields } from "./interpolation.js";

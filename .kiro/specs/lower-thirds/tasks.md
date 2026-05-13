@@ -6,19 +6,19 @@ Tests are part of each task's definition of done. Unit tests follow the unit or 
 
 ## Phase 1: Shared Infrastructure & Database
 
-- [ ] 1. Add shared types — `LowerThirdItem`, `LowerThirdState`, `LowerThirdCommand`, `AnimationPhase`, `LowerThirdType`, `LowerThirdStyle`, `PageBreakdown`, `PageInfo`, `TitleContent`, `TitleSubtitleContent`, `ScriptureContent`, `VerseData`, `AddLowerThirdInput`, `EditLowerThirdInput` to `packages/shared/src/types/`
+- [x] 1. Add shared types — `LowerThirdItem`, `LowerThirdState`, `LowerThirdCommand`, `AnimationPhase`, `LowerThirdType`, `LowerThirdStyle`, `PageBreakdown`, `PageInfo`, `TitleContent`, `TitleSubtitleContent`, `ScriptureContent`, `VerseData`, `AddLowerThirdInput`, `EditLowerThirdInput` to `packages/shared/src/types/`
   - _Requirements: 4, 5, 6, 7, 8_
 
-- [ ] 2. Add socket event constants — `CTS_LOWER_THIRD_COMMAND`, `STC_LOWER_THIRD_STATE`, `STO_LOWER_THIRD_SHOW`, `STO_LOWER_THIRD_DISMISS`, `STO_LOWER_THIRD_PUSH_UP`, `STO_LOWER_THIRD_PAGE`, `STO_LOWER_THIRD_STATE`, `STO_LOWER_THIRD_MEASURE`, `STO_LOWER_THIRD_FORCE_CLEAR`, `OTS_LOWER_THIRD_PHASE`, `OTS_LOWER_THIRD_RESOLUTION`, `OTS_LOWER_THIRD_PAGES` to `packages/shared/src/constants/socketEvents.ts`. Update header comment to document `STO_`/`OTS_` prefixes.
+- [x] 2. Add socket event constants — `CTS_LOWER_THIRD_COMMAND`, `STC_LOWER_THIRD_STATE`, `STO_LOWER_THIRD_SHOW`, `STO_LOWER_THIRD_DISMISS`, `STO_LOWER_THIRD_PUSH_UP`, `STO_LOWER_THIRD_PAGE`, `STO_LOWER_THIRD_STATE`, `STO_LOWER_THIRD_MEASURE`, `STO_LOWER_THIRD_FORCE_CLEAR`, `OTS_LOWER_THIRD_PHASE`, `OTS_LOWER_THIRD_RESOLUTION`, `OTS_LOWER_THIRD_PAGES` to `packages/shared/src/constants/socketEvents.ts`. Update header comment to document `STO_`/`OTS_` prefixes.
   - _Requirements: 8_
 
-- [ ] 3. Add `BUS_LOWER_THIRD_STATE_CHANGED` constant and `LowerThirdEventMap` to backend EventBus types. Extend root `EventMap`.
+- [x] 3. Add `BUS_LOWER_THIRD_STATE_CHANGED` constant and `LowerThirdEventMap` to backend EventBus types. Extend root `EventMap`.
   - _Requirements: 4, 8_
 
-- [ ] 4. Database migration — extend `metadata_templates` table: add `lowerThirdType` and `autoDismissMs` columns, expand `category` CHECK constraint to include `'lower_third'`. Implement detect-and-recreate migration in `applySchema()`.
+- [x] 4. Database migration — extend `metadata_templates` table: add `lowerThirdType` and `autoDismissMs` columns, expand `category` CHECK constraint to include `'lower_third'`. Implement detect-and-recreate migration in `applySchema()`.
   - _Requirements: 3_
 
-- [ ] 5. Write unit tests for migration — verify existing title/description templates survive migration, new columns are nullable, CHECK constraint accepts `'lower_third'` category.
+- [x] 5. Write unit tests for migration — verify existing title/description templates survive migration, new columns are nullable, CHECK constraint accepts `'lower_third'` category.
   - _Requirements: 3_
 
 ---

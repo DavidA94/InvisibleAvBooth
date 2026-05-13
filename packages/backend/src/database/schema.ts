@@ -52,9 +52,11 @@ export function applySchema(database: Database): void {
     CREATE TABLE IF NOT EXISTS metadata_templates (
       id TEXT PRIMARY KEY NOT NULL,
       name TEXT NOT NULL,
-      category TEXT NOT NULL CHECK(category IN ('title', 'description')),
+      category TEXT NOT NULL CHECK(category IN ('title', 'description', 'lower_third')),
       formatString TEXT NOT NULL,
       roleMinimum TEXT NOT NULL CHECK(roleMinimum IN ('ADMIN', 'AvPowerUser', 'AvVolunteer')),
+      lowerThirdType TEXT CHECK(lowerThirdType IN ('Title', 'TitleSubtitle', 'Scripture')),
+      autoDismissMs INTEGER,
       createdAt TEXT NOT NULL
     );
 
@@ -83,5 +85,37 @@ export function applySchema(database: Database): void {
       VERSENO   INTEGER,
       VERSETEXT TEXT
     );
+  `);
+
+  migrateMetadataTemplates(database);
+}
+
+/**
+ * Migrates the metadata_templates table to add lower-third columns if they don't exist.
+ * SQLite cannot ALTER CHECK constraints, so we detect the old schema and recreate the table.
+ */
+function migrateMetadataTemplates(database: Database): void {
+  const columns = database.pragma("table_info(metadata_templates)") as Array<{ name: string }>;
+  const hasLowerThirdType = columns.some((col) => col.name === "lowerThirdType");
+  if (hasLowerThirdType) return; // already migrated
+
+  database.exec(`
+    CREATE TABLE metadata_templates_new (
+      id TEXT PRIMARY KEY NOT NULL,
+      name TEXT NOT NULL,
+      category TEXT NOT NULL CHECK(category IN ('title', 'description', 'lower_third')),
+      formatString TEXT NOT NULL,
+      roleMinimum TEXT NOT NULL CHECK(roleMinimum IN ('ADMIN', 'AvPowerUser', 'AvVolunteer')),
+      lowerThirdType TEXT CHECK(lowerThirdType IN ('Title', 'TitleSubtitle', 'Scripture')),
+      autoDismissMs INTEGER,
+      createdAt TEXT NOT NULL
+    );
+
+    INSERT INTO metadata_templates_new (id, name, category, formatString, roleMinimum, createdAt)
+    SELECT id, name, category, formatString, roleMinimum, createdAt FROM metadata_templates;
+
+    DROP TABLE metadata_templates;
+
+    ALTER TABLE metadata_templates_new RENAME TO metadata_templates;
   `);
 }

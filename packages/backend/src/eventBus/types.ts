@@ -29,3 +29,7 @@ export const BUS_FORWARDER_EXITED = "bus:forwarder:exited" as const;
 export const BUS_PLATFORM_STATE_CHANGED = "bus:platform:state:changed" as const;
 export const BUS_PLATFORM_HEALTH_UPDATED = "bus:platform:health:updated" as const;
 export const BUS_PLATFORM_READINESS_CHANGED = "bus:platform:readiness:changed" as const;
+
+// ── Lower-Third events ───────────────────────────────────────────────────────
+
+export const BUS_LOWER_THIRD_STATE_CHANGED = "bus:lower-third:state:changed" as const;
