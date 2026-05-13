@@ -16,6 +16,9 @@ import { SocketGateway } from "./gateway/socketGateway.js";
 import { ObsModule } from "./gateway/modules/obs/obsModule.js";
 import { SessionManifestModule } from "./gateway/modules/sessionManifest/sessionManifestModule.js";
 import { StreamingPlatformModule } from "./gateway/modules/platform/streamingPlatformModule.js";
+import { LowerThirdModule } from "./gateway/modules/lowerThird/lowerThirdModule.js";
+import { registerOverlayNamespace } from "./gateway/overlayNamespace.js";
+import { LowerThirdService } from "./services/lowerThirdService.js";
 import { RelayService } from "./services/relayService.js";
 import type { NmsFactory, SpawnFn } from "./services/relayService.js";
 import { StreamingPlatformService } from "./services/streamingPlatformService.js";
@@ -31,7 +34,9 @@ import { createLogRouter } from "./routes/logRoutes.js";
 import { createKjvRouter } from "./routes/kjvRoutes.js";
 import { createAdminTemplateRouter } from "./routes/adminTemplateRoutes.js";
 import { createTemplateRouter } from "./routes/templateRoutes.js";
+import { MetadataTemplateDao } from "./dao/metadataTemplateDao.js";
 import { createPlatformRouter, cleanupStaleOAuthStates } from "./routes/platformRoutes.js";
+import { createOverlayLogRouter } from "./routes/overlayLogRoutes.js";
 import { authenticate, requirePasswordChanged } from "./middleware/auth.js";
 
 export interface AppDependencies {
@@ -54,6 +59,7 @@ export interface AppContext {
   relayService: RelayService;
   platformService: StreamingPlatformService;
   manifestService: SessionManifestService;
+  lowerThirdService: LowerThirdService;
   gateway: SocketGateway;
 }
 
@@ -76,6 +82,9 @@ export function buildApp(deps: AppDependencies): AppContext {
   app.use(cookieParser());
 
   app.use("/api/auth", createAuthRouter(authService));
+
+  // Overlay log route — unauthenticated, rate-limited
+  app.use("/api/overlay/logs", createOverlayLogRouter());
 
   // Lazy reference — platformService is created later but the callback is only invoked at runtime
   let platformServiceRef: { reloadPlatforms: () => void } | null = null;
@@ -104,6 +113,9 @@ export function buildApp(deps: AppDependencies): AppContext {
   const platformService = new StreamingPlatformService(platformClients ?? new Map(), relayService, obsService, manifestService, platformConfigDao);
   platformServiceRef = platformService;
 
+  const templateDao = new MetadataTemplateDao(database);
+  const lowerThirdService = new LowerThirdService(templateDao, database, manifestService);
+
   const onPlatformChanged = (): void => platformServiceRef?.reloadPlatforms();
   app.use("/api", mustBeAuthenticated, mustHaveChangedPassword, createPlatformRouter(database, authService, onPlatformChanged));
 
@@ -111,7 +123,10 @@ export function buildApp(deps: AppDependencies): AppContext {
     new ObsModule(obsService),
     new SessionManifestModule(manifestService),
     new StreamingPlatformModule(platformService, relayService),
+    new LowerThirdModule(lowerThirdService),
   ]);
 
-  return { httpServer, app, database, authService, obsService, relayService, platformService, manifestService, gateway };
+  registerOverlayNamespace(gateway.getIo(), lowerThirdService);
+
+  return { httpServer, app, database, authService, obsService, relayService, platformService, manifestService, lowerThirdService, gateway };
 }

@@ -88,6 +88,7 @@ export function destroyServer(server: TestServer): void {
   server.ctx.obsService.destroy();
   server.ctx.manifestService.destroy();
   server.ctx.platformService.destroy();
+  server.ctx.lowerThirdService.destroy();
   server.ctx.relayService.stop();
   server.ctx.httpServer.close();
   eventBus.removeAllListeners();

@@ -62,25 +62,25 @@ Tests are part of each task's definition of done. Unit tests follow the unit or 
 
 ## Phase 3: Backend Socket Gateway & REST
 
-- [ ] 17. Create `LowerThirdModule` (default namespace) — implements `SocketModule`, handles `CTS_LOWER_THIRD_COMMAND`, emits `STC_LOWER_THIRD_STATE` on bus event, `emitInitialState` with full state including `autoDismissAt`.
+- [x] 17. Create `LowerThirdModule` (default namespace) — implements `SocketModule`, handles `CTS_LOWER_THIRD_COMMAND`, emits `STC_LOWER_THIRD_STATE` on bus event, `emitInitialState` with full state including `autoDismissAt`.
   - _Requirements: 8_
 
-- [ ] 18. Create overlay namespace handler (`registerOverlayNamespace`) — unauthenticated `/overlay` namespace, single-client enforcement (forcibly disconnect previous), initial state with `skipEntrance`, pending measurements on connect, phase/resolution/pages event handlers, disconnect handling.
+- [x] 18. Create overlay namespace handler (`registerOverlayNamespace`) — unauthenticated `/overlay` namespace, single-client enforcement (forcibly disconnect previous), initial state with `skipEntrance`, pending measurements on connect, phase/resolution/pages event handlers, disconnect handling.
   - _Requirements: 8, 1_
 
-- [ ] 19. Register `LowerThirdModule` in `SocketGateway` and `registerOverlayNamespace` in `buildApp`. Wire `LowerThirdService` into `AppContext`.
+- [x] 19. Register `LowerThirdModule` in `SocketGateway` and `registerOverlayNamespace` in `buildApp`. Wire `LowerThirdService` into `AppContext`.
   - _Requirements: 8_
 
-- [ ] 20. Create overlay log route — `POST /api/overlay/logs`, unauthenticated, rate-limited (10 req/min per IP), max 10 entries/batch, 1KB/entry limit with 413 response and device info logging. Mount without auth middleware.
+- [x] 20. Create overlay log route — `POST /api/overlay/logs`, unauthenticated, rate-limited (10 req/min per IP), max 10 entries/batch, 1KB/entry limit with 413 response and device info logging. Mount without auth middleware.
   - _Requirements: 8_
 
-- [ ] 21. Add resolution telemetry handling — `LowerThirdService.handleResolutionReport()`, emit/clear Banner notification for resolution mismatch.
+- [x] 21. Add resolution telemetry handling — `LowerThirdService.handleResolutionReport()`, emit/clear Banner notification for resolution mismatch.
   - _Requirements: 2_
 
-- [ ] 22. Write unit tests for `LowerThirdModule` — command dispatch, ack responses, initial state emission.
+- [x] 22. Write unit tests for `LowerThirdModule` — command dispatch, ack responses, initial state emission.
   - _Requirements: 8_
 
-- [ ] 23. Write integration tests for overlay namespace — connection/disconnection, single-client enforcement, phase reporting, measurement flow, initial state with skipEntrance.
+- [x] 23. Write integration tests for overlay namespace — connection/disconnection, single-client enforcement, phase reporting, measurement flow, initial state with skipEntrance.
   - _Requirements: 8, 1_
 
 ---

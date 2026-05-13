@@ -34,7 +34,7 @@ let db: Database;
 let dao: MetadataTemplateDao;
 let manifestService: SessionManifestService;
 let service: LowerThirdService;
-let sendToOverlay: ReturnType<typeof vi.fn>;
+let sendToOverlay: ReturnType<typeof vi.fn<(event: string, data?: unknown) => void>>;
 
 beforeEach(() => {
   db = createDatabase();
@@ -42,7 +42,7 @@ beforeEach(() => {
   dao = new MetadataTemplateDao(db);
   manifestService = new SessionManifestService(db);
   service = new LowerThirdService(dao, db, manifestService);
-  sendToOverlay = vi.fn();
+  sendToOverlay = vi.fn<(event: string, data?: unknown) => void>();
   service.setSendToOverlay(sendToOverlay);
   service.setOverlayConnected(true);
 });
