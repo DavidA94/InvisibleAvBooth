@@ -102,16 +102,16 @@ Tests are part of each task's definition of done. Unit tests follow the unit or 
 - [x] 28. Create `LowerThirdRow` component — shared row with title/subtitle, primary button, swipe-to-reveal actions (left/right), used indicator border, active badge overlay, status overlay.
   - _Requirements: 5_
 
-- [ ] 29. Create swipe-to-reveal infrastructure — touch event handlers, `translateX` animation, single-row-open enforcement, icon+label-below button layout.
+- [x] 29. Create swipe-to-reveal infrastructure — touch event handlers, `translateX` animation, single-row-open enforcement, icon+label-below button layout.
   - _Requirements: 5_
 
-- [ ] 30. Create `ActiveCountdown` component — circular countdown from `autoDismissAt`, local timer, "Dismissing" overlay on zero.
+- [x] 30. Create `ActiveCountdown` component — circular countdown from `autoDismissAt`, local timer, "Dismissing" overlay on zero.
   - _Requirements: 5_
 
-- [ ] 31. Create `PaginationControls` component — Previous/Next buttons, current page reference display, disabled states.
+- [x] 31. Create `PaginationControls` component — Previous/Next buttons, current page reference display, disabled states.
   - _Requirements: 5_
 
-- [ ] 32. Create `PreviewDialog` component — modal showing item content/type/style, Cancel and Go Live buttons, disabled during transition lock.
+- [x] 32. Create `PreviewDialog` component — modal showing item content/type/style, Cancel and Go Live buttons, disabled during transition lock.
   - _Requirements: 5_
 
 - [ ] 33. Create `AddLowerThirdDialog` — type dropdown, type-specific input fields (Title: title input; TitleSubtitle: title+subtitle inputs; Scripture: ScriptureReferenceInput), Cancel/Save actions.
