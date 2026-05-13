@@ -34,28 +34,28 @@ Tests are part of each task's definition of done. Unit tests follow the unit or 
 - [x] 8. Extend admin template routes — accept `lowerThirdType` and `autoDismissMs` fields for lower-third category, validate JSON formatString structure per type, validate tokens within JSON values.
   - _Requirements: 3_
 
-- [ ] 9. Write unit/integration tests for admin template routes — create/update/delete lower-third templates, validation rejects unknown tokens in JSON, duplicate detection works on canonical form.
+- [x] 9. Write unit/integration tests for admin template routes — create/update/delete lower-third templates, validation rejects unknown tokens in JSON, duplicate detection works on canonical form.
   - _Requirements: 3_
 
-- [ ] 10. Create `LowerThirdService` — constructor with DAO + Database + SessionManifestService deps, library management (add/remove/edit), template-derived item computation, KJV verse lookup, `BUS_SESSION_MANIFEST_UPDATED` subscription.
+- [x] 10. Create `LowerThirdService` — constructor with DAO + Database + SessionManifestService deps, library management (add/remove/edit), template-derived item computation, KJV verse lookup, `BUS_SESSION_MANIFEST_UPDATED` subscription.
   - _Requirements: 4, 3_
 
-- [ ] 11. Add activation and dismiss logic to `LowerThirdService` — activate from library, push-up transition detection, dismiss with phase tracking, Force Clear (bypass lock).
+- [x] 11. Add activation and dismiss logic to `LowerThirdService` — activate from library, push-up transition detection, dismiss with phase tracking, Force Clear (bypass lock).
   - _Requirements: 4, 9_
 
-- [ ] 12. Add auto-dismiss timer logic — start on activate, cancel on manual dismiss/push-up/force-clear, timer isolation (never dismiss wrong item), phase transition on fire regardless of overlay connectivity.
+- [x] 12. Add auto-dismiss timer logic — start on activate, cancel on manual dismiss/push-up/force-clear, timer isolation (never dismiss wrong item), phase transition on fire regardless of overlay connectivity.
   - _Requirements: 4_
 
-- [ ] 13. Add transition lock and 5-second fallback — lock on `showing`/`dismissing`, unlock on `visible`/`hidden`, Force Clear bypass, fallback timer advances phase and emits warning notification.
+- [x] 13. Add transition lock and 5-second fallback — lock on `showing`/`dismissing`, unlock on `visible`/`hidden`, Force Clear bypass, fallback timer advances phase and emits warning notification.
   - _Requirements: 4_
 
-- [ ] 14. Add scripture measurement tracking — pending measurements list, cache page breakdowns, 10-second measurement timeout with single-page fallback.
+- [x] 14. Add scripture measurement tracking — pending measurements list, cache page breakdowns, 10-second measurement timeout with single-page fallback.
   - _Requirements: 7_
 
-- [ ] 15. Add page navigation — `pageNext`/`pagePrevious` methods, reject during transition lock, emit state change.
+- [x] 15. Add page navigation — `pageNext`/`pagePrevious` methods, reject during transition lock, emit state change.
   - _Requirements: 7, 5_
 
-- [ ] 16. Write unit tests for `LowerThirdService` — all state transitions, timer lifecycle, transition lock enforcement, Force Clear bypass, template resolution, library computation, measurement caching, page navigation, manifest change handling.
+- [x] 16. Write unit tests for `LowerThirdService` — all state transitions, timer lifecycle, transition lock enforcement, Force Clear bypass, template resolution, library computation, measurement caching, page navigation, manifest change handling.
   - _Requirements: 4, 7, 9_
 
 ---

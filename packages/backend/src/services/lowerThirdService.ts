@@ -82,6 +82,9 @@ export class LowerThirdService {
     const item = this.buildItem(input, "volunteer");
     if (!item.success) return item;
     this.library.push(item.value);
+    if (item.value.type === "Scripture" && this.overlayConnected) {
+      this.requestMeasurement(item.value);
+    }
     this.emitState();
     return item;
   }
