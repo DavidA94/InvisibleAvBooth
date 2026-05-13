@@ -28,6 +28,7 @@ import { AdminDeviceManagement } from "./pages/AdminDeviceManagement";
 import { AdminIndexPage } from "./pages/AdminIndexPage";
 import { AdminTemplatesPage } from "./pages/AdminTemplatesPage";
 import { AdminPlatformManagement } from "./pages/AdminPlatformManagement";
+import { LowerThirdOverlay } from "./overlay/LowerThirdOverlay";
 import { useStore } from "./store";
 
 setupIonicReact({ mode: "md" });
@@ -43,6 +44,7 @@ export function App(): ReactNode {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/overlay/lower-thirds" element={<LowerThirdOverlay />} />
           <Route
             path="*"
             element={

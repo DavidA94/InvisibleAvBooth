@@ -127,13 +127,13 @@ Tests are part of each task's definition of done. Unit tests follow the unit or 
 
 ## Phase 5: Frontend — Overlay Page
 
-- [ ] 36. Create `/overlay/lower-thirds` route — register outside `ProtectedRoutes`, no layout wrapper, transparent background.
+- [x] 36. Create `/overlay/lower-thirds` route — register outside `ProtectedRoutes`, no layout wrapper, transparent background.
   - _Requirements: 1_
 
-- [ ] 37. Create `LowerThirdOverlay` component — Socket.io `/overlay` connection (no auth), `document.fonts.ready` gate, `postMessage` ready signal, heartbeat every 5s, disconnect timeout (configurable via env var, default 15s).
+- [x] 37. Create `LowerThirdOverlay` component — Socket.io `/overlay` connection (no auth), `document.fonts.ready` gate, `postMessage` ready signal, heartbeat every 5s, disconnect timeout (configurable via env var, default 15s).
   - _Requirements: 1, 2_
 
-- [ ] 38. Create Aspect Ratio Jail CSS — `aspect-ratio: 16/9`, `container-type: size`, centered, `max-width: 100vw`, `max-height: 100vh`.
+- [x] 38. Create Aspect Ratio Jail CSS — `aspect-ratio: 16/9`, `container-type: size`, centered, `max-width: 100vw`, `max-height: 100vh`.
   - _Requirements: 2_
 
 - [ ] 39. Create `BlueRhombusStyle` component — rhombus shape, dark plate, text area with type-specific layouts (Title, TitleSubtitle, Scripture), all sizing in `cqw`/`cqh`.
