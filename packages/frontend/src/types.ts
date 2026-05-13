@@ -13,6 +13,14 @@ export type {
   GridCell,
   ScriptureReference,
   SessionManifestFields,
+  LowerThirdType,
+  LowerThirdState,
+  LowerThirdItem,
+  LowerThirdCommand,
+  AnimationPhase,
+  PageBreakdown,
+  AddLowerThirdInput,
+  EditLowerThirdInput,
 } from "@invisible-av-booth/shared";
 
 import type { SessionManifestFields } from "@invisible-av-booth/shared";

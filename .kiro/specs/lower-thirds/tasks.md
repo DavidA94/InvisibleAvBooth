@@ -87,19 +87,19 @@ Tests are part of each task's definition of done. Unit tests follow the unit or 
 
 ## Phase 4: Frontend — Store, Socket Module, Widget
 
-- [ ] 24. Create `lowerThirdSlice` — `LowerThirdState` + `setLowerThirdState` action. Add to combined store.
+- [x] 24. Create `lowerThirdSlice` — `LowerThirdState` + `setLowerThirdState` action. Add to combined store.
   - _Requirements: 5_
 
-- [ ] 25. Create `lowerThirdSocketModule` — register `STC_LOWER_THIRD_STATE` listener, wire to store.
+- [x] 25. Create `lowerThirdSocketModule` — register `STC_LOWER_THIRD_STATE` listener, wire to store.
   - _Requirements: 5, 8_
 
-- [ ] 26. Create `useLowerThirdState` hook — read from store, provide `sendCommand` via socket with ack handling.
+- [x] 26. Create `useLowerThirdState` hook — read from store, provide `sendCommand` via socket with ack handling.
   - _Requirements: 5_
 
-- [ ] 27. Create `LowerThirdWidget` — `WidgetContainer` with overlay connection indicator, Active section, Library section, empty states, Add button.
+- [x] 27. Create `LowerThirdWidget` — `WidgetContainer` with overlay connection indicator, Active section, Library section, empty states, Add button.
   - _Requirements: 5_
 
-- [ ] 28. Create `LowerThirdRow` component — shared row with title/subtitle, primary button, swipe-to-reveal actions (left/right), used indicator border, active badge overlay, status overlay.
+- [x] 28. Create `LowerThirdRow` component — shared row with title/subtitle, primary button, swipe-to-reveal actions (left/right), used indicator border, active badge overlay, status overlay.
   - _Requirements: 5_
 
 - [ ] 29. Create swipe-to-reveal infrastructure — touch event handlers, `translateX` animation, single-row-open enforcement, icon+label-below button layout.

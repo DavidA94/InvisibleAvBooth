@@ -8,6 +8,7 @@ import { registerSessionManifestSocketHandlers } from "./socketModules/sessionMa
 import { registerNotificationSocketHandlers } from "./socketModules/notificationSocketModule";
 import { registerConnectionSocketHandlers } from "./socketModules/connectionSocketModule";
 import { registerPlatformSocketHandlers } from "./socketModules/platformSocketModule";
+import { registerLowerThirdSocketHandlers } from "./socketModules/lowerThirdSocketModule";
 
 const SocketContext = createContext<Socket | null>(null);
 
@@ -40,6 +41,7 @@ export function SocketProvider({ children }: SocketProviderProps): ReactNode {
     registerNotificationSocketHandlers(newSocket);
     registerConnectionSocketHandlers(newSocket);
     registerPlatformSocketHandlers(newSocket);
+    registerLowerThirdSocketHandlers(newSocket);
 
     return () => {
       newSocket.disconnect();
