@@ -33,14 +33,20 @@ export function createAdminTemplateRouter(database: Database, authService: AuthS
 
   // POST / — create template
   router.post("/", adminOnly, (request: Request, response: Response): void => {
-    const { name, category, formatString, roleMinimum } = request.body as {
+    const { name, category, formatString, roleMinimum, lowerThirdType, autoDismissMs } = request.body as {
       name?: string;
       category?: string;
       formatString?: string;
       roleMinimum?: string;
+      lowerThirdType?: string;
+      autoDismissMs?: number | null;
     };
     if (!name || !category || formatString === undefined || !roleMinimum) {
       response.status(400).json({ error: "name, category, formatString, and roleMinimum are required" });
+      return;
+    }
+    if (category === "lower_third" && !lowerThirdType) {
+      response.status(400).json({ error: "lowerThirdType is required for lower_third category" });
       return;
     }
     const validation = validateTemplate({ name, category, formatString, roleMinimum } as ValidationInput, dao.getAll());
@@ -48,7 +54,14 @@ export function createAdminTemplateRouter(database: Database, authService: AuthS
       response.status(422).json({ blockers: validation.blockers, warnings: validation.warnings });
       return;
     }
-    const template = dao.create({ name, category, formatString, roleMinimum } as Parameters<typeof dao.create>[0]);
+    const template = dao.create({
+      name,
+      category,
+      formatString,
+      roleMinimum,
+      ...(lowerThirdType ? { lowerThirdType } : {}),
+      ...(autoDismissMs !== undefined ? { autoDismissMs } : {}),
+    } as Parameters<typeof dao.create>[0]);
     logger.info("Template created", { userId: request.jwtPayload!.sub, context: { templateId: template.id } });
     response.status(201).json(template);
   });
@@ -61,10 +74,12 @@ export function createAdminTemplateRouter(database: Database, authService: AuthS
       response.status(404).json({ error: "Template not found" });
       return;
     }
-    const { name, formatString, roleMinimum } = request.body as {
+    const { name, formatString, roleMinimum, lowerThirdType, autoDismissMs } = request.body as {
       name?: string;
       formatString?: string;
       roleMinimum?: string;
+      lowerThirdType?: string;
+      autoDismissMs?: number | null;
     };
     const validationInput: ValidationInput = {
       name: name ?? existing.name,
@@ -79,7 +94,13 @@ export function createAdminTemplateRouter(database: Database, authService: AuthS
       return;
     }
     try {
-      const updated = dao.update(id, { name, formatString, roleMinimum } as Parameters<typeof dao.update>[1]);
+      const updated = dao.update(id, {
+        name,
+        formatString,
+        roleMinimum,
+        ...(lowerThirdType !== undefined ? { lowerThirdType } : {}),
+        ...(autoDismissMs !== undefined ? { autoDismissMs } : {}),
+      } as Parameters<typeof dao.update>[1]);
       logger.info("Template updated", { userId: request.jwtPayload!.sub, context: { templateId: id } });
       response.json(updated);
     } catch (error) {
