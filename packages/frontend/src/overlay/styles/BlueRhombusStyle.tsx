@@ -4,7 +4,9 @@ import "./BlueRhombusStyle.css";
 
 interface BlueRhombusStyleProps {
   item: LowerThirdItem;
+  prevItem?: LowerThirdItem | null;
   phase: AnimationPhase;
+  isPushUp?: boolean;
   onAnimationEnd: () => void;
 }
 
@@ -28,17 +30,16 @@ function renderContent(item: LowerThirdItem): ReactNode {
       const currentPage = item.pages?.currentPage ?? 1;
       const pageInfo = item.pages?.pages[currentPage - 1];
       const verses = pageInfo
-        ? content.verses.filter((v) => v.verseNumber >= pageInfo.startVerse && v.verseNumber <= pageInfo.endVerse)
+        ? content.verses.filter((verse) => verse.verseNumber >= pageInfo.startVerse && verse.verseNumber <= pageInfo.endVerse)
         : content.verses;
-
       return (
         <>
           <p className="br-text br-text--reference">{content.formattedReference}</p>
           <div className="br-verses">
-            {verses.map((v) => (
-              <p key={v.verseNumber} className={`br-verse ${v.verseNumber === 0 ? "br-verse--zero" : ""}`}>
-                {v.verseNumber > 0 && <span className="br-verse-num">{v.verseNumber}. </span>}
-                {v.text}
+            {verses.map((verse) => (
+              <p key={verse.verseNumber} className={`br-verse ${verse.verseNumber === 0 ? "br-verse--zero" : ""}`}>
+                {verse.verseNumber > 0 && <span className="br-verse-num">{verse.verseNumber}. </span>}
+                {verse.text}
               </p>
             ))}
           </div>
@@ -48,12 +49,16 @@ function renderContent(item: LowerThirdItem): ReactNode {
   }
 }
 
-export function BlueRhombusStyle({ item, phase, onAnimationEnd }: BlueRhombusStyleProps): ReactNode {
+export function BlueRhombusStyle({ item, prevItem, phase, isPushUp, onAnimationEnd }: BlueRhombusStyleProps): ReactNode {
   return (
-    <div className={`br-wrapper br-phase--${phase}`} onAnimationEnd={onAnimationEnd} data-testid="blue-rhombus">
+    <div className={`br-wrapper br-phase--${phase} ${isPushUp ? "br-push-up" : ""}`} onAnimationEnd={onAnimationEnd} data-testid="blue-rhombus">
       <div className="br-rhombus" />
       <div className="br-plate">
-        <div className="br-content">{renderContent(item)}</div>
+        {/* Push-up: old content slides out, new slides in */}
+        {isPushUp && prevItem && (
+          <div className="br-content br-content--out">{renderContent(prevItem)}</div>
+        )}
+        <div className={`br-content ${isPushUp ? "br-content--in" : ""}`}>{renderContent(item)}</div>
       </div>
     </div>
   );

@@ -176,3 +176,36 @@
     clip-path: inset(0 0 0 100%);
   }
 }
+
+/* ── Push-Up Transition ──────────────────────────────────────────────────── */
+/* Rhombus and plate stay locked; text slides up */
+
+.br-push-up .br-plate {
+  overflow: hidden; /* hard-clip text at edges */
+  position: relative;
+  max-width: 70cqw;
+  opacity: 1;
+  transition: height 300ms ease;
+}
+
+/* Old content slides up and out */
+.br-content--out {
+  position: absolute;
+  width: 100%;
+  animation: br-push-out 300ms ease-in forwards;
+}
+
+/* New content slides up into place */
+.br-content--in {
+  animation: br-push-in 300ms ease-out forwards;
+}
+
+@keyframes br-push-out {
+  0%   { transform: translateY(0); opacity: 1; }
+  100% { transform: translateY(-100%); opacity: 0; }
+}
+
+@keyframes br-push-in {
+  0%   { transform: translateY(100%); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}

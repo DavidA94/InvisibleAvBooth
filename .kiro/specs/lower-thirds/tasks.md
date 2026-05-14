@@ -145,13 +145,13 @@ Tests are part of each task's definition of done. Unit tests follow the unit or 
 - [x] 41. Implement exit animation — rhombus slides right as traveling curtain, shrinks to center, phase reporting (`dismissing` → `hidden`).
   - _Requirements: 6_
 
-- [ ] 42. Implement push-up transition — `overflow: hidden` clipping, old text up/out + new text up/in, plate height transition, cross-type reference line behavior, phase reporting.
+- [x] 42. Implement push-up transition — `overflow: hidden` clipping, old text up/out + new text up/in, plate height transition, cross-type reference line behavior, phase reporting.
   - _Requirements: 6_
 
-- [ ] 43. Implement Force Clear — instant `display: none`, immediate `hidden` phase report.
+- [x] 43. Implement Force Clear — instant `display: none`, immediate `hidden` phase report.
   - _Requirements: 6_
 
-- [ ] 44. Implement scripture measurement — hidden container with matching CSS, 70%/80% width optimization, page break calculation (4-line max, no verse split, single-verse overflow), report via `OTS_LOWER_THIRD_PAGES`. Cancel in-progress measurement on new `show` command.
+- [x] 44. Implement scripture measurement — hidden container with matching CSS, 70%/80% width optimization, page break calculation (4-line max, no verse split, single-verse overflow), report via `OTS_LOWER_THIRD_PAGES`. Cancel in-progress measurement on new `show` command.
   - _Requirements: 7_
 
 - [ ] 45. Implement scripture page display and transitions — fixed reference line, verse content pagination, page-chunk slide-up animation, plate height adaptation.
