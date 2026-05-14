@@ -163,7 +163,7 @@ Tests are part of each task's definition of done. Unit tests follow the unit or 
 - [x] 47. Implement resolution telemetry — detect dimensions on init, report `OTS_LOWER_THIRD_RESOLUTION` with `isCorrect` flag.
   - _Requirements: 2_
 
-- [ ] 48. Implement overlay logging — batch log entries, send via `POST /api/overlay/logs`, fire-and-forget (no retry).
+- [x] 48. Implement overlay logging — batch log entries, send via `POST /api/overlay/logs`, fire-and-forget (no retry).
   - _Requirements: 8_
 
 - [ ] 49. Write unit tests for overlay components — phase reporting, measurement, disconnect timeout, Force Clear, reconnect behavior, resolution detection.
