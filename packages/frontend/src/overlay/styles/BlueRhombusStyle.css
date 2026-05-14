@@ -209,3 +209,20 @@
   0%   { transform: translateY(100%); opacity: 0; }
   100% { transform: translateY(0); opacity: 1; }
 }
+
+/* ── Scripture Page Turn ─────────────────────────────────────────────────── */
+/* Reference stays fixed; verse area clips and slides */
+
+.br-verse-area {
+  position: relative;
+  overflow: hidden; /* hard-clip verses at reference line boundary */
+}
+
+.br-verse-slot {
+  width: 100%;
+}
+
+/* Plate height animates smoothly when verse count changes between pages */
+.br-push-up .br-plate {
+  transition: height 300ms ease;
+}

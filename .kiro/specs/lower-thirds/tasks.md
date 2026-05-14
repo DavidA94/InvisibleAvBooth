@@ -154,13 +154,13 @@ Tests are part of each task's definition of done. Unit tests follow the unit or 
 - [x] 44. Implement scripture measurement — hidden container with matching CSS, 70%/80% width optimization, page break calculation (4-line max, no verse split, single-verse overflow), report via `OTS_LOWER_THIRD_PAGES`. Cancel in-progress measurement on new `show` command.
   - _Requirements: 7_
 
-- [ ] 45. Implement scripture page display and transitions — fixed reference line, verse content pagination, page-chunk slide-up animation, plate height adaptation.
+- [x] 45. Implement scripture page display and transitions — fixed reference line, verse content pagination, page-chunk slide-up animation, plate height adaptation.
   - _Requirements: 6, 7_
 
-- [ ] 46. Implement overlay reconnect logic — handle `skipEntrance`, restart animation on `showing` phase, complete dismiss on `dismissing` phase, report `hidden` immediately if backend phase is `dismissing`/`hidden`.
+- [x] 46. Implement overlay reconnect logic — handle `skipEntrance`, restart animation on `showing` phase, complete dismiss on `dismissing` phase, report `hidden` immediately if backend phase is `dismissing`/`hidden`.
   - _Requirements: 8_
 
-- [ ] 47. Implement resolution telemetry — detect dimensions on init, report `OTS_LOWER_THIRD_RESOLUTION` with `isCorrect` flag.
+- [x] 47. Implement resolution telemetry — detect dimensions on init, report `OTS_LOWER_THIRD_RESOLUTION` with `isCorrect` flag.
   - _Requirements: 2_
 
 - [ ] 48. Implement overlay logging — batch log entries, send via `POST /api/overlay/logs`, fire-and-forget (no retry).
