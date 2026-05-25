@@ -73,6 +73,9 @@ export function AdminTemplatesPage(): ReactNode {
   const [name, setName] = useState("");
   const [formatString, setFormatString] = useState("");
   const [roleMinimum, setRoleMinimum] = useState<Role>("AvVolunteer");
+  const [lowerThirdType, setLowerThirdType] = useState<"Title" | "TitleSubtitle" | "Scripture">("Title");
+  const [autoDismissEnabled, setAutoDismissEnabled] = useState(false);
+  const [autoDismissSeconds, setAutoDismissSeconds] = useState(10);
   const [formError, setFormError] = useState("");
   const [validation, setValidation] = useState<ValidationResult | null>(null);
   const [validated, setValidated] = useState(false);
@@ -125,14 +128,20 @@ export function AdminTemplatesPage(): ReactNode {
       setName("");
       setFormatString("");
       setRoleMinimum("AvVolunteer");
+      setLowerThirdType("Title");
+      setAutoDismissEnabled(false);
+      setAutoDismissSeconds(10);
       initialRef.current = { name: "", formatString: "", roleMinimum: "AvVolunteer" };
     } else if (next.mode === "edit" && next.templateId) {
-      const t = templates.find((tpl) => tpl.id === next.templateId);
-      if (t) {
-        setName(t.name);
-        setFormatString(t.formatString);
-        setRoleMinimum(t.roleMinimum);
-        initialRef.current = { name: t.name, formatString: t.formatString, roleMinimum: t.roleMinimum };
+      const template = templates.find((tpl) => tpl.id === next.templateId);
+      if (template) {
+        setName(template.name);
+        setFormatString(template.formatString);
+        setRoleMinimum(template.roleMinimum);
+        setLowerThirdType((template.lowerThirdType as "Title" | "TitleSubtitle" | "Scripture") ?? "Title");
+        setAutoDismissEnabled(template.autoDismissMs != null);
+        setAutoDismissSeconds(template.autoDismissMs ? template.autoDismissMs / 1000 : 10);
+        initialRef.current = { name: template.name, formatString: template.formatString, roleMinimum: template.roleMinimum };
       }
     }
     setFormError("");
@@ -164,7 +173,11 @@ export function AdminTemplatesPage(): ReactNode {
     setFormError("");
     const category = panel.category ?? "title";
     try {
-      const body = { name, formatString, category, roleMinimum };
+      const body: Record<string, unknown> = { name, formatString, category, roleMinimum };
+      if (category === "lower_third") {
+        body.lowerThirdType = lowerThirdType;
+        body.autoDismissMs = autoDismissEnabled ? autoDismissSeconds * 1000 : null;
+      }
       const isEdit = panel.mode === "edit" && panel.templateId;
       const res = await fetch(isEdit ? `/api/admin/templates/${panel.templateId}` : "/api/admin/templates", {
         method: isEdit ? "PUT" : "POST",
@@ -328,8 +341,8 @@ export function AdminTemplatesPage(): ReactNode {
                     }}
                   />
 
-                  <label className={`tpl-form-label ${isDescription ? "tpl-form-label-top" : ""}`}>Format String:</label>
-                  {isDescription ? (
+                  <label className={`tpl-form-label ${isDescription || isLowerThird ? "tpl-form-label-top" : ""}`}>Format String:</label>
+                  {isDescription || isLowerThird ? (
                     <IonTextarea
                       data-testid={TEST_ID_TEMPLATE_FORM_FORMAT}
                       fill="outline"
@@ -370,6 +383,48 @@ export function AdminTemplatesPage(): ReactNode {
                       menuPortalTarget={document.body}
                     />
                   </div>
+
+                  {isLowerThird && (
+                    <>
+                      <label className="tpl-form-label">Type:</label>
+                      <div>
+                        <Select
+                          options={[
+                            { value: "Title", label: "Title" },
+                            { value: "TitleSubtitle", label: "Title + Subtitle" },
+                            { value: "Scripture", label: "Scripture" },
+                          ]}
+                          value={{ value: lowerThirdType, label: lowerThirdType === "TitleSubtitle" ? "Title + Subtitle" : lowerThirdType }}
+                          onChange={(opt) => {
+                            setLowerThirdType(((opt as { value: string } | null)?.value ?? "Title") as "Title" | "TitleSubtitle" | "Scripture");
+                            setValidated(false);
+                          }}
+                          styles={roleStyles as never}
+                          isSearchable={false}
+                          menuPortalTarget={document.body}
+                        />
+                      </div>
+
+                      <label className="tpl-form-label">Auto-Dismiss:</label>
+                      <div className="layout-row gap-standard align-center">
+                        <input
+                          type="checkbox"
+                          checked={autoDismissEnabled}
+                          onChange={(event) => { setAutoDismissEnabled(event.target.checked); setValidated(false); }}
+                        />
+                        {autoDismissEnabled && (
+                          <IonInput
+                            type="number"
+                            fill="outline"
+                            value={autoDismissSeconds}
+                            onIonInput={(e) => { setAutoDismissSeconds(Math.max(1, parseInt(e.detail.value ?? "10") || 10)); setValidated(false); }}
+                            style={{ maxWidth: "5rem" }}
+                          />
+                        )}
+                        {autoDismissEnabled && <span className="text-muted">seconds</span>}
+                      </div>
+                    </>
+                  )}
                 </div>
 
                 {validation && validation.blockers.length > 0 && (
