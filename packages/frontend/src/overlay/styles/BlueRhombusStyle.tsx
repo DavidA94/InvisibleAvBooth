@@ -1,3 +1,4 @@
+import { TEST_ID_BLUE_RHOMBUS } from "../../constants/testIds";
 import type { ReactNode } from "react";
 import type { LowerThirdItem, TitleContent, TitleSubtitleContent, ScriptureContent, AnimationPhase } from "@invisible-av-booth/shared";
 import "./BlueRhombusStyle.css";
@@ -68,7 +69,7 @@ export function BlueRhombusStyle({ item, prevItem, phase, isPushUp, onAnimationE
   const pageTurn = isPushUp && isPageTurn(item, prevItem);
 
   return (
-    <div className={`br-wrapper br-phase--${phase} ${isPushUp ? "br-push-up" : ""}`} onAnimationEnd={onAnimationEnd} data-testid="blue-rhombus">
+    <div className={`br-wrapper br-phase--${phase} ${isPushUp ? "br-push-up" : ""}`} onAnimationEnd={onAnimationEnd} data-testid={TEST_ID_BLUE_RHOMBUS}>
       <div className="br-rhombus" />
       <div className="br-plate">
         {pageTurn ? (

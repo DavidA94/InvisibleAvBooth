@@ -1,3 +1,4 @@
+import { TEST_ID_LT_EDIT_DIALOG, TEST_ID_LT_EDIT_TITLE_INPUT, TEST_ID_LT_EDIT_SUBTITLE_INPUT, TEST_ID_LT_EDIT_SCRIPTURE_INPUT, TEST_ID_LT_EDIT_AUTODISMISS_TOGGLE, TEST_ID_LT_EDIT_AUTODISMISS_DURATION, TEST_ID_LT_EDIT_CANCEL, TEST_ID_LT_EDIT_SAVE } from "../../constants/testIds";
 import { useState } from "react";
 import type { ReactNode } from "react";
 import { IonButton } from "@ionic/react";
@@ -67,7 +68,7 @@ export function EditLowerThirdDialog({ item, onSave, onCancel }: EditLowerThirdD
   };
 
   return (
-    <div className="lt-dialog-backdrop" data-testid="lt-edit-dialog">
+    <div className="lt-dialog-backdrop" data-testid={TEST_ID_LT_EDIT_DIALOG}>
       <div className="lt-dialog-modal">
         <h3 className="lt-dialog-title">
           Edit {item.type === "TitleSubtitle" ? "Title + Subtitle" : item.type}
@@ -81,7 +82,7 @@ export function EditLowerThirdDialog({ item, onSave, onCancel }: EditLowerThirdD
                 type="text"
                 value={title}
                 onChange={(event) => setTitle(event.target.value)}
-                data-testid="lt-edit-title-input"
+                data-testid={TEST_ID_LT_EDIT_TITLE_INPUT}
               />
             </label>
           )}
@@ -93,13 +94,13 @@ export function EditLowerThirdDialog({ item, onSave, onCancel }: EditLowerThirdD
                 type="text"
                 value={subtitle}
                 onChange={(event) => setSubtitle(event.target.value)}
-                data-testid="lt-edit-subtitle-input"
+                data-testid={TEST_ID_LT_EDIT_SUBTITLE_INPUT}
               />
             </label>
           )}
 
           {item.type === "Scripture" && (
-            <div className="lt-dialog-field" data-testid="lt-edit-scripture-input">
+            <div className="lt-dialog-field" data-testid={TEST_ID_LT_EDIT_SCRIPTURE_INPUT}>
               <span>Scripture Reference</span>
               <ScriptureReferenceInput
                 bookId={bookId}
@@ -120,7 +121,7 @@ export function EditLowerThirdDialog({ item, onSave, onCancel }: EditLowerThirdD
               type="checkbox"
               checked={autoDismissEnabled}
               onChange={(event) => setAutoDismissEnabled(event.target.checked)}
-              data-testid="lt-edit-autodismiss-toggle"
+              data-testid={TEST_ID_LT_EDIT_AUTODISMISS_TOGGLE}
             />
           </label>
 
@@ -133,17 +134,17 @@ export function EditLowerThirdDialog({ item, onSave, onCancel }: EditLowerThirdD
                 max={300}
                 value={autoDismissSeconds}
                 onChange={(event) => setAutoDismissSeconds(Math.max(1, parseInt(event.target.value) || 10))}
-                data-testid="lt-edit-autodismiss-duration"
+                data-testid={TEST_ID_LT_EDIT_AUTODISMISS_DURATION}
               />
             </label>
           )}
         </div>
 
         <div className="lt-dialog-actions">
-          <IonButton fill="outline" onClick={onCancel} data-testid="lt-edit-cancel">
+          <IonButton fill="outline" onClick={onCancel} data-testid={TEST_ID_LT_EDIT_CANCEL}>
             Cancel
           </IonButton>
-          <IonButton onClick={handleSave} disabled={!isValid()} data-testid="lt-edit-save">
+          <IonButton onClick={handleSave} disabled={!isValid()} data-testid={TEST_ID_LT_EDIT_SAVE}>
             Save
           </IonButton>
         </div>

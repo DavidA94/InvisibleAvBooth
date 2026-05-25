@@ -1,3 +1,4 @@
+import { TEST_ID_LT_PREVIEW_DIALOG, TEST_ID_LT_PREVIEW_GO_LIVE, TEST_ID_LT_PREVIEW_CANCEL } from "../../constants/testIds";
 import type { ReactNode } from "react";
 import { IonButton } from "@ionic/react";
 import type { LowerThirdItem, TitleContent, TitleSubtitleContent, ScriptureContent } from "@invisible-av-booth/shared";
@@ -47,7 +48,7 @@ function renderContent(item: LowerThirdItem): ReactNode {
 
 export function PreviewDialog({ item, transitionLocked, onGoLive, onCancel }: PreviewDialogProps): ReactNode {
   return (
-    <div className="lt-preview-backdrop" data-testid="lt-preview-dialog">
+    <div className="lt-preview-backdrop" data-testid={TEST_ID_LT_PREVIEW_DIALOG}>
       <div className="lt-preview-modal">
         <div className="lt-preview-header">
           <span className="lt-preview-type">{item.type}</span>
@@ -61,14 +62,14 @@ export function PreviewDialog({ item, transitionLocked, onGoLive, onCancel }: Pr
         )}
 
         <div className="lt-preview-actions">
-          <IonButton fill="outline" onClick={onCancel} data-testid="lt-preview-cancel">
+          <IonButton fill="outline" onClick={onCancel} data-testid={TEST_ID_LT_PREVIEW_CANCEL}>
             Cancel
           </IonButton>
           <IonButton
             color="success"
             onClick={onGoLive}
             disabled={transitionLocked}
-            data-testid="lt-preview-go-live"
+            data-testid={TEST_ID_LT_PREVIEW_GO_LIVE}
           >
             {transitionLocked ? "Transitioning..." : "Go Live"}
           </IonButton>

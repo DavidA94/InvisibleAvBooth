@@ -1,3 +1,4 @@
+import { TEST_ID_LOWER_THIRD_WIDGET, TEST_ID_LT_ACTIVE_SECTION, TEST_ID_LT_LIBRARY_SECTION } from "../../constants/testIds";
 import type { ReactNode } from "react";
 import { WidgetContainer } from "../WidgetContainer";
 import { useLowerThirdState } from "../../hooks/useLowerThirdState";
@@ -48,9 +49,9 @@ export function LowerThirdWidget(): ReactNode {
 
   return (
     <WidgetContainer title="Lower Thirds" connections={connections}>
-      <div className="lower-third-widget" data-testid="lower-third-widget">
+      <div className="lower-third-widget" data-testid={TEST_ID_LOWER_THIRD_WIDGET}>
         {/* Active Section */}
-        <section className="lt-section" data-testid="lt-active-section">
+        <section className="lt-section" data-testid={TEST_ID_LT_ACTIVE_SECTION}>
           <h3 className="lt-section-title">Active</h3>
           {active ? (
             <LowerThirdRow
@@ -71,7 +72,7 @@ export function LowerThirdWidget(): ReactNode {
         </section>
 
         {/* Library Section */}
-        <section className="lt-section" data-testid="lt-library-section">
+        <section className="lt-section" data-testid={TEST_ID_LT_LIBRARY_SECTION}>
           <h3 className="lt-section-title">Library</h3>
           {templateItems.length === 0 && volunteerItems.length === 0 ? (
             <p className="lt-empty-state">No items available</p>

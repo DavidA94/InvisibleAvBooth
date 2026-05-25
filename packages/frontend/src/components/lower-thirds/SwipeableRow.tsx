@@ -1,3 +1,4 @@
+import { TEST_ID_SWIPEABLE_ROW } from "../../constants/testIds";
 import { useState, useRef, useCallback } from "react";
 import type { ReactNode, TouchEvent } from "react";
 
@@ -93,7 +94,7 @@ export function SwipeableRow({ children, leftActions, rightActions, actionWidth 
   }, [revealed]);
 
   return (
-    <div className="swipeable-row" data-testid="swipeable-row">
+    <div className="swipeable-row" data-testid={TEST_ID_SWIPEABLE_ROW}>
       {/* Left actions (revealed by swiping right) */}
       {rightActions && (
         <div className="swipeable-actions swipeable-actions--right" style={{ width: `${actionWidth}rem` }}>

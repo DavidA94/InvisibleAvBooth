@@ -1,3 +1,4 @@
+import { TEST_ID_LT_DISMISS_BUTTON, TEST_ID_LT_SHOW_BUTTON, TEST_ID_LT_FORCE_CLEAR_AREA, TEST_ID_LT_GO_LIVE_AREA, TEST_ID_LT_DELETE_AREA, TEST_ID_LT_PAGINATION, TEST_ID_LT_STATUS_OVERLAY, TEST_ID_LT_COUNTDOWN } from "../../constants/testIds";
 import type { ReactNode } from "react";
 import type { LowerThirdItem, AnimationPhase, TitleContent, TitleSubtitleContent, ScriptureContent } from "@invisible-av-booth/shared";
 
@@ -53,7 +54,7 @@ export function LowerThirdRow({
       data-testid={`lt-row-${item.id}`}
     >
       {/* Status overlay */}
-      {showStatusOverlay && <div className="lt-status-overlay" data-testid="lt-status-overlay">Dismissing</div>}
+      {showStatusOverlay && <div className="lt-status-overlay" data-testid={TEST_ID_LT_STATUS_OVERLAY}>Dismissing</div>}
 
       {/* Active badge for library items */}
       {isActive && section === "library" && <div className="lt-badge">Active</div>}
@@ -70,7 +71,7 @@ export function LowerThirdRow({
           className="lt-action-btn lt-action-primary"
           onClick={onDismiss}
           disabled={transitionLocked || showStatusOverlay}
-          data-testid="lt-dismiss-button"
+          data-testid={TEST_ID_LT_DISMISS_BUTTON}
           aria-label="Dismiss"
         >
           <span className="lt-action-icon">✕</span>
@@ -83,7 +84,7 @@ export function LowerThirdRow({
           className="lt-action-btn lt-action-primary"
           onClick={() => onActivate?.(item.id)}
           disabled={transitionLocked}
-          data-testid="lt-show-button"
+          data-testid={TEST_ID_LT_SHOW_BUTTON}
           aria-label="Show"
         >
           <span className="lt-action-icon">▶</span>
@@ -93,7 +94,7 @@ export function LowerThirdRow({
 
       {/* Pagination controls for active scripture */}
       {section === "active" && item.pages && item.pages.totalPages > 1 && (
-        <div className="lt-pagination" data-testid="lt-pagination">
+        <div className="lt-pagination" data-testid={TEST_ID_LT_PAGINATION}>
           <button
             className="lt-action-btn"
             onClick={onPagePrevious}
@@ -119,7 +120,7 @@ export function LowerThirdRow({
       {/* Swipe-revealed actions would be handled by a swipe container wrapper */}
       {/* Force Clear (swipe-left on active) */}
       {section === "active" && (
-        <div className="lt-swipe-actions lt-swipe-left" data-testid="lt-force-clear-area">
+        <div className="lt-swipe-actions lt-swipe-left" data-testid={TEST_ID_LT_FORCE_CLEAR_AREA}>
           <button className="lt-action-btn lt-action-danger" onClick={onForceClear} aria-label="Force Clear">
             <span className="lt-action-icon">⛔</span>
             <span className="lt-action-label">Force Clear</span>
@@ -130,7 +131,7 @@ export function LowerThirdRow({
       {/* Go Live (swipe-right on library) / Delete (swipe-left on volunteer items) */}
       {section === "library" && !isActive && (
         <>
-          <div className="lt-swipe-actions lt-swipe-right" data-testid="lt-go-live-area">
+          <div className="lt-swipe-actions lt-swipe-right" data-testid={TEST_ID_LT_GO_LIVE_AREA}>
             <button
               className="lt-action-btn lt-action-go-live"
               onClick={() => onActivate?.(item.id)}
@@ -142,7 +143,7 @@ export function LowerThirdRow({
             </button>
           </div>
           {item.source === "volunteer" && (
-            <div className="lt-swipe-actions lt-swipe-left" data-testid="lt-delete-area">
+            <div className="lt-swipe-actions lt-swipe-left" data-testid={TEST_ID_LT_DELETE_AREA}>
               <button className="lt-action-btn lt-action-danger" onClick={() => onRemove?.(item.id)} aria-label="Delete">
                 <span className="lt-action-icon">🗑</span>
                 <span className="lt-action-label">Delete</span>
@@ -154,7 +155,7 @@ export function LowerThirdRow({
 
       {/* Auto-dismiss countdown placeholder */}
       {section === "active" && autoDismissAt && !isDismissing && (
-        <div className="lt-countdown" data-testid="lt-countdown">
+        <div className="lt-countdown" data-testid={TEST_ID_LT_COUNTDOWN}>
           {/* ActiveCountdown component will be implemented in task 30 */}
         </div>
       )}

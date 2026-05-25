@@ -1,3 +1,4 @@
+import { TEST_ID_LT_ADD_DIALOG, TEST_ID_LT_ADD_TITLE_INPUT, TEST_ID_LT_ADD_SUBTITLE_INPUT, TEST_ID_LT_ADD_SCRIPTURE_INPUT, TEST_ID_LT_ADD_AUTODISMISS_TOGGLE, TEST_ID_LT_ADD_AUTODISMISS_DURATION, TEST_ID_LT_ADD_CANCEL, TEST_ID_LT_ADD_SAVE } from "../../constants/testIds";
 import { useState } from "react";
 import type { ReactNode } from "react";
 import { IonButton } from "@ionic/react";
@@ -48,7 +49,7 @@ export function AddLowerThirdDialog({ type, onSave, onCancel }: AddLowerThirdDia
   };
 
   return (
-    <div className="lt-dialog-backdrop" data-testid="lt-add-dialog">
+    <div className="lt-dialog-backdrop" data-testid={TEST_ID_LT_ADD_DIALOG}>
       <div className="lt-dialog-modal">
         <h3 className="lt-dialog-title">
           Add {type === "TitleSubtitle" ? "Title + Subtitle" : type}
@@ -63,7 +64,7 @@ export function AddLowerThirdDialog({ type, onSave, onCancel }: AddLowerThirdDia
                 value={title}
                 onChange={(event) => setTitle(event.target.value)}
                 placeholder="Enter title text"
-                data-testid="lt-add-title-input"
+                data-testid={TEST_ID_LT_ADD_TITLE_INPUT}
               />
             </label>
           )}
@@ -76,13 +77,13 @@ export function AddLowerThirdDialog({ type, onSave, onCancel }: AddLowerThirdDia
                 value={subtitle}
                 onChange={(event) => setSubtitle(event.target.value)}
                 placeholder="Enter subtitle text"
-                data-testid="lt-add-subtitle-input"
+                data-testid={TEST_ID_LT_ADD_SUBTITLE_INPUT}
               />
             </label>
           )}
 
           {type === "Scripture" && (
-            <div className="lt-dialog-field" data-testid="lt-add-scripture-input">
+            <div className="lt-dialog-field" data-testid={TEST_ID_LT_ADD_SCRIPTURE_INPUT}>
               <span>Scripture Reference</span>
               <ScriptureReferenceInput
                 bookId={bookId}
@@ -103,7 +104,7 @@ export function AddLowerThirdDialog({ type, onSave, onCancel }: AddLowerThirdDia
               type="checkbox"
               checked={autoDismissEnabled}
               onChange={(event) => setAutoDismissEnabled(event.target.checked)}
-              data-testid="lt-add-autodismiss-toggle"
+              data-testid={TEST_ID_LT_ADD_AUTODISMISS_TOGGLE}
             />
           </label>
 
@@ -116,17 +117,17 @@ export function AddLowerThirdDialog({ type, onSave, onCancel }: AddLowerThirdDia
                 max={300}
                 value={autoDismissSeconds}
                 onChange={(event) => setAutoDismissSeconds(Math.max(1, parseInt(event.target.value) || 10))}
-                data-testid="lt-add-autodismiss-duration"
+                data-testid={TEST_ID_LT_ADD_AUTODISMISS_DURATION}
               />
             </label>
           )}
         </div>
 
         <div className="lt-dialog-actions">
-          <IonButton fill="outline" onClick={onCancel} data-testid="lt-add-cancel">
+          <IonButton fill="outline" onClick={onCancel} data-testid={TEST_ID_LT_ADD_CANCEL}>
             Cancel
           </IonButton>
-          <IonButton onClick={handleSave} disabled={!isValid()} data-testid="lt-add-save">
+          <IonButton onClick={handleSave} disabled={!isValid()} data-testid={TEST_ID_LT_ADD_SAVE}>
             Save
           </IonButton>
         </div>
