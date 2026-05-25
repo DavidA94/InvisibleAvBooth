@@ -6,6 +6,7 @@ import { getDatabase, resetDatabase } from "../src/database/database.js";
 
 const DASHBOARD_ID = "default";
 const WIDGET_ID = "obs";
+const LT_WIDGET_ID = "lower-thirds";
 
 function seed(): void {
   const database = getDatabase();
@@ -39,6 +40,21 @@ function seed(): void {
     console.log("Created widget: OBS");
   } else {
     console.log("OBS widget already exists — skipping");
+  }
+
+  const existingLtWidget = database.prepare("SELECT id FROM widget_configurations WHERE dashboardId = ? AND widgetId = ?").get(DASHBOARD_ID, LT_WIDGET_ID);
+
+  if (!existingLtWidget) {
+    database
+      .prepare(
+        `INSERT INTO widget_configurations
+       (id, dashboardId, widgetId, title, col, row, colSpan, rowSpan, roleMinimum, createdAt)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(`${DASHBOARD_ID}-${LT_WIDGET_ID}`, DASHBOARD_ID, LT_WIDGET_ID, "Lower Thirds", 3, 0, 3, 2, "AvVolunteer", new Date().toISOString());
+    console.log("Created widget: Lower Thirds");
+  } else {
+    console.log("Lower Thirds widget already exists — skipping");
   }
 }
 
