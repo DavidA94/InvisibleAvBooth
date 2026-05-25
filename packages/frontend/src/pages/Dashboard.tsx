@@ -5,6 +5,7 @@ import { useNavigate, useParams } from "react-router";
 import type { GridManifest, GridCell, Role } from "../types";
 import { useStore } from "../store";
 import { ObsWidget } from "../components/obs/ObsWidget";
+import { LowerThirdWidget } from "../components/lower-thirds/LowerThirdWidget";
 import { TEST_ID_DASHBOARD_GRID, TEST_ID_DASHBOARD_LOADING, TEST_ID_DASHBOARD_REFRESHING } from "../constants/testIds";
 
 function useIsPortrait(): boolean {
@@ -32,6 +33,9 @@ function isStructuralChange(cached: GridCell[], fresh: GridCell[]): boolean {
 function WidgetPlaceholder({ cell }: { cell: GridCell }): ReactNode {
   if (cell.widgetId === "obs") {
     return <ObsWidget />;
+  }
+  if (cell.widgetId === "lower-thirds") {
+    return <LowerThirdWidget />;
   }
   return (
     <div data-testid={`widget-${cell.widgetId}`} className="surface layout-centered full-height">

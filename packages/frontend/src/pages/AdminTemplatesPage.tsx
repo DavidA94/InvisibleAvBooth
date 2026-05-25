@@ -136,11 +136,27 @@ export function AdminTemplatesPage(): ReactNode {
       const template = templates.find((tpl) => tpl.id === next.templateId);
       if (template) {
         setName(template.name);
-        setFormatString(template.formatString);
         setRoleMinimum(template.roleMinimum);
         setLowerThirdType((template.lowerThirdType as "Title" | "TitleSubtitle" | "Scripture") ?? "Title");
         setAutoDismissEnabled(template.autoDismissMs != null);
         setAutoDismissSeconds(template.autoDismissMs ? template.autoDismissMs / 1000 : 10);
+
+        // For lower-third templates, parse JSON back into editable format
+        if (template.category === "lower_third") {
+          try {
+            const parsed = JSON.parse(template.formatString) as Record<string, string>;
+            if (template.lowerThirdType === "TitleSubtitle") {
+              setFormatString(`${parsed["title"] ?? ""}\n${parsed["subtitle"] ?? ""}`);
+            } else {
+              setFormatString(parsed["title"] ?? "");
+            }
+          } catch {
+            setFormatString(template.formatString);
+          }
+        } else {
+          setFormatString(template.formatString);
+        }
+
         initialRef.current = { name: template.name, formatString: template.formatString, roleMinimum: template.roleMinimum };
       }
     }
@@ -173,7 +189,20 @@ export function AdminTemplatesPage(): ReactNode {
     setFormError("");
     const category = panel.category ?? "title";
     try {
-      const body: Record<string, unknown> = { name, formatString, category, roleMinimum };
+      let finalFormatString = formatString;
+      if (category === "lower_third") {
+        // Construct JSON object from the format string based on type
+        if (lowerThirdType === "Title") {
+          finalFormatString = JSON.stringify({ title: formatString });
+        } else if (lowerThirdType === "TitleSubtitle") {
+          // For TitleSubtitle, split on newline: first line is title, rest is subtitle
+          const lines = formatString.split("\n");
+          finalFormatString = JSON.stringify({ title: lines[0] ?? "", subtitle: lines.slice(1).join("\n") });
+        } else if (lowerThirdType === "Scripture") {
+          finalFormatString = JSON.stringify({ title: "{Scripture}" });
+        }
+      }
+      const body: Record<string, unknown> = { name, formatString: finalFormatString, category, roleMinimum };
       if (category === "lower_third") {
         body.lowerThirdType = lowerThirdType;
         body.autoDismissMs = autoDismissEnabled ? autoDismissSeconds * 1000 : null;
