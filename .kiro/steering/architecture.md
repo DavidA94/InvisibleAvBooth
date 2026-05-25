@@ -80,6 +80,7 @@ The system provides **modular control of livestream operations** for a church en
 - **Frontend ↔ Backend:** JSON-based commands and status updates over REST and Socket.io; backend mediates all device communication. All requests use relative URLs (`/api/...`, `/socket.io/...`) — Caddy handles routing to the correct server.
 - **Backend ↔ Devices:** Handles all network/API calls to devices and reconciling reported states.
 - **Backend ↔ Streaming Platforms:** `StreamingPlatformService` orchestrates the full broadcast lifecycle (create → stream → end) via platform-specific clients (`YouTubeClient`, `FacebookClient`). OBS streams to a local RTMP relay; per-platform FFmpeg forwarders read from the relay and push to platform ingest URLs. The relay runs for the lifetime of the backend process. Platform configurations are hot-reloaded after admin CRUD operations (`reloadPlatforms()`) — no server restart required for new connections to take effect.
+- **OBS Browser Source ↔ Overlay:** A static HTML file (`packages/overlay/lower-thirds.html`) is loaded via `file://` in OBS. It wraps an iFrame pointing at the frontend-served overlay page (`/overlay/lower-thirds`). The overlay page connects to the backend via an unauthenticated `/overlay` Socket.io namespace for display commands and phase reporting. Logging from the overlay uses `POST /api/overlay/logs` (unauthenticated, rate-limited).
 - **Widget Responsibilities:**
   - Display device state and updates.
   - Communicate errors or alerts to the frontend via the `WidgetErrorOverlay` component (full scrim with action card) for unavailable states, and via the notification system for recoverable errors.
@@ -127,6 +128,8 @@ The backend uses **winston** with two simultaneous transports: structured JSON t
 
 Log levels are `DEBUG / INFO / WARN / ERROR`. `DEBUG` is off by default and enabled via `LOG_LEVEL=debug`. All entries include a timestamp, source, level, message, and optional structured context. Any entry triggered by a user action includes the `userId`.
 
+The `source` field identifies the origin: `"backend"` (default), `"frontend"` (via `POST /api/logs`), or `"overlay"` (via `POST /api/overlay/logs` — unauthenticated, rate-limited).
+
 See `logging.md` for the full logging philosophy and conventions.
 
 ---
@@ -142,10 +145,14 @@ All event names in the system use a prefix that identifies the communication bou
 | `bus:` | Internal EventBus (backend only) | Service → Service  | `bus:obs:state:changed`, `bus:session:manifest:updated` |
 | `stc:` | Socket.io server-to-client       | Backend → Frontend | `stc:obs:state`, `stc:session:manifest:updated`         |
 | `cts:` | Socket.io client-to-server       | Frontend → Backend | `cts:obs:command`, `cts:request:initial:state`          |
+| `sto:` | Socket.io server-to-overlay      | Backend → Overlay  | `sto:lower-third:show`, `sto:lower-third:dismiss`       |
+| `ots:` | Socket.io overlay-to-server      | Overlay → Backend  | `ots:lower-third:phase`, `ots:lower-third:resolution`   |
 
 All event name constants are defined in `packages/shared/src/constants/socketEvents.ts` and exported from `@invisible-av-booth/shared`. Both frontend and backend import these constants — event names are never hardcoded as strings.
 
 **Exception:** The `notification` socket event does not follow the `stc:` convention. This is a known inconsistency from the initial implementation.
+
+**Exception:** The `/overlay` Socket.io namespace is unauthenticated and does not use the `SocketModule` interface. It is registered as a standalone namespace handler (`registerOverlayNamespace`) because it serves a non-interactive renderer (OBS browser source) that cannot authenticate via JWT. See `packages/backend/src/gateway/overlayNamespace.ts`.
 
 ### Socket Module Pattern
 
@@ -244,6 +251,8 @@ html {
 ```
 
 **DPI handling**: Use CSS logical pixels throughout. The browser handles device pixel ratio (DPR) scaling automatically via the viewport meta tag (`<meta name="viewport" content="width=device-width, initial-scale=1">`). Do not use physical pixel values or attempt to detect DPR in application code.
+
+**Overlay page sizing**: The rem-based sizing system applies to the dashboard UI. The overlay page (`/overlay/lower-thirds`) runs inside an OBS browser source at a fixed resolution and uses container-relative units (`cqw`, `cqh`) based on a CSS container query (`container-type: size`) locked to 16:9 aspect ratio. This is a different rendering domain with different constraints — `cqw`/`cqh` ensure proportional scaling regardless of output resolution.
 
 **Pixel values in documentation**: Pixel equivalents may appear in documentation and comments as illustrative examples (e.g., "2.5rem ≈ 40px"). They must never appear in component CSS, inline styles, or any runtime code. All implementation uses rem.
 

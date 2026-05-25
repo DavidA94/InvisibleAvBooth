@@ -338,3 +338,46 @@ Full REST API:
 ## Key rotation
 
 If `DEVICE_SECRET_KEY` is changed, all stored device passwords become unreadable. Re-enter all device passwords via `/admin/devices` after rotating the key.
+
+---
+
+## Lower-Third Overlay (OBS Browser Source)
+
+The lower-third system uses a static HTML file loaded in OBS as a browser source. This file wraps an iFrame that connects to the frontend overlay page.
+
+### OBS Browser Source Configuration
+
+1. In OBS, add a **Browser** source to your scene
+2. Set the **Local file** checkbox and point it to:
+   ```
+   file:///path/to/InvisibleAvBooth/packages/overlay/lower-thirds.html
+   ```
+3. Set **Width** to `1920` and **Height** to `1080`
+4. Ensure these checkboxes are **unchecked** (OBS defaults):
+   - ☐ Shutdown source when not visible
+   - ☐ Refresh browser when scene becomes active
+5. Leave "Custom CSS" empty
+
+### Configuring the Overlay URL
+
+The static wrapper needs to know where the frontend is hosted. Edit `packages/overlay/lower-thirds.html` and set the `data-overlay-url` attribute on the `<body>` tag:
+
+```html
+<body data-overlay-url="https://invisible.av/overlay/lower-thirds">
+```
+
+If your deployment uses a different hostname (e.g., `https://localhost`), update this value accordingly.
+
+### Resolution Mismatch Detection
+
+If the OBS browser source is not configured at 1920×1080, the system will display a persistent warning banner on the volunteer dashboard:
+
+> "OBS browser source is misconfigured ({width}×{height}). Expected 1920×1080 at 16:9."
+
+Fix by adjusting the browser source Width/Height in OBS properties.
+
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `VITE_OVERLAY_DISCONNECT_TIMEOUT_MS` | `15000` | Time (ms) before the overlay auto-dismisses a stuck graphic when disconnected from the backend. Build-time configuration. |

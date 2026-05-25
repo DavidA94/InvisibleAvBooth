@@ -186,14 +186,14 @@ Tests are part of each task's definition of done. Unit tests follow the unit or 
 
 ## Phase 7: Documentation & Integration Testing
 
-- [ ] 53. Update `docs/setup.md` — OBS browser source configuration (1920×1080, unchecked shutdown/refresh, `data-overlay-url` configuration), `OVERLAY_DISCONNECT_TIMEOUT_MS` env var.
+- [x] 53. Update `docs/setup.md` — OBS browser source configuration (1920×1080, unchecked shutdown/refresh, `data-overlay-url` configuration), `OVERLAY_DISCONNECT_TIMEOUT_MS` env var.
   - _Requirements: 1, 2_
 
-- [ ] 54. Update steering doc — add `sto:`/`ots:` prefixes to §7, add `"overlay"` source to §6, add overlay namespace exception note to §7, add `cqw`/`cqh` note to §10, add overlay boundaries to §3.
+- [x] 54. Update steering doc — add `sto:`/`ots:` prefixes to §7, add `"overlay"` source to §6, add overlay namespace exception note to §7, add `cqw`/`cqh` note to §10, add overlay boundaries to §3.
   - _Requirements: 8_
 
-- [ ] 55. Write integration tests — full flow (add scripture → measure → activate → paginate → dismiss), auto-dismiss lifecycle, push-up transition, template resolution on manifest change, overlay reconnect with skipEntrance, Force Clear mid-animation.
+- [x] 55. Write integration tests — full flow (add scripture → measure → activate → paginate → dismiss), auto-dismiss lifecycle, push-up transition, template resolution on manifest change, overlay reconnect with skipEntrance, Force Clear mid-animation.
   - _Requirements: 4, 7, 9_
 
-- [ ] 56. Write Playwright overlay integration tests — show/dismiss/push-up phase reporting, measurement accuracy, disconnect timeout, reconnect with skipEntrance, reconnect after timer fired, Force Clear instant hide, resolution telemetry.
+- [x] 56. Write Playwright overlay integration tests — show/dismiss/push-up phase reporting, measurement accuracy, disconnect timeout, reconnect with skipEntrance, reconnect after timer fired, Force Clear instant hide, resolution telemetry.
   - _Requirements: 1, 6, 7, 8_
