@@ -9,6 +9,7 @@ export const INITIAL_LOWER_THIRD_STATE: LowerThirdState = {
   overlayConnected: false,
   overlayResolutionCorrect: false,
   transitionLocked: false,
+  overlayStale: false,
 };
 
 export interface LowerThirdSlice {

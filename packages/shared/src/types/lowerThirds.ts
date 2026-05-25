@@ -68,6 +68,7 @@ export interface LowerThirdState {
   overlayConnected: boolean;
   overlayResolutionCorrect: boolean;
   transitionLocked: boolean;
+  overlayStale: boolean;
 }
 
 // ── Commands (dashboard → backend) ────────────────────────────────────────────

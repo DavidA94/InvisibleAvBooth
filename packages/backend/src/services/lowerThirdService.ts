@@ -29,6 +29,7 @@ const TOKEN_PATTERN = /\{(\w+)\}/g;
 const DEFAULT_STYLE: LowerThirdStyle = "blue_rhombus";
 const FALLBACK_TIMEOUT_MS = 5000;
 const MEASUREMENT_TIMEOUT_MS = 10000;
+const DISCONNECT_TIMEOUT_MS = 15000;
 
 export class LowerThirdService {
   private active: LowerThirdItem | null = null;
@@ -40,6 +41,8 @@ export class LowerThirdService {
   private measurementTimers = new Map<string, ReturnType<typeof setTimeout>>();
   private overlayConnected = false;
   private overlayResolutionCorrect = false;
+  private overlayStale = false;
+  private staleTimer: ReturnType<typeof setTimeout> | null = null;
 
   // Callbacks set by the socket gateway to send commands to the overlay
   private sendToOverlay: ((event: string, data?: unknown) => void) | null = null;
@@ -60,6 +63,19 @@ export class LowerThirdService {
 
   setOverlayConnected(connected: boolean): void {
     this.overlayConnected = connected;
+    if (connected) {
+      this.overlayStale = false;
+      if (this.staleTimer) { clearTimeout(this.staleTimer); this.staleTimer = null; }
+    } else if (this.active) {
+      // Req 8.8: Mark active item as stale after 15s of overlay disconnect
+      this.staleTimer = setTimeout(() => {
+        this.staleTimer = null;
+        if (this.active && !this.overlayConnected) {
+          this.overlayStale = true;
+          this.emitState();
+        }
+      }, DISCONNECT_TIMEOUT_MS);
+    }
     this.emitState();
   }
 
@@ -274,6 +290,7 @@ export class LowerThirdService {
       overlayConnected: this.overlayConnected,
       overlayResolutionCorrect: this.overlayResolutionCorrect,
       transitionLocked: this.isTransitionLocked(),
+      overlayStale: this.overlayStale,
     };
   }
 
@@ -294,6 +311,7 @@ export class LowerThirdService {
   destroy(): void {
     this.cancelAutoDismiss();
     this.cancelFallbackTimer();
+    if (this.staleTimer) { clearTimeout(this.staleTimer); this.staleTimer = null; }
     for (const timer of this.measurementTimers.values()) clearTimeout(timer);
     this.measurementTimers.clear();
   }

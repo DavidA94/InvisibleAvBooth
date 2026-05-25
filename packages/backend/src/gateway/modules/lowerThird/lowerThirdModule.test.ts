@@ -22,6 +22,7 @@ const mockService = {
     overlayConnected: false,
     overlayResolutionCorrect: false,
     transitionLocked: false,
+    overlayStale: false,
   })),
 };
 
@@ -50,6 +51,7 @@ describe("LowerThirdModule", () => {
         overlayConnected: false,
         overlayResolutionCorrect: false,
         transitionLocked: false,
+    overlayStale: false,
       };
       eventBus.emit(BUS_LOWER_THIRD_STATE_CHANGED, state);
 
