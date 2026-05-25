@@ -154,3 +154,32 @@ describe("AdminTemplatesPage", () => {
     expect(mockFetch).toHaveBeenCalledWith("/api/admin/templates/t1", expect.objectContaining({ method: "DELETE" }));
   });
 });
+
+describe("Lower Third Templates", () => {
+  const TEMPLATES_WITH_LT = [
+    ...TEMPLATES,
+    { id: "lt1", name: "Speaker LT", category: "lower_third", formatString: '{"title":"{Speaker}"}', roleMinimum: "AvVolunteer", lowerThirdType: "Title", autoDismissMs: 5000 },
+  ];
+
+  it("renders Lower Third group header", async () => {
+    mockListTemplates(TEMPLATES_WITH_LT);
+    renderPage();
+    await waitFor(() => expect(screen.getByText("Lower Third")).toBeInTheDocument());
+  });
+
+  it("shows type badge for lower-third templates", async () => {
+    mockListTemplates(TEMPLATES_WITH_LT);
+    renderPage();
+    await waitFor(() => expect(screen.getByText("Speaker LT")).toBeInTheDocument());
+    // The subtitle should show the lowerThirdType
+    expect(screen.getByText(/Lower Third · Title/)).toBeInTheDocument();
+  });
+
+  it("shows Lower Third Template option in add dropdown", async () => {
+    mockListTemplates(TEMPLATES_WITH_LT);
+    renderPage();
+    await waitFor(() => screen.getByText("Add Template"));
+    fireEvent.click(screen.getByText("Add Template"));
+    expect(screen.getByText("Lower Third Template")).toBeInTheDocument();
+  });
+});

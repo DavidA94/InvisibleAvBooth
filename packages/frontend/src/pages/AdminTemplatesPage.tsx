@@ -23,9 +23,11 @@ import type { Role } from "../types";
 interface Template {
   id: string;
   name: string;
-  category: "title" | "description";
+  category: "title" | "description" | "lower_third";
   formatString: string;
   roleMinimum: Role;
+  lowerThirdType?: "Title" | "TitleSubtitle" | "Scripture" | null;
+  autoDismissMs?: number | null;
 }
 
 interface ValidationResult {
@@ -35,7 +37,7 @@ interface ValidationResult {
 
 interface PanelState {
   mode: "empty" | "create" | "edit";
-  category?: "title" | "description";
+  category?: "title" | "description" | "lower_third";
   templateId?: string;
 }
 
@@ -55,7 +57,8 @@ function sortTemplates(templates: Template[]): Template[] {
   const descriptions = templates.filter((t) => t.category === "description");
   const noneTemplate = descriptions.filter(isNone);
   const otherDescriptions = descriptions.filter((t) => !isNone(t)).sort((a, b) => a.name.localeCompare(b.name));
-  return [...titles, ...noneTemplate, ...otherDescriptions];
+  const lowerThirds = templates.filter((t) => t.category === "lower_third").sort((a, b) => a.name.localeCompare(b.name));
+  return [...titles, ...noneTemplate, ...otherDescriptions, ...lowerThirds];
 }
 
 export function AdminTemplatesPage(): ReactNode {
@@ -203,7 +206,7 @@ export function AdminTemplatesPage(): ReactNode {
     }
   };
 
-  const handleAddType = (category: "title" | "description"): void => {
+  const handleAddType = (category: "title" | "description" | "lower_third"): void => {
     setPopoverOpen(false);
     navigatePanel({ mode: "create", category });
   };
@@ -211,6 +214,7 @@ export function AdminTemplatesPage(): ReactNode {
   const sorted = sortTemplates(templates);
   const selectedTemplate = panel.mode === "edit" ? templates.find((t) => t.id === panel.templateId) : undefined;
   const isDescription = (panel.mode === "create" ? panel.category : selectedTemplate?.category) === "description";
+  const isLowerThird = (panel.mode === "create" ? panel.category : selectedTemplate?.category) === "lower_third";
 
   if (loading) {
     return (
@@ -245,6 +249,9 @@ export function AdminTemplatesPage(): ReactNode {
                   <button className="button-unstyled add-device-dropdown-option" type="button" onClick={() => handleAddType("description")}>
                     Description Template
                   </button>
+                  <button className="button-unstyled add-device-dropdown-option" type="button" onClick={() => handleAddType("lower_third")}>
+                    Lower Third Template
+                  </button>
                 </div>
               )}
             </div>
@@ -257,7 +264,7 @@ export function AdminTemplatesPage(): ReactNode {
 
                 return (
                   <div key={t.id}>
-                    {showHeader && <div className="text-muted text-caption tpl-group-header">{t.category === "title" ? "Title" : "Description"}</div>}
+                    {showHeader && <div className="text-muted text-caption tpl-group-header">{t.category === "title" ? "Title" : t.category === "description" ? "Description" : "Lower Third"}</div>}
                     <div
                       data-testid={`${TEST_ID_TEMPLATE_ITEM}-${t.id}`}
                       className={`device-list-item surface ${panel.mode === "edit" && panel.templateId === t.id ? "device-list-item-selected" : ""}`}
@@ -269,7 +276,8 @@ export function AdminTemplatesPage(): ReactNode {
                       <div className="fill-remaining">
                         <div className="text-bold">{t.name}</div>
                         <div className="text-muted text-caption">
-                          {t.category === "title" ? "Title" : "Description"}
+                          {t.category === "title" ? "Title" : t.category === "description" ? "Description" : "Lower Third"}
+                          {t.lowerThirdType && ` · ${t.lowerThirdType}`}
                           {!isNone(t) && ` · ${ROLE_LABELS[t.roleMinimum]}`}
                         </div>
                       </div>

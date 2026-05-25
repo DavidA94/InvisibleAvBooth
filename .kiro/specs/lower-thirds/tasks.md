@@ -173,13 +173,13 @@ Tests are part of each task's definition of done. Unit tests follow the unit or 
 
 ## Phase 6: Static Wrapper & Admin UI
 
-- [ ] 50. Create `packages/overlay/lower-thirds.html` — static wrapper with `data-overlay-url` config, iFrame lifecycle, postMessage handshake, heartbeat monitoring (10s timeout), retry loop.
+- [x] 50. Create `packages/overlay/lower-thirds.html` — static wrapper with `data-overlay-url` config, iFrame lifecycle, postMessage handshake, heartbeat monitoring (10s timeout), retry loop.
   - _Requirements: 1_
 
-- [ ] 51. Extend Admin Templates Page — add "Lower Third Templates" section, type badge, create/edit modal with type-specific fields and auto-dismiss toggle.
+- [x] 51. Extend Admin Templates Page — add "Lower Third Templates" section, type badge, create/edit modal with type-specific fields and auto-dismiss toggle.
   - _Requirements: 3_
 
-- [ ] 52. Write unit tests for admin template UI — lower-third section rendering, create/edit modal fields per type, auto-dismiss toggle behavior.
+- [x] 52. Write unit tests for admin template UI — lower-third section rendering, create/edit modal fields per type, auto-dismiss toggle behavior.
   - _Requirements: 3_
 
 ---
