@@ -34,9 +34,9 @@ export function LowerThirdOverlay(): ReactNode {
   const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const measureAbortRef = useRef<AbortController | null>(null);
 
-  const reportPhase = useCallback((p: AnimationPhase) => {
-    setPhase(p);
-    socketRef.current?.emit(OTS_LOWER_THIRD_PHASE, p);
+  const reportPhase = useCallback((newPhase: AnimationPhase) => {
+    setPhase(newPhase);
+    socketRef.current?.emit(OTS_LOWER_THIRD_PHASE, newPhase);
   }, []);
 
   const startDisconnectTimer = useCallback(() => {

@@ -6,8 +6,8 @@ import { CTS_LOWER_THIRD_COMMAND, STC_LOWER_THIRD_STATE } from "@invisible-av-bo
 import type { LowerThirdState } from "@invisible-av-booth/shared";
 
 const mockService = {
-  activate: vi.fn(() => ({ success: true, value: undefined })),
-  dismissActive: vi.fn(() => ({ success: true, value: undefined })),
+  activate: vi.fn((): { success: boolean; value?: undefined; error?: string } => ({ success: true, value: undefined })),
+  dismissActive: vi.fn((): { success: boolean; value?: undefined; error?: string } => ({ success: true, value: undefined })),
   forceClear: vi.fn(),
   addToLibrary: vi.fn(() => ({ success: true, value: { id: "new" } })),
   removeFromLibrary: vi.fn(() => ({ success: true, value: undefined })),

@@ -30,8 +30,8 @@ export function SwipeableRow({ children, leftActions, rightActions, actionWidth 
     setOffset(0);
   }
 
-  const handleTouchStart = useCallback((e: TouchEvent) => {
-    const touch = e.touches[0];
+  const handleTouchStart = useCallback((event: TouchEvent) => {
+    const touch = event.touches[0];
     if (!touch) return;
     startX.current = touch.clientX;
     startY.current = touch.clientY;
@@ -39,24 +39,24 @@ export function SwipeableRow({ children, leftActions, rightActions, actionWidth 
   }, []);
 
   const handleTouchMove = useCallback(
-    (e: TouchEvent) => {
+    (event: TouchEvent) => {
       if (!isTracking.current) return;
-      const touch = e.touches[0];
+      const touch = event.touches[0];
       if (!touch) return;
 
-      const dx = touch.clientX - startX.current;
-      const dy = touch.clientY - startY.current;
+      const deltaX = touch.clientX - startX.current;
+      const deltaY = touch.clientY - startY.current;
 
       // If vertical movement dominates, stop tracking (allow scroll)
-      if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 10) {
+      if (Math.abs(deltaY) > Math.abs(deltaX) && Math.abs(deltaY) > 10) {
         isTracking.current = false;
         return;
       }
 
       // Clamp offset based on available actions
-      let clamped = dx;
-      if (!rightActions && dx > 0) clamped = 0;
-      if (!leftActions && dx < 0) clamped = 0;
+      let clamped = deltaX;
+      if (!rightActions && deltaX > 0) clamped = 0;
+      if (!leftActions && deltaX < 0) clamped = 0;
       clamped = Math.max(-maxOffset, Math.min(maxOffset, clamped));
 
       setOffset(clamped);

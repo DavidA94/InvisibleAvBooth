@@ -151,11 +151,11 @@ export class MetadataTemplateDao {
  * Used for lower-third formatString deduplication.
  */
 export function canonicalizeJson(json: string): string {
-  const obj = JSON.parse(json) as Record<string, unknown>;
-  const sorted = Object.keys(obj).sort();
+  const parsed = JSON.parse(json) as Record<string, unknown>;
+  const sorted = Object.keys(parsed).sort();
   const canonical: Record<string, unknown> = {};
   for (const key of sorted) {
-    canonical[key] = obj[key];
+    canonical[key] = parsed[key];
   }
   return JSON.stringify(canonical);
 }

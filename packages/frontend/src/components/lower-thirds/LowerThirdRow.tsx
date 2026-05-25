@@ -70,7 +70,7 @@ export function LowerThirdRow({
           className="lt-action-btn lt-action-primary"
           onClick={onDismiss}
           disabled={transitionLocked || showStatusOverlay}
-          data-testid="lt-dismiss-btn"
+          data-testid="lt-dismiss-button"
           aria-label="Dismiss"
         >
           <span className="lt-action-icon">✕</span>
@@ -83,7 +83,7 @@ export function LowerThirdRow({
           className="lt-action-btn lt-action-primary"
           onClick={() => onActivate?.(item.id)}
           disabled={transitionLocked}
-          data-testid="lt-show-btn"
+          data-testid="lt-show-button"
           aria-label="Show"
         >
           <span className="lt-action-icon">▶</span>

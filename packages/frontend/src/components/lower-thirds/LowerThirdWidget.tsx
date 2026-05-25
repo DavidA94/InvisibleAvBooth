@@ -16,11 +16,11 @@ export function LowerThirdWidget(): ReactNode {
   const { state, sendCommand } = useLowerThirdState();
   const { active, library, phase, autoDismissAt, overlayConnected, overlayResolutionCorrect, transitionLocked } = state;
 
-  const hasTemplates = library.some((i) => i.source === "template");
+  const hasTemplates = library.some((item) => item.source === "template");
   const connections = [deriveOverlayStatus(overlayConnected, overlayResolutionCorrect, hasTemplates)];
 
-  const templateItems = library.filter((i) => i.source === "template").sort((a, b) => (a.templateName ?? "").localeCompare(b.templateName ?? ""));
-  const volunteerItems = library.filter((i) => i.source === "volunteer").sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  const templateItems = library.filter((item) => item.source === "template").sort((a, b) => (a.templateName ?? "").localeCompare(b.templateName ?? ""));
+  const volunteerItems = library.filter((item) => item.source === "volunteer").sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 
   const handleDismiss = (): void => {
     void sendCommand({ type: "dismiss-active" });

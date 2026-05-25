@@ -66,21 +66,21 @@ export function validateTemplate(input: ValidationInput, existing: ExistingTempl
 
   // (a) Unknown tokens — for lower_third, parse JSON and check tokens in all values
   const tokensToCheck = input.category === "lower_third" ? extractTokensFromJson(input.formatString) : extractTokensFromString(input.formatString);
-  const unknownTokens = tokensToCheck.filter((t) => !VALID_TOKENS.has(t));
+  const unknownTokens = tokensToCheck.filter((token) => !VALID_TOKENS.has(token));
   if (unknownTokens.length > 0) {
-    blockers.push(`Unknown token(s): ${unknownTokens.map((t) => `{${t}}`).join(", ")}`);
+    blockers.push(`Unknown token(s): ${unknownTokens.map((token) => `{${token}}`).join(", ")}`);
   }
 
   // (b) Duplicate format string (same category)
   if (input.category === "lower_third") {
     const canonical = canonicalizeForComparison(input.formatString);
-    const duplicate = candidates.find((t) => t.category === "lower_third" && canonicalizeForComparison(t.formatString) === canonical);
+    const duplicate = candidates.find((template) => template.category === "lower_third" && canonicalizeForComparison(template.formatString) === canonical);
     if (duplicate) {
       blockers.push(`Duplicate format string in lower_third category (matches "${duplicate.name}")`);
     }
   } else {
     const collapsed = collapseWhitespace(input.formatString);
-    const duplicate = candidates.find((t) => t.category === input.category && collapseWhitespace(t.formatString) === collapsed);
+    const duplicate = candidates.find((template) => template.category === input.category && collapseWhitespace(template.formatString) === collapsed);
     if (duplicate) {
       blockers.push(`Duplicate format string in ${input.category} category (matches "${duplicate.name}")`);
     }
@@ -115,9 +115,9 @@ function extractTokensFromString(formatString: string): string[] {
 
 function extractTokensFromJson(formatString: string): string[] {
   try {
-    const obj = JSON.parse(formatString) as Record<string, string>;
+    const parsed = JSON.parse(formatString) as Record<string, string>;
     const tokens: string[] = [];
-    for (const value of Object.values(obj)) {
+    for (const value of Object.values(parsed)) {
       tokens.push(...extractTokensFromString(value));
     }
     return tokens;
@@ -128,11 +128,11 @@ function extractTokensFromJson(formatString: string): string[] {
 
 function canonicalizeForComparison(json: string): string {
   try {
-    const obj = JSON.parse(json) as Record<string, unknown>;
-    const sorted = Object.keys(obj).sort();
+    const parsed = JSON.parse(json) as Record<string, unknown>;
+    const sorted = Object.keys(parsed).sort();
     const canonical: Record<string, unknown> = {};
     for (const key of sorted) {
-      canonical[key] = obj[key];
+      canonical[key] = parsed[key];
     }
     return JSON.stringify(canonical);
   } catch {

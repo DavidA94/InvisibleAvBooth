@@ -31,36 +31,36 @@ export class LowerThirdModule implements SocketModule {
   private handleCommand(command: LowerThirdCommand): CommandResult {
     switch (command.type) {
       case "activate": {
-        const r = this.service.activate(command.itemId);
-        return r.success ? { success: true } : { success: false, error: r.error };
+        const result = this.service.activate(command.itemId);
+        return result.success ? { success: true } : { success: false, error: result.error };
       }
       case "dismiss-active": {
-        const r = this.service.dismissActive();
-        return r.success ? { success: true } : { success: false, error: r.error };
+        const result = this.service.dismissActive();
+        return result.success ? { success: true } : { success: false, error: result.error };
       }
       case "force-clear": {
         this.service.forceClear();
         return { success: true };
       }
       case "add-to-library": {
-        const r = this.service.addToLibrary(command.input);
-        return r.success ? { success: true } : { success: false, error: r.error };
+        const result = this.service.addToLibrary(command.input);
+        return result.success ? { success: true } : { success: false, error: result.error };
       }
       case "remove-from-library": {
-        const r = this.service.removeFromLibrary(command.itemId);
-        return r.success ? { success: true } : { success: false, error: r.error };
+        const result = this.service.removeFromLibrary(command.itemId);
+        return result.success ? { success: true } : { success: false, error: result.error };
       }
       case "edit-library-item": {
-        const r = this.service.editLibraryItem(command.itemId, command.patch);
-        return r.success ? { success: true } : { success: false, error: r.error };
+        const result = this.service.editLibraryItem(command.itemId, command.patch);
+        return result.success ? { success: true } : { success: false, error: result.error };
       }
       case "page-next": {
-        const r = this.service.pageNext();
-        return r.success ? { success: true } : { success: false, error: r.error };
+        const result = this.service.pageNext();
+        return result.success ? { success: true } : { success: false, error: result.error };
       }
       case "page-previous": {
-        const r = this.service.pagePrevious();
-        return r.success ? { success: true } : { success: false, error: r.error };
+        const result = this.service.pagePrevious();
+        return result.success ? { success: true } : { success: false, error: result.error };
       }
     }
   }

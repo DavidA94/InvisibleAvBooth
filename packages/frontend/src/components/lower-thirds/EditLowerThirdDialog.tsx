@@ -80,7 +80,7 @@ export function EditLowerThirdDialog({ item, onSave, onCancel }: EditLowerThirdD
               <input
                 type="text"
                 value={title}
-                onChange={(e) => setTitle(e.target.value)}
+                onChange={(event) => setTitle(event.target.value)}
                 data-testid="lt-edit-title-input"
               />
             </label>
@@ -92,7 +92,7 @@ export function EditLowerThirdDialog({ item, onSave, onCancel }: EditLowerThirdD
               <input
                 type="text"
                 value={subtitle}
-                onChange={(e) => setSubtitle(e.target.value)}
+                onChange={(event) => setSubtitle(event.target.value)}
                 data-testid="lt-edit-subtitle-input"
               />
             </label>
@@ -119,7 +119,7 @@ export function EditLowerThirdDialog({ item, onSave, onCancel }: EditLowerThirdD
             <input
               type="checkbox"
               checked={autoDismissEnabled}
-              onChange={(e) => setAutoDismissEnabled(e.target.checked)}
+              onChange={(event) => setAutoDismissEnabled(event.target.checked)}
               data-testid="lt-edit-autodismiss-toggle"
             />
           </label>
@@ -132,7 +132,7 @@ export function EditLowerThirdDialog({ item, onSave, onCancel }: EditLowerThirdD
                 min={1}
                 max={300}
                 value={autoDismissSeconds}
-                onChange={(e) => setAutoDismissSeconds(Math.max(1, parseInt(e.target.value) || 10))}
+                onChange={(event) => setAutoDismissSeconds(Math.max(1, parseInt(event.target.value) || 10))}
                 data-testid="lt-edit-autodismiss-duration"
               />
             </label>

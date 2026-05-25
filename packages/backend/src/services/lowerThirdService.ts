@@ -54,8 +54,8 @@ export class LowerThirdService {
 
   // ── Overlay Communication ─────────────────────────────────────────────────
 
-  setSendToOverlay(fn: (event: string, data?: unknown) => void): void {
-    this.sendToOverlay = fn;
+  setSendToOverlay(emitter: (event: string, data?: unknown) => void): void {
+    this.sendToOverlay = emitter;
   }
 
   setOverlayConnected(connected: boolean): void {
@@ -90,20 +90,20 @@ export class LowerThirdService {
   }
 
   removeFromLibrary(itemId: string): Result<void, string> {
-    const idx = this.library.findIndex((i) => i.id === itemId);
-    if (idx === -1) return { success: false, error: "Item not found" };
-    const item = this.library[idx]!;
+    const index = this.library.findIndex((item) => item.id === itemId);
+    if (index === -1) return { success: false, error: "Item not found" };
+    const item = this.library[index]!;
     if (item.source === "template") return { success: false, error: "Cannot delete template-derived items" };
     if (this.active?.id === itemId) return { success: false, error: "Cannot delete the active item" };
-    this.library.splice(idx, 1);
+    this.library.splice(index, 1);
     this.emitState();
     return { success: true, value: undefined };
   }
 
   editLibraryItem(itemId: string, patch: EditLowerThirdInput): Result<LowerThirdItem, string> {
-    const idx = this.library.findIndex((i) => i.id === itemId);
-    if (idx === -1) return { success: false, error: "Item not found" };
-    const item = this.library[idx]!;
+    const index = this.library.findIndex((item) => item.id === itemId);
+    if (index === -1) return { success: false, error: "Item not found" };
+    const item = this.library[index]!;
     if (item.source === "template") return { success: false, error: "Cannot edit template-derived items" };
     if (this.active?.id === itemId) return { success: false, error: "Cannot edit the active item" };
 
@@ -115,7 +115,7 @@ export class LowerThirdService {
     if (patch.autoDismissMs !== undefined) {
       item.autoDismissMs = patch.autoDismissMs ?? null;
     }
-    this.library[idx] = item;
+    this.library[index] = item;
     this.emitState();
     return { success: true, value: item };
   }
@@ -125,20 +125,20 @@ export class LowerThirdService {
   activate(itemId: string): Result<void, string> {
     if (this.isTransitionLocked()) return { success: false, error: "Transition in progress" };
 
-    const item = this.library.find((i) => i.id === itemId);
+    const item = this.library.find((item) => item.id === itemId);
     if (!item) return { success: false, error: "Item not found in library" };
 
     if (this.active) {
       // Push-up transition
       this.cancelAutoDismiss();
-      const prev = this.active;
+      const previous = this.active;
       this.active = { ...item, used: true };
       this.markUsed(itemId);
       this.phase = "showing";
       this.startFallbackTimer();
       this.startAutoDismissIfNeeded();
       this.sendToOverlay?.("sto:lower-third:push-up", { item: this.active });
-      this.returnToLibrary(prev);
+      this.returnToLibrary(previous);
     } else {
       // Fresh show
       this.active = { ...item, used: true };
@@ -168,12 +168,12 @@ export class LowerThirdService {
   forceClear(): void {
     this.cancelAutoDismiss();
     this.cancelFallbackTimer();
-    const prev = this.active;
+    const previous = this.active;
     this.active = null;
     this.phase = "hidden";
     this.autoDismissAt = null;
     this.sendToOverlay?.("sto:lower-third:force-clear", {});
-    if (prev) this.returnToLibrary(prev);
+    if (previous) this.returnToLibrary(previous);
     this.emitState();
   }
 
@@ -184,10 +184,10 @@ export class LowerThirdService {
     this.phase = phase;
 
     if (phase === "hidden") {
-      const prev = this.active;
+      const previous = this.active;
       this.active = null;
       this.autoDismissAt = null;
-      if (prev) this.returnToLibrary(prev);
+      if (previous) this.returnToLibrary(previous);
     }
 
     this.emitState();
@@ -225,7 +225,7 @@ export class LowerThirdService {
 
   reportPages(itemId: string, pages: PageBreakdown): void {
     this.clearMeasurementTimeout(itemId);
-    const item = this.library.find((i) => i.id === itemId);
+    const item = this.library.find((item) => item.id === itemId);
     if (item) {
       item.pages = pages;
       this.emitState();
@@ -237,7 +237,7 @@ export class LowerThirdService {
   }
 
   getPendingMeasurements(): LowerThirdItem[] {
-    return this.library.filter((i) => i.type === "Scripture" && i.pages === null);
+    return this.library.filter((item) => item.type === "Scripture" && item.pages === null);
   }
 
   requestMeasurement(item: LowerThirdItem): void {
@@ -250,7 +250,7 @@ export class LowerThirdService {
     // Start measurement timeout
     const timer = setTimeout(() => {
       this.measurementTimers.delete(item.id);
-      if (!this.library.find((i) => i.id === item.id)?.pages) {
+      if (!this.library.find((item) => item.id === item.id)?.pages) {
         logger.warn("Scripture measurement timed out, assuming single page", { context: { itemId: item.id } });
         const fallbackPages: PageBreakdown = {
           totalPages: 1,
@@ -312,7 +312,7 @@ export class LowerThirdService {
     this.library = this.library.filter((item) => {
       if (item.source !== "template") return true;
       if (this.active?.id === item.id) return true;
-      const template = templates.find((t) => t.id === item.templateId);
+      const template = templates.find((template) => template.id === item.templateId);
       if (!template) return false;
       return this.isTemplateResolvable(template, manifest);
     });
@@ -320,7 +320,7 @@ export class LowerThirdService {
     // Add newly resolvable templates
     for (const template of templates) {
       if (!this.isTemplateResolvable(template, manifest)) continue;
-      if (this.library.some((i) => i.templateId === template.id)) continue;
+      if (this.library.some((item) => item.templateId === template.id)) continue;
 
       const item = this.buildTemplateItem(template, manifest);
       if (item) {
@@ -352,8 +352,8 @@ export class LowerThirdService {
 
   private buildTemplateItem(template: MetadataTemplateRow, manifest: SessionManifestFields): LowerThirdItem | null {
     const json = JSON.parse(template.formatString) as Record<string, string>;
-    const interpolate = (s: string): string =>
-      s
+    const interpolate = (text: string): string =>
+      text
         .replace("{Speaker}", manifest.speaker ?? "")
         .replace("{Title}", manifest.title ?? "")
         .replace("{Date}", new Date().toISOString().slice(0, 10))
@@ -407,10 +407,10 @@ export class LowerThirdService {
 
     // For scripture, look up verses
     if (input.type === "Scripture") {
-      const ref = (input.content as { reference: ScriptureReference }).reference;
-      const verses = this.lookupVerses(ref);
+      const reference = (input.content as { reference: ScriptureReference }).reference;
+      const verses = this.lookupVerses(reference);
       if (verses.length === 0) {
-        return { success: false, error: `Scripture not found: ${formatScripture(ref)}` };
+        return { success: false, error: `Scripture not found: ${formatScripture(reference)}` };
       }
       (item.content as ScriptureContent).verses = verses;
     }
@@ -423,10 +423,10 @@ export class LowerThirdService {
     content: TitleContent | TitleSubtitleContent | { reference: ScriptureReference },
   ): Result<TitleContent | TitleSubtitleContent | ScriptureContent, string> {
     if (type === "Scripture") {
-      const ref = (content as { reference: ScriptureReference }).reference;
-      const verses = this.lookupVerses(ref);
-      if (verses.length === 0) return { success: false, error: `Scripture not found: ${formatScripture(ref)}` };
-      return { success: true, value: { reference: ref, formattedReference: formatScripture(ref), verses } };
+      const reference = (content as { reference: ScriptureReference }).reference;
+      const verses = this.lookupVerses(reference);
+      if (verses.length === 0) return { success: false, error: `Scripture not found: ${formatScripture(reference)}` };
+      return { success: true, value: { reference: reference, formattedReference: formatScripture(reference), verses } };
     }
     return { success: true, value: content as TitleContent | TitleSubtitleContent };
   }
@@ -436,11 +436,11 @@ export class LowerThirdService {
     const rows = this.database
       .prepare("SELECT VERSENO, VERSETEXT FROM kjv WHERE BOOKID = ? AND CHAPTERNO = ? AND VERSENO >= ? AND VERSENO <= ? ORDER BY VERSENO")
       .all(ref.bookId, ref.chapter, ref.verse, endVerse) as Array<{ VERSENO: number; VERSETEXT: string }>;
-    return rows.map((r) => ({ verseNumber: r.VERSENO, text: r.VERSETEXT }));
+    return rows.map((row) => ({ verseNumber: row.VERSENO, text: row.VERSETEXT }));
   }
 
   private markUsed(itemId: string): void {
-    const item = this.library.find((i) => i.id === itemId);
+    const item = this.library.find((item) => item.id === itemId);
     if (item) item.used = true;
   }
 
@@ -481,10 +481,10 @@ export class LowerThirdService {
         this.phase = "visible";
       } else if (this.phase === "dismissing") {
         this.phase = "hidden";
-        const prev = this.active;
+        const previous = this.active;
         this.active = null;
         this.autoDismissAt = null;
-        if (prev) this.returnToLibrary(prev);
+        if (previous) this.returnToLibrary(previous);
       }
       this.emitState();
     }, FALLBACK_TIMEOUT_MS);

@@ -8,7 +8,7 @@ export function useLowerThirdState(): {
   state: LowerThirdState;
   sendCommand: (command: LowerThirdCommand) => Promise<CommandResult>;
 } {
-  const state = useStore((s) => s.lowerThirdState);
+  const state = useStore((store) => store.lowerThirdState);
   const socket = useSocket();
 
   const sendCommand = useCallback(

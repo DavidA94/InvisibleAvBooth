@@ -127,7 +127,7 @@ describe("LowerThirdRow", () => {
     render(
       <LowerThirdRow item={titleItem} section="active" isActive={true} transitionLocked={true} onDismiss={vi.fn()} />,
     );
-    expect(screen.getByTestId("lt-dismiss-btn")).toBeDisabled();
+    expect(screen.getByTestId("lt-dismiss-button")).toBeDisabled();
   });
 
   it("shows Dismissing overlay when phase is dismissing", () => {

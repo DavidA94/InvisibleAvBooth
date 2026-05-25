@@ -31,10 +31,10 @@ function renderContent(item: LowerThirdItem): ReactNode {
           <p className="lt-preview-reference">{content.formattedReference}</p>
           {content.verses.length > 0 && (
             <div className="lt-preview-verses">
-              {content.verses.map((v) => (
-                <p key={v.verseNumber} className="lt-preview-verse">
-                  {v.verseNumber > 0 && <span className="lt-preview-verse-num">{v.verseNumber}. </span>}
-                  {v.text}
+              {content.verses.map((verse) => (
+                <p key={verse.verseNumber} className="lt-preview-verse">
+                  {verse.verseNumber > 0 && <span className="lt-preview-verse-num">{verse.verseNumber}. </span>}
+                  {verse.text}
                 </p>
               ))}
             </div>
