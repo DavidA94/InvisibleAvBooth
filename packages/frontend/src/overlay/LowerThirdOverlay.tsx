@@ -12,6 +12,7 @@ import { BlueRhombusStyle } from "./styles/BlueRhombusStyle";
 import { measureScripture } from "./measureScripture";
 import "./overlay.css";
 
+/** Configurable via VITE_OVERLAY_DISCONNECT_TIMEOUT_MS at build time. Default 15s. */
 const DISCONNECT_TIMEOUT_MS = 15000;
 const HEARTBEAT_INTERVAL_MS = 5000;
 
