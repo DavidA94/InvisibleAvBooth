@@ -24,7 +24,7 @@
     function load() {
       iframe.src = overlayUrl;
       loadTimer = setTimeout(function () {
-        iframe.src = "";
+        iframe.src = "about:blank";
         setTimeout(load, 3000);
       }, 10000);
     }
@@ -44,7 +44,7 @@
       clearTimeout(heartbeatTimer);
       heartbeatTimer = setTimeout(function () {
         iframe.style.display = "none";
-        iframe.src = "";
+        iframe.src = "about:blank";
         setTimeout(load, 3000);
       }, 10000);
     }
