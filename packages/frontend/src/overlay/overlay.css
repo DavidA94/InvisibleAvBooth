@@ -21,14 +21,14 @@ html.overlay-active .ion-page {
 /* Aspect Ratio Jail — locks to 16:9, centered, container for cqw/cqh units */
 .aspect-ratio-jail {
   position: absolute;
-  inset: 0;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(100vw, 177.78vh); /* 16/9 * 100vh */
+  height: min(100vh, 56.25vw); /* 9/16 * 100vw */
   display: flex;
   align-items: flex-end;
   justify-content: flex-start;
-  aspect-ratio: 16 / 9;
-  max-width: 100vw;
-  max-height: 100vh;
-  margin: auto;
   container-type: size;
   container-name: overlay;
 }
