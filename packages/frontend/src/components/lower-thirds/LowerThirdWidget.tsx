@@ -58,7 +58,10 @@ export function LowerThirdWidget(): ReactNode {
   const [showAddDropdown, setShowAddDropdown] = useState(false);
 
   const handleAddSave = (input: AddLowerThirdInput): void => {
-    void sendCommand({ type: "add-to-library", input });
+    console.log("[LT] Adding to library:", input);
+    sendCommand({ type: "add-to-library", input }).then((result) => {
+      console.log("[LT] Add result:", result);
+    });
     setAddType(null);
   };
 
