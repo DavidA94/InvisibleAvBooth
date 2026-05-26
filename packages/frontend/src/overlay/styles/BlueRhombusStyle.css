@@ -26,7 +26,6 @@
   transform: skewX(-4deg);
   transform-origin: center;
   flex-shrink: 0;
-  align-self: stretch;
 }
 
 .br-plate {
@@ -35,7 +34,6 @@
   overflow: hidden;
   display: flex;
   align-items: center;
-  margin-left: -1px; /* tuck under rhombus edge */
 }
 
 .br-content {
@@ -105,8 +103,7 @@
 
 .br-phase--showing .br-plate {
   animation: br-plate-unfold var(--lt-plate-spread) ease-out var(--lt-rhombus-expand) forwards;
-  max-width: 0;
-  overflow: hidden;
+  clip-path: inset(0 100% 0 0); /* hidden but still takes up space for height */
 }
 
 @keyframes br-rhombus-grow {
@@ -115,8 +112,8 @@
 }
 
 @keyframes br-plate-unfold {
-  0% { max-width: 0; }
-  100% { max-width: 100%; }
+  0% { clip-path: inset(0 100% 0 0); }
+  100% { clip-path: inset(0 0 0 0); }
 }
 
 /* ── Phase: Visible ──────────────────────────────────────────────────────── */
@@ -126,7 +123,7 @@
 }
 
 .br-phase--visible .br-plate {
-  max-width: 100%;
+  clip-path: inset(0 0 0 0);
 }
 
 /* ── Phase: Dismissing (Exit) ────────────────────────────────────────────── */
@@ -171,7 +168,7 @@
 .br-push-up .br-plate {
   overflow: hidden;
   position: relative;
-  max-width: 100%;
+  clip-path: inset(0 0 0 0);
   animation: none;
   transition: height var(--lt-height-transition) ease;
 }
