@@ -35,7 +35,10 @@ export function LowerThirdWidget(): ReactNode {
   };
 
   const handleActivate = (itemId: string): void => {
-    void sendCommand({ type: "activate", itemId });
+    console.log("[LT] Activating item:", itemId);
+    sendCommand({ type: "activate", itemId }).then((result) => {
+      console.log("[LT] Activate result:", result);
+    });
   };
 
   const handleRemove = (itemId: string): void => {

@@ -16,12 +16,24 @@ import "./overlay.css";
 const DISCONNECT_TIMEOUT_MS = 15000;
 const HEARTBEAT_INTERVAL_MS = 5000;
 
+const LOG_BUFFER: Array<{ level: string; message: string }> = [];
+let logFlushTimer: ReturnType<typeof setTimeout> | null = null;
+
 function sendLog(level: "info" | "warn" | "error", message: string): void {
-  fetch("/api/overlay/logs", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify([{ level, message }]),
-  }).catch(() => {});
+  console.log(`[overlay] ${level}: ${message}`);
+  LOG_BUFFER.push({ level, message });
+  if (!logFlushTimer) {
+    logFlushTimer = setTimeout(() => {
+      logFlushTimer = null;
+      const batch = LOG_BUFFER.splice(0, 10);
+      if (batch.length === 0) return;
+      fetch("/api/overlay/logs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(batch),
+      }).catch(() => {});
+    }, 5000);
+  }
 }
 
 export function LowerThirdOverlay(): ReactNode {
@@ -71,6 +83,7 @@ export function LowerThirdOverlay(): ReactNode {
       const width = window.innerWidth;
       const height = window.innerHeight;
       socket.emit(OTS_LOWER_THIRD_RESOLUTION, { width, height, isCorrect: width === 1920 && height === 1080 });
+      console.log("[overlay] Sending overlay-ready postMessage to parent");
       window.parent.postMessage({ type: "overlay-ready" }, "*");
       if (heartbeatRef.current) clearInterval(heartbeatRef.current);
       heartbeatRef.current = setInterval(() => window.parent.postMessage({ type: "overlay-heartbeat" }, "*"), HEARTBEAT_INTERVAL_MS);

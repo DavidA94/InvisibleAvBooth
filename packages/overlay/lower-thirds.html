@@ -22,18 +22,22 @@
     let heartbeatTimer = null;
 
     function load() {
+      console.log("[wrapper] Loading iframe:", overlayUrl);
       iframe.src = overlayUrl;
       loadTimer = setTimeout(function () {
+        console.log("[wrapper] Load timeout — retrying");
         iframe.src = "about:blank";
         setTimeout(load, 3000);
       }, 10000);
     }
 
     window.addEventListener("message", function (event) {
+      console.log("[wrapper] Received postMessage:", event.data);
       if (event.data && event.data.type === "overlay-ready") {
         clearTimeout(loadTimer);
         loadTimer = null;
         iframe.style.display = "block";
+        console.log("[wrapper] Overlay ready — showing iframe");
         resetHeartbeat();
       } else if (event.data && event.data.type === "overlay-heartbeat") {
         resetHeartbeat();
@@ -43,6 +47,7 @@
     function resetHeartbeat() {
       clearTimeout(heartbeatTimer);
       heartbeatTimer = setTimeout(function () {
+        console.log("[wrapper] Heartbeat timeout — hiding iframe");
         iframe.style.display = "none";
         iframe.src = "about:blank";
         setTimeout(load, 3000);
