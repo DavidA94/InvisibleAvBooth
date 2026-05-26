@@ -65,8 +65,10 @@ export function LowerThirdOverlay(): ReactNode {
   }, []);
 
   useEffect(() => {
+    document.documentElement.classList.add("overlay-active");
     document.fonts.ready.then(() => { connectSocket(); });
     return () => {
+      document.documentElement.classList.remove("overlay-active");
       socketRef.current?.disconnect();
       if (disconnectTimerRef.current) clearTimeout(disconnectTimerRef.current);
       if (heartbeatRef.current) clearInterval(heartbeatRef.current);

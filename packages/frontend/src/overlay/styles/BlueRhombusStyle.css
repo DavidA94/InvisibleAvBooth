@@ -100,8 +100,9 @@
 .br-phase--showing .br-plate {
   animation: br-plate-unfold var(--lt-plate-spread) ease-out var(--lt-rhombus-expand) forwards;
   max-width: 0;
-  opacity: 0;
+  opacity: 1;
   overflow: hidden;
+  white-space: nowrap;
 }
 
 @keyframes br-rhombus-grow {
@@ -110,8 +111,8 @@
 }
 
 @keyframes br-plate-unfold {
-  0% { max-width: 0; opacity: 0; }
-  100% { max-width: 75cqw; opacity: 1; }
+  0% { max-width: 0; }
+  100% { max-width: 80cqw; }
 }
 
 /* ── Phase: Visible ──────────────────────────────────────────────────────── */
@@ -121,8 +122,9 @@
 }
 
 .br-phase--visible .br-plate {
-  max-width: 75cqw;
+  max-width: 80cqw;
   opacity: 1;
+  overflow: hidden;
 }
 
 /* ── Phase: Dismissing (Exit) ────────────────────────────────────────────── */
@@ -132,17 +134,14 @@
 
 .br-phase--dismissing {
   position: relative;
+  overflow: hidden;
 }
 
 .br-phase--dismissing .br-plate {
   animation: br-plate-clip var(--lt-rhombus-wipe) ease-in forwards;
-  overflow: hidden;
 }
 
 .br-phase--dismissing .br-rhombus {
-  position: absolute;
-  top: 0;
-  bottom: 0;
   z-index: 2;
   animation:
     br-rhombus-slide var(--lt-rhombus-wipe) ease-in forwards,
@@ -150,8 +149,8 @@
 }
 
 @keyframes br-rhombus-slide {
-  0% { left: 0; }
-  100% { left: 100%; }
+  0% { transform: skewX(-6deg) scaleY(1) translateX(0); }
+  100% { transform: skewX(-6deg) scaleY(1) translateX(80cqw); }
 }
 
 @keyframes br-plate-clip {
@@ -160,18 +159,29 @@
 }
 
 @keyframes br-rhombus-shrink {
-  0% { transform: skewX(-6deg) scaleY(1); }
-  100% { transform: skewX(-6deg) scaleY(0); }
+  0% { transform: skewX(-6deg) scaleY(1) translateX(80cqw); }
+  100% { transform: skewX(-6deg) scaleY(0) translateX(80cqw); }
 }
 
 /* ── Push-Up Transition ──────────────────────────────────────────────────── */
+/* Rhombus and plate stay locked in place — only text content slides */
+
+:root {
+  --lt-height-transition: 0.5s;
+}
+
+.br-push-up .br-rhombus {
+  transform: skewX(-6deg) scaleY(1);
+  animation: none;
+}
 
 .br-push-up .br-plate {
   overflow: hidden;
   position: relative;
-  max-width: 75cqw;
+  max-width: 80cqw;
   opacity: 1;
-  transition: height var(--lt-push-up) ease;
+  animation: none;
+  transition: height var(--lt-height-transition) ease;
 }
 
 .br-content--out {

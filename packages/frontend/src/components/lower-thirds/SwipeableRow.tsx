@@ -1,20 +1,17 @@
 import { TEST_ID_SWIPEABLE_ROW } from "../../constants/testIds";
 import { useState, useRef, useCallback } from "react";
-import type { ReactNode, TouchEvent } from "react";
+import type { ReactNode, TouchEvent, MouseEvent } from "react";
 
 interface SwipeableRowProps {
   children: ReactNode;
   leftActions?: ReactNode;
   rightActions?: ReactNode;
-  /** Width of the revealed action area in rem */
   actionWidth?: number;
-  /** Called when this row opens — parent uses this to close other rows */
   onOpen?: () => void;
-  /** Controlled: force closed from parent */
   forceClose?: boolean;
 }
 
-const SWIPE_THRESHOLD = 30; // px minimum to trigger reveal
+const SWIPE_THRESHOLD = 30;
 const BASE_REM = 16;
 
 export function SwipeableRow({ children, leftActions, rightActions, actionWidth = 4, onOpen, forceClose }: SwipeableRowProps): ReactNode {
@@ -25,97 +22,86 @@ export function SwipeableRow({ children, leftActions, rightActions, actionWidth 
   const isTracking = useRef(false);
   const maxOffset = actionWidth * BASE_REM;
 
-  // Force close from parent
   if (forceClose && revealed !== "none") {
     setRevealed("none");
     setOffset(0);
   }
 
-  const handleTouchStart = useCallback((event: TouchEvent) => {
-    const touch = event.touches[0];
-    if (!touch) return;
-    startX.current = touch.clientX;
-    startY.current = touch.clientY;
+  const handleStart = useCallback((clientX: number, clientY: number) => {
+    startX.current = clientX;
+    startY.current = clientY;
     isTracking.current = true;
   }, []);
 
-  const handleTouchMove = useCallback(
-    (event: TouchEvent) => {
-      if (!isTracking.current) return;
-      const touch = event.touches[0];
-      if (!touch) return;
+  const handleMove = useCallback((clientX: number, clientY: number) => {
+    if (!isTracking.current) return;
+    const deltaX = clientX - startX.current;
+    const deltaY = clientY - startY.current;
+    if (Math.abs(deltaY) > Math.abs(deltaX) && Math.abs(deltaY) > 10) {
+      isTracking.current = false;
+      return;
+    }
+    let clamped = deltaX;
+    if (!rightActions && deltaX > 0) clamped = 0;
+    if (!leftActions && deltaX < 0) clamped = 0;
+    clamped = Math.max(-maxOffset, Math.min(maxOffset, clamped));
+    setOffset(clamped);
+  }, [leftActions, rightActions, maxOffset]);
 
-      const deltaX = touch.clientX - startX.current;
-      const deltaY = touch.clientY - startY.current;
-
-      // If vertical movement dominates, stop tracking (allow scroll)
-      if (Math.abs(deltaY) > Math.abs(deltaX) && Math.abs(deltaY) > 10) {
-        isTracking.current = false;
-        return;
-      }
-
-      // Clamp offset based on available actions
-      let clamped = deltaX;
-      if (!rightActions && deltaX > 0) clamped = 0;
-      if (!leftActions && deltaX < 0) clamped = 0;
-      clamped = Math.max(-maxOffset, Math.min(maxOffset, clamped));
-
-      setOffset(clamped);
-    },
-    [leftActions, rightActions, maxOffset],
-  );
-
-  const handleTouchEnd = useCallback(() => {
+  const handleEnd = useCallback(() => {
     isTracking.current = false;
     if (Math.abs(offset) > SWIPE_THRESHOLD) {
       if (offset > 0 && rightActions) {
-        setRevealed("right");
-        setOffset(maxOffset);
-        onOpen?.();
+        setRevealed("right"); setOffset(maxOffset); onOpen?.();
       } else if (offset < 0 && leftActions) {
-        setRevealed("left");
-        setOffset(-maxOffset);
-        onOpen?.();
+        setRevealed("left"); setOffset(-maxOffset); onOpen?.();
       } else {
-        setRevealed("none");
-        setOffset(0);
+        setRevealed("none"); setOffset(0);
       }
     } else {
-      setRevealed("none");
-      setOffset(0);
+      setRevealed("none"); setOffset(0);
     }
   }, [offset, leftActions, rightActions, maxOffset, onOpen]);
 
+  // Touch handlers
+  const onTouchStart = useCallback((event: TouchEvent) => {
+    const touch = event.touches[0];
+    if (touch) handleStart(touch.clientX, touch.clientY);
+  }, [handleStart]);
+
+  const onTouchMove = useCallback((event: TouchEvent) => {
+    const touch = event.touches[0];
+    if (touch) handleMove(touch.clientX, touch.clientY);
+  }, [handleMove]);
+
+  // Mouse handlers
+  const onMouseDown = useCallback((event: MouseEvent) => {
+    handleStart(event.clientX, event.clientY);
+    const onMouseMove = (moveEvent: globalThis.MouseEvent): void => handleMove(moveEvent.clientX, moveEvent.clientY);
+    const onMouseUp = (): void => {
+      handleEnd();
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+    };
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+  }, [handleStart, handleMove, handleEnd]);
+
   const handleContentTap = useCallback(() => {
-    if (revealed !== "none") {
-      setRevealed("none");
-      setOffset(0);
-    }
+    if (revealed !== "none") { setRevealed("none"); setOffset(0); }
   }, [revealed]);
 
   return (
     <div className="swipeable-row" data-testid={TEST_ID_SWIPEABLE_ROW}>
-      {/* Left actions (revealed by swiping right) */}
-      {rightActions && (
-        <div className="swipeable-actions swipeable-actions--right" style={{ width: `${actionWidth}rem` }}>
-          {rightActions}
-        </div>
-      )}
-
-      {/* Right actions (revealed by swiping left) */}
-      {leftActions && (
-        <div className="swipeable-actions swipeable-actions--left" style={{ width: `${actionWidth}rem` }}>
-          {leftActions}
-        </div>
-      )}
-
-      {/* Main content */}
+      {rightActions && <div className="swipeable-actions swipeable-actions--right" style={{ width: `${actionWidth}rem` }}>{rightActions}</div>}
+      {leftActions && <div className="swipeable-actions swipeable-actions--left" style={{ width: `${actionWidth}rem` }}>{leftActions}</div>}
       <div
         className="swipeable-content"
         style={{ transform: `translateX(${offset}px)`, transition: isTracking.current ? "none" : "transform 200ms ease-out" }}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={handleEnd}
+        onMouseDown={onMouseDown}
         onClick={handleContentTap}
       >
         {children}
