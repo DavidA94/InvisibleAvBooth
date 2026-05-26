@@ -1,10 +1,13 @@
 import { TEST_ID_LOWER_THIRD_WIDGET, TEST_ID_LT_ACTIVE_SECTION, TEST_ID_LT_LIBRARY_SECTION } from "../../constants/testIds";
+import { useState } from "react";
 import type { ReactNode } from "react";
+import { IonButton } from "@ionic/react";
 import { WidgetContainer } from "../WidgetContainer";
 import { useLowerThirdState } from "../../hooks/useLowerThirdState";
 import { LowerThirdRow } from "./LowerThirdRow";
+import { AddLowerThirdDialog } from "./AddLowerThirdDialog";
 import type { ConnectionStatus } from "../../types";
-import type { LowerThirdItem } from "@invisible-av-booth/shared";
+import type { LowerThirdItem, LowerThirdType, AddLowerThirdInput } from "@invisible-av-booth/shared";
 
 function deriveOverlayStatus(overlayConnected: boolean, overlayResolutionCorrect: boolean, hasTemplates: boolean): ConnectionStatus {
   if (!hasTemplates) return { label: "Overlay", status: "inactive" };
@@ -47,12 +50,20 @@ export function LowerThirdWidget(): ReactNode {
     void sendCommand({ type: "page-previous" });
   };
 
+  const [addType, setAddType] = useState<LowerThirdType | null>(null);
+  const [showAddDropdown, setShowAddDropdown] = useState(false);
+
+  const handleAddSave = (input: AddLowerThirdInput): void => {
+    void sendCommand({ type: "add-to-library", input });
+    setAddType(null);
+  };
+
   return (
     <WidgetContainer title="Lower Thirds" connections={connections}>
       <div className="lower-third-widget" data-testid={TEST_ID_LOWER_THIRD_WIDGET}>
         {/* Active Section */}
         <section className="lt-section" data-testid={TEST_ID_LT_ACTIVE_SECTION}>
-          <h3 className="lt-section-title">Active</h3>
+          <span className="lt-section-title">Active</span>
           {active ? (
             <LowerThirdRow
               item={active}
@@ -73,7 +84,7 @@ export function LowerThirdWidget(): ReactNode {
 
         {/* Library Section */}
         <section className="lt-section" data-testid={TEST_ID_LT_LIBRARY_SECTION}>
-          <h3 className="lt-section-title">Library</h3>
+          <span className="lt-section-title">Library</span>
           {templateItems.length === 0 && volunteerItems.length === 0 ? (
             <p className="lt-empty-state">No items available</p>
           ) : (
@@ -103,6 +114,24 @@ export function LowerThirdWidget(): ReactNode {
             </>
           )}
         </section>
+
+        {/* Add Button */}
+        <div className="lt-add-area">
+          <IonButton expand="block" fill="outline" size="small" onClick={() => setShowAddDropdown(!showAddDropdown)}>
+            Add
+          </IonButton>
+          {showAddDropdown && (
+            <div className="lt-add-dropdown">
+              <button className="lt-add-option" onClick={() => { setAddType("Title"); setShowAddDropdown(false); }}>Title</button>
+              <button className="lt-add-option" onClick={() => { setAddType("TitleSubtitle"); setShowAddDropdown(false); }}>Title + Subtitle</button>
+              <button className="lt-add-option" onClick={() => { setAddType("Scripture"); setShowAddDropdown(false); }}>Scripture</button>
+            </div>
+          )}
+        </div>
+
+        {addType && (
+          <AddLowerThirdDialog type={addType} onSave={handleAddSave} onCancel={() => setAddType(null)} />
+        )}
       </div>
     </WidgetContainer>
   );
