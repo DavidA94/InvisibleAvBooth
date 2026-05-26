@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import type { ReactNode } from "react";
-import { IonPage, IonContent, IonButton, IonSpinner, IonInput, IonTextarea } from "@ionic/react";
+import { IonPage, IonContent, IonButton, IonSpinner, IonInput, IonTextarea, IonToggle } from "@ionic/react";
 import { addOutline } from "ionicons/icons";
 import { IonIcon } from "@ionic/react";
 import Select from "react-select";
@@ -74,6 +74,7 @@ export function AdminTemplatesPage(): ReactNode {
   const [formatString, setFormatString] = useState("");
   const [roleMinimum, setRoleMinimum] = useState<Role>("AvVolunteer");
   const [lowerThirdType, setLowerThirdType] = useState<"Title" | "TitleSubtitle" | "Scripture">("Title");
+  const [subtitleFormatString, setSubtitleFormatString] = useState("");
   const [autoDismissEnabled, setAutoDismissEnabled] = useState(false);
   const [autoDismissSeconds, setAutoDismissSeconds] = useState(10);
   const [formError, setFormError] = useState("");
@@ -127,6 +128,7 @@ export function AdminTemplatesPage(): ReactNode {
     if (next.mode === "create") {
       setName("");
       setFormatString("");
+      setSubtitleFormatString("");
       setRoleMinimum("AvVolunteer");
       setLowerThirdType("Title");
       setAutoDismissEnabled(false);
@@ -145,16 +147,15 @@ export function AdminTemplatesPage(): ReactNode {
         if (template.category === "lower_third") {
           try {
             const parsed = JSON.parse(template.formatString) as Record<string, string>;
-            if (template.lowerThirdType === "TitleSubtitle") {
-              setFormatString(`${parsed["title"] ?? ""}\n${parsed["subtitle"] ?? ""}`);
-            } else {
-              setFormatString(parsed["title"] ?? "");
-            }
+            setFormatString(parsed["title"] ?? "");
+            setSubtitleFormatString(parsed["subtitle"] ?? "");
           } catch {
             setFormatString(template.formatString);
+            setSubtitleFormatString("");
           }
         } else {
           setFormatString(template.formatString);
+          setSubtitleFormatString("");
         }
 
         initialRef.current = { name: template.name, formatString: template.formatString, roleMinimum: template.roleMinimum };
@@ -191,13 +192,10 @@ export function AdminTemplatesPage(): ReactNode {
     try {
       let finalFormatString = formatString;
       if (category === "lower_third") {
-        // Construct JSON object from the format string based on type
         if (lowerThirdType === "Title") {
           finalFormatString = JSON.stringify({ title: formatString });
         } else if (lowerThirdType === "TitleSubtitle") {
-          // For TitleSubtitle, split on newline: first line is title, rest is subtitle
-          const lines = formatString.split("\n");
-          finalFormatString = JSON.stringify({ title: lines[0] ?? "", subtitle: lines.slice(1).join("\n") });
+          finalFormatString = JSON.stringify({ title: formatString, subtitle: subtitleFormatString });
         } else if (lowerThirdType === "Scripture") {
           finalFormatString = JSON.stringify({ title: "{Scripture}" });
         }
@@ -370,12 +368,16 @@ export function AdminTemplatesPage(): ReactNode {
                     }}
                   />
 
-                  <label className={`tpl-form-label ${isDescription || isLowerThird ? "tpl-form-label-top" : ""}`}>Format String:</label>
-                  {isDescription || isLowerThird ? (
+                  <label className={`tpl-form-label ${isDescription || isLowerThird ? "tpl-form-label-top" : ""}`}>
+                    {isLowerThird ? "Title Format:" : "Format String:"}
+                  </label>
+                  {isLowerThird && lowerThirdType === "Scripture" ? (
+                    <div className="text-muted text-caption">Always uses {"{Scripture}"} from session manifest</div>
+                  ) : isDescription || (isLowerThird && lowerThirdType === "TitleSubtitle") ? (
                     <IonTextarea
                       data-testid={TEST_ID_TEMPLATE_FORM_FORMAT}
                       fill="outline"
-                      rows={4}
+                      rows={2}
                       value={formatString}
                       onIonInput={(e) => {
                         setFormatString(e.detail.value ?? "");
@@ -393,10 +395,37 @@ export function AdminTemplatesPage(): ReactNode {
                       }}
                     />
                   )}
-                  <span />
-                  <div className="text-muted text-caption">
-                    Available tokens: {"{Date}"} {"{Speaker}"} {"{Title}"} {"{Scripture}"} {"{verseText}"}
-                  </div>
+
+                  {isLowerThird && lowerThirdType === "TitleSubtitle" && (
+                    <>
+                      <label className="tpl-form-label tpl-form-label-top">Subtitle Format:</label>
+                      <IonInput
+                        fill="outline"
+                        value={subtitleFormatString}
+                        onIonInput={(e) => {
+                          setSubtitleFormatString(e.detail.value ?? "");
+                          setValidated(false);
+                        }}
+                      />
+                    </>
+                  )}
+
+                  {!isLowerThird && (
+                    <>
+                      <span />
+                      <div className="text-muted text-caption">
+                        Available tokens: {"{Date}"} {"{Speaker}"} {"{Title}"} {"{Scripture}"} {"{verseText}"}
+                      </div>
+                    </>
+                  )}
+                  {isLowerThird && lowerThirdType !== "Scripture" && (
+                    <>
+                      <span />
+                      <div className="text-muted text-caption">
+                        Available tokens: {"{Date}"} {"{Speaker}"} {"{Title}"} {"{Scripture}"}
+                      </div>
+                    </>
+                  )}
 
                   <label className="tpl-form-label">Minimum Role:</label>
                   <div data-testid={TEST_ID_TEMPLATE_FORM_ROLE}>
@@ -436,10 +465,9 @@ export function AdminTemplatesPage(): ReactNode {
 
                       <label className="tpl-form-label">Auto-Dismiss:</label>
                       <div className="layout-row gap-standard align-center">
-                        <input
-                          type="checkbox"
+                        <IonToggle
                           checked={autoDismissEnabled}
-                          onChange={(event) => { setAutoDismissEnabled(event.target.checked); setValidated(false); }}
+                          onIonChange={(event) => { setAutoDismissEnabled(event.detail.checked); setValidated(false); }}
                         />
                         {autoDismissEnabled && (
                           <IonInput

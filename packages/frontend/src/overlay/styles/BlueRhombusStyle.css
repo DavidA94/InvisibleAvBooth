@@ -112,7 +112,7 @@
 
 @keyframes br-plate-unfold {
   0% { max-width: 0; }
-  100% { max-width: 80cqw; }
+  100% { max-width: 70cqw; }
 }
 
 /* ── Phase: Visible ──────────────────────────────────────────────────────── */
@@ -122,7 +122,7 @@
 }
 
 .br-phase--visible .br-plate {
-  max-width: 80cqw;
+  max-width: 70cqw;
   opacity: 1;
   overflow: hidden;
 }
@@ -150,7 +150,7 @@
 
 @keyframes br-rhombus-slide {
   0% { transform: skewX(-6deg) scaleY(1) translateX(0); }
-  100% { transform: skewX(-6deg) scaleY(1) translateX(80cqw); }
+  100% { transform: skewX(-6deg) scaleY(1) translateX(70cqw); }
 }
 
 @keyframes br-plate-clip {
@@ -159,8 +159,8 @@
 }
 
 @keyframes br-rhombus-shrink {
-  0% { transform: skewX(-6deg) scaleY(1) translateX(80cqw); }
-  100% { transform: skewX(-6deg) scaleY(0) translateX(80cqw); }
+  0% { transform: skewX(-6deg) scaleY(1) translateX(70cqw); }
+  100% { transform: skewX(-6deg) scaleY(0) translateX(70cqw); }
 }
 
 /* ── Push-Up Transition ──────────────────────────────────────────────────── */
@@ -178,7 +178,7 @@
 .br-push-up .br-plate {
   overflow: hidden;
   position: relative;
-  max-width: 80cqw;
+  max-width: 70cqw;
   opacity: 1;
   animation: none;
   transition: height var(--lt-height-transition) ease;
