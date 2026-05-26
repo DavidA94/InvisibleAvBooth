@@ -65,11 +65,18 @@ export function LowerThirdOverlay(): ReactNode {
   }, []);
 
   useEffect(() => {
+    let mounted = true;
     document.documentElement.classList.add("overlay-active");
-    document.fonts.ready.then(() => { connectSocket(); });
+    document.fonts.ready.then(() => {
+      if (mounted) connectSocket();
+    });
     return () => {
+      mounted = false;
       document.documentElement.classList.remove("overlay-active");
-      socketRef.current?.disconnect();
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+        socketRef.current = null;
+      }
       if (disconnectTimerRef.current) clearTimeout(disconnectTimerRef.current);
       if (heartbeatRef.current) clearInterval(heartbeatRef.current);
     };
@@ -77,6 +84,7 @@ export function LowerThirdOverlay(): ReactNode {
   }, []);
 
   const connectSocket = (): void => {
+    if (socketRef.current) return; // prevent double-connection
     const socket = io("/overlay", { transports: ["websocket"], reconnection: true, reconnectionDelay: 1000, reconnectionDelayMax: 8000 });
     socketRef.current = socket;
 
