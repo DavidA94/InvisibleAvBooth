@@ -6,7 +6,8 @@
   --lt-plate-spread: 1.5s;
   --lt-rhombus-wipe: 1.5s;
   --lt-rhombus-close: 0.5s;
-  --lt-push-up: 0.3s;
+  --lt-push-up: 1s;
+  --lt-height-transition: 0.5s;
 }
 
 /* ── Layout ──────────────────────────────────────────────────────────────── */
@@ -15,26 +16,31 @@
   display: flex;
   align-items: stretch;
   position: relative;
+  width: 70cqw;
 }
 
 .br-rhombus {
-  width: 0.6cqw;
+  width: 0.5cqw;
   min-width: 4px;
   background: #1a5ab8;
-  transform: skewX(-6deg);
+  transform: skewX(-4deg);
   transform-origin: center;
   flex-shrink: 0;
+  align-self: stretch;
 }
 
 .br-plate {
+  flex: 1;
   background: rgba(0, 0, 0, 0.85);
+  overflow: hidden;
   display: flex;
   align-items: center;
+  margin-left: -1px; /* tuck under rhombus edge */
 }
 
 .br-content {
   padding: 1.2cqh 2cqw 1.2cqh 1.5cqw;
-  white-space: nowrap;
+  width: 100%;
 }
 
 /* ── Text Styles ─────────────────────────────────────────────────────────── */
@@ -60,12 +66,12 @@
 
 .br-text--reference {
   font-weight: 700;
-  font-size: 4.5cqh;
+  font-size: 2.8cqh;
   margin-bottom: 0.6cqh;
 }
 
 .br-verses {
-  max-width: 70%;
+  width: 100%;
 }
 
 .br-verse {
@@ -100,57 +106,49 @@
 .br-phase--showing .br-plate {
   animation: br-plate-unfold var(--lt-plate-spread) ease-out var(--lt-rhombus-expand) forwards;
   max-width: 0;
-  opacity: 1;
   overflow: hidden;
-  white-space: nowrap;
 }
 
 @keyframes br-rhombus-grow {
-  0% { transform: skewX(-6deg) scaleY(0); }
-  100% { transform: skewX(-6deg) scaleY(1); }
+  0% { transform: skewX(-4deg) scaleY(0); }
+  100% { transform: skewX(-4deg) scaleY(1); }
 }
 
 @keyframes br-plate-unfold {
   0% { max-width: 0; }
-  100% { max-width: 70cqw; }
+  100% { max-width: 100%; }
 }
 
 /* ── Phase: Visible ──────────────────────────────────────────────────────── */
 
 .br-phase--visible .br-rhombus {
-  transform: skewX(-6deg) scaleY(1);
+  transform: skewX(-4deg) scaleY(1);
 }
 
 .br-phase--visible .br-plate {
-  max-width: 70cqw;
-  opacity: 1;
-  overflow: hidden;
+  max-width: 100%;
 }
 
 /* ── Phase: Dismissing (Exit) ────────────────────────────────────────────── */
-/* The rhombus slides right as a traveling curtain, erasing text behind it.
-   The plate clips from the left in sync with the rhombus position.
-   Then the rhombus shrinks vertically back to center. */
 
 .br-phase--dismissing {
-  position: relative;
   overflow: hidden;
 }
 
 .br-phase--dismissing .br-plate {
-  animation: br-plate-clip var(--lt-rhombus-wipe) ease-in forwards;
+  animation: br-plate-clip var(--lt-rhombus-wipe) linear forwards;
 }
 
 .br-phase--dismissing .br-rhombus {
   z-index: 2;
   animation:
-    br-rhombus-slide var(--lt-rhombus-wipe) ease-in forwards,
+    br-rhombus-slide var(--lt-rhombus-wipe) linear forwards,
     br-rhombus-shrink var(--lt-rhombus-close) ease-in var(--lt-rhombus-wipe) forwards;
 }
 
 @keyframes br-rhombus-slide {
-  0% { transform: skewX(-6deg) scaleY(1) translateX(0); }
-  100% { transform: skewX(-6deg) scaleY(1) translateX(70cqw); }
+  0% { transform: skewX(-4deg) scaleY(1) translateX(0); }
+  100% { transform: skewX(-4deg) scaleY(1) translateX(calc(70cqw - 0.5cqw)); }
 }
 
 @keyframes br-plate-clip {
@@ -159,27 +157,21 @@
 }
 
 @keyframes br-rhombus-shrink {
-  0% { transform: skewX(-6deg) scaleY(1) translateX(70cqw); }
-  100% { transform: skewX(-6deg) scaleY(0) translateX(70cqw); }
+  0% { transform: skewX(-4deg) scaleY(1) translateX(calc(70cqw - 0.5cqw)); }
+  100% { transform: skewX(-4deg) scaleY(0) translateX(calc(70cqw - 0.5cqw)); }
 }
 
 /* ── Push-Up Transition ──────────────────────────────────────────────────── */
-/* Rhombus and plate stay locked in place — only text content slides */
-
-:root {
-  --lt-height-transition: 0.5s;
-}
 
 .br-push-up .br-rhombus {
-  transform: skewX(-6deg) scaleY(1);
+  transform: skewX(-4deg) scaleY(1);
   animation: none;
 }
 
 .br-push-up .br-plate {
   overflow: hidden;
   position: relative;
-  max-width: 70cqw;
-  opacity: 1;
+  max-width: 100%;
   animation: none;
   transition: height var(--lt-height-transition) ease;
 }
