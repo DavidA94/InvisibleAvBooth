@@ -1,0 +1,240 @@
+/* Lower-Third Widget Styles */
+
+.lower-third-widget {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  height: 100%;
+}
+
+.lt-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.lt-section-title {
+  font-weight: 700;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  letter-spacing: 0.05em;
+}
+
+.lt-empty-state {
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+  font-style: italic;
+  margin: 0;
+  padding: 0.25rem 0;
+}
+
+/* ── Row ─────────────────────────────────────────────────────────────────── */
+
+.lt-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.5rem;
+  border-radius: 0.25rem;
+  background: var(--color-surface-raised);
+  position: relative;
+  min-height: 2.5rem;
+}
+
+.lt-row--used {
+  border-left: 3px solid var(--color-warning);
+}
+
+.lt-row--active-badge {
+  opacity: 0.6;
+}
+
+.lt-row-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.lt-row-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lt-row-subtitle {
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+}
+
+/* ── Action Buttons ──────────────────────────────────────────────────────── */
+
+.lt-action-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.5rem;
+  min-height: 2.5rem;
+  border: none;
+  background: transparent;
+  color: var(--color-text);
+  cursor: pointer;
+  border-radius: 0.25rem;
+  padding: 0.2rem;
+}
+
+.lt-action-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.lt-action-btn:hover:not(:disabled) {
+  background: var(--color-surface);
+}
+
+.lt-action-icon {
+  font-size: 1.1rem;
+}
+
+.lt-action-label {
+  font-size: 0.55rem;
+  margin-top: 0.1rem;
+}
+
+.lt-action-danger {
+  color: var(--color-danger);
+}
+
+.lt-action-go-live {
+  color: var(--color-success);
+}
+
+/* ── Status Overlay ──────────────────────────────────────────────────────── */
+
+.lt-status-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.7);
+  border-radius: 0.25rem;
+  color: var(--color-text);
+  font-size: 0.75rem;
+  font-weight: 600;
+  z-index: 1;
+}
+
+.lt-badge {
+  position: absolute;
+  top: 0.2rem;
+  right: 0.3rem;
+  font-size: 0.55rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--color-warning);
+}
+
+/* ── Pagination ──────────────────────────────────────────────────────────── */
+
+.lt-pagination {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0.5rem;
+}
+
+.lt-pagination-btn {
+  min-width: 2rem;
+  min-height: 2rem;
+}
+
+.lt-page-info {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+/* ── Countdown ───────────────────────────────────────────────────────────── */
+
+.lt-countdown-indicator {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lt-countdown-text {
+  position: absolute;
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+/* ── Add Area ────────────────────────────────────────────────────────────── */
+
+.lt-add-area {
+  position: relative;
+  margin-top: auto;
+}
+
+.lt-add-dropdown {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  right: 0;
+  background: var(--color-surface-raised);
+  border-radius: 0.25rem;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.3);
+  z-index: 10;
+  overflow: hidden;
+}
+
+.lt-add-option {
+  display: block;
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  border: none;
+  background: transparent;
+  color: var(--color-text);
+  text-align: left;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.lt-add-option:hover {
+  background: var(--color-surface);
+}
+
+/* ── Swipe Actions ───────────────────────────────────────────────────────── */
+
+.swipeable-row {
+  position: relative;
+  overflow: hidden;
+}
+
+.swipeable-actions {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+}
+
+.swipeable-actions--left {
+  right: 0;
+}
+
+.swipeable-actions--right {
+  left: 0;
+}
+
+.swipeable-content {
+  position: relative;
+  z-index: 1;
+  background: var(--color-surface-raised);
+}

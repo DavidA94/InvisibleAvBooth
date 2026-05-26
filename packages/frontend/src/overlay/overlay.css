@@ -6,6 +6,16 @@
   overflow: hidden;
 }
 
+/* Override Ionic's default backgrounds for the overlay page */
+:root {
+  --ion-background-color: transparent;
+  --ion-item-background: transparent;
+}
+
+html, body, #root, ion-app, .ion-page {
+  background: transparent !important;
+}
+
 /* Aspect Ratio Jail — locks to 16:9, centered, container for cqw/cqh units */
 .aspect-ratio-jail {
   position: absolute;

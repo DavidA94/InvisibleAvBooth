@@ -1,35 +1,43 @@
 /* Blue Rhombus Style — lower-third visual */
 
+/* ── Configurable Timing ─────────────────────────────────────────────────── */
+:root {
+  --lt-rhombus-expand: 0.5s;
+  --lt-plate-spread: 1.5s;
+  --lt-rhombus-wipe: 1.5s;
+  --lt-rhombus-close: 0.5s;
+  --lt-push-up: 0.3s;
+}
+
+/* ── Layout ──────────────────────────────────────────────────────────────── */
+
 .br-wrapper {
   display: flex;
   align-items: stretch;
   position: relative;
 }
 
-/* ── Rhombus ─────────────────────────────────────────────────────────────── */
-
 .br-rhombus {
   width: 0.6cqw;
-  background: #1a5ab8; /* royal blue */
+  min-width: 4px;
+  background: #1a5ab8;
   transform: skewX(-6deg);
   transform-origin: center;
   flex-shrink: 0;
 }
 
-/* ── Plate (dark semi-transparent background) ────────────────────────────── */
-
 .br-plate {
   background: rgba(0, 0, 0, 0.85);
-  overflow: hidden;
   display: flex;
   align-items: center;
 }
 
 .br-content {
   padding: 1.2cqh 2cqw 1.2cqh 1.5cqw;
+  white-space: nowrap;
 }
 
-/* ── Text styles ─────────────────────────────────────────────────────────── */
+/* ── Text Styles ─────────────────────────────────────────────────────────── */
 
 .br-text {
   color: #f5f5f5;
@@ -39,33 +47,33 @@
 
 .br-text--title {
   font-weight: 700;
-  font-size: 2.2cqh;
+  font-size: 5.5cqh;
 }
 
 .br-text--subtitle {
   font-weight: 400;
   font-style: italic;
-  font-size: 1.8cqh;
+  font-size: 4cqh;
   margin-top: 0.4cqh;
   color: #d0d0d0;
 }
 
 .br-text--reference {
   font-weight: 700;
-  font-size: 2cqh;
+  font-size: 4.5cqh;
   margin-bottom: 0.6cqh;
 }
 
 .br-verses {
   max-width: 70%;
-  transition: max-width 300ms ease;
 }
 
 .br-verse {
   color: #e8e8e8;
-  font-size: 1.7cqh;
+  font-size: 3.5cqh;
   line-height: 1.5;
   margin: 0;
+  white-space: normal;
 }
 
 .br-verse--zero {
@@ -83,38 +91,27 @@
   display: none;
 }
 
-/* ── Phase: Showing (Entrance Animation) ─────────────────────────────────── */
-/* Step 1: Rhombus grows vertically from center
-   Step 2: Plate + text unfolds to the right */
+/* ── Phase: Showing (Entrance) ───────────────────────────────────────────── */
 
 .br-phase--showing .br-rhombus {
-  animation: br-rhombus-grow 200ms ease-out forwards;
+  animation: br-rhombus-grow var(--lt-rhombus-expand) ease-out forwards;
 }
 
 .br-phase--showing .br-plate {
-  animation: br-plate-unfold 400ms ease-out 200ms forwards;
+  animation: br-plate-unfold var(--lt-plate-spread) ease-out var(--lt-rhombus-expand) forwards;
   max-width: 0;
   opacity: 0;
+  overflow: hidden;
 }
 
 @keyframes br-rhombus-grow {
-  0% {
-    transform: skewX(-6deg) scaleY(0);
-  }
-  100% {
-    transform: skewX(-6deg) scaleY(1);
-  }
+  0% { transform: skewX(-6deg) scaleY(0); }
+  100% { transform: skewX(-6deg) scaleY(1); }
 }
 
 @keyframes br-plate-unfold {
-  0% {
-    max-width: 0;
-    opacity: 0;
-  }
-  100% {
-    max-width: 70cqw;
-    opacity: 1;
-  }
+  0% { max-width: 0; opacity: 0; }
+  100% { max-width: 75cqw; opacity: 1; }
 }
 
 /* ── Phase: Visible ──────────────────────────────────────────────────────── */
@@ -124,105 +121,86 @@
 }
 
 .br-phase--visible .br-plate {
-  max-width: 70cqw;
+  max-width: 75cqw;
   opacity: 1;
 }
 
-/* ── Phase: Dismissing (Exit Animation) ──────────────────────────────────── */
-/* Step 1: Rhombus slides right across plate as traveling curtain
-   Step 2: Rhombus shrinks vertically back to center */
+/* ── Phase: Dismissing (Exit) ────────────────────────────────────────────── */
+/* The rhombus slides right as a traveling curtain, erasing text behind it.
+   The plate clips from the left in sync with the rhombus position.
+   Then the rhombus shrinks vertically back to center. */
 
 .br-phase--dismissing {
   position: relative;
+}
+
+.br-phase--dismissing .br-plate {
+  animation: br-plate-clip var(--lt-rhombus-wipe) ease-in forwards;
   overflow: hidden;
 }
 
 .br-phase--dismissing .br-rhombus {
-  animation: br-rhombus-slide 600ms ease-in forwards, br-rhombus-shrink 200ms ease-in 600ms forwards;
   position: absolute;
   top: 0;
   bottom: 0;
-  left: 0;
   z-index: 2;
-}
-
-.br-phase--dismissing .br-plate {
-  animation: br-plate-erase 600ms ease-in forwards;
+  animation:
+    br-rhombus-slide var(--lt-rhombus-wipe) ease-in forwards,
+    br-rhombus-shrink var(--lt-rhombus-close) ease-in var(--lt-rhombus-wipe) forwards;
 }
 
 @keyframes br-rhombus-slide {
-  0% {
-    transform: skewX(-6deg) translateX(0) scaleY(1);
-  }
-  100% {
-    transform: skewX(-6deg) translateX(calc(70cqw + 1cqw)) scaleY(1);
-  }
+  0% { left: 0; }
+  100% { left: 100%; }
+}
+
+@keyframes br-plate-clip {
+  0% { clip-path: inset(0 0 0 0); }
+  100% { clip-path: inset(0 0 0 100%); }
 }
 
 @keyframes br-rhombus-shrink {
-  0% {
-    transform: skewX(-6deg) translateX(calc(70cqw + 1cqw)) scaleY(1);
-  }
-  100% {
-    transform: skewX(-6deg) translateX(calc(70cqw + 1cqw)) scaleY(0);
-  }
-}
-
-@keyframes br-plate-erase {
-  0% {
-    clip-path: inset(0 0 0 0);
-  }
-  100% {
-    clip-path: inset(0 0 0 100%);
-  }
+  0% { transform: skewX(-6deg) scaleY(1); }
+  100% { transform: skewX(-6deg) scaleY(0); }
 }
 
 /* ── Push-Up Transition ──────────────────────────────────────────────────── */
-/* Rhombus and plate stay locked; text slides up */
 
 .br-push-up .br-plate {
-  overflow: hidden; /* hard-clip text at edges */
+  overflow: hidden;
   position: relative;
-  max-width: 70cqw;
+  max-width: 75cqw;
   opacity: 1;
-  transition: height 300ms ease;
+  transition: height var(--lt-push-up) ease;
 }
 
-/* Old content slides up and out */
 .br-content--out {
   position: absolute;
   width: 100%;
-  animation: br-push-out 300ms ease-in forwards;
+  animation: br-push-out var(--lt-push-up) ease-in forwards;
 }
 
-/* New content slides up into place */
 .br-content--in {
-  animation: br-push-in 300ms ease-out forwards;
+  animation: br-push-in var(--lt-push-up) ease-out forwards;
 }
 
 @keyframes br-push-out {
-  0%   { transform: translateY(0); opacity: 1; }
+  0% { transform: translateY(0); opacity: 1; }
   100% { transform: translateY(-100%); opacity: 0; }
 }
 
 @keyframes br-push-in {
-  0%   { transform: translateY(100%); opacity: 0; }
+  0% { transform: translateY(100%); opacity: 0; }
   100% { transform: translateY(0); opacity: 1; }
 }
 
 /* ── Scripture Page Turn ─────────────────────────────────────────────────── */
-/* Reference stays fixed; verse area clips and slides */
 
 .br-verse-area {
   position: relative;
-  overflow: hidden; /* hard-clip verses at reference line boundary */
+  overflow: hidden;
 }
 
 .br-verse-slot {
   width: 100%;
-}
-
-/* Plate height animates smoothly when verse count changes between pages */
-.br-push-up .br-plate {
-  transition: height 300ms ease;
 }

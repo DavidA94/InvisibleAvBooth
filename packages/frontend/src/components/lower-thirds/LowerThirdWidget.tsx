@@ -8,6 +8,7 @@ import { LowerThirdRow } from "./LowerThirdRow";
 import { AddLowerThirdDialog } from "./AddLowerThirdDialog";
 import type { ConnectionStatus } from "../../types";
 import type { LowerThirdItem, LowerThirdType, AddLowerThirdInput } from "@invisible-av-booth/shared";
+import "./LowerThirdWidget.css";
 
 function deriveOverlayStatus(overlayConnected: boolean, overlayResolutionCorrect: boolean, hasTemplates: boolean): ConnectionStatus {
   if (!hasTemplates) return { label: "Overlay", status: "inactive" };
