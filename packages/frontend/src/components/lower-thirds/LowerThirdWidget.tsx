@@ -7,6 +7,7 @@ import { useLowerThirdState } from "../../hooks/useLowerThirdState";
 import { LowerThirdRow } from "./LowerThirdRow";
 import { AddLowerThirdDialog } from "./AddLowerThirdDialog";
 import { EditLowerThirdDialog } from "./EditLowerThirdDialog";
+import { PaginationControls } from "./PaginationControls";
 import type { ConnectionStatus } from "../../types";
 import type { LowerThirdItem, LowerThirdType, AddLowerThirdInput, EditLowerThirdInput } from "@invisible-av-booth/shared";
 import "./LowerThirdWidget.css";
@@ -79,18 +80,27 @@ export function LowerThirdWidget(): ReactNode {
         <section className="lt-section" data-testid={TEST_ID_LT_ACTIVE_SECTION}>
           <span className="lt-section-title">Active</span>
           {active ? (
-            <LowerThirdRow
-              item={active}
-              section="active"
-              isActive={true}
-              transitionLocked={transitionLocked}
-              phase={phase}
-              autoDismissAt={autoDismissAt}
-              onDismiss={handleDismiss}
-              onForceClear={handleForceClear}
-              onPageNext={handlePageNext}
-              onPagePrevious={handlePagePrevious}
-            />
+            <>
+              <LowerThirdRow
+                item={active}
+                section="active"
+                isActive={true}
+                transitionLocked={transitionLocked}
+                phase={phase}
+                autoDismissAt={autoDismissAt}
+                onDismiss={handleDismiss}
+                onForceClear={handleForceClear}
+              />
+              {active.pages && active.pages.totalPages > 1 && (
+                <PaginationControls
+                  item={active}
+                  pages={active.pages}
+                  transitionLocked={transitionLocked}
+                  onPageNext={handlePageNext}
+                  onPagePrevious={handlePagePrevious}
+                />
+              )}
+            </>
           ) : (
             <p className="lt-empty-state">Nothing active</p>
           )}
