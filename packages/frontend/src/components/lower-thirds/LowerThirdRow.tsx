@@ -56,7 +56,7 @@ export function LowerThirdRow({
       <span className="lt-action-label">Force Clear</span>
     </button>
   ) : item.source === "volunteer" && !isActive ? (
-    <div className="layout-row">
+    <>
       <button className="lt-action-btn" onClick={() => onEdit?.(item)} aria-label="Edit">
         <span className="lt-action-icon">✏️</span>
         <span className="lt-action-label">Edit</span>
@@ -65,13 +65,15 @@ export function LowerThirdRow({
         <span className="lt-action-icon">🗑</span>
         <span className="lt-action-label">Delete</span>
       </button>
-    </div>
+    </>
   ) : section === "library" && !isActive ? (
     <button className="lt-action-btn lt-action-go-live" onClick={() => onActivate?.(item.id)} disabled={transitionLocked} aria-label="Go Live">
       <span className="lt-action-icon">⚡</span>
       <span className="lt-action-label">Go Live</span>
     </button>
   ) : undefined;
+
+  const leftCount = section === "active" ? 1 : item.source === "volunteer" && !isActive ? 2 : 1;
 
   const rightActions = section === "library" && !isActive ? (
     <button className="lt-action-btn lt-action-go-live" onClick={() => onActivate?.(item.id)} disabled={transitionLocked} aria-label="Go Live">
@@ -112,7 +114,7 @@ export function LowerThirdRow({
   );
 
   return (
-    <SwipeableRow leftActions={leftActions} rightActions={rightActions}>
+    <SwipeableRow leftActions={leftActions} rightActions={rightActions} leftCount={leftCount} rightCount={1}>
       {rowContent}
     </SwipeableRow>
   );

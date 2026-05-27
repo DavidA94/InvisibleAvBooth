@@ -1,105 +1,85 @@
 import { TEST_ID_SWIPEABLE_ROW } from "../../constants/testIds";
-import { useState, useRef, useCallback, useEffect, Children } from "react";
-import type { ReactNode, TouchEvent, MouseEvent } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
+import type { ReactNode, PointerEvent } from "react";
 
 interface SwipeableRowProps {
   children: ReactNode;
   leftActions?: ReactNode;
   rightActions?: ReactNode;
+  leftCount?: number;
+  rightCount?: number;
   onOpen?: () => void;
   forceClose?: boolean;
 }
 
 const SWIPE_THRESHOLD = 20;
-const BUTTON_WIDTH_REM = 3; // each action button is 3rem wide
-const BASE_REM = 16;
+const BUTTON_WIDTH_PX = 48;
 
-function countChildren(node: ReactNode): number {
-  if (!node) return 0;
-  // If it's a single element (not wrapped in a fragment/div), count as 1
-  const count = Children.count(node);
-  return Math.max(1, count);
-}
-
-export function SwipeableRow({ children, leftActions, rightActions, onOpen, forceClose }: SwipeableRowProps): ReactNode {
+export function SwipeableRow({ children, leftActions, rightActions, leftCount = 1, rightCount = 1, onOpen, forceClose }: SwipeableRowProps): ReactNode {
   const [offset, setOffset] = useState(0);
   const [revealed, setRevealed] = useState<"none" | "left" | "right">("none");
+  const tracking = useRef(false);
   const startX = useRef(0);
-  const isTracking = useRef(false);
-  const hasMoved = useRef(false);
+  const currentOffset = useRef(0);
 
-  const leftWidth = countChildren(leftActions) * BUTTON_WIDTH_REM * BASE_REM;
-  const rightWidth = countChildren(rightActions) * BUTTON_WIDTH_REM * BASE_REM;
+  const leftWidth = leftActions ? leftCount * BUTTON_WIDTH_PX : 0;
+  const rightWidth = rightActions ? rightCount * BUTTON_WIDTH_PX : 0;
 
   useEffect(() => {
     if (forceClose && revealed !== "none") {
       setRevealed("none");
       setOffset(0);
+      currentOffset.current = 0;
     }
   }, [forceClose, revealed]);
 
-  const handleStart = useCallback((clientX: number) => {
-    startX.current = clientX;
-    isTracking.current = true;
-    hasMoved.current = false;
+  const handlePointerDown = useCallback((event: PointerEvent) => {
+    const target = event.target as HTMLElement;
+    if (target.setPointerCapture) {
+      target.setPointerCapture(event.pointerId);
+    }
+    startX.current = event.clientX;
+    tracking.current = true;
   }, []);
 
-  const handleMove = useCallback((clientX: number) => {
-    if (!isTracking.current) return;
-    const delta = clientX - startX.current;
-    if (Math.abs(delta) > 5) hasMoved.current = true;
+  const handlePointerMove = useCallback((event: PointerEvent) => {
+    if (!tracking.current) return;
+    const delta = event.clientX - startX.current;
     let clamped = delta;
     if (!rightActions && delta > 0) clamped = 0;
     if (!leftActions && delta < 0) clamped = 0;
     if (delta < 0) clamped = Math.max(-leftWidth, delta);
     if (delta > 0) clamped = Math.min(rightWidth, delta);
+    currentOffset.current = clamped;
     setOffset(clamped);
   }, [leftActions, rightActions, leftWidth, rightWidth]);
 
-  const handleEnd = useCallback(() => {
-    isTracking.current = false;
-    // Snap: if past threshold, fully open; otherwise fully close
-    if (offset < -SWIPE_THRESHOLD && leftActions) {
+  const handlePointerUp = useCallback(() => {
+    if (!tracking.current) return;
+    tracking.current = false;
+    const current = currentOffset.current;
+    if (current < -SWIPE_THRESHOLD && leftActions) {
       setRevealed("left");
       setOffset(-leftWidth);
+      currentOffset.current = -leftWidth;
       onOpen?.();
-    } else if (offset > SWIPE_THRESHOLD && rightActions) {
+    } else if (current > SWIPE_THRESHOLD && rightActions) {
       setRevealed("right");
       setOffset(rightWidth);
+      currentOffset.current = rightWidth;
       onOpen?.();
     } else {
       setRevealed("none");
       setOffset(0);
+      currentOffset.current = 0;
     }
-  }, [offset, leftActions, rightActions, leftWidth, rightWidth, onOpen]);
-
-  const onTouchStart = useCallback((event: TouchEvent) => {
-    const touch = event.touches[0];
-    if (touch) handleStart(touch.clientX);
-  }, [handleStart]);
-
-  const onTouchMove = useCallback((event: TouchEvent) => {
-    const touch = event.touches[0];
-    if (touch) handleMove(touch.clientX);
-  }, [handleMove]);
-
-  const onMouseDown = useCallback((event: MouseEvent) => {
-    event.preventDefault();
-    handleStart(event.clientX);
-    const onMouseMove = (moveEvent: globalThis.MouseEvent): void => handleMove(moveEvent.clientX);
-    const onMouseUp = (): void => {
-      document.removeEventListener("mousemove", onMouseMove);
-      document.removeEventListener("mouseup", onMouseUp);
-      handleEnd();
-    };
-    document.addEventListener("mousemove", onMouseMove);
-    document.addEventListener("mouseup", onMouseUp);
-  }, [handleStart, handleMove, handleEnd]);
+  }, [leftActions, rightActions, leftWidth, rightWidth, onOpen]);
 
   const handleContentClick = useCallback(() => {
-    if (revealed !== "none" && !hasMoved.current) {
+    if (revealed !== "none") {
       setRevealed("none");
       setOffset(0);
+      currentOffset.current = 0;
     }
   }, [revealed]);
 
@@ -117,11 +97,11 @@ export function SwipeableRow({ children, leftActions, rightActions, onOpen, forc
       )}
       <div
         className="swipeable-content"
-        style={{ transform: `translateX(${offset}px)`, transition: isTracking.current ? "none" : "transform 200ms ease-out" }}
-        onTouchStart={onTouchStart}
-        onTouchMove={onTouchMove}
-        onTouchEnd={handleEnd}
-        onMouseDown={onMouseDown}
+        style={{ transform: `translateX(${offset}px)`, transition: tracking.current ? "none" : "transform 200ms ease-out" }}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
         onClick={handleContentClick}
       >
         {children}
