@@ -107,7 +107,7 @@ export function LowerThirdWidget(): ReactNode {
         </section>
 
         {/* Library Section */}
-        <section className="lt-section" data-testid={TEST_ID_LT_LIBRARY_SECTION}>
+        <section className="lt-section lt-section--library" data-testid={TEST_ID_LT_LIBRARY_SECTION}>
           <span className="lt-section-title">Library</span>
           {templateItems.length === 0 && volunteerItems.length === 0 ? (
             <p className="lt-empty-state">No items available</p>

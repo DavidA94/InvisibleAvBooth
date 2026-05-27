@@ -14,7 +14,7 @@ interface SwipeableRowProps {
 const SWIPE_THRESHOLD = 30;
 const BASE_REM = 16;
 
-export function SwipeableRow({ children, leftActions, rightActions, actionWidth = 4, onOpen, forceClose }: SwipeableRowProps): ReactNode {
+export function SwipeableRow({ children, leftActions, rightActions, actionWidth = 5.5, onOpen, forceClose }: SwipeableRowProps): ReactNode {
   const [offset, setOffset] = useState(0);
   const [revealed, setRevealed] = useState<"none" | "left" | "right">("none");
   const startX = useRef(0);
