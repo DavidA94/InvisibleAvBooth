@@ -4,7 +4,8 @@ const MAX_LINES = 4;
 
 /**
  * Measures scripture verses and returns page break information.
- * Uses the overlay's rendering context for accurate measurements.
+ * Uses an exact clone of the rendered verse markup inside the overlay's
+ * container query context for accurate measurements.
  */
 export async function measureScripture(verses: VerseData[], signal: AbortSignal): Promise<PageBreakdown> {
   if (signal.aborted) throw new Error("aborted");
@@ -12,53 +13,72 @@ export async function measureScripture(verses: VerseData[], signal: AbortSignal)
     return { totalPages: 1, currentPage: 1, pages: [{ pageNumber: 1, startVerse: 0, endVerse: 0 }] };
   }
 
-  // Find the aspect-ratio-jail to get its resolved dimensions
+  // Find the aspect-ratio-jail — measurement must happen inside it for cqw/cqh to resolve
   const jail = document.querySelector(".aspect-ratio-jail");
   if (!jail) {
-    // Fallback: can't measure without the container
     return singlePageFallback(verses);
   }
 
-  const jailRect = jail.getBoundingClientRect();
-  if (jailRect.width === 0 || jailRect.height === 0) {
-    return singlePageFallback(verses);
-  }
+  // Create a hidden clone of the lower-third structure inside the jail
+  const wrapper = document.createElement("div");
+  wrapper.className = "br-wrapper br-phase--visible";
+  wrapper.style.cssText = "position:absolute;visibility:hidden;pointer-events:none;top:-9999px;left:0;";
 
-  // Calculate sizes based on container dimensions (matching CSS cqh/cqw)
-  const cqh = jailRect.height / 100;
-  const cqw = jailRect.width / 100;
-  const verseFontSize = 3.5 * cqh;
-  const lineHeight = 1.5;
-  const lineHeightPx = verseFontSize * lineHeight;
-  const containerWidth70 = 70 * cqw; // 70cqw plate width
-  const contentPadding = 2 * cqw + 1.5 * cqw; // left + right padding from .br-content
-  const availableWidth70 = containerWidth70 - contentPadding;
-  const availableWidth80 = 80 * cqw - contentPadding;
+  const plate = document.createElement("div");
+  plate.className = "br-plate";
 
-  // Create hidden measurement element
-  const container = document.createElement("div");
-  container.style.cssText = `position:absolute;visibility:hidden;top:-9999px;left:-9999px;font-size:${verseFontSize}px;line-height:${lineHeight};font-family:inherit;`;
-  document.body.appendChild(container);
+  const content = document.createElement("div");
+  content.className = "br-content";
+
+  const versesContainer = document.createElement("div");
+  versesContainer.className = "br-verses";
+
+  content.appendChild(versesContainer);
+  plate.appendChild(content);
+  wrapper.appendChild(plate);
+  jail.appendChild(wrapper);
 
   try {
     if (signal.aborted) throw new Error("aborted");
 
-    const narrowPages = computePages(verses, container, availableWidth70, lineHeightPx);
+    // Measure line height from a sample verse element
+    const sampleElement = createVerseElement(verses[0]!);
+    versesContainer.appendChild(sampleElement);
+    const computedStyle = window.getComputedStyle(sampleElement);
+    const lineHeightPx = parseFloat(computedStyle.lineHeight);
+    sampleElement.remove();
+
+    if (isNaN(lineHeightPx) || lineHeightPx === 0) {
+      return singlePageFallback(verses);
+    }
+
+    const narrowPages = computePages(verses, versesContainer, lineHeightPx);
     if (signal.aborted) throw new Error("aborted");
 
-    const widePages = computePages(verses, container, availableWidth80, lineHeightPx);
-    if (signal.aborted) throw new Error("aborted");
-
-    // Use wider width only if it reduces total page count
-    return widePages.pages.length < narrowPages.pages.length ? widePages : narrowPages;
+    // TODO: 80% width test would require changing the wrapper width class
+    // For now, use the 70cqw result
+    return narrowPages;
   } finally {
-    container.remove();
+    wrapper.remove();
   }
 }
 
-function computePages(verses: VerseData[], container: HTMLElement, availableWidth: number, lineHeightPx: number): PageBreakdown {
-  container.style.width = `${availableWidth}px`;
+function createVerseElement(verse: VerseData): HTMLParagraphElement {
+  const element = document.createElement("p");
+  element.className = `br-verse ${verse.verseNumber === 0 ? "br-verse--zero" : ""}`;
+  if (verse.verseNumber > 0) {
+    const numSpan = document.createElement("span");
+    numSpan.className = "br-verse-num";
+    numSpan.textContent = `${verse.verseNumber}. `;
+    element.appendChild(numSpan);
+    element.appendChild(document.createTextNode(verse.text));
+  } else {
+    element.textContent = verse.text;
+  }
+  return element;
+}
 
+function computePages(verses: VerseData[], container: HTMLElement, lineHeightPx: number): PageBreakdown {
   const pages: PageInfo[] = [];
   let currentPageVerses: VerseData[] = [];
   let currentLineCount = 0;
@@ -100,10 +120,7 @@ function computePages(verses: VerseData[], container: HTMLElement, availableWidt
 }
 
 function measureVerseLines(verse: VerseData, container: HTMLElement, lineHeightPx: number): number {
-  const element = document.createElement("p");
-  element.style.cssText = "margin:0;padding:0;white-space:normal;word-wrap:break-word;";
-  const prefix = verse.verseNumber > 0 ? `${verse.verseNumber}. ` : "";
-  element.textContent = prefix + verse.text;
+  const element = createVerseElement(verse);
   container.appendChild(element);
   const height = element.getBoundingClientRect().height;
   element.remove();
