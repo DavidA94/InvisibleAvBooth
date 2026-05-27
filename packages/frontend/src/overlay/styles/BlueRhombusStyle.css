@@ -1,13 +1,18 @@
-/* Blue Rhombus Style — lower-third visual */
+/* Blue Rhombus Style — lower-third visual
+   
+   Animation parameters are set as CSS custom properties via inline style
+   (documented exception: values are JS-measured at runtime and cannot be
+   expressed in static CSS). */
 
-/* ── Configurable Timing ─────────────────────────────────────────────────── */
+/* ── Configurable Timing & Easing ────────────────────────────────────────── */
 :root {
-  --lt-rhombus-expand: 0.5s;
-  --lt-plate-spread: 1.5s;
+  --lt-rhombus-expand: 0.25s;
+  --lt-plate-spread: 1.0s;
   --lt-rhombus-wipe: 1.5s;
-  --lt-rhombus-close: 0.5s;
-  --lt-push-up: 1s;
-  --lt-height-transition: 0.5s;
+  --lt-rhombus-close: 0.25s;
+  --lt-easing-show: linear;
+  --lt-easing-hide: linear;
+  --lt-easing-push: linear;
 }
 
 /* ── Layout ──────────────────────────────────────────────────────────────── */
@@ -17,15 +22,42 @@
   align-items: stretch;
   position: relative;
   width: 70cqw;
+  /* --wrapper-height, --new-wrapper-height set by JS */
+  height: var(--wrapper-height, auto);
+  --rhombus-base-width: max(0.5cqw, 4px);
+  --slant-shift: calc(var(--rhombus-base-width) * 0.60);
+  --dynamic-angle: atan2(var(--slant-shift), var(--wrapper-height));
+}
+
+.br-rhombus-wrapper {
+  display: flex;
+  align-items: stretch;
+  flex-shrink: 0;
+  position: relative;
+  transform-origin: center;
 }
 
 .br-rhombus {
-  width: 0.5cqw;
+  width: var(--rhombus-base-width);
   min-width: 4px;
-  background: #1a5ab8;
-  transform: skewX(-4deg);
-  transform-origin: center;
   flex-shrink: 0;
+  background: #1a5ab8;
+  position: relative;
+  margin-right: var(--slant-shift);
+  transform-origin: bottom left;
+  transform: skewX(calc(var(--dynamic-angle) * -1));
+}
+
+/* Wedge fill: triangular gap between skewed rhombus and rectangular plate */
+.br-rhombus::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 100%;
+  width: var(--slant-shift);
+  height: 100%;
+  background: rgba(0, 0, 0, 0.85);
+  clip-path: polygon(0% 0%, 0% 100%, 100% 100%);
 }
 
 .br-plate {
@@ -33,12 +65,24 @@
   background: rgba(0, 0, 0, 0.85);
   overflow: hidden;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
+}
+
+.br-content-track {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  will-change: transform;
 }
 
 .br-content {
   padding: 1.2cqh 2cqw 1.2cqh 1.5cqw;
   width: 100%;
+}
+
+.br-push-spacer {
+  height: 1lh;
+  flex-shrink: 0;
 }
 
 /* ── Text Styles ─────────────────────────────────────────────────────────── */
@@ -97,29 +141,29 @@
 
 /* ── Phase: Showing (Entrance) ───────────────────────────────────────────── */
 
-.br-phase--showing .br-rhombus {
-  animation: br-rhombus-grow var(--lt-rhombus-expand) ease-out forwards;
+.br-phase--showing .br-rhombus-wrapper {
+  animation: br-rhombus-grow var(--lt-rhombus-expand) var(--lt-easing-show) forwards;
 }
 
 .br-phase--showing .br-plate {
-  animation: br-plate-unfold var(--lt-plate-spread) ease-out var(--lt-rhombus-expand) forwards;
-  clip-path: inset(0 100% 0 0); /* hidden but still takes up space for height */
+  clip-path: inset(0 100% 0 0);
+  animation: br-plate-unfold var(--lt-plate-spread) var(--lt-easing-show) var(--lt-rhombus-expand) forwards;
 }
 
 @keyframes br-rhombus-grow {
-  0% { transform: skewX(-4deg) scaleY(0); }
-  100% { transform: skewX(-4deg) scaleY(1); }
+  0%   { clip-path: inset(50% 0% 50% 0%); }
+  100% { clip-path: inset(0% 0% 0% 0%); }
 }
 
 @keyframes br-plate-unfold {
-  0% { clip-path: inset(0 100% 0 0); }
+  0%   { clip-path: inset(0 100% 0 0); }
   100% { clip-path: inset(0 0 0 0); }
 }
 
 /* ── Phase: Visible ──────────────────────────────────────────────────────── */
 
-.br-phase--visible .br-rhombus {
-  transform: skewX(-4deg) scaleY(1);
+.br-phase--visible .br-rhombus-wrapper {
+  clip-path: inset(0% 0% 0% 0%);
 }
 
 .br-phase--visible .br-plate {
@@ -128,69 +172,56 @@
 
 /* ── Phase: Dismissing (Exit) ────────────────────────────────────────────── */
 
-.br-phase--dismissing {
-  overflow: hidden;
+.br-phase--dismissing .br-rhombus-wrapper {
+  animation:
+    br-rhombus-slide var(--lt-rhombus-wipe) var(--lt-easing-hide) forwards,
+    br-rhombus-shrink var(--lt-rhombus-close) var(--lt-easing-hide) var(--lt-rhombus-wipe) forwards;
 }
 
 .br-phase--dismissing .br-plate {
-  animation: br-plate-clip var(--lt-rhombus-wipe) linear forwards;
-}
-
-.br-phase--dismissing .br-rhombus {
-  z-index: 2;
-  animation:
-    br-rhombus-slide var(--lt-rhombus-wipe) linear forwards,
-    br-rhombus-shrink var(--lt-rhombus-close) ease-in var(--lt-rhombus-wipe) forwards;
+  animation: br-plate-fold var(--lt-rhombus-wipe) var(--lt-easing-hide) forwards;
 }
 
 @keyframes br-rhombus-slide {
-  0% { transform: skewX(-4deg) scaleY(1) translateX(0); }
-  100% { transform: skewX(-4deg) scaleY(1) translateX(69.5cqw); }
-}
-
-@keyframes br-plate-clip {
-  0% { clip-path: inset(0 0 0 0); }
-  100% { clip-path: inset(0 0 0 100%); }
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(calc(70cqw - (var(--rhombus-base-width) + var(--slant-shift)))); }
 }
 
 @keyframes br-rhombus-shrink {
-  0% { transform: skewX(-4deg) scaleY(1) translateX(69.5cqw); }
-  100% { transform: skewX(-4deg) scaleY(0) translateX(69.5cqw); }
+  0%   { clip-path: inset(0% 0% 0% 0%); }
+  100% { clip-path: inset(50% 0% 50% 0%); }
+}
+
+@keyframes br-plate-fold {
+  0%   { clip-path: inset(0 0 0 0); }
+  100% { clip-path: inset(0 0 0 100%); }
 }
 
 /* ── Push-Up Transition ──────────────────────────────────────────────────── */
+/* --push-height-duration and --push-transform-duration set by JS */
 
-.br-push-up .br-rhombus {
-  transform: skewX(-4deg) scaleY(1);
-  animation: none;
+.br-phase--pushing .br-wrapper,
+.br-phase--pushing .br-rhombus-wrapper {
+  transition: height var(--push-height-duration) var(--lt-easing-push);
 }
 
-.br-push-up .br-plate {
-  overflow: hidden;
-  position: relative;
-  clip-path: inset(0 0 0 0);
-  animation: none;
-  transition: height var(--lt-height-transition) ease;
+.br-phase--pushing .br-rhombus {
+  animation: dynamic-push-rhombus var(--push-height-duration) var(--lt-easing-push) forwards;
 }
 
-.br-content--out {
-  position: absolute;
-  width: 100%;
-  animation: br-push-out var(--lt-push-up) ease-in forwards;
+.br-phase--pushing .br-content-track {
+  transition: transform var(--push-transform-duration) var(--lt-easing-push);
 }
 
-.br-content--in {
-  animation: br-push-in var(--lt-push-up) ease-out forwards;
-}
-
-@keyframes br-push-out {
-  0% { transform: translateY(0); opacity: 1; }
-  100% { transform: translateY(-100%); opacity: 0; }
-}
-
-@keyframes br-push-in {
-  0% { transform: translateY(100%); opacity: 0; }
-  100% { transform: translateY(0); opacity: 1; }
+@keyframes dynamic-push-rhombus {
+  0% {
+    height: var(--wrapper-height);
+    transform: skewX(calc(atan2(var(--slant-shift), var(--wrapper-height)) * -1));
+  }
+  100% {
+    height: var(--new-wrapper-height);
+    transform: skewX(calc(atan2(var(--slant-shift), var(--new-wrapper-height)) * -1));
+  }
 }
 
 /* ── Scripture Page Turn ─────────────────────────────────────────────────── */
