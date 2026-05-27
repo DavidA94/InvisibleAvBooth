@@ -109,35 +109,37 @@ export function LowerThirdWidget(): ReactNode {
         {/* Library Section */}
         <section className="lt-section lt-section--library" data-testid={TEST_ID_LT_LIBRARY_SECTION}>
           <span className="lt-section-title">Library</span>
-          {templateItems.length === 0 && volunteerItems.length === 0 ? (
-            <p className="lt-empty-state">No items available</p>
-          ) : (
-            <>
-              {templateItems.map((item) => (
-                <LowerThirdRow
-                  key={item.id}
-                  item={item}
-                  section="library"
-                  isActive={active?.id === item.id}
-                  transitionLocked={transitionLocked}
-                  onActivate={handleActivate}
-                  onRemove={handleRemove}
-                />
-              ))}
-              {volunteerItems.map((item) => (
-                <LowerThirdRow
-                  key={item.id}
-                  item={item}
-                  section="library"
-                  isActive={active?.id === item.id}
-                  transitionLocked={transitionLocked}
-                  onActivate={handleActivate}
-                  onRemove={handleRemove}
-                  onEdit={setEditItem}
-                />
-              ))}
-            </>
-          )}
+          <div className="lt-library-items">
+            {templateItems.length === 0 && volunteerItems.length === 0 ? (
+              <p className="lt-empty-state">No items available</p>
+            ) : (
+              <>
+                {templateItems.map((item) => (
+                  <LowerThirdRow
+                    key={item.id}
+                    item={item}
+                    section="library"
+                    isActive={active?.id === item.id}
+                    transitionLocked={transitionLocked}
+                    onActivate={handleActivate}
+                    onRemove={handleRemove}
+                  />
+                ))}
+                {volunteerItems.map((item) => (
+                  <LowerThirdRow
+                    key={item.id}
+                    item={item}
+                    section="library"
+                    isActive={active?.id === item.id}
+                    transitionLocked={transitionLocked}
+                    onActivate={handleActivate}
+                    onRemove={handleRemove}
+                    onEdit={setEditItem}
+                  />
+                ))}
+              </>
+            )}
+          </div>
         </section>
 
         {/* Add Button */}
