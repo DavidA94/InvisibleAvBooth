@@ -147,12 +147,17 @@ export function LowerThirdOverlay(): ReactNode {
 
     // Task 44: Scripture measurement
     socket.on(STO_LOWER_THIRD_MEASURE, (data: { itemId: string; verses: VerseData[]; reference: string }) => {
+      console.log("[overlay] Received measure request:", data.itemId, "verses:", data.verses.length);
       measureAbortRef.current?.abort();
       const abort = new AbortController();
       measureAbortRef.current = abort;
       measureScripture(data.verses, abort.signal)
-        .then((pages) => { if (!abort.signal.aborted) socket.emit(OTS_LOWER_THIRD_PAGES, { itemId: data.itemId, pages }); })
-        .catch(() => {
+        .then((pages) => {
+          console.log("[overlay] Measurement complete:", data.itemId, "pages:", pages.totalPages);
+          if (!abort.signal.aborted) socket.emit(OTS_LOWER_THIRD_PAGES, { itemId: data.itemId, pages });
+        })
+        .catch((error) => {
+          console.log("[overlay] Measurement failed:", data.itemId, error);
           if (!abort.signal.aborted) {
             const fallback: PageBreakdown = { totalPages: 1, currentPage: 1, pages: [{ pageNumber: 1, startVerse: data.verses[0]?.verseNumber ?? 1, endVerse: data.verses[data.verses.length - 1]?.verseNumber ?? 1 }] };
             socket.emit(OTS_LOWER_THIRD_PAGES, { itemId: data.itemId, pages: fallback });
