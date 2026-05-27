@@ -6,8 +6,9 @@ import { WidgetContainer } from "../WidgetContainer";
 import { useLowerThirdState } from "../../hooks/useLowerThirdState";
 import { LowerThirdRow } from "./LowerThirdRow";
 import { AddLowerThirdDialog } from "./AddLowerThirdDialog";
+import { EditLowerThirdDialog } from "./EditLowerThirdDialog";
 import type { ConnectionStatus } from "../../types";
-import type { LowerThirdItem, LowerThirdType, AddLowerThirdInput } from "@invisible-av-booth/shared";
+import type { LowerThirdItem, LowerThirdType, AddLowerThirdInput, EditLowerThirdInput } from "@invisible-av-booth/shared";
 import "./LowerThirdWidget.css";
 
 function deriveOverlayStatus(overlayConnected: boolean, overlayResolutionCorrect: boolean, hasTemplates: boolean): ConnectionStatus {
@@ -56,6 +57,7 @@ export function LowerThirdWidget(): ReactNode {
 
   const [addType, setAddType] = useState<LowerThirdType | null>(null);
   const [showAddDropdown, setShowAddDropdown] = useState(false);
+  const [editItem, setEditItem] = useState<LowerThirdItem | null>(null);
 
   const handleAddSave = (input: AddLowerThirdInput): void => {
     console.log("[LT] Adding to library:", input);
@@ -63,6 +65,11 @@ export function LowerThirdWidget(): ReactNode {
       console.log("[LT] Add result:", result);
     });
     setAddType(null);
+  };
+
+  const handleEditSave = (itemId: string, patch: EditLowerThirdInput): void => {
+    void sendCommand({ type: "edit-library-item", itemId, patch });
+    setEditItem(null);
   };
 
   return (
@@ -116,6 +123,7 @@ export function LowerThirdWidget(): ReactNode {
                   transitionLocked={transitionLocked}
                   onActivate={handleActivate}
                   onRemove={handleRemove}
+                  onEdit={setEditItem}
                 />
               ))}
             </>
@@ -138,6 +146,10 @@ export function LowerThirdWidget(): ReactNode {
 
         {addType && (
           <AddLowerThirdDialog type={addType} onSave={handleAddSave} onCancel={() => setAddType(null)} />
+        )}
+
+        {editItem && (
+          <EditLowerThirdDialog item={editItem} onSave={handleEditSave} onCancel={() => setEditItem(null)} />
         )}
       </div>
     </WidgetContainer>

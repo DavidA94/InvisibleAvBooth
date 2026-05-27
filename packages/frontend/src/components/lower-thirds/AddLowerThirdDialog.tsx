@@ -1,8 +1,9 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
-import { IonButton, IonInput, IonToggle, IonModal, IonHeader, IonToolbar, IonTitle, IonContent, IonButtons } from "@ionic/react";
+import { IonButton, IonInput, IonToggle } from "@ionic/react";
 import { TEST_ID_LT_ADD_DIALOG, TEST_ID_LT_ADD_TITLE_INPUT, TEST_ID_LT_ADD_SUBTITLE_INPUT, TEST_ID_LT_ADD_SCRIPTURE_INPUT, TEST_ID_LT_ADD_AUTODISMISS_TOGGLE, TEST_ID_LT_ADD_AUTODISMISS_DURATION, TEST_ID_LT_ADD_CANCEL, TEST_ID_LT_ADD_SAVE } from "../../constants/testIds";
 import type { LowerThirdType, AddLowerThirdInput, ScriptureReference } from "@invisible-av-booth/shared";
+import { Modal } from "../Modal";
 import { ScriptureReferenceInput } from "../scripture/ScriptureReferenceInput";
 
 interface AddLowerThirdDialogProps {
@@ -45,17 +46,21 @@ export function AddLowerThirdDialog({ type, onSave, onCancel }: AddLowerThirdDia
     onSave(input);
   };
 
+  const footer = (
+    <div className="layout-row gap-standard justify-end">
+      <IonButton fill="outline" onClick={onCancel} data-testid={TEST_ID_LT_ADD_CANCEL}>Cancel</IonButton>
+      <IonButton onClick={handleSave} disabled={!isValid()} data-testid={TEST_ID_LT_ADD_SAVE}>Save</IonButton>
+    </div>
+  );
+
   return (
-    <IonModal isOpen={true} onDidDismiss={onCancel} data-testid={TEST_ID_LT_ADD_DIALOG}>
-      <IonHeader>
-        <IonToolbar>
-          <IonTitle>Add {type === "TitleSubtitle" ? "Title + Subtitle" : type}</IonTitle>
-          <IonButtons slot="end">
-            <IonButton onClick={onCancel} data-testid={TEST_ID_LT_ADD_CANCEL}>Cancel</IonButton>
-          </IonButtons>
-        </IonToolbar>
-      </IonHeader>
-      <IonContent className="ion-padding">
+    <Modal
+      isOpen={true}
+      onClose={onCancel}
+      header={`Add ${type === "TitleSubtitle" ? "Title + Subtitle" : type}`}
+      footer={footer}
+    >
+      <div data-testid={TEST_ID_LT_ADD_DIALOG} className="layout-column gap-standard">
         {(type === "Title" || type === "TitleSubtitle") && (
           <IonInput
             label="Title"
@@ -74,14 +79,12 @@ export function AddLowerThirdDialog({ type, onSave, onCancel }: AddLowerThirdDia
             fill="outline"
             value={subtitle}
             onIonInput={(event) => setSubtitle(event.detail.value ?? "")}
-            className="ion-margin-top"
             data-testid={TEST_ID_LT_ADD_SUBTITLE_INPUT}
           />
         )}
 
         {type === "Scripture" && (
-          <div className="ion-margin-top" data-testid={TEST_ID_LT_ADD_SCRIPTURE_INPUT}>
-            <p className="ion-margin-bottom">Scripture Reference</p>
+          <div data-testid={TEST_ID_LT_ADD_SCRIPTURE_INPUT}>
             <ScriptureReferenceInput
               bookId={bookId}
               chapter={chapter}
@@ -95,7 +98,7 @@ export function AddLowerThirdDialog({ type, onSave, onCancel }: AddLowerThirdDia
           </div>
         )}
 
-        <div className="ion-margin-top">
+        <div className="layout-row gap-standard align-center">
           <IonToggle
             checked={autoDismissEnabled}
             onIonChange={(event) => setAutoDismissEnabled(event.detail.checked)}
@@ -103,27 +106,20 @@ export function AddLowerThirdDialog({ type, onSave, onCancel }: AddLowerThirdDia
           >
             Auto-Dismiss
           </IonToggle>
-        </div>
-
-        {autoDismissEnabled && (
           <IonInput
             type="number"
-            label="Duration (seconds)"
-            labelPlacement="stacked"
             fill="outline"
             min={1}
             max={300}
             value={autoDismissSeconds}
+            disabled={!autoDismissEnabled}
             onIonInput={(event) => setAutoDismissSeconds(Math.max(1, parseInt(event.detail.value ?? "10") || 10))}
-            className="ion-margin-top"
             data-testid={TEST_ID_LT_ADD_AUTODISMISS_DURATION}
+            style={{ maxWidth: "5rem" }}
           />
-        )}
-
-        <IonButton expand="block" className="ion-margin-top" onClick={handleSave} disabled={!isValid()} data-testid={TEST_ID_LT_ADD_SAVE}>
-          Save
-        </IonButton>
-      </IonContent>
-    </IonModal>
+          <span className="text-muted">seconds</span>
+        </div>
+      </div>
+    </Modal>
   );
 }

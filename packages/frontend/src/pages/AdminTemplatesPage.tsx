@@ -368,37 +368,67 @@ export function AdminTemplatesPage(): ReactNode {
                     }}
                   />
 
-                  <label className={`tpl-form-label ${isDescription || isLowerThird ? "tpl-form-label-top" : ""}`}>
-                    {isLowerThird ? "Title Format:" : "Format String:"}
-                  </label>
+                  {isLowerThird && (
+                    <>
+                      <label className="tpl-form-label">Type:</label>
+                      <div>
+                        <Select
+                          options={[
+                            { value: "Title", label: "Title" },
+                            { value: "TitleSubtitle", label: "Title + Subtitle" },
+                            { value: "Scripture", label: "Scripture" },
+                          ]}
+                          value={{ value: lowerThirdType, label: lowerThirdType === "TitleSubtitle" ? "Title + Subtitle" : lowerThirdType }}
+                          onChange={(opt) => {
+                            setLowerThirdType(((opt as { value: string } | null)?.value ?? "Title") as "Title" | "TitleSubtitle" | "Scripture");
+                            setValidated(false);
+                          }}
+                          styles={roleStyles as never}
+                          isSearchable={false}
+                          menuPortalTarget={document.body}
+                        />
+                      </div>
+                    </>
+                  )}
+
                   {isLowerThird && lowerThirdType === "Scripture" ? (
-                    <div className="text-muted text-caption">Always uses {"{Scripture}"} from session manifest</div>
-                  ) : isDescription || (isLowerThird && lowerThirdType === "TitleSubtitle") ? (
-                    <IonTextarea
-                      data-testid={TEST_ID_TEMPLATE_FORM_FORMAT}
-                      fill="outline"
-                      rows={2}
-                      value={formatString}
-                      onIonInput={(e) => {
-                        setFormatString(e.detail.value ?? "");
-                        setValidated(false);
-                      }}
-                    />
+                    <>
+                      <label className="tpl-form-label">Format:</label>
+                      <div className="text-muted text-caption">Always uses {"{Scripture}"} from session manifest</div>
+                    </>
                   ) : (
-                    <IonInput
-                      data-testid={TEST_ID_TEMPLATE_FORM_FORMAT}
-                      fill="outline"
-                      value={formatString}
-                      onIonInput={(e) => {
-                        setFormatString(e.detail.value ?? "");
-                        setValidated(false);
-                      }}
-                    />
+                    <>
+                      <label className={`tpl-form-label ${isDescription || (isLowerThird && lowerThirdType === "TitleSubtitle") ? "tpl-form-label-top" : ""}`}>
+                        {isLowerThird ? "Title Format:" : "Format String:"}
+                      </label>
+                      {isDescription || (isLowerThird && lowerThirdType === "TitleSubtitle") ? (
+                        <IonTextarea
+                          data-testid={TEST_ID_TEMPLATE_FORM_FORMAT}
+                          fill="outline"
+                          rows={2}
+                          value={formatString}
+                          onIonInput={(e) => {
+                            setFormatString(e.detail.value ?? "");
+                            setValidated(false);
+                          }}
+                        />
+                      ) : (
+                        <IonInput
+                          data-testid={TEST_ID_TEMPLATE_FORM_FORMAT}
+                          fill="outline"
+                          value={formatString}
+                          onIonInput={(e) => {
+                            setFormatString(e.detail.value ?? "");
+                            setValidated(false);
+                          }}
+                        />
+                      )}
+                    </>
                   )}
 
                   {isLowerThird && lowerThirdType === "TitleSubtitle" && (
                     <>
-                      <label className="tpl-form-label tpl-form-label-top">Subtitle Format:</label>
+                      <label className="tpl-form-label">Subtitle Format:</label>
                       <IonInput
                         fill="outline"
                         value={subtitleFormatString}
@@ -444,41 +474,21 @@ export function AdminTemplatesPage(): ReactNode {
 
                   {isLowerThird && (
                     <>
-                      <label className="tpl-form-label">Type:</label>
-                      <div>
-                        <Select
-                          options={[
-                            { value: "Title", label: "Title" },
-                            { value: "TitleSubtitle", label: "Title + Subtitle" },
-                            { value: "Scripture", label: "Scripture" },
-                          ]}
-                          value={{ value: lowerThirdType, label: lowerThirdType === "TitleSubtitle" ? "Title + Subtitle" : lowerThirdType }}
-                          onChange={(opt) => {
-                            setLowerThirdType(((opt as { value: string } | null)?.value ?? "Title") as "Title" | "TitleSubtitle" | "Scripture");
-                            setValidated(false);
-                          }}
-                          styles={roleStyles as never}
-                          isSearchable={false}
-                          menuPortalTarget={document.body}
-                        />
-                      </div>
-
                       <label className="tpl-form-label">Auto-Dismiss:</label>
                       <div className="layout-row gap-standard align-center">
                         <IonToggle
                           checked={autoDismissEnabled}
                           onIonChange={(event) => { setAutoDismissEnabled(event.detail.checked); setValidated(false); }}
                         />
-                        {autoDismissEnabled && (
-                          <IonInput
-                            type="number"
-                            fill="outline"
-                            value={autoDismissSeconds}
-                            onIonInput={(e) => { setAutoDismissSeconds(Math.max(1, parseInt(e.detail.value ?? "10") || 10)); setValidated(false); }}
-                            style={{ maxWidth: "5rem" }}
-                          />
-                        )}
-                        {autoDismissEnabled && <span className="text-muted">seconds</span>}
+                        <IonInput
+                          type="number"
+                          fill="outline"
+                          value={autoDismissSeconds}
+                          disabled={!autoDismissEnabled}
+                          onIonInput={(e) => { setAutoDismissSeconds(Math.max(1, parseInt(e.detail.value ?? "10") || 10)); setValidated(false); }}
+                          style={{ maxWidth: "5rem" }}
+                        />
+                        <span className="text-muted">seconds</span>
                       </div>
                     </>
                   )}

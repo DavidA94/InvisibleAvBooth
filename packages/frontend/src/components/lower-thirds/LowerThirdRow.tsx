@@ -15,6 +15,7 @@ interface LowerThirdRowProps {
   onForceClear?: () => void;
   onActivate?: (itemId: string) => void;
   onRemove?: (itemId: string) => void;
+  onEdit?: (item: LowerThirdItem) => void;
   onPageNext?: () => void;
   onPagePrevious?: () => void;
 }
@@ -44,6 +45,7 @@ export function LowerThirdRow({
   onForceClear,
   onActivate,
   onRemove,
+  onEdit,
 }: LowerThirdRowProps): ReactNode {
   const isDismissing = section === "active" && phase === "dismissing";
 
@@ -54,10 +56,16 @@ export function LowerThirdRow({
       <span className="lt-action-label">Force Clear</span>
     </button>
   ) : item.source === "volunteer" && !isActive ? (
-    <button className="lt-action-btn lt-action-danger" onClick={() => onRemove?.(item.id)} aria-label="Delete">
-      <span className="lt-action-icon">🗑</span>
-      <span className="lt-action-label">Delete</span>
-    </button>
+    <div className="layout-row">
+      <button className="lt-action-btn" onClick={() => onEdit?.(item)} aria-label="Edit">
+        <span className="lt-action-icon">✏️</span>
+        <span className="lt-action-label">Edit</span>
+      </button>
+      <button className="lt-action-btn lt-action-danger" onClick={() => onRemove?.(item.id)} aria-label="Delete">
+        <span className="lt-action-icon">🗑</span>
+        <span className="lt-action-label">Delete</span>
+      </button>
+    </div>
   ) : section === "library" && !isActive ? (
     <button className="lt-action-btn lt-action-go-live" onClick={() => onActivate?.(item.id)} disabled={transitionLocked} aria-label="Go Live">
       <span className="lt-action-icon">⚡</span>

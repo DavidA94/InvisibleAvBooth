@@ -79,13 +79,16 @@ export function SwipeableRow({ children, leftActions, rightActions, actionWidth 
     handleStart(event.clientX, event.clientY);
     const onMouseMove = (moveEvent: globalThis.MouseEvent): void => handleMove(moveEvent.clientX, moveEvent.clientY);
     const onMouseUp = (): void => {
-      handleEnd();
       document.removeEventListener("mousemove", onMouseMove);
       document.removeEventListener("mouseup", onMouseUp);
+      // Only call handleEnd if we were actually dragging (not just a click)
+      if (Math.abs(event.clientX - startX.current) > 5 || Math.abs(offset) > 5) {
+        handleEnd();
+      }
     };
     document.addEventListener("mousemove", onMouseMove);
     document.addEventListener("mouseup", onMouseUp);
-  }, [handleStart, handleMove, handleEnd]);
+  }, [handleStart, handleMove, handleEnd, offset]);
 
   const handleContentTap = useCallback(() => {
     if (revealed !== "none") { setRevealed("none"); setOffset(0); }
