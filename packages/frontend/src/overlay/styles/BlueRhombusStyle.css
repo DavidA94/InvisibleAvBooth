@@ -41,7 +41,6 @@
   width: var(--rhombus-base-width);
   min-width: 4px;
   flex-shrink: 0;
-  background: #1a5ab8;
   position: relative;
   margin-right: var(--slant-shift);
   transform-origin: bottom left;
@@ -49,15 +48,25 @@
 }
 
 /* Wedge fill: triangular gap between skewed rhombus and rectangular plate */
-.br-rhombus::after {
+.br-rhombus::before {
   content: "";
   position: absolute;
   top: 0;
-  left: 100%;
-  width: var(--slant-shift);
+  left: calc(100% - 2px);
+  width: calc(var(--slant-shift) + 2px);
   height: 100%;
   background: rgba(0, 0, 0, 0.85);
-  clip-path: polygon(0% 0%, 0% 100%, 100% 100%);
+  z-index: 1;
+}
+
+.br-rhombus::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background: #1a5ab8;
+    z-index: 2;
 }
 
 .br-plate {
@@ -146,7 +155,8 @@
 }
 
 .br-phase--showing .br-plate {
-  clip-path: inset(0 100% 0 0);
+  max-width: 0;
+  overflow: hidden;
   animation: br-plate-unfold var(--lt-plate-spread) var(--lt-easing-show) var(--lt-rhombus-expand) forwards;
 }
 
@@ -156,8 +166,8 @@
 }
 
 @keyframes br-plate-unfold {
-  0%   { clip-path: inset(0 100% 0 0); }
-  100% { clip-path: inset(0 0 0 0); }
+  0%   { max-width: 0; }
+  100% { max-width: 100%; }
 }
 
 /* ── Phase: Visible ──────────────────────────────────────────────────────── */
@@ -167,7 +177,8 @@
 }
 
 .br-phase--visible .br-plate {
-  clip-path: inset(0 0 0 0);
+  max-width: 100%;
+  overflow: hidden;
 }
 
 /* ── Phase: Dismissing (Exit) ────────────────────────────────────────────── */
@@ -179,6 +190,7 @@
 }
 
 .br-phase--dismissing .br-plate {
+  overflow: hidden;
   animation: br-plate-fold var(--lt-rhombus-wipe) var(--lt-easing-hide) forwards;
 }
 
@@ -193,8 +205,8 @@
 }
 
 @keyframes br-plate-fold {
-  0%   { clip-path: inset(0 0 0 0); }
-  100% { clip-path: inset(0 0 0 100%); }
+  0%   { max-width: 100%; }
+  100% { max-width: 0; }
 }
 
 /* ── Push-Up Transition ──────────────────────────────────────────────────── */
