@@ -142,6 +142,7 @@ function show(item: LowerThirdItem): void {
   currentItem = item;
   currentPhase = "showing";
   // Apply wide width for scripture if measurement determined it reduces wrapping
+  sendLog("info", `show() called: pages=${JSON.stringify(item.pages?.useWideWidth)}, type=${item.type}`);
   if (item.pages?.useWideWidth) {
     wrapper!.classList.add("br-wrapper--wide");
   } else {
