@@ -223,6 +223,10 @@
   transition: height var(--push-height-duration) var(--lt-easing-push);
 }
 
+.br-phase--pushing .br-rhombus-wrapper {
+  transition: height var(--push-height-duration) var(--lt-easing-push);
+}
+
 .br-phase--pushing .br-rhombus {
   animation: dynamic-push-rhombus var(--push-height-duration) var(--lt-easing-push) forwards;
 }
