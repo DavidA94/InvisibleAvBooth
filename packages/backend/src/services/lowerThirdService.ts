@@ -272,6 +272,7 @@ export class LowerThirdService {
           totalPages: 1,
           currentPage: 1,
           pages: [{ pageNumber: 1, startVerse: content.verses![0]!.verseNumber, endVerse: content.verses![content.verses!.length - 1]!.verseNumber }],
+          useWideWidth: false,
         };
         this.reportPages(item.id, fallbackPages);
       }

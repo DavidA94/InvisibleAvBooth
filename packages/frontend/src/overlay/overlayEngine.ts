@@ -129,7 +129,7 @@ function connectSocket(): void {
       .then((pages) => { if (!abort.signal.aborted) socket!.emit(OTS_LOWER_THIRD_PAGES, { itemId: data.itemId, pages }); })
       .catch(() => {
         if (!abort.signal.aborted) {
-          const fallback: PageBreakdown = { totalPages: 1, currentPage: 1, pages: [{ pageNumber: 1, startVerse: data.verses[0]?.verseNumber ?? 1, endVerse: data.verses[data.verses.length - 1]?.verseNumber ?? 1 }] };
+          const fallback: PageBreakdown = { totalPages: 1, currentPage: 1, pages: [{ pageNumber: 1, startVerse: data.verses[0]?.verseNumber ?? 1, endVerse: data.verses[data.verses.length - 1]?.verseNumber ?? 1 }], useWideWidth: false };
           socket!.emit(OTS_LOWER_THIRD_PAGES, { itemId: data.itemId, pages: fallback });
         }
       });
@@ -141,6 +141,12 @@ function connectSocket(): void {
 function show(item: LowerThirdItem): void {
   currentItem = item;
   currentPhase = "showing";
+  // Apply wide width for scripture if measurement determined it reduces wrapping
+  if (item.pages?.useWideWidth) {
+    wrapper!.style.width = "80cqw";
+  } else {
+    wrapper!.style.width = "";
+  }
   const height = measureItemHeight(item);
   setWrapperVars(height);
   setContent(getContentElement(), item);
@@ -152,8 +158,12 @@ function show(item: LowerThirdItem): void {
 function showImmediate(item: LowerThirdItem): void {
   currentItem = item;
   currentPhase = "visible";
+  if (item.pages?.useWideWidth) {
+    wrapper!.style.width = "80cqw";
+  } else {
+    wrapper!.style.width = "";
+  }
   setContent(getContentElement(), item);
-  // Defer measurement to next frame to ensure layout is complete
   requestAnimationFrame(() => {
     const height = measureItemHeight(item);
     if (height > 0) {

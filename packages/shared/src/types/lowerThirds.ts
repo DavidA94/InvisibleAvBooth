@@ -40,6 +40,7 @@ export interface PageBreakdown {
   totalPages: number;
   currentPage: number;
   pages: PageInfo[];
+  useWideWidth: boolean;
 }
 
 // ── Library Item ──────────────────────────────────────────────────────────────

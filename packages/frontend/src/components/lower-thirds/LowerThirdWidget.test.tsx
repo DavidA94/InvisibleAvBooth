@@ -51,7 +51,7 @@ const scriptureItem: LowerThirdItem = {
   templateName: null,
   used: false,
   createdAt: "2026-01-01T00:00:01Z",
-  pages: { totalPages: 2, currentPage: 1, pages: [{ pageNumber: 1, startVerse: 1, endVerse: 2 }, { pageNumber: 2, startVerse: 3, endVerse: 3 }] },
+  pages: { totalPages: 2, currentPage: 1, pages: [{ pageNumber: 1, startVerse: 1, endVerse: 2 }, { pageNumber: 2, startVerse: 3, endVerse: 3 }], useWideWidth: false },
 };
 
 function setState(partial: Partial<LowerThirdState>): void {

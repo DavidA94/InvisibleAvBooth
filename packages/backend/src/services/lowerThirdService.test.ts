@@ -304,7 +304,7 @@ describe("scripture and measurement", () => {
     const added = service.addToLibrary({ type: "Scripture", content: { reference: { bookId: 1, chapter: 1, verse: 1, verseEnd: 3 } } });
     if (!added.success) throw new Error("add failed");
 
-    const pages = { totalPages: 1, currentPage: 1, pages: [{ pageNumber: 1, startVerse: 1, endVerse: 3 }] };
+    const pages = { totalPages: 1, currentPage: 1, pages: [{ pageNumber: 1, startVerse: 1, endVerse: 3 }], useWideWidth: false };
     service.reportPages(added.value.id, pages);
 
     expect(service.getLibrary().find((i) => i.id === added.value.id)!.pages).toEqual(pages);
@@ -341,7 +341,7 @@ describe("page navigation", () => {
   it("advances to next page", () => {
     const added = service.addToLibrary({ type: "Scripture", content: { reference: { bookId: 1, chapter: 1, verse: 1, verseEnd: 3 } } });
     if (!added.success) throw new Error("add failed");
-    const pages = { totalPages: 2, currentPage: 1, pages: [{ pageNumber: 1, startVerse: 1, endVerse: 2 }, { pageNumber: 2, startVerse: 3, endVerse: 3 }] };
+    const pages = { totalPages: 2, currentPage: 1, pages: [{ pageNumber: 1, startVerse: 1, endVerse: 2 }, { pageNumber: 2, startVerse: 3, endVerse: 3 }], useWideWidth: false };
     service.reportPages(added.value.id, pages);
 
     service.activate(added.value.id);
@@ -356,7 +356,7 @@ describe("page navigation", () => {
   it("rejects next on last page", () => {
     const added = service.addToLibrary({ type: "Scripture", content: { reference: { bookId: 1, chapter: 1, verse: 1 } } });
     if (!added.success) throw new Error("add failed");
-    const pages = { totalPages: 1, currentPage: 1, pages: [{ pageNumber: 1, startVerse: 1, endVerse: 1 }] };
+    const pages = { totalPages: 1, currentPage: 1, pages: [{ pageNumber: 1, startVerse: 1, endVerse: 1 }], useWideWidth: false };
     service.reportPages(added.value.id, pages);
     service.activate(added.value.id);
     service.reportPhase("visible");

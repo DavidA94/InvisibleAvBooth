@@ -10,7 +10,7 @@ const MAX_LINES = 4;
 export async function measureScripture(verses: VerseData[], signal: AbortSignal): Promise<PageBreakdown> {
   if (signal.aborted) throw new Error("aborted");
   if (verses.length === 0) {
-    return { totalPages: 1, currentPage: 1, pages: [{ pageNumber: 1, startVerse: 0, endVerse: 0 }] };
+    return { totalPages: 1, currentPage: 1, pages: [{ pageNumber: 1, startVerse: 0, endVerse: 0 }], useWideWidth: false };
   }
 
   // Find the aspect-ratio-jail — measurement must happen inside it for cqw/cqh to resolve
@@ -55,9 +55,17 @@ export async function measureScripture(verses: VerseData[], signal: AbortSignal)
     const narrowPages = computePages(verses, versesContainer, lineHeightPx);
     if (signal.aborted) throw new Error("aborted");
 
-    // TODO: 80% width test would require changing the wrapper width class
-    // For now, use the 70cqw result
-    return narrowPages;
+    // Test at 80cqw to see if it reduces page count
+    wrapper.style.width = "80cqw";
+    const widePages = computePages(verses, versesContainer, lineHeightPx);
+    wrapper.style.width = "70cqw"; // restore
+    if (signal.aborted) throw new Error("aborted");
+
+    // Use wider width only if it reduces total page count
+    if (widePages.pages.length < narrowPages.pages.length) {
+      return { ...widePages, useWideWidth: true };
+    }
+    return { ...narrowPages, useWideWidth: false };
   } finally {
     wrapper.remove();
   }
@@ -116,7 +124,7 @@ function computePages(verses: VerseData[], container: HTMLElement, lineHeightPx:
     return singlePageFallback(verses);
   }
 
-  return { totalPages: pages.length, currentPage: 1, pages };
+  return { totalPages: pages.length, currentPage: 1, pages, useWideWidth: false };
 }
 
 function measureVerseLines(verse: VerseData, container: HTMLElement, lineHeightPx: number): number {
@@ -136,5 +144,6 @@ function singlePageFallback(verses: VerseData[]): PageBreakdown {
       startVerse: verses[0]?.verseNumber ?? 0,
       endVerse: verses[verses.length - 1]?.verseNumber ?? 0,
     }],
+    useWideWidth: false,
   };
 }
