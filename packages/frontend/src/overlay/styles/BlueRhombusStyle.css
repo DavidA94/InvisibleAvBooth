@@ -6,10 +6,10 @@
 
 /* ── Configurable Timing & Easing ────────────────────────────────────────── */
 :root {
-  --lt-rhombus-expand: 0.25s;
-  --lt-plate-spread: 1.0s;
-  --lt-rhombus-wipe: 1.5s;
-  --lt-rhombus-close: 0.25s;
+  --lt-rhombus-expand: 2.25s;
+  --lt-plate-spread: 5.0s;
+  --lt-rhombus-wipe: 5.5s;
+  --lt-rhombus-close: 2.25s;
   --lt-easing-show: linear;
   --lt-easing-hide: linear;
   --lt-easing-push: linear;
@@ -22,11 +22,10 @@
   align-items: stretch;
   position: relative;
   width: 70cqw;
-  /* --wrapper-height, --new-wrapper-height set by JS */
+  /* --wrapper-height, --new-wrapper-height, --rhombus-base-width, --slant-shift set by JS */
   height: var(--wrapper-height, auto);
-  --rhombus-base-width: max(0.5cqw, 4px);
-  --slant-shift: calc(var(--rhombus-base-width) * 0.60);
-  --dynamic-angle: atan2(var(--slant-shift), var(--wrapper-height));
+  --dynamic-angle: atan2(var(--slant-shift, 6px), var(--wrapper-height, 100px));
+  --new-dynamic-angle: atan2(var(--slant-shift, 6px), var(--new-wrapper-height, 100px));
 }
 
 .br-rhombus-wrapper {
@@ -35,6 +34,7 @@
   flex-shrink: 0;
   position: relative;
   transform-origin: center;
+  overflow: hidden;
 }
 
 .br-rhombus {
@@ -53,7 +53,7 @@
   position: absolute;
   top: 0;
   left: calc(100% - 2px);
-  width: calc(var(--slant-shift) + 2px);
+  width: calc(var(--slant-shift) + 3px);
   height: 100%;
   background: rgba(0, 0, 0, 0.85);
   z-index: 1;
@@ -65,7 +65,7 @@
     top: 0;
     width: 100%;
     height: 100%;
-    background: #1a5ab8;
+    background: #2979ff;
     z-index: 2;
 }
 
@@ -155,8 +155,7 @@
 }
 
 .br-phase--showing .br-plate {
-  max-width: 0;
-  overflow: hidden;
+  clip-path: inset(0 100% 0 0);
   animation: br-plate-unfold var(--lt-plate-spread) var(--lt-easing-show) var(--lt-rhombus-expand) forwards;
 }
 
@@ -166,19 +165,19 @@
 }
 
 @keyframes br-plate-unfold {
-  0%   { max-width: 0; }
-  100% { max-width: 100%; }
+  0%   { clip-path: inset(0 100% 0 -1px); }
+  99.99% { clip-path: inset(0 0 0 -1px); }
+  100% { clip-path: none; }
 }
 
 /* ── Phase: Visible ──────────────────────────────────────────────────────── */
 
 .br-phase--visible .br-rhombus-wrapper {
-  clip-path: inset(0% 0% 0% 0%);
+  overflow: hidden;
 }
 
 .br-phase--visible .br-plate {
-  max-width: 100%;
-  overflow: hidden;
+  clip-path: none;
 }
 
 /* ── Phase: Dismissing (Exit) ────────────────────────────────────────────── */
@@ -205,9 +204,13 @@
 }
 
 @keyframes br-plate-fold {
-  0%   { max-width: 100%; }
-  100% { max-width: 0; }
+  0%   { clip-path: inset(0 0 0 0); }
+  100% { clip-path: inset(0 0 0 100%); }
 }
+
+
+
+
 
 /* ── Push-Up Transition ──────────────────────────────────────────────────── */
 /* --push-height-duration and --push-transform-duration set by JS */
@@ -228,11 +231,11 @@
 @keyframes dynamic-push-rhombus {
   0% {
     height: var(--wrapper-height);
-    transform: skewX(calc(atan2(var(--slant-shift), var(--wrapper-height)) * -1));
+    transform: skewX(calc(var(--dynamic-angle) * -1));
   }
   100% {
     height: var(--new-wrapper-height);
-    transform: skewX(calc(atan2(var(--slant-shift), var(--new-wrapper-height)) * -1));
+    transform: skewX(calc(var(--new-dynamic-angle) * -1));
   }
 }
 

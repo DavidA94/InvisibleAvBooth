@@ -139,35 +139,39 @@ export function BlueRhombusStyle({ item, prevItem, phase, isPushUp, onAnimationE
 
   const measureHeight = useMeasureHeight();
 
-  // Measure height on item change (for show)
+  // Measure height on item change (for show and skipEntrance/reload)
+  const lastMeasuredItemId = useRef<string | null>(null);
   useEffect(() => {
-    if (phase === "showing" && !isPushUp) {
-      const height = measureHeight(item);
-      if (height > 0) setWrapperHeight(height);
+    if (!item) return;
+    if (phase === "showing" && isPushUp) return; // push-up handles its own measurement
+    if (lastMeasuredItemId.current === item.id && wrapperHeight !== null) return; // same item, already measured
+    const height = measureHeight(item);
+    if (height > 0) {
+      setWrapperHeight(height);
+      lastMeasuredItemId.current = item.id;
     }
-  }, [item, phase, isPushUp, measureHeight]);
+  }, [item, phase, isPushUp, measureHeight, wrapperHeight]);
 
   // Start push-up animation
   useEffect(() => {
     if (!isPushUp || !prevItem || phase !== "showing") return;
 
-    const oldHeight = wrapperHeight ?? measureHeight(prevItem);
+    const oldHeight = measureHeight(prevItem);
     const newHeight = measureHeight(item);
     const delta = Math.abs(newHeight - oldHeight);
 
     // Calculate durations
     const heightDuration = delta > 0 ? delta / PUSH_HEIGHT_SPEED : 0;
-    const oldContentHeight = oldHeight; // approximate: old content fills old wrapper
-    const transformDuration = heightDuration > 0 ? heightDuration : oldContentHeight / PUSH_TEXT_SPEED;
+    const transformDuration = heightDuration > 0 ? heightDuration : oldHeight / PUSH_TEXT_SPEED;
 
     // The track needs to move up by: old content height + spacer
-    // Spacer is 1lh — approximate as 1.4 * font-size (line-height * base)
-    const spacerHeight = 20; // approximate 1lh in pixels — will be refined by actual lh unit
-    const trackTranslateY = oldContentHeight + spacerHeight;
+    const spacerHeight = 20; // approximate 1lh in pixels
+    const trackTranslateY = oldHeight + spacerHeight;
 
     setPushState({ oldItem: prevItem, trackTranslateY, heightDuration, transformDuration, newHeight });
     setWrapperHeight(newHeight);
-  }, [isPushUp, prevItem, item, phase, measureHeight, wrapperHeight]);
+    lastMeasuredItemId.current = item.id;
+  }, [isPushUp, prevItem, item, phase, measureHeight]);
 
   // Handle animation/transition end
   const handleTransitionEnd = useCallback(() => {
@@ -178,11 +182,13 @@ export function BlueRhombusStyle({ item, prevItem, phase, isPushUp, onAnimationE
   }, [pushState, onAnimationEnd]);
 
   const handleAnimationEnd = useCallback((event: React.AnimationEvent) => {
-    // Only respond to our animations, not children
-    if (event.target !== event.currentTarget) return;
-    if (phase === "showing" && !isPushUp) {
+    const animationName = event.animationName;
+    // Show complete: plate unfold is the last animation to finish
+    if (phase === "showing" && !isPushUp && animationName === "br-plate-unfold") {
       onAnimationEnd();
-    } else if (phase === "dismissing") {
+    }
+    // Dismiss complete: rhombus shrink is the last animation (delayed after slide)
+    if (phase === "dismissing" && animationName === "br-rhombus-shrink") {
       onAnimationEnd();
     }
   }, [phase, isPushUp, onAnimationEnd]);
@@ -194,6 +200,12 @@ export function BlueRhombusStyle({ item, prevItem, phase, isPushUp, onAnimationE
   const wrapperStyle: Record<string, string> = {};
   if (wrapperHeight !== null) {
     wrapperStyle["--wrapper-height"] = `${wrapperHeight}px`;
+    // Calculate slant-shift in JS because cqw units don't resolve inside atan2() in CEF/OBS
+    const jailWidth = document.querySelector(".aspect-ratio-jail")?.getBoundingClientRect().width ?? 1920;
+    const rhombusBaseWidth = Math.max(0.005 * jailWidth, 4); // max(0.5cqw, 4px)
+    const slantShift = rhombusBaseWidth * 0.60;
+    wrapperStyle["--slant-shift"] = `${slantShift}px`;
+    wrapperStyle["--rhombus-base-width"] = `${rhombusBaseWidth}px`;
   }
   if (pushState) {
     wrapperStyle["--new-wrapper-height"] = `${pushState.newHeight}px`;
