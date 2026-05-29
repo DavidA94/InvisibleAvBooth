@@ -143,9 +143,9 @@ function show(item: LowerThirdItem): void {
   currentPhase = "showing";
   // Apply wide width for scripture if measurement determined it reduces wrapping
   if (item.pages?.useWideWidth) {
-    wrapper!.style.width = "80cqw";
+    wrapper!.classList.add("br-wrapper--wide");
   } else {
-    wrapper!.style.width = "";
+    wrapper!.classList.remove("br-wrapper--wide");
   }
   const height = measureItemHeight(item);
   setWrapperVars(height);
@@ -159,9 +159,9 @@ function showImmediate(item: LowerThirdItem): void {
   currentItem = item;
   currentPhase = "visible";
   if (item.pages?.useWideWidth) {
-    wrapper!.style.width = "80cqw";
+    wrapper!.classList.add("br-wrapper--wide");
   } else {
-    wrapper!.style.width = "";
+    wrapper!.classList.remove("br-wrapper--wide");
   }
   setContent(getContentElement(), item);
   requestAnimationFrame(() => {
@@ -388,11 +388,8 @@ function measureItemHeight(item: LowerThirdItem): number {
 
   // Must be inside a wrapper with the same width for accurate measurement
   const measureWrapper = document.createElement("div");
-  measureWrapper.className = "br-wrapper br-phase--visible";
+  measureWrapper.className = `br-wrapper br-phase--visible${item.pages?.useWideWidth ? " br-wrapper--wide" : ""}`;
   measureWrapper.style.cssText = "position:absolute;visibility:hidden;pointer-events:none;top:-9999px;left:0;";
-  if (item.pages?.useWideWidth) {
-    measureWrapper.style.width = "80cqw";
-  }
   measureWrapper.appendChild(measurePlate);
   jail!.appendChild(measureWrapper);
 

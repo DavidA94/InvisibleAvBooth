@@ -21,11 +21,15 @@
   display: flex;
   align-items: stretch;
   position: relative;
-  width: 70cqw;
+  width: var(--lt-plate-width, 70cqw);
   /* --wrapper-height, --new-wrapper-height, --rhombus-base-width, --slant-shift set by JS */
   height: var(--wrapper-height, auto);
   --dynamic-angle: atan2(var(--slant-shift, 6px), var(--wrapper-height, 100px));
   --new-dynamic-angle: atan2(var(--slant-shift, 6px), var(--new-wrapper-height, 100px));
+}
+
+.br-wrapper--wide {
+  --lt-plate-width: 80cqw;
 }
 
 .br-rhombus-wrapper {
@@ -195,7 +199,7 @@
 
 @keyframes br-rhombus-slide {
   0%   { transform: translateX(0); }
-  100% { transform: translateX(calc(100% - (var(--rhombus-base-width) + var(--slant-shift)))); }
+  100% { transform: translateX(calc(var(--lt-plate-width, 70cqw) - (var(--rhombus-base-width) + var(--slant-shift)))); }
 }
 
 @keyframes br-rhombus-shrink {
