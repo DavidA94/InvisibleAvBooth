@@ -215,17 +215,12 @@
 /* ── Push-Up Transition ──────────────────────────────────────────────────── */
 /* --push-height-duration and --push-transform-duration set by JS */
 
-.br-phase--pushing .br-wrapper,
-.br-phase--pushing .br-rhombus-wrapper {
+.br-phase--pushing {
   transition: height var(--push-height-duration) var(--lt-easing-push);
 }
 
 .br-phase--pushing .br-rhombus {
   animation: dynamic-push-rhombus var(--push-height-duration) var(--lt-easing-push) forwards;
-}
-
-.br-phase--pushing .br-content-track {
-  transition: transform var(--push-transform-duration) var(--lt-easing-push);
 }
 
 @keyframes dynamic-push-rhombus {

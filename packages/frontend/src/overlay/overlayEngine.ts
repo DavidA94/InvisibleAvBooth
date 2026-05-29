@@ -152,11 +152,16 @@ function show(item: LowerThirdItem): void {
 function showImmediate(item: LowerThirdItem): void {
   currentItem = item;
   currentPhase = "visible";
-  const height = measureItemHeight(item);
-  setWrapperVars(height);
   setContent(getContentElement(), item);
-  wrapper!.style.height = `${height}px`;
-  wrapper!.className = "br-wrapper br-phase--visible";
+  // Defer measurement to next frame to ensure layout is complete
+  requestAnimationFrame(() => {
+    const height = measureItemHeight(item);
+    if (height > 0) {
+      setWrapperVars(height);
+      wrapper!.style.height = `${height}px`;
+    }
+    wrapper!.className = "br-wrapper br-phase--visible";
+  });
 }
 
 function dismiss(): void {
@@ -178,19 +183,14 @@ function pushUp(newItem: LowerThirdItem): void {
   const newHeight = measureItemHeight(newItem);
   const delta = Math.abs(newHeight - oldHeight);
 
+  // Set the old height explicitly so transition has a starting point
+  wrapper!.style.setProperty("--wrapper-height", `${oldHeight}px`);
+
   // Add spacer after old content
   const spacer = document.createElement("div");
   spacer.className = "br-push-spacer";
-  track.appendChild(spacer);
-
-  // Measure distance to move (old content + spacer)
-  const distanceToMove = oldContent.getBoundingClientRect().height + spacer.getBoundingClientRect().height;
-
-  // Add new content
-  const newContentEl = document.createElement("div");
-  newContentEl.className = "br-content";
-  setContent(newContentEl, newItem);
-  track.appendChild(newContentEl);
+  oldContent.appendChild(spacer);
+  const distanceToMove = oldContent.getBoundingClientRect().height;
 
   // Calculate durations
   const heightDuration = delta > 0 ? delta / PUSH_HEIGHT_SPEED : 0;
@@ -200,11 +200,20 @@ function pushUp(newItem: LowerThirdItem): void {
   wrapper!.style.setProperty("--push-height-duration", `${heightDuration}s`);
   wrapper!.style.setProperty("--push-transform-duration", `${transformDuration}s`);
   wrapper!.style.setProperty("--new-wrapper-height", `${newHeight}px`);
-  setWrapperVars(newHeight);
 
-  // Apply push class and trigger transitions
+  // Add new content to track
+  const newContentEl = document.createElement("div");
+  newContentEl.className = "br-content";
+  setContent(newContentEl, newItem);
+  track.appendChild(newContentEl);
+
+  // Apply pushing class (enables height transition on wrapper)
   wrapper!.className = "br-wrapper br-phase--pushing";
+
+  // Set new height (triggers CSS transition)
   wrapper!.style.height = `${newHeight}px`;
+
+  // Set track transform (triggers CSS transition) — must be after class is applied
   track.style.transition = `transform ${transformDuration}s var(--lt-easing-push, linear)`;
   track.style.transform = `translateY(-${distanceToMove}px)`;
 
@@ -212,10 +221,11 @@ function pushUp(newItem: LowerThirdItem): void {
   const cleanup = (): void => {
     track.removeEventListener("transitionend", cleanup);
     oldContent.remove();
-    spacer.remove();
     track.style.transition = "";
     track.style.transform = "";
     wrapper!.className = "br-wrapper br-phase--visible";
+    wrapper!.style.height = `${newHeight}px`;
+    setWrapperVars(newHeight);
     currentItem = newItem;
     currentPhase = "visible";
     reportPhase("visible");
