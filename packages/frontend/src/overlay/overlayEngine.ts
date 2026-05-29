@@ -221,6 +221,9 @@ function pushUp(newItem: LowerThirdItem): void {
   // Apply pushing class (enables height transition on wrapper)
   setPhaseClass("pushing");
 
+  // Force reflow so browser registers the old height with transition enabled
+  void wrapper!.offsetHeight;
+
   // Set new height (triggers CSS transition)
   wrapper!.style.height = `${newHeight}px`;
 
