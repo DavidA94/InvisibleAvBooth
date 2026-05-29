@@ -6,10 +6,10 @@
 
 /* ── Configurable Timing & Easing ────────────────────────────────────────── */
 :root {
-  --lt-rhombus-expand: 2.25s;
-  --lt-plate-spread: 5.0s;
-  --lt-rhombus-wipe: 5.5s;
-  --lt-rhombus-close: 2.25s;
+  --lt-rhombus-expand: 0.25s;
+  --lt-plate-spread: 1.5s;
+  --lt-rhombus-wipe: 1.5s;
+  --lt-rhombus-close: 0.25s;
   --lt-easing-show: linear;
   --lt-easing-hide: linear;
   --lt-easing-push: linear;
