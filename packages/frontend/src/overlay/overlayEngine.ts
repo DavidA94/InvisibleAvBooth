@@ -152,7 +152,7 @@ function show(item: LowerThirdItem): void {
   setWrapperVars(height);
   setContent(getContentElement(), item);
   wrapper!.style.height = `${height}px`;
-  wrapper!.className = "br-wrapper br-phase--showing";
+  setPhaseClass("showing");
   reportPhase("showing");
 }
 
@@ -171,20 +171,20 @@ function showImmediate(item: LowerThirdItem): void {
       setWrapperVars(height);
       wrapper!.style.height = `${height}px`;
     }
-    wrapper!.className = "br-wrapper br-phase--visible";
+    setPhaseClass("visible");
   });
 }
 
 function dismiss(): void {
   currentPhase = "dismissing";
-  wrapper!.className = "br-wrapper br-phase--dismissing";
+  setPhaseClass("dismissing");
   reportPhase("dismissing");
 }
 
 function hide(): void {
   currentItem = null;
   currentPhase = "hidden";
-  wrapper!.className = "br-wrapper br-phase--hidden";
+  setPhaseClass("hidden");
 }
 
 function pushUp(newItem: LowerThirdItem): void {
@@ -219,7 +219,7 @@ function pushUp(newItem: LowerThirdItem): void {
   track.appendChild(newContentEl);
 
   // Apply pushing class (enables height transition on wrapper)
-  wrapper!.className = "br-wrapper br-phase--pushing";
+  setPhaseClass("pushing");
 
   // Set new height (triggers CSS transition)
   wrapper!.style.height = `${newHeight}px`;
@@ -234,7 +234,7 @@ function pushUp(newItem: LowerThirdItem): void {
     oldContent.remove();
     track.style.transition = "";
     track.style.transform = "";
-    wrapper!.className = "br-wrapper br-phase--visible";
+    setPhaseClass("visible");
     wrapper!.style.height = `${newHeight}px`;
     setWrapperVars(newHeight);
     currentItem = newItem;
@@ -310,7 +310,7 @@ function pushVerses(newItem: LowerThirdItem): void {
   // Set wrapper height transition
   wrapper!.style.setProperty("--push-height-duration", `${heightDuration}s`);
   wrapper!.style.setProperty("--new-wrapper-height", `${newWrapperHeight}px`);
-  wrapper!.className = "br-wrapper br-phase--pushing";
+  setPhaseClass("pushing");
   wrapper!.style.height = `${newWrapperHeight}px`;
   setWrapperVars(newWrapperHeight);
 
@@ -323,7 +323,7 @@ function pushVerses(newItem: LowerThirdItem): void {
     // Replace track with just the new verses
     versesContainer.innerHTML = versesHtml;
     versesContainer.style.overflow = "";
-    wrapper!.className = "br-wrapper br-phase--visible";
+    setPhaseClass("visible");
     wrapper!.style.height = `${newWrapperHeight}px`;
     currentItem = newItem;
     currentPhase = "visible";
@@ -336,6 +336,15 @@ function pushVerses(newItem: LowerThirdItem): void {
 }
 
 // ── DOM Helpers ─────────────────────────────────────────────────────────────
+
+const PHASE_CLASSES = ["br-phase--hidden", "br-phase--showing", "br-phase--visible", "br-phase--dismissing", "br-phase--pushing"];
+
+function setPhaseClass(phase: string): void {
+  for (const cls of PHASE_CLASSES) {
+    wrapper!.classList.remove(cls);
+  }
+  wrapper!.classList.add(`br-phase--${phase}`);
+}
 
 function getContentElement(): HTMLElement {
   return wrapper!.querySelector(".br-content") as HTMLElement;
@@ -415,7 +424,7 @@ function handleAnimationEnd(event: AnimationEvent): void {
   const name = event.animationName;
   if (currentPhase === "showing" && name === "br-plate-unfold") {
     currentPhase = "visible";
-    wrapper!.className = "br-wrapper br-phase--visible";
+    setPhaseClass("visible");
     reportPhase("visible");
   } else if (currentPhase === "dismissing" && name === "br-rhombus-shrink") {
     hide();
