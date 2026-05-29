@@ -188,86 +188,33 @@ function hide(): void {
 }
 
 function pushUp(newItem: LowerThirdItem): void {
-  sendLog("info", "Pushing UP");
   const track = wrapper!.querySelector(".br-content-track") as HTMLElement;
   const oldContent = track.querySelector(".br-content") as HTMLElement;
-  const oldHeight = wrapper!.getBoundingClientRect().height;
-  const newHeight = measureItemHeight(newItem);
-  const delta = Math.abs(newHeight - oldHeight);
 
-  // Set the old height explicitly so transition has a starting point
-  wrapper!.style.setProperty("--wrapper-height", `${oldHeight}px`);
+  const newContentEl = document.createElement("div");
+  newContentEl.className = "br-content";
+  setContent(newContentEl, newItem);
 
-  // Add spacer after old content
   const spacer = document.createElement("div");
   spacer.className = "br-push-spacer";
   oldContent.appendChild(spacer);
   const distanceToMove = oldContent.getBoundingClientRect().height;
 
-  // Calculate durations
-  const heightDuration = delta > 0 ? delta / PUSH_HEIGHT_SPEED : 0;
-  const transformDuration = heightDuration > 0 ? heightDuration : distanceToMove / PUSH_TEXT_SPEED;
-
-  // Set CSS vars for transition
-  wrapper!.style.setProperty("--push-height-duration", `${heightDuration}s`);
-  wrapper!.style.setProperty("--push-transform-duration", `${transformDuration}s`);
-  wrapper!.style.setProperty("--new-wrapper-height", `${newHeight}px`);
-
-  sendLog("info", JSON.stringify({ oldHeight, newHeight }));
-
-  // Add new content to track
-  const newContentEl = document.createElement("div");
-  newContentEl.className = "br-content";
-  setContent(newContentEl, newItem);
   track.appendChild(newContentEl);
+  const newHeight = measureItemHeight(newItem);
 
-  // Apply pushing class (enables height transition on wrapper)
-  setPhaseClass("pushing");
-
-  // Force reflow so browser registers the old height with transition enabled
-  void wrapper!.offsetHeight;
-
-  // Set new height (triggers CSS transition)
-  wrapper!.style.height = `${newHeight}px`;
-
-  // Set track transform (triggers CSS transition) — must be after class is applied
-  track.style.transition = `transform ${transformDuration}s var(--lt-easing-push, linear)`;
-  track.style.transform = `translateY(-${distanceToMove}px)`;
-
-  // Cleanup after transition
-  const cleanup = (): void => {
-    track.removeEventListener("transitionend", cleanup);
-    oldContent.remove();
-    track.style.transition = "";
-    track.style.transform = "";
-    setPhaseClass("visible");
-    wrapper!.style.height = `${newHeight}px`;
-    setWrapperVars(newHeight);
-    currentItem = newItem;
-    currentPhase = "visible";
-    reportPhase("visible");
-  };
-  track.addEventListener("transitionend", cleanup, { once: true });
-
-  currentPhase = "showing";
-  reportPhase("showing");
+  animatePush({ track, newHeight, distanceToMove, onCleanup: () => { oldContent.remove(); currentItem = newItem; } });
 }
 
 function pushVerses(newItem: LowerThirdItem): void {
-  // Only scroll the verses — reference stays fixed
   const contentEl = getContentElement();
   const versesContainer = contentEl.querySelector(".br-verses") as HTMLElement;
-  if (!versesContainer) { pushUp(newItem); return; } // fallback if no verses container
+  if (!versesContainer) { pushUp(newItem); return; }
 
-  const oldHeight = versesContainer.getBoundingClientRect().height;
-
-  // Build new verses HTML
   const content = newItem.content as { formattedReference: string; verses: { verseNumber: number; text: string }[] };
   const currentPage = newItem.pages?.currentPage ?? 1;
   const pageInfo = newItem.pages?.pages[currentPage - 1];
-  const verses = pageInfo
-    ? content.verses.filter((verse) => verse.verseNumber >= pageInfo.startVerse && verse.verseNumber <= pageInfo.endVerse)
-    : content.verses;
+  const verses = pageInfo ? content.verses.filter((verse) => verse.verseNumber >= pageInfo.startVerse && verse.verseNumber <= pageInfo.endVerse) : content.verses;
 
   let versesHtml = "";
   for (const verse of verses) {
@@ -276,73 +223,72 @@ function pushVerses(newItem: LowerThirdItem): void {
     versesHtml += `<p class="${cls}">${prefix}${escapeHtml(verse.text)}</p>`;
   }
 
-  // Create a track wrapper around the verses for scrolling
   const track = document.createElement("div");
   track.style.cssText = "display:flex;flex-direction:column;will-change:transform;";
 
-  // Move old verses into track
   const oldVersesClone = versesContainer.cloneNode(true) as HTMLElement;
   track.appendChild(oldVersesClone);
 
-  // Add spacer
   const spacer = document.createElement("div");
   spacer.className = "br-push-spacer";
   track.appendChild(spacer);
 
-  // Add new verses
   const newVersesEl = document.createElement("div");
   newVersesEl.className = "br-verses";
   newVersesEl.innerHTML = versesHtml;
   track.appendChild(newVersesEl);
 
-  // Replace verses container content with the track
   versesContainer.innerHTML = "";
   versesContainer.style.overflow = "hidden";
   versesContainer.appendChild(track);
 
-  // Measure distance
   const distanceToMove = oldVersesClone.getBoundingClientRect().height + spacer.getBoundingClientRect().height;
-
-  // Measure new height for wrapper
   const newVersesHeight = newVersesEl.getBoundingClientRect().height;
-  const heightDelta = newVersesHeight - oldHeight;
+  const heightDelta = newVersesHeight - oldVersesClone.getBoundingClientRect().height;
   const newWrapperHeight = wrapper!.getBoundingClientRect().height + heightDelta;
 
-  // Calculate durations
-  const absDelta = Math.abs(heightDelta);
-  const heightDuration = absDelta > 0 ? absDelta / PUSH_HEIGHT_SPEED : 0;
+  animatePush({ track, newHeight: newWrapperHeight, distanceToMove, onCleanup: () => { versesContainer.innerHTML = versesHtml; versesContainer.style.overflow = ""; currentItem = newItem; } });
+}
+
+interface AnimatePushOptions { track: HTMLElement; newHeight: number; distanceToMove: number; onCleanup: () => void; }
+
+function animatePush({ track, newHeight, distanceToMove, onCleanup }: AnimatePushOptions): void {
+  const oldHeight = wrapper!.getBoundingClientRect().height;
+  const delta = Math.abs(newHeight - oldHeight);
+
+  wrapper!.style.setProperty("--wrapper-height", `${oldHeight}px`);
+  wrapper!.style.setProperty("--new-wrapper-height", `${newHeight}px`);
+
+  const heightDuration = delta > 0 ? delta / PUSH_HEIGHT_SPEED : 0;
   const transformDuration = heightDuration > 0 ? heightDuration : distanceToMove / PUSH_TEXT_SPEED;
 
-  // Set wrapper height transition
   wrapper!.style.setProperty("--push-height-duration", `${heightDuration}s`);
-  wrapper!.style.setProperty("--new-wrapper-height", `${newWrapperHeight}px`);
-  setPhaseClass("pushing");
+  wrapper!.style.setProperty("--push-transform-duration", `${transformDuration}s`);
 
-  // Force reflow so browser registers old height with transition enabled
+  setPhaseClass("pushing");
   void wrapper!.offsetHeight;
 
-  wrapper!.style.height = `${newWrapperHeight}px`;
-
-  // Animate track
+  wrapper!.style.height = `${newHeight}px`;
   track.style.transition = `transform ${transformDuration}s var(--lt-easing-push, linear)`;
   track.style.transform = `translateY(-${distanceToMove}px)`;
 
+  currentPhase = "showing";
+  reportPhase("showing");
+
   const cleanup = (): void => {
     track.removeEventListener("transitionend", cleanup);
-    // Replace track with just the new verses
-    versesContainer.innerHTML = versesHtml;
-    versesContainer.style.overflow = "";
+    track.style.transition = "";
+    track.style.transform = "";
     setPhaseClass("visible");
-    wrapper!.style.height = `${newWrapperHeight}px`;
-    currentItem = newItem;
+    wrapper!.style.height = `${newHeight}px`;
+    setWrapperVars(newHeight);
+    onCleanup();
     currentPhase = "visible";
     reportPhase("visible");
   };
   track.addEventListener("transitionend", cleanup, { once: true });
-
-  currentPhase = "showing";
-  reportPhase("showing");
 }
+
 
 // ── DOM Helpers ─────────────────────────────────────────────────────────────
 
