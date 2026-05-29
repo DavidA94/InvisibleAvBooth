@@ -390,6 +390,9 @@ function measureItemHeight(item: LowerThirdItem): number {
   const measureWrapper = document.createElement("div");
   measureWrapper.className = "br-wrapper br-phase--visible";
   measureWrapper.style.cssText = "position:absolute;visibility:hidden;pointer-events:none;top:-9999px;left:0;";
+  if (item.pages?.useWideWidth) {
+    measureWrapper.style.width = "80cqw";
+  }
   measureWrapper.appendChild(measurePlate);
   jail!.appendChild(measureWrapper);
 

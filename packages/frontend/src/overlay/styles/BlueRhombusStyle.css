@@ -195,7 +195,7 @@
 
 @keyframes br-rhombus-slide {
   0%   { transform: translateX(0); }
-  100% { transform: translateX(calc(70cqw - (var(--rhombus-base-width) + var(--slant-shift)))); }
+  100% { transform: translateX(calc(100% - (var(--rhombus-base-width) + var(--slant-shift)))); }
 }
 
 @keyframes br-rhombus-shrink {
