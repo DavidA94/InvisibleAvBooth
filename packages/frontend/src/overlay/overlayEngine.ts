@@ -188,6 +188,7 @@ function hide(): void {
 }
 
 function pushUp(newItem: LowerThirdItem): void {
+  sendLog("info", "Pushing UP");
   const track = wrapper!.querySelector(".br-content-track") as HTMLElement;
   const oldContent = track.querySelector(".br-content") as HTMLElement;
   const oldHeight = wrapper!.getBoundingClientRect().height;
@@ -211,6 +212,8 @@ function pushUp(newItem: LowerThirdItem): void {
   wrapper!.style.setProperty("--push-height-duration", `${heightDuration}s`);
   wrapper!.style.setProperty("--push-transform-duration", `${transformDuration}s`);
   wrapper!.style.setProperty("--new-wrapper-height", `${newHeight}px`);
+
+  sendLog("info", JSON.stringify({ oldHeight, newHeight }));
 
   // Add new content to track
   const newContentEl = document.createElement("div");
@@ -314,8 +317,11 @@ function pushVerses(newItem: LowerThirdItem): void {
   wrapper!.style.setProperty("--push-height-duration", `${heightDuration}s`);
   wrapper!.style.setProperty("--new-wrapper-height", `${newWrapperHeight}px`);
   setPhaseClass("pushing");
+
+  // Force reflow so browser registers old height with transition enabled
+  void wrapper!.offsetHeight;
+
   wrapper!.style.height = `${newWrapperHeight}px`;
-  setWrapperVars(newWrapperHeight);
 
   // Animate track
   track.style.transition = `transform ${transformDuration}s var(--lt-easing-push, linear)`;
