@@ -2,6 +2,14 @@ import type { VerseData, PageBreakdown, PageInfo } from "@invisible-av-booth/sha
 
 const MAX_LINES = 4;
 
+function log(message: string): void {
+  fetch("/api/overlay/logs", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify([{ level: "info", message }]),
+  }).catch(() => {});
+}
+
 /**
  * Measures scripture verses and returns page break information.
  * Uses an exact clone of the rendered verse markup inside the overlay's
@@ -52,20 +60,30 @@ export async function measureScripture(verses: VerseData[], signal: AbortSignal)
       return singlePageFallback(verses);
     }
 
-    const narrowPages = computePages(verses, versesContainer, lineHeightPx);
+    const narrowResult = computePages(verses, versesContainer, lineHeightPx);
     if (signal.aborted) throw new Error("aborted");
 
-    // Test at 80cqw to see if it reduces page count
-    wrapper.style.width = "80cqw";
-    const widePages = computePages(verses, versesContainer, lineHeightPx);
-    wrapper.style.width = "70cqw"; // restore
+    log(" Narrow (70cqw):: totalLines=" + narrowResult.totalLines + ", pages=" + narrowResult.breakdown.totalPages);
+
+    // Test at 80cqw to see if it reduces total line count
+    wrapper.classList.add("br-wrapper--wide");
+    const wideResult = computePages(verses, versesContainer, lineHeightPx);
+    wrapper.classList.remove("br-wrapper--wide");
     if (signal.aborted) throw new Error("aborted");
 
-    // Use wider width only if it reduces total page count
-    if (widePages.pages.length < narrowPages.pages.length) {
-      return { ...widePages, useWideWidth: true };
+    log(" Wide (80cqw):: totalLines=" + wideResult.totalLines + ", pages=" + wideResult.breakdown.totalPages);
+    log("Wrapper width narrow: " + wrapper.getBoundingClientRect().width + "px");
+    wrapper.classList.add("br-wrapper--wide");
+    log("Wrapper width wide: " + wrapper.getBoundingClientRect().width + "px");
+    wrapper.classList.remove("br-wrapper--wide");
+
+    // Use wider width if it reduces total lines (even by one)
+    if (wideResult.totalLines < narrowResult.totalLines) {
+      log("Decision: using WIDE width");
+      return { ...wideResult.breakdown, useWideWidth: true };
     }
-    return { ...narrowPages, useWideWidth: false };
+    log(" Using NARROW width");
+    return { ...narrowResult.breakdown, useWideWidth: false };
   } finally {
     wrapper.remove();
   }
@@ -86,13 +104,20 @@ function createVerseElement(verse: VerseData): HTMLParagraphElement {
   return element;
 }
 
-function computePages(verses: VerseData[], container: HTMLElement, lineHeightPx: number): PageBreakdown {
+interface ComputeResult {
+  breakdown: PageBreakdown;
+  totalLines: number;
+}
+
+function computePages(verses: VerseData[], container: HTMLElement, lineHeightPx: number): ComputeResult {
   const pages: PageInfo[] = [];
   let currentPageVerses: VerseData[] = [];
   let currentLineCount = 0;
+  let totalLines = 0;
 
   for (const verse of verses) {
     const lines = measureVerseLines(verse, container, lineHeightPx);
+    totalLines += lines;
 
     // Single verse exceeds max — it gets its own page
     if (lines > MAX_LINES && currentPageVerses.length === 0) {
@@ -121,10 +146,10 @@ function computePages(verses: VerseData[], container: HTMLElement, lineHeightPx:
   }
 
   if (pages.length === 0) {
-    return singlePageFallback(verses);
+    return { breakdown: singlePageFallback(verses), totalLines };
   }
 
-  return { totalPages: pages.length, currentPage: 1, pages, useWideWidth: false };
+  return { breakdown: { totalPages: pages.length, currentPage: 1, pages, useWideWidth: false }, totalLines };
 }
 
 function measureVerseLines(verse: VerseData, container: HTMLElement, lineHeightPx: number): number {
