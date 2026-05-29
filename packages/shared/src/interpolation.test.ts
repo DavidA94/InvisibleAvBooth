@@ -17,6 +17,18 @@ describe("formatScripture", () => {
   it("falls back to 'Book N' for unknown bookId", () => {
     expect(formatScripture({ bookId: 999, chapter: 1, verse: 1 })).toBe("Book 999 1:1");
   });
+
+  it("formats verse 0 with no verseEnd as chapter only", () => {
+    expect(formatScripture({ bookId: 19, chapter: 23, verse: 0 })).toBe("Psalms 23");
+  });
+
+  it("formats verse 0 with verseEnd as range starting at 1", () => {
+    expect(formatScripture({ bookId: 19, chapter: 3, verse: 0, verseEnd: 2 })).toBe("Psalms 3:1-2");
+  });
+
+  it("formats verse 0 with verseEnd 1 as single verse (not 1-1)", () => {
+    expect(formatScripture({ bookId: 19, chapter: 3, verse: 0, verseEnd: 1 })).toBe("Psalms 3:1");
+  });
 });
 
 describe("interpolateStreamTitle", () => {

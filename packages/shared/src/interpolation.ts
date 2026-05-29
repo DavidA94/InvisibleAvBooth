@@ -22,7 +22,9 @@ export function formatScripture(ref: ScriptureReference): string {
   // verse 0 with verseEnd → range starting at 1 (e.g., "Psalm 23:1-2")
   const displayVerse = ref.verse === 0 ? 1 : ref.verse;
   const base = `${bookName} ${ref.chapter}:${displayVerse}`;
-  return ref.verseEnd ? `${base}-${ref.verseEnd}` : base;
+  // Don't show range if start and end are the same (e.g., verse 0 with verseEnd 1 → "Psalm 3:1" not "Psalm 3:1-1")
+  if (ref.verseEnd && ref.verseEnd !== displayVerse) return `${base}-${ref.verseEnd}`;
+  return base;
 }
 
 /**
