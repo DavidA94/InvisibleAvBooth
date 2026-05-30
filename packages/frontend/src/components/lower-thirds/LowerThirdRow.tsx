@@ -18,6 +18,8 @@ interface LowerThirdRowProps {
   onEdit?: (item: LowerThirdItem) => void;
   onPageNext?: () => void;
   onPagePrevious?: () => void;
+  onSwipeOpen?: () => void;
+  forceClose?: boolean;
 }
 
 function getDisplayTitle(item: LowerThirdItem): string {
@@ -46,6 +48,8 @@ export function LowerThirdRow({
   onActivate,
   onRemove,
   onEdit,
+  onSwipeOpen,
+  forceClose,
 }: LowerThirdRowProps): ReactNode {
   const isDismissing = section === "active" && phase === "dismissing";
 
@@ -114,7 +118,7 @@ export function LowerThirdRow({
   );
 
   return (
-    <SwipeableRow leftActions={leftActions} rightActions={rightActions} leftCount={leftCount} rightCount={1}>
+    <SwipeableRow leftActions={leftActions} rightActions={rightActions} leftCount={leftCount} rightCount={1} onOpen={onSwipeOpen} forceClose={forceClose}>
       {rowContent}
     </SwipeableRow>
   );

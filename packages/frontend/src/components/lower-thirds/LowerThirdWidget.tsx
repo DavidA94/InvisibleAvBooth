@@ -59,6 +59,7 @@ export function LowerThirdWidget(): ReactNode {
   const [addType, setAddType] = useState<LowerThirdType | null>(null);
   const [showAddDropdown, setShowAddDropdown] = useState(false);
   const [editItem, setEditItem] = useState<LowerThirdItem | null>(null);
+  const [openRowId, setOpenRowId] = useState<string | null>(null);
 
   const handleAddSave = (input: AddLowerThirdInput): void => {
     console.log("[LT] Adding to library:", input);
@@ -90,6 +91,8 @@ export function LowerThirdWidget(): ReactNode {
                 autoDismissAt={autoDismissAt}
                 onDismiss={handleDismiss}
                 onForceClear={handleForceClear}
+                onSwipeOpen={() => setOpenRowId(active.id)}
+                forceClose={openRowId !== active.id && openRowId !== null}
               />
               {active.pages && active.pages.totalPages > 1 && (
                 <PaginationControls
@@ -123,6 +126,8 @@ export function LowerThirdWidget(): ReactNode {
                     transitionLocked={transitionLocked}
                     onActivate={handleActivate}
                     onRemove={handleRemove}
+                    onSwipeOpen={() => setOpenRowId(item.id)}
+                    forceClose={openRowId !== item.id && openRowId !== null}
                   />
                 ))}
                 {volunteerItems.map((item) => (
@@ -135,6 +140,8 @@ export function LowerThirdWidget(): ReactNode {
                     onActivate={handleActivate}
                     onRemove={handleRemove}
                     onEdit={setEditItem}
+                    onSwipeOpen={() => setOpenRowId(item.id)}
+                    forceClose={openRowId !== item.id && openRowId !== null}
                   />
                 ))}
               </>

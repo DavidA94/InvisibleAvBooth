@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
 import { IonButton, IonInput, IonToggle } from "@ionic/react";
-import { TEST_ID_LT_EDIT_DIALOG, TEST_ID_LT_EDIT_TITLE_INPUT, TEST_ID_LT_EDIT_SUBTITLE_INPUT, TEST_ID_LT_EDIT_SCRIPTURE_INPUT, TEST_ID_LT_EDIT_AUTODISMISS_TOGGLE, TEST_ID_LT_EDIT_AUTODISMISS_DURATION, TEST_ID_LT_EDIT_CANCEL, TEST_ID_LT_EDIT_SAVE } from "../../constants/testIds";
+import { TEST_ID_LT_EDIT_DIALOG, TEST_ID_LT_EDIT_TITLE_INPUT, TEST_ID_LT_EDIT_SUBTITLE_INPUT, TEST_ID_LT_EDIT_AUTODISMISS_TOGGLE, TEST_ID_LT_EDIT_AUTODISMISS_DURATION, TEST_ID_LT_EDIT_CANCEL, TEST_ID_LT_EDIT_SAVE } from "../../constants/testIds";
 import type { LowerThirdItem, EditLowerThirdInput, ScriptureReference, TitleContent, TitleSubtitleContent, ScriptureContent } from "@invisible-av-booth/shared";
 import { Modal } from "../Modal";
 import { ScriptureReferenceInput } from "../scripture/ScriptureReferenceInput";
@@ -91,18 +91,16 @@ export function EditLowerThirdDialog({ item, onSave, onCancel }: EditLowerThirdD
         )}
 
         {item.type === "Scripture" && (
-          <div data-testid={TEST_ID_LT_EDIT_SCRIPTURE_INPUT}>
-            <ScriptureReferenceInput
-              bookId={bookId}
-              chapter={chapter}
-              verse={verse}
-              verseEnd={verseEnd}
-              onBookChange={setBookId}
-              onChapterChange={setChapter}
-              onVerseChange={setVerse}
-              onVerseEndChange={setVerseEnd}
-            />
-          </div>
+          <ScriptureReferenceInput
+            bookId={bookId}
+            chapter={chapter}
+            verse={verse}
+            verseEnd={verseEnd}
+            onBookChange={setBookId}
+            onChapterChange={setChapter}
+            onVerseChange={setVerse}
+            onVerseEndChange={setVerseEnd}
+          />
         )}
 
         <div className="layout-row gap-standard align-center">

@@ -249,6 +249,7 @@
   position: relative;
   overflow: hidden;
   flex-shrink: 0;
+  touch-action: pan-y;
 }
 
 .swipeable-actions {
