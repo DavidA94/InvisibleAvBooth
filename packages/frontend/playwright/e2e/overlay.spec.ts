@@ -8,7 +8,7 @@
  * Run with: npx playwright test packages/frontend/playwright/e2e/overlay.spec.ts
  */
 
-import { test, expect } from "@playwright/test";
+import { test } from "@playwright/test";
 
 test.describe("Lower-Third Overlay — Playwright", () => {
   test.skip("show command → renders lower-third → reports showing then visible", async () => {

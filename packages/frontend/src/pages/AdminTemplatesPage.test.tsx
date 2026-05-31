@@ -158,7 +158,15 @@ describe("AdminTemplatesPage", () => {
 describe("Lower Third Templates", () => {
   const TEMPLATES_WITH_LT = [
     ...TEMPLATES,
-    { id: "lt1", name: "Speaker LT", category: "lower_third", formatString: '{"title":"{Speaker}"}', roleMinimum: "AvVolunteer", lowerThirdType: "Title", autoDismissMs: 5000 },
+    {
+      id: "lt1",
+      name: "Speaker LT",
+      category: "lower_third",
+      formatString: '{"title":"{Speaker}"}',
+      roleMinimum: "AvVolunteer",
+      lowerThirdType: "Title",
+      autoDismissMs: 5000,
+    },
   ];
 
   it("renders Lower Third group header", async () => {

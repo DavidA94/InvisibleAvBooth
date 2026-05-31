@@ -6,9 +6,16 @@ import { io } from "socket.io-client";
 import type { Socket } from "socket.io-client";
 import type { LowerThirdItem, LowerThirdState, AnimationPhase, PageBreakdown, VerseData } from "@invisible-av-booth/shared";
 import {
-  STO_LOWER_THIRD_SHOW, STO_LOWER_THIRD_DISMISS, STO_LOWER_THIRD_PUSH_UP,
-  STO_LOWER_THIRD_PAGE, STO_LOWER_THIRD_STATE, STO_LOWER_THIRD_MEASURE,
-  STO_LOWER_THIRD_FORCE_CLEAR, OTS_LOWER_THIRD_PHASE, OTS_LOWER_THIRD_RESOLUTION, OTS_LOWER_THIRD_PAGES,
+  STO_LOWER_THIRD_SHOW,
+  STO_LOWER_THIRD_DISMISS,
+  STO_LOWER_THIRD_PUSH_UP,
+  STO_LOWER_THIRD_PAGE,
+  STO_LOWER_THIRD_STATE,
+  STO_LOWER_THIRD_MEASURE,
+  STO_LOWER_THIRD_FORCE_CLEAR,
+  OTS_LOWER_THIRD_PHASE,
+  OTS_LOWER_THIRD_RESOLUTION,
+  OTS_LOWER_THIRD_PAGES,
 } from "@invisible-av-booth/shared";
 import { measureScripture } from "./measureScripture";
 
@@ -57,9 +64,18 @@ export function initOverlay(root: HTMLElement): void {
 
 export function destroyOverlay(): void {
   document.documentElement.classList.remove("overlay-active");
-  if (socket) { socket.disconnect(); socket = null; }
-  if (disconnectTimer) { clearTimeout(disconnectTimer); disconnectTimer = null; }
-  if (heartbeatInterval) { clearInterval(heartbeatInterval); heartbeatInterval = null; }
+  if (socket) {
+    socket.disconnect();
+    socket = null;
+  }
+  if (disconnectTimer) {
+    clearTimeout(disconnectTimer);
+    disconnectTimer = null;
+  }
+  if (heartbeatInterval) {
+    clearInterval(heartbeatInterval);
+    heartbeatInterval = null;
+  }
   measureAbort?.abort();
 }
 
@@ -70,7 +86,10 @@ function connectSocket(): void {
   socket = io("/overlay", { transports: ["websocket"], reconnection: true, reconnectionDelay: 1000, reconnectionDelayMax: 8000 });
 
   socket.on("connect", () => {
-    if (disconnectTimer) { clearTimeout(disconnectTimer); disconnectTimer = null; }
+    if (disconnectTimer) {
+      clearTimeout(disconnectTimer);
+      disconnectTimer = null;
+    }
     const width = window.innerWidth;
     const height = window.innerHeight;
     socket!.emit(OTS_LOWER_THIRD_RESOLUTION, { width, height, isCorrect: width === 1920 && height === 1080 });
@@ -82,13 +101,17 @@ function connectSocket(): void {
 
   socket.on("disconnect", () => {
     startDisconnectTimer();
-    if (heartbeatInterval) { clearInterval(heartbeatInterval); heartbeatInterval = null; }
+    if (heartbeatInterval) {
+      clearInterval(heartbeatInterval);
+      heartbeatInterval = null;
+    }
     sendLog("warn", "Overlay disconnected");
   });
 
   socket.on(STO_LOWER_THIRD_STATE, (state: LowerThirdState & { skipEntrance?: boolean }) => {
     if (state.phase === "dismissing" || state.phase === "hidden") {
-      hide(); reportPhase("hidden");
+      hide();
+      reportPhase("hidden");
     } else if (state.active && state.skipEntrance) {
       showImmediate(state.active);
       reportPhase("visible");
@@ -107,7 +130,9 @@ function connectSocket(): void {
     }
   });
 
-  socket.on(STO_LOWER_THIRD_DISMISS, () => { dismiss(); });
+  socket.on(STO_LOWER_THIRD_DISMISS, () => {
+    dismiss();
+  });
 
   socket.on(STO_LOWER_THIRD_PUSH_UP, (data: { item: LowerThirdItem }) => {
     measureAbort?.abort();
@@ -131,10 +156,17 @@ function connectSocket(): void {
     const abort = new AbortController();
     measureAbort = abort;
     measureScripture(data.verses, abort.signal)
-      .then((pages) => { if (!abort.signal.aborted) socket!.emit(OTS_LOWER_THIRD_PAGES, { itemId: data.itemId, pages }); })
+      .then((pages) => {
+        if (!abort.signal.aborted) socket!.emit(OTS_LOWER_THIRD_PAGES, { itemId: data.itemId, pages });
+      })
       .catch(() => {
         if (!abort.signal.aborted) {
-          const fallback: PageBreakdown = { totalPages: 1, currentPage: 1, pages: [{ pageNumber: 1, startVerse: data.verses[0]?.verseNumber ?? 1, endVerse: data.verses[data.verses.length - 1]?.verseNumber ?? 1 }], useWideWidth: false };
+          const fallback: PageBreakdown = {
+            totalPages: 1,
+            currentPage: 1,
+            pages: [{ pageNumber: 1, startVerse: data.verses[0]?.verseNumber ?? 1, endVerse: data.verses[data.verses.length - 1]?.verseNumber ?? 1 }],
+            useWideWidth: false,
+          };
           socket!.emit(OTS_LOWER_THIRD_PAGES, { itemId: data.itemId, pages: fallback });
         }
       });
@@ -208,18 +240,31 @@ function pushUp(newItem: LowerThirdItem): void {
   track.appendChild(newContentEl);
   const newHeight = measureItemHeight(newItem);
 
-  animatePush({ track, newHeight, distanceToMove, onCleanup: () => { oldContent.remove(); currentItem = newItem; } });
+  animatePush({
+    track,
+    newHeight,
+    distanceToMove,
+    onCleanup: () => {
+      oldContent.remove();
+      currentItem = newItem;
+    },
+  });
 }
 
 function pushVerses(newItem: LowerThirdItem): void {
   const contentEl = getContentElement();
   const versesContainer = contentEl.querySelector(".br-verses") as HTMLElement;
-  if (!versesContainer) { pushUp(newItem); return; }
+  if (!versesContainer) {
+    pushUp(newItem);
+    return;
+  }
 
   const content = newItem.content as { formattedReference: string; verses: { verseNumber: number; text: string }[] };
   const currentPage = newItem.pages?.currentPage ?? 1;
   const pageInfo = newItem.pages?.pages[currentPage - 1];
-  const verses = pageInfo ? content.verses.filter((verse) => verse.verseNumber >= pageInfo.startVerse && verse.verseNumber <= pageInfo.endVerse) : content.verses;
+  const verses = pageInfo
+    ? content.verses.filter((verse) => verse.verseNumber >= pageInfo.startVerse && verse.verseNumber <= pageInfo.endVerse)
+    : content.verses;
 
   let versesHtml = "";
   for (const verse of verses) {
@@ -252,10 +297,24 @@ function pushVerses(newItem: LowerThirdItem): void {
   const heightDelta = newVersesHeight - oldVersesClone.getBoundingClientRect().height;
   const newWrapperHeight = wrapper!.getBoundingClientRect().height + heightDelta;
 
-  animatePush({ track, newHeight: newWrapperHeight, distanceToMove, onCleanup: () => { versesContainer.innerHTML = versesHtml; versesContainer.style.overflow = ""; currentItem = newItem; } });
+  animatePush({
+    track,
+    newHeight: newWrapperHeight,
+    distanceToMove,
+    onCleanup: () => {
+      versesContainer.innerHTML = versesHtml;
+      versesContainer.style.overflow = "";
+      currentItem = newItem;
+    },
+  });
 }
 
-interface AnimatePushOptions { track: HTMLElement; newHeight: number; distanceToMove: number; onCleanup: () => void; }
+interface AnimatePushOptions {
+  track: HTMLElement;
+  newHeight: number;
+  distanceToMove: number;
+  onCleanup: () => void;
+}
 
 function animatePush({ track, newHeight, distanceToMove, onCleanup }: AnimatePushOptions): void {
   const oldHeight = wrapper!.getBoundingClientRect().height;
@@ -293,7 +352,6 @@ function animatePush({ track, newHeight, distanceToMove, onCleanup }: AnimatePus
   };
   track.addEventListener("transitionend", cleanup, { once: true });
 }
-
 
 // ── DOM Helpers ─────────────────────────────────────────────────────────────
 
@@ -401,7 +459,9 @@ function startDisconnectTimer(): void {
   disconnectTimer = setTimeout(() => {
     if (currentItem && !currentItem.autoDismissMs) {
       dismiss();
-      setTimeout(() => { hide(); }, 2000);
+      setTimeout(() => {
+        hide();
+      }, 2000);
     }
   }, DISCONNECT_TIMEOUT_MS);
 }

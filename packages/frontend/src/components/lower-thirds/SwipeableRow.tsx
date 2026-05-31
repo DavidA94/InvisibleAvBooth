@@ -8,8 +8,8 @@ interface SwipeableRowProps {
   rightActions?: ReactNode;
   leftCount?: number;
   rightCount?: number;
-  onOpen?: () => void;
-  forceClose?: boolean;
+  onOpen?: (() => void) | undefined;
+  forceClose?: boolean | undefined;
 }
 
 const ACTION_WIDTH_PX = 48;

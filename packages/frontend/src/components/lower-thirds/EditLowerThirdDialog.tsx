@@ -1,7 +1,15 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
 import { IonButton, IonInput, IonToggle } from "@ionic/react";
-import { TEST_ID_LT_EDIT_DIALOG, TEST_ID_LT_EDIT_TITLE_INPUT, TEST_ID_LT_EDIT_SUBTITLE_INPUT, TEST_ID_LT_EDIT_AUTODISMISS_TOGGLE, TEST_ID_LT_EDIT_AUTODISMISS_DURATION, TEST_ID_LT_EDIT_CANCEL, TEST_ID_LT_EDIT_SAVE } from "../../constants/testIds";
+import {
+  TEST_ID_LT_EDIT_DIALOG,
+  TEST_ID_LT_EDIT_TITLE_INPUT,
+  TEST_ID_LT_EDIT_SUBTITLE_INPUT,
+  TEST_ID_LT_EDIT_AUTODISMISS_TOGGLE,
+  TEST_ID_LT_EDIT_AUTODISMISS_DURATION,
+  TEST_ID_LT_EDIT_CANCEL,
+  TEST_ID_LT_EDIT_SAVE,
+} from "../../constants/testIds";
 import type { LowerThirdItem, EditLowerThirdInput, ScriptureReference, TitleContent, TitleSubtitleContent, ScriptureContent } from "@invisible-av-booth/shared";
 import { Modal } from "../Modal";
 import { ScriptureReferenceInput } from "../scripture/ScriptureReferenceInput";
@@ -22,10 +30,12 @@ export function EditLowerThirdDialog({ item, onSave, onCancel }: EditLowerThirdD
     if (item.type === "TitleSubtitle") return (item.content as TitleSubtitleContent).subtitle;
     return "";
   });
-  const [bookId, setBookId] = useState<number | null>(() => item.type === "Scripture" ? (item.content as ScriptureContent).reference.bookId : null);
-  const [chapter, setChapter] = useState<number | null>(() => item.type === "Scripture" ? (item.content as ScriptureContent).reference.chapter : null);
-  const [verse, setVerse] = useState<number | null>(() => item.type === "Scripture" ? (item.content as ScriptureContent).reference.verse : null);
-  const [verseEnd, setVerseEnd] = useState<number | null>(() => item.type === "Scripture" ? (item.content as ScriptureContent).reference.verseEnd ?? null : null);
+  const [bookId, setBookId] = useState<number | null>(() => (item.type === "Scripture" ? (item.content as ScriptureContent).reference.bookId : null));
+  const [chapter, setChapter] = useState<number | null>(() => (item.type === "Scripture" ? (item.content as ScriptureContent).reference.chapter : null));
+  const [verse, setVerse] = useState<number | null>(() => (item.type === "Scripture" ? (item.content as ScriptureContent).reference.verse : null));
+  const [verseEnd, setVerseEnd] = useState<number | null>(() =>
+    item.type === "Scripture" ? ((item.content as ScriptureContent).reference.verseEnd ?? null) : null,
+  );
   const [autoDismissEnabled, setAutoDismissEnabled] = useState(item.autoDismissMs !== null);
   const [autoDismissSeconds, setAutoDismissSeconds] = useState(item.autoDismissMs ? item.autoDismissMs / 1000 : 10);
 
@@ -55,18 +65,17 @@ export function EditLowerThirdDialog({ item, onSave, onCancel }: EditLowerThirdD
 
   const footer = (
     <div className="layout-row gap-standard justify-end">
-      <IonButton fill="outline" onClick={onCancel} data-testid={TEST_ID_LT_EDIT_CANCEL}>Cancel</IonButton>
-      <IonButton onClick={handleSave} disabled={!isValid()} data-testid={TEST_ID_LT_EDIT_SAVE}>Save</IonButton>
+      <IonButton fill="outline" onClick={onCancel} data-testid={TEST_ID_LT_EDIT_CANCEL}>
+        Cancel
+      </IonButton>
+      <IonButton onClick={handleSave} disabled={!isValid()} data-testid={TEST_ID_LT_EDIT_SAVE}>
+        Save
+      </IonButton>
     </div>
   );
 
   return (
-    <Modal
-      isOpen={true}
-      onClose={onCancel}
-      header={`Edit ${item.type === "TitleSubtitle" ? "Title + Subtitle" : item.type}`}
-      footer={footer}
-    >
+    <Modal isOpen={true} onClose={onCancel} header={`Edit ${item.type === "TitleSubtitle" ? "Title + Subtitle" : item.type}`} footer={footer}>
       <div data-testid={TEST_ID_LT_EDIT_DIALOG} className="layout-column gap-standard">
         {(item.type === "Title" || item.type === "TitleSubtitle") && (
           <IonInput

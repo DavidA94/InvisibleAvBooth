@@ -1,7 +1,15 @@
 import { useState, useRef, useEffect } from "react";
 import type { ReactNode } from "react";
 import { IonButton, IonInput, IonToggle } from "@ionic/react";
-import { TEST_ID_LT_ADD_DIALOG, TEST_ID_LT_ADD_TITLE_INPUT, TEST_ID_LT_ADD_SUBTITLE_INPUT, TEST_ID_LT_ADD_AUTODISMISS_TOGGLE, TEST_ID_LT_ADD_AUTODISMISS_DURATION, TEST_ID_LT_ADD_CANCEL, TEST_ID_LT_ADD_SAVE } from "../../constants/testIds";
+import {
+  TEST_ID_LT_ADD_DIALOG,
+  TEST_ID_LT_ADD_TITLE_INPUT,
+  TEST_ID_LT_ADD_SUBTITLE_INPUT,
+  TEST_ID_LT_ADD_AUTODISMISS_TOGGLE,
+  TEST_ID_LT_ADD_AUTODISMISS_DURATION,
+  TEST_ID_LT_ADD_CANCEL,
+  TEST_ID_LT_ADD_SAVE,
+} from "../../constants/testIds";
 import type { LowerThirdType, AddLowerThirdInput, ScriptureReference } from "@invisible-av-booth/shared";
 import { Modal } from "../Modal";
 import { ScriptureReferenceInput } from "../scripture/ScriptureReferenceInput";
@@ -22,7 +30,8 @@ export function AddLowerThirdDialog({ type, onSave, onGoLive, onCancel }: AddLow
   const [verseEnd, setVerseEnd] = useState<number | null>(null);
   const [autoDismissEnabled, setAutoDismissEnabled] = useState(false);
   const [autoDismissSeconds, setAutoDismissSeconds] = useState(10);
-  const titleRef = useRef<HTMLIonInputElement>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const titleRef = useRef<any>(null);
 
   useEffect(() => {
     if (type !== "Scripture") {
@@ -64,21 +73,22 @@ export function AddLowerThirdDialog({ type, onSave, onGoLive, onCancel }: AddLow
 
   const footer = (
     <div className="layout-row gap-standard" style={{ justifyContent: "space-between" }}>
-      <IonButton color="success" onClick={handleGoLive} disabled={!isValid()}>Go Live</IonButton>
+      <IonButton color="success" onClick={handleGoLive} disabled={!isValid()}>
+        Go Live
+      </IonButton>
       <div className="layout-row gap-standard">
-        <IonButton fill="outline" onClick={onCancel} data-testid={TEST_ID_LT_ADD_CANCEL}>Cancel</IonButton>
-        <IonButton onClick={handleSave} disabled={!isValid()} data-testid={TEST_ID_LT_ADD_SAVE}>Save</IonButton>
+        <IonButton fill="outline" onClick={onCancel} data-testid={TEST_ID_LT_ADD_CANCEL}>
+          Cancel
+        </IonButton>
+        <IonButton onClick={handleSave} disabled={!isValid()} data-testid={TEST_ID_LT_ADD_SAVE}>
+          Save
+        </IonButton>
       </div>
     </div>
   );
 
   return (
-    <Modal
-      isOpen={true}
-      onClose={onCancel}
-      header={`Add ${type === "TitleSubtitle" ? "Title + Subtitle" : type}`}
-      footer={footer}
-    >
+    <Modal isOpen={true} onClose={onCancel} header={`Add ${type === "TitleSubtitle" ? "Title + Subtitle" : type}`} footer={footer}>
       <div data-testid={TEST_ID_LT_ADD_DIALOG} className="layout-column gap-standard">
         {(type === "Title" || type === "TitleSubtitle") && (
           <IonInput

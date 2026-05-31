@@ -70,7 +70,6 @@ This spec introduces a new interaction pattern: **swipe-to-reveal actions**. Eac
 6. WHEN the backend receives a connection from the `/overlay` namespace with correct dimensions (1920×1080, 16:9), IT SHALL auto-clear any existing resolution mismatch Banner.
 7. THE Overlay Page SHALL NEVER render any visible UI elements other than lower-third graphics — no error messages, no diagnostic boxes, no loading indicators. Resolution mismatch feedback is communicated exclusively via the dashboard Banner (Req 2.5). The overlay must remain visually clean for the stream at all times.
 
-
 ---
 
 ### Requirement 3: Lower-Third Types and Template Integration
@@ -138,7 +137,6 @@ This spec introduces a new interaction pattern: **swipe-to-reveal actions**. Eac
 16. FOR the auto-dismiss initial state: IF the dashboard connects (or reconnects) while an auto-dismiss timer is running, THE backend SHALL include `autoDismissAt` in the initial state payload so the dashboard can render the countdown from the correct remaining time.
 17. THE widget SHALL display inline placeholder messages when sections are empty: "Nothing active" in the Active section and "No items available" in the Library section.
 18. ALL swipe-revealed buttons SHALL use icon + label-below layout (icon on top, short text label below) to maintain WCAG 2.5.5 touch targets (2.5rem × 2.5rem minimum) while keeping the UI compact.
-
 
 ---
 

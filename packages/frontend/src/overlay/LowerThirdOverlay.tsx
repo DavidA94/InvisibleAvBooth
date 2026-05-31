@@ -17,7 +17,10 @@ export function LowerThirdOverlay(): ReactNode {
     if (initialized.current || !rootRef.current) return;
     initialized.current = true;
     initOverlay(rootRef.current);
-    return () => { destroyOverlay(); initialized.current = false; };
+    return () => {
+      destroyOverlay();
+      initialized.current = false;
+    };
   }, []);
 
   return (

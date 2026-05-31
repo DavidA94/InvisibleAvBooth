@@ -164,11 +164,13 @@ function singlePageFallback(verses: VerseData[]): PageBreakdown {
   return {
     totalPages: 1,
     currentPage: 1,
-    pages: [{
-      pageNumber: 1,
-      startVerse: verses[0]?.verseNumber ?? 0,
-      endVerse: verses[verses.length - 1]?.verseNumber ?? 0,
-    }],
+    pages: [
+      {
+        pageNumber: 1,
+        startVerse: verses[0]?.verseNumber ?? 0,
+        endVerse: verses[verses.length - 1]?.verseNumber ?? 0,
+      },
+    ],
     useWideWidth: false,
   };
 }

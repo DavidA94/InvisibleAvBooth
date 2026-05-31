@@ -28,7 +28,7 @@ export class LowerThirdModule implements SocketModule {
     auth.socket.emit(STC_LOWER_THIRD_STATE, this.service.getFullState());
   }
 
-  private handleCommand(command: LowerThirdCommand): CommandResult {
+  private handleCommand(command: LowerThirdCommand): CommandResult & { itemId?: string } {
     switch (command.type) {
       case "activate": {
         const result = this.service.activate(command.itemId, command.skipAnimation);

@@ -1,7 +1,13 @@
 import type { Server, Socket } from "socket.io";
 import type { LowerThirdService } from "../services/lowerThirdService.js";
 import type { AnimationPhase, PageBreakdown } from "@invisible-av-booth/shared";
-import { OTS_LOWER_THIRD_PHASE, OTS_LOWER_THIRD_RESOLUTION, OTS_LOWER_THIRD_PAGES, STO_LOWER_THIRD_STATE, STO_LOWER_THIRD_MEASURE } from "@invisible-av-booth/shared";
+import {
+  OTS_LOWER_THIRD_PHASE,
+  OTS_LOWER_THIRD_RESOLUTION,
+  OTS_LOWER_THIRD_PAGES,
+  STO_LOWER_THIRD_STATE,
+  STO_LOWER_THIRD_MEASURE,
+} from "@invisible-av-booth/shared";
 import { logger } from "../logger.js";
 
 interface LogEntry {

@@ -155,7 +155,7 @@ export function ScriptureReferenceInput({
           placeholder="Book"
           isClearable
           isSearchable
-          autoFocus={autoFocus}
+          autoFocus={autoFocus ?? false}
           styles={bookStyles}
           menuPortalTarget={document.body}
         />

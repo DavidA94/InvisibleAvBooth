@@ -1,6 +1,5 @@
 import { test, expect, type Page, type WebSocketRoute } from "@playwright/test";
 import { routeAuthLogin, routeAuthCheck } from "../support/routes/auth";
-import { routeDashboardApi } from "../support/routes/obs";
 import { authLoginSuccess } from "../fixtures/payloads/auth";
 import { TEST_ID_LOGIN_USERNAME, TEST_ID_LOGIN_PASSWORD, TEST_ID_LOGIN_SUBMIT, TEST_ID_LOWER_THIRD_WIDGET } from "../../src/constants/testIds";
 
@@ -61,7 +60,11 @@ async function setupSocketWithLowerThirds(page: Page, initialState = lowerThirdS
 
   function broadcast(message: string): void {
     for (const ws of connections) {
-      try { ws.send(message); } catch { /* closed */ }
+      try {
+        ws.send(message);
+      } catch {
+        /* closed */
+      }
     }
   }
 
@@ -78,12 +81,20 @@ async function setupSocketWithLowerThirds(page: Page, initialState = lowerThirdS
 
     ws.onMessage((message) => {
       const text = typeof message === "string" ? message : "";
-      if (text === "2") { ws.send("3"); return; }
-      if (text === "40") { ws.send('40{"sid":"mock-ws-sid"}'); return; }
+      if (text === "2") {
+        ws.send("3");
+        return;
+      }
+      if (text === "40") {
+        ws.send('40{"sid":"mock-ws-sid"}');
+        return;
+      }
 
       if (text.includes('"cts:request:initial:state"')) {
         ws.send(`42["stc:obs:state",${JSON.stringify({ connected: false, streaming: false, recording: false })}]`);
-        ws.send(`42["stc:session:manifest:updated",${JSON.stringify({ manifest: {}, interpolatedStreamTitle: "", interpolatedDescription: "", manifestReady: false })}]`);
+        ws.send(
+          `42["stc:session:manifest:updated",${JSON.stringify({ manifest: {}, interpolatedStreamTitle: "", interpolatedDescription: "", manifestReady: false })}]`,
+        );
         ws.send(`42["stc:relay:state",${JSON.stringify({ running: false, obsConnected: false })}]`);
         ws.send(`42["stc:platform:readiness",${JSON.stringify({ platforms: [] })}]`);
         ws.send(`42["stc:lower-third:state",${JSON.stringify(initialState)}]`);

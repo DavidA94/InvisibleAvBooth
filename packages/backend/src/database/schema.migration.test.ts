@@ -19,9 +19,15 @@ describe("metadata_templates migration", () => {
     applySchema(db);
 
     expect(() => {
-      db.prepare(
-        "INSERT INTO metadata_templates (id, name, category, formatString, roleMinimum, lowerThirdType, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)",
-      ).run("lt1", "Speaker", "lower_third", '{"title":"{Speaker}"}', "AvVolunteer", "Title", new Date().toISOString());
+      db.prepare("INSERT INTO metadata_templates (id, name, category, formatString, roleMinimum, lowerThirdType, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)").run(
+        "lt1",
+        "Speaker",
+        "lower_third",
+        '{"title":"{Speaker}"}',
+        "AvVolunteer",
+        "Title",
+        new Date().toISOString(),
+      );
     }).not.toThrow();
     db.close();
   });
@@ -31,9 +37,15 @@ describe("metadata_templates migration", () => {
     applySchema(db);
 
     expect(() => {
-      db.prepare(
-        "INSERT INTO metadata_templates (id, name, category, formatString, roleMinimum, lowerThirdType, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)",
-      ).run("lt1", "Bad", "lower_third", '{"title":"x"}', "AvVolunteer", "Invalid", new Date().toISOString());
+      db.prepare("INSERT INTO metadata_templates (id, name, category, formatString, roleMinimum, lowerThirdType, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)").run(
+        "lt1",
+        "Bad",
+        "lower_third",
+        '{"title":"x"}',
+        "AvVolunteer",
+        "Invalid",
+        new Date().toISOString(),
+      );
     }).toThrow();
     db.close();
   });
@@ -108,9 +120,15 @@ describe("metadata_templates migration", () => {
 
     // Verify new category works after migration
     expect(() => {
-      db.prepare(
-        "INSERT INTO metadata_templates (id, name, category, formatString, roleMinimum, lowerThirdType, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)",
-      ).run("lt1", "Speaker LT", "lower_third", '{"title":"{Speaker}"}', "AvVolunteer", "Title", new Date().toISOString());
+      db.prepare("INSERT INTO metadata_templates (id, name, category, formatString, roleMinimum, lowerThirdType, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)").run(
+        "lt1",
+        "Speaker LT",
+        "lower_third",
+        '{"title":"{Speaker}"}',
+        "AvVolunteer",
+        "Title",
+        new Date().toISOString(),
+      );
     }).not.toThrow();
 
     db.close();

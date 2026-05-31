@@ -1,5 +1,5 @@
 import { useRef, useEffect, useCallback, useState } from "react";
-import type { ReactNode } from "react";
+import type { ReactNode, AnimationEvent as ReactAnimationEvent, CSSProperties } from "react";
 import { TEST_ID_BLUE_RHOMBUS } from "../../constants/testIds";
 import type { LowerThirdItem, TitleContent, TitleSubtitleContent, ScriptureContent, AnimationPhase } from "@invisible-av-booth/shared";
 import "./BlueRhombusStyle.css";
@@ -68,7 +68,9 @@ function useMeasureHeight(): (item: LowerThirdItem) => number {
     container.innerHTML = '<div class="br-plate"><div class="br-content" data-measure="true"></div></div>';
     jail.appendChild(container);
     measureRef.current = container.querySelector("[data-measure]");
-    return () => { container.remove(); };
+    return () => {
+      container.remove();
+    };
   }, []);
 
   return useCallback((item: LowerThirdItem): number => {
@@ -121,7 +123,7 @@ function escapeHtml(text: string): string {
 /* ── Constants ───────────────────────────────────────────────────────────── */
 
 const PUSH_HEIGHT_SPEED = 120; // px per second for height changes
-const PUSH_TEXT_SPEED = 240;   // px per second for text movement when no height change
+const PUSH_TEXT_SPEED = 240; // px per second for text movement when no height change
 
 /* ── Component ───────────────────────────────────────────────────────────── */
 
@@ -181,17 +183,20 @@ export function BlueRhombusStyle({ item, prevItem, phase, isPushUp, onAnimationE
     }
   }, [pushState, onAnimationEnd]);
 
-  const handleAnimationEnd = useCallback((event: React.AnimationEvent) => {
-    const animationName = event.animationName;
-    // Show complete: plate unfold is the last animation to finish
-    if (phase === "showing" && !isPushUp && animationName === "br-plate-unfold") {
-      onAnimationEnd();
-    }
-    // Dismiss complete: rhombus shrink is the last animation (delayed after slide)
-    if (phase === "dismissing" && animationName === "br-rhombus-shrink") {
-      onAnimationEnd();
-    }
-  }, [phase, isPushUp, onAnimationEnd]);
+  const handleAnimationEnd = useCallback(
+    (event: ReactAnimationEvent) => {
+      const animationName = event.animationName;
+      // Show complete: plate unfold is the last animation to finish
+      if (phase === "showing" && !isPushUp && animationName === "br-plate-unfold") {
+        onAnimationEnd();
+      }
+      // Dismiss complete: rhombus shrink is the last animation (delayed after slide)
+      if (phase === "dismissing" && animationName === "br-rhombus-shrink") {
+        onAnimationEnd();
+      }
+    },
+    [phase, isPushUp, onAnimationEnd],
+  );
 
   // Determine phase class
   const phaseClass = isPushUp && pushState ? "br-phase--pushing" : `br-phase--${phase}`;
@@ -203,7 +208,7 @@ export function BlueRhombusStyle({ item, prevItem, phase, isPushUp, onAnimationE
     // Calculate slant-shift in JS because cqw units don't resolve inside atan2() in CEF/OBS
     const jailWidth = document.querySelector(".aspect-ratio-jail")?.getBoundingClientRect().width ?? 1920;
     const rhombusBaseWidth = Math.max(0.005 * jailWidth, 4); // max(0.5cqw, 4px)
-    const slantShift = rhombusBaseWidth * 0.60;
+    const slantShift = rhombusBaseWidth * 0.6;
     wrapperStyle["--slant-shift"] = `${slantShift}px`;
     wrapperStyle["--rhombus-base-width"] = `${rhombusBaseWidth}px`;
   }
@@ -225,7 +230,7 @@ export function BlueRhombusStyle({ item, prevItem, phase, isPushUp, onAnimationE
     <div
       ref={wrapperRef}
       className={`br-wrapper ${phaseClass}`}
-      style={wrapperStyle as React.CSSProperties}
+      style={wrapperStyle as CSSProperties}
       onAnimationEnd={handleAnimationEnd}
       data-testid={TEST_ID_BLUE_RHOMBUS}
     >
@@ -233,12 +238,7 @@ export function BlueRhombusStyle({ item, prevItem, phase, isPushUp, onAnimationE
         <div className="br-rhombus" />
       </div>
       <div className="br-plate">
-        <div
-          ref={trackRef}
-          className="br-content-track"
-          style={trackStyle as React.CSSProperties}
-          onTransitionEnd={handleTransitionEnd}
-        >
+        <div ref={trackRef} className="br-content-track" style={trackStyle as CSSProperties} onTransitionEnd={handleTransitionEnd}>
           {pushState && (
             <>
               <div className="br-content">

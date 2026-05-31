@@ -38,10 +38,7 @@ export function LowerThirdWidget(): ReactNode {
   };
 
   const handleActivate = (itemId: string): void => {
-    console.log("[LT] Activating item:", itemId);
-    sendCommand({ type: "activate", itemId }).then((result) => {
-      console.log("[LT] Activate result:", result);
-    });
+    sendCommand({ type: "activate", itemId });
   };
 
   const handleActivateImmediate = (itemId: string): void => {
@@ -66,10 +63,7 @@ export function LowerThirdWidget(): ReactNode {
   const [openRowId, setOpenRowId] = useState<string | null>(null);
 
   const handleAddSave = (input: AddLowerThirdInput): void => {
-    console.log("[LT] Adding to library:", input);
-    sendCommand({ type: "add-to-library", input }).then((result) => {
-      console.log("[LT] Add result:", result);
-    });
+    sendCommand({ type: "add-to-library", input });
     setAddType(null);
   };
 
@@ -171,20 +165,40 @@ export function LowerThirdWidget(): ReactNode {
           </IonButton>
           {showAddDropdown && (
             <div className="lt-add-dropdown">
-              <button className="lt-add-option" onClick={() => { setAddType("Title"); setShowAddDropdown(false); }}>Title</button>
-              <button className="lt-add-option" onClick={() => { setAddType("TitleSubtitle"); setShowAddDropdown(false); }}>Title + Subtitle</button>
-              <button className="lt-add-option" onClick={() => { setAddType("Scripture"); setShowAddDropdown(false); }}>Scripture</button>
+              <button
+                className="lt-add-option"
+                onClick={() => {
+                  setAddType("Title");
+                  setShowAddDropdown(false);
+                }}
+              >
+                Title
+              </button>
+              <button
+                className="lt-add-option"
+                onClick={() => {
+                  setAddType("TitleSubtitle");
+                  setShowAddDropdown(false);
+                }}
+              >
+                Title + Subtitle
+              </button>
+              <button
+                className="lt-add-option"
+                onClick={() => {
+                  setAddType("Scripture");
+                  setShowAddDropdown(false);
+                }}
+              >
+                Scripture
+              </button>
             </div>
           )}
         </div>
 
-        {addType && (
-          <AddLowerThirdDialog type={addType} onSave={handleAddSave} onGoLive={handleAddGoLive} onCancel={() => setAddType(null)} />
-        )}
+        {addType && <AddLowerThirdDialog type={addType} onSave={handleAddSave} onGoLive={handleAddGoLive} onCancel={() => setAddType(null)} />}
 
-        {editItem && (
-          <EditLowerThirdDialog item={editItem} onSave={handleEditSave} onCancel={() => setEditItem(null)} />
-        )}
+        {editItem && <EditLowerThirdDialog item={editItem} onSave={handleEditSave} onCancel={() => setEditItem(null)} />}
       </div>
     </WidgetContainer>
   );

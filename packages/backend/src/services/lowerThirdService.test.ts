@@ -7,7 +7,7 @@ import { eventBus } from "../eventBus/eventBus.js";
 import { BUS_LOWER_THIRD_STATE_CHANGED } from "../eventBus/types.js";
 import { applySchema } from "../database/schema.js";
 import type { Database } from "better-sqlite3";
-import type { AddLowerThirdInput, AnimationPhase } from "@invisible-av-booth/shared";
+import type { AddLowerThirdInput } from "@invisible-av-booth/shared";
 import type { JwtPayload } from "./authService.js";
 
 const actor: JwtPayload = { sub: "u1", username: "admin", role: "ADMIN", iat: 0, exp: 9999999999 };
@@ -19,15 +19,30 @@ function createDatabase(): Database {
   applySchema(db);
   // Seed a title template so SessionManifestService doesn't complain
   db.prepare("INSERT INTO metadata_templates (id, name, category, formatString, roleMinimum, createdAt) VALUES (?, ?, ?, ?, ?, ?)").run(
-    "t1", "Default", "title", "{Date} – {Speaker}", "AvVolunteer", new Date().toISOString(),
+    "t1",
+    "Default",
+    "title",
+    "{Date} – {Speaker}",
+    "AvVolunteer",
+    new Date().toISOString(),
   );
   return db;
 }
 
 function seedKjv(db: Database): void {
-  db.prepare("INSERT INTO kjv (BOOKID, CHAPTERNO, VERSENO, VERSETEXT) VALUES (?, ?, ?, ?)").run(1, 1, 1, "In the beginning God created the heaven and the earth.");
+  db.prepare("INSERT INTO kjv (BOOKID, CHAPTERNO, VERSENO, VERSETEXT) VALUES (?, ?, ?, ?)").run(
+    1,
+    1,
+    1,
+    "In the beginning God created the heaven and the earth.",
+  );
   db.prepare("INSERT INTO kjv (BOOKID, CHAPTERNO, VERSENO, VERSETEXT) VALUES (?, ?, ?, ?)").run(1, 1, 2, "And the earth was without form, and void.");
-  db.prepare("INSERT INTO kjv (BOOKID, CHAPTERNO, VERSENO, VERSETEXT) VALUES (?, ?, ?, ?)").run(1, 1, 3, "And God said, Let there be light: and there was light.");
+  db.prepare("INSERT INTO kjv (BOOKID, CHAPTERNO, VERSENO, VERSETEXT) VALUES (?, ?, ?, ?)").run(
+    1,
+    1,
+    3,
+    "And God said, Let there be light: and there was light.",
+  );
 }
 
 let db: Database;
@@ -349,7 +364,15 @@ describe("page navigation", () => {
   it("advances to next page", () => {
     const added = service.addToLibrary({ type: "Scripture", content: { reference: { bookId: 1, chapter: 1, verse: 1, verseEnd: 3 } } });
     if (!added.success) throw new Error("add failed");
-    const pages = { totalPages: 2, currentPage: 1, pages: [{ pageNumber: 1, startVerse: 1, endVerse: 2 }, { pageNumber: 2, startVerse: 3, endVerse: 3 }], useWideWidth: false };
+    const pages = {
+      totalPages: 2,
+      currentPage: 1,
+      pages: [
+        { pageNumber: 1, startVerse: 1, endVerse: 2 },
+        { pageNumber: 2, startVerse: 3, endVerse: 3 },
+      ],
+      useWideWidth: false,
+    };
     service.reportPages(added.value.id, pages);
 
     service.activate(added.value.id);

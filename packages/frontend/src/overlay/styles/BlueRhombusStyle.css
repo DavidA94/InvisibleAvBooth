@@ -64,13 +64,13 @@
 }
 
 .br-rhombus::after {
-    content: "";
-    position: absolute;
-    top: 0;
-    width: 100%;
-    height: 100%;
-    background: #2979ff;
-    z-index: 2;
+  content: "";
+  position: absolute;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background: #2979ff;
+  z-index: 2;
 }
 
 .br-plate {
@@ -165,14 +165,24 @@
 }
 
 @keyframes br-rhombus-grow {
-  0%   { clip-path: inset(50% 0% 50% 0%); }
-  100% { clip-path: inset(0% 0% 0% 0%); }
+  0% {
+    clip-path: inset(50% 0% 50% 0%);
+  }
+  100% {
+    clip-path: inset(0% 0% 0% 0%);
+  }
 }
 
 @keyframes br-plate-unfold {
-  0%   { clip-path: inset(0 100% 0 -1px); }
-  99.99% { clip-path: inset(0 0 0 -1px); }
-  100% { clip-path: none; }
+  0% {
+    clip-path: inset(0 100% 0 -1px);
+  }
+  99.99% {
+    clip-path: inset(0 0 0 -1px);
+  }
+  100% {
+    clip-path: none;
+  }
 }
 
 /* ── Phase: Visible ──────────────────────────────────────────────────────── */
@@ -199,23 +209,31 @@
 }
 
 @keyframes br-rhombus-slide {
-  0%   { transform: translateX(0); }
-  100% { transform: translateX(calc(var(--lt-plate-width, 70cqw) - (var(--rhombus-base-width) + var(--slant-shift)))); }
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(calc(var(--lt-plate-width, 70cqw) - (var(--rhombus-base-width) + var(--slant-shift))));
+  }
 }
 
 @keyframes br-rhombus-shrink {
-  0%   { clip-path: inset(0% 0% 0% 0%); }
-  100% { clip-path: inset(50% 0% 50% 0%); }
+  0% {
+    clip-path: inset(0% 0% 0% 0%);
+  }
+  100% {
+    clip-path: inset(50% 0% 50% 0%);
+  }
 }
 
 @keyframes br-plate-fold {
-  0%   { clip-path: inset(0 0 0 0); }
-  100% { clip-path: inset(0 0 0 100%); }
+  0% {
+    clip-path: inset(0 0 0 0);
+  }
+  100% {
+    clip-path: inset(0 0 0 100%);
+  }
 }
-
-
-
-
 
 /* ── Push-Up Transition ──────────────────────────────────────────────────── */
 /* --push-height-duration and --push-transform-duration set by JS */

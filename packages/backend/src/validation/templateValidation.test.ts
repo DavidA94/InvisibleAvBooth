@@ -175,7 +175,13 @@ describe("lower-third validation", () => {
 
   it("detects duplicate formatString using canonical JSON comparison", () => {
     const existingTemplates = [
-      { id: "e1", name: "Existing", category: "lower_third" as const, formatString: '{"subtitle":"{Title}","title":"{Speaker}"}', roleMinimum: "AvVolunteer" as const },
+      {
+        id: "e1",
+        name: "Existing",
+        category: "lower_third" as const,
+        formatString: '{"subtitle":"{Title}","title":"{Speaker}"}',
+        roleMinimum: "AvVolunteer" as const,
+      },
     ];
     // Same content, different key order
     const result = validateTemplate(
@@ -197,9 +203,7 @@ describe("lower-third validation", () => {
   });
 
   it("name uniqueness is within lower_third category only", () => {
-    const existingTemplates = [
-      { id: "e1", name: "Speaker", category: "title" as const, formatString: "{Speaker}", roleMinimum: "AvVolunteer" as const },
-    ];
+    const existingTemplates = [{ id: "e1", name: "Speaker", category: "title" as const, formatString: "{Speaker}", roleMinimum: "AvVolunteer" as const }];
     // Same name but different category — should be allowed
     const result = validateTemplate(
       { name: "Speaker", category: "lower_third", formatString: '{"title":"{Speaker}"}', roleMinimum: "AvVolunteer" },

@@ -57,20 +57,13 @@ export function PreviewDialog({ item, transitionLocked, onGoLive, onCancel }: Pr
 
         <div className="lt-preview-content">{renderContent(item)}</div>
 
-        {item.pages && item.pages.totalPages > 1 && (
-          <p className="lt-preview-pages">{item.pages.totalPages} pages</p>
-        )}
+        {item.pages && item.pages.totalPages > 1 && <p className="lt-preview-pages">{item.pages.totalPages} pages</p>}
 
         <div className="lt-preview-actions">
           <IonButton fill="outline" onClick={onCancel} data-testid={TEST_ID_LT_PREVIEW_CANCEL}>
             Cancel
           </IonButton>
-          <IonButton
-            color="success"
-            onClick={onGoLive}
-            disabled={transitionLocked}
-            data-testid={TEST_ID_LT_PREVIEW_GO_LIVE}
-          >
+          <IonButton color="success" onClick={onGoLive} disabled={transitionLocked} data-testid={TEST_ID_LT_PREVIEW_GO_LIVE}>
             {transitionLocked ? "Transitioning..." : "Go Live"}
           </IonButton>
         </div>

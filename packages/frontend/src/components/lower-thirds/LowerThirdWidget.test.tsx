@@ -51,7 +51,15 @@ const scriptureItem: LowerThirdItem = {
   templateName: null,
   used: false,
   createdAt: "2026-01-01T00:00:01Z",
-  pages: { totalPages: 2, currentPage: 1, pages: [{ pageNumber: 1, startVerse: 1, endVerse: 2 }, { pageNumber: 2, startVerse: 3, endVerse: 3 }], useWideWidth: false },
+  pages: {
+    totalPages: 2,
+    currentPage: 1,
+    pages: [
+      { pageNumber: 1, startVerse: 1, endVerse: 2 },
+      { pageNumber: 2, startVerse: 3, endVerse: 3 },
+    ],
+    useWideWidth: false,
+  },
 };
 
 function setState(partial: Partial<LowerThirdState>): void {
@@ -100,47 +108,35 @@ describe("LowerThirdWidget", () => {
 
 describe("LowerThirdRow", () => {
   it("renders title and subtitle for a volunteer item", () => {
-    render(
-      <LowerThirdRow item={titleItem} section="library" isActive={false} transitionLocked={false} />,
-    );
+    render(<LowerThirdRow item={titleItem} section="library" isActive={false} transitionLocked={false} />);
     expect(screen.getByText("John Smith")).toBeInTheDocument();
     expect(screen.getByText("Title")).toBeInTheDocument();
   });
 
   it("renders template name for template-derived items", () => {
-    render(
-      <LowerThirdRow item={templateItem} section="library" isActive={false} transitionLocked={false} />,
-    );
+    render(<LowerThirdRow item={templateItem} section="library" isActive={false} transitionLocked={false} />);
     expect(screen.getByText("Speaker Name")).toBeInTheDocument();
     expect(screen.getByText("Template")).toBeInTheDocument();
   });
 
   it("shows used indicator border class", () => {
     const usedItem = { ...titleItem, used: true };
-    const { container } = render(
-      <LowerThirdRow item={usedItem} section="library" isActive={false} transitionLocked={false} />,
-    );
+    const { container } = render(<LowerThirdRow item={usedItem} section="library" isActive={false} transitionLocked={false} />);
     expect(container.querySelector(".lt-row--used")).toBeInTheDocument();
   });
 
   it("disables dismiss button during transition lock", () => {
-    render(
-      <LowerThirdRow item={titleItem} section="active" isActive={true} transitionLocked={true} onDismiss={vi.fn()} />,
-    );
+    render(<LowerThirdRow item={titleItem} section="active" isActive={true} transitionLocked={true} onDismiss={vi.fn()} />);
     expect(screen.getByTestId("lt-dismiss-button")).toBeDisabled();
   });
 
   it("shows Dismissing overlay when phase is dismissing", () => {
-    render(
-      <LowerThirdRow item={titleItem} section="active" isActive={true} transitionLocked={true} phase="dismissing" onDismiss={vi.fn()} />,
-    );
+    render(<LowerThirdRow item={titleItem} section="active" isActive={true} transitionLocked={true} phase="dismissing" onDismiss={vi.fn()} />);
     expect(screen.getByText("Dismissing")).toBeInTheDocument();
   });
 
   it("shows Active badge on library item that is active", () => {
-    render(
-      <LowerThirdRow item={titleItem} section="library" isActive={true} transitionLocked={false} />,
-    );
+    render(<LowerThirdRow item={titleItem} section="library" isActive={true} transitionLocked={false} />);
     expect(screen.getByText("Active")).toBeInTheDocument();
   });
 });
@@ -156,15 +152,7 @@ describe("ActiveCountdown", () => {
 
 describe("PaginationControls", () => {
   it("renders page info and buttons", () => {
-    render(
-      <PaginationControls
-        item={scriptureItem}
-        pages={scriptureItem.pages!}
-        transitionLocked={false}
-        onPageNext={vi.fn()}
-        onPagePrevious={vi.fn()}
-      />,
-    );
+    render(<PaginationControls item={scriptureItem} pages={scriptureItem.pages!} transitionLocked={false} onPageNext={vi.fn()} onPagePrevious={vi.fn()} />);
     expect(screen.getByTestId("lt-page-info")).toBeInTheDocument();
     expect(screen.getByLabelText("Previous page")).toBeDisabled();
     expect(screen.getByLabelText("Next page")).not.toBeDisabled();
@@ -173,26 +161,20 @@ describe("PaginationControls", () => {
 
 describe("PreviewDialog", () => {
   it("renders item content and action buttons", () => {
-    render(
-      <PreviewDialog item={titleItem} transitionLocked={false} onGoLive={vi.fn()} onCancel={vi.fn()} />,
-    );
+    render(<PreviewDialog item={titleItem} transitionLocked={false} onGoLive={vi.fn()} onCancel={vi.fn()} />);
     expect(screen.getByText("John Smith")).toBeInTheDocument();
     expect(screen.getByTestId("lt-preview-go-live")).not.toBeDisabled();
     expect(screen.getByTestId("lt-preview-cancel")).toBeInTheDocument();
   });
 
   it("shows Transitioning text during transition lock", () => {
-    render(
-      <PreviewDialog item={titleItem} transitionLocked={true} onGoLive={vi.fn()} onCancel={vi.fn()} />,
-    );
+    render(<PreviewDialog item={titleItem} transitionLocked={true} onGoLive={vi.fn()} onCancel={vi.fn()} />);
     expect(screen.getByText("Transitioning...")).toBeInTheDocument();
   });
 
   it("calls onGoLive when button is clicked", () => {
     const onGoLive = vi.fn();
-    render(
-      <PreviewDialog item={titleItem} transitionLocked={false} onGoLive={onGoLive} onCancel={vi.fn()} />,
-    );
+    render(<PreviewDialog item={titleItem} transitionLocked={false} onGoLive={onGoLive} onCancel={vi.fn()} />);
     fireEvent.click(screen.getByTestId("lt-preview-go-live"));
     expect(onGoLive).toHaveBeenCalled();
   });

@@ -29,6 +29,7 @@ This is an extension document — it references and builds on the original desig
 ### Steering Document Updates Required
 
 This spec introduces patterns not yet documented in the steering doc. The following updates are required during implementation:
+
 - **§3 (Interfaces & Boundaries)**: Add `file://` and `/overlay` namespace boundaries
 - **§6 (Logging)**: Add `"overlay"` as a third `source` value
 - **§7 (Event Naming)**: Add `sto:` and `ots:` prefix rows; add overlay namespace exception note
@@ -197,21 +198,33 @@ interface LowerThirdItem {
   pages: PageBreakdown | null;
 }
 
-interface TitleContent { title: string; }
-interface TitleSubtitleContent { title: string; subtitle: string; }
+interface TitleContent {
+  title: string;
+}
+interface TitleSubtitleContent {
+  title: string;
+  subtitle: string;
+}
 interface ScriptureContent {
   reference: ScriptureReference;
   formattedReference: string;
   verses: VerseData[]; // always populated after successful add (Req 3.10 ensures KJV data exists)
 }
-interface VerseData { verseNumber: number; text: string; }
+interface VerseData {
+  verseNumber: number;
+  text: string;
+}
 
 interface PageBreakdown {
   totalPages: number;
   currentPage: number;
   pages: PageInfo[];
 }
-interface PageInfo { pageNumber: number; startVerse: number; endVerse: number; }
+interface PageInfo {
+  pageNumber: number;
+  startVerse: number;
+  endVerse: number;
+}
 
 interface LowerThirdState {
   active: LowerThirdItem | null;
@@ -255,6 +268,7 @@ CREATE TABLE IF NOT EXISTS metadata_templates (
 ```
 
 **Migration strategy**: SQLite cannot alter CHECK constraints. The migration in `applySchema()` SHALL:
+
 1. Check if `lowerThirdType` column exists (via `PRAGMA table_info(metadata_templates)`)
 2. If not: create a temp table with the new schema, copy all data, drop the original, rename temp to original
 3. This runs once on first startup after upgrade; subsequent startups hit `IF NOT EXISTS` and skip
@@ -428,6 +442,7 @@ Each row uses a swipeable container (e.g., CSS `transform: translateX()` with to
 The widget is registered with `widgetId: "lower-thirds"`, configurable per-dashboard via `widget_configurations`.
 
 **Connection indicator state derivation** (from `LowerThirdState` → `ConnectionStatus`):
+
 - `healthy`: `overlayConnected === true && overlayResolutionCorrect === true`
 - `degraded`: `overlayConnected === true && overlayResolutionCorrect === false`
 - `unhealthy`: `overlayConnected === false`
@@ -484,7 +499,10 @@ The widget is registered with `widgetId: "lower-thirds"`, configurable per-dashb
   container-type: size;
   container-name: overlay;
 }
-.lower-third-container { margin-bottom: 15cqh; margin-left: 3cqw; }
+.lower-third-container {
+  margin-bottom: 15cqh;
+  margin-left: 3cqw;
+}
 ```
 
 ---
@@ -498,44 +516,66 @@ This is a static file directory, NOT an npm package. It does not participate in 
 ```html
 <!DOCTYPE html>
 <html>
-<head><meta charset="utf-8">
-<style>
-  * { margin: 0; padding: 0; }
-  html, body { width: 100%; height: 100%; overflow: hidden; background: transparent; }
-  iframe { border: none; width: 100%; height: 100%; display: none; }
-</style>
-</head>
-<body data-overlay-url="https://invisible.av/overlay/lower-thirds">
-<iframe id="overlay"></iframe>
-<script>
-const URL = document.body.dataset.overlayUrl;
-const iframe = document.getElementById('overlay');
-let loadTimer = null;
-let heartbeatTimer = null;
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+      }
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: transparent;
+      }
+      iframe {
+        border: none;
+        width: 100%;
+        height: 100%;
+        display: none;
+      }
+    </style>
+  </head>
+  <body data-overlay-url="https://invisible.av/overlay/lower-thirds">
+    <iframe id="overlay"></iframe>
+    <script>
+      const URL = document.body.dataset.overlayUrl;
+      const iframe = document.getElementById("overlay");
+      let loadTimer = null;
+      let heartbeatTimer = null;
 
-function load() {
-  iframe.src = URL;
-  loadTimer = setTimeout(() => { iframe.src = ''; setTimeout(load, 3000); }, 10000);
-}
+      function load() {
+        iframe.src = URL;
+        loadTimer = setTimeout(() => {
+          iframe.src = "";
+          setTimeout(load, 3000);
+        }, 10000);
+      }
 
-window.addEventListener('message', (e) => {
-  if (e.data?.type === 'overlay-ready') {
-    clearTimeout(loadTimer);
-    iframe.style.display = 'block';
-    resetHeartbeat();
-  } else if (e.data?.type === 'overlay-heartbeat') {
-    resetHeartbeat();
-  }
-});
+      window.addEventListener("message", (e) => {
+        if (e.data?.type === "overlay-ready") {
+          clearTimeout(loadTimer);
+          iframe.style.display = "block";
+          resetHeartbeat();
+        } else if (e.data?.type === "overlay-heartbeat") {
+          resetHeartbeat();
+        }
+      });
 
-function resetHeartbeat() {
-  clearTimeout(heartbeatTimer);
-  heartbeatTimer = setTimeout(() => { iframe.style.display = 'none'; iframe.src = ''; setTimeout(load, 3000); }, 10000);
-}
+      function resetHeartbeat() {
+        clearTimeout(heartbeatTimer);
+        heartbeatTimer = setTimeout(() => {
+          iframe.style.display = "none";
+          iframe.src = "";
+          setTimeout(load, 3000);
+        }, 10000);
+      }
 
-load();
-</script>
-</body>
+      load();
+    </script>
+  </body>
 </html>
 ```
 
@@ -558,6 +598,7 @@ load();
 ## Testing Strategy
 
 ### Unit Tests
+
 - `LowerThirdService` — state transitions, transition lock, auto-dismiss lifecycle, template resolution, force clear
 - `MetadataTemplateDao` — lower-third CRUD, canonical JSON, duplicate detection
 - `LowerThirdModule` — command handling, ack responses, initial state
@@ -565,6 +606,7 @@ load();
 - `LowerThirdOverlay` — phase reporting, measurement, disconnect timeout, force clear
 
 ### Integration Tests
+
 - Full flow: add scripture → measure → activate via preview → paginate → dismiss
 - Auto-dismiss: activate with timer → verify dismiss fires → verify phase transitions
 - Push-up: activate A → activate B → verify push-up command
@@ -573,6 +615,7 @@ load();
 - Force Clear: mid-animation → force clear → verify instant hidden
 
 ### Overlay Integration Tests (Playwright)
+
 - **Show**: backend sends show → overlay renders → reports `showing` then `visible`
 - **Dismiss**: backend sends dismiss → overlay animates → reports `dismissing` then `hidden`
 - **Push-up**: activate A → push-up B → verify content swap → reports `showing` then `visible`
@@ -584,6 +627,7 @@ load();
 - **Resolution telemetry**: non-1920×1080 viewport → reports `isCorrect: false`
 
 ### Manual Testing
+
 - OBS at 1920×1080: verify positioning, animations
 - OBS wrong resolution: verify dashboard banner
 - Scene switch: verify overlay stays connected

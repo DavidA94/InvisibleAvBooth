@@ -140,7 +140,7 @@ export function AdminTemplatesPage(): ReactNode {
         setName(template.name);
         setRoleMinimum(template.roleMinimum);
         setLowerThirdType((template.lowerThirdType as "Title" | "TitleSubtitle" | "Scripture") ?? "Title");
-        setAutoDismissEnabled(template.autoDismissMs != null);
+        setAutoDismissEnabled(template.autoDismissMs !== null && template.autoDismissMs !== undefined);
         setAutoDismissSeconds(template.autoDismissMs ? template.autoDismissMs / 1000 : 10);
 
         // For lower-third templates, parse JSON back into editable format
@@ -304,7 +304,11 @@ export function AdminTemplatesPage(): ReactNode {
 
                 return (
                   <div key={t.id}>
-                    {showHeader && <div className="text-muted text-caption tpl-group-header">{t.category === "title" ? "Title" : t.category === "description" ? "Description" : "Lower Third"}</div>}
+                    {showHeader && (
+                      <div className="text-muted text-caption tpl-group-header">
+                        {t.category === "title" ? "Title" : t.category === "description" ? "Description" : "Lower Third"}
+                      </div>
+                    )}
                     <div
                       data-testid={`${TEST_ID_TEMPLATE_ITEM}-${t.id}`}
                       className={`device-list-item surface ${panel.mode === "edit" && panel.templateId === t.id ? "device-list-item-selected" : ""}`}
@@ -478,14 +482,20 @@ export function AdminTemplatesPage(): ReactNode {
                       <div className="layout-row gap-standard align-center">
                         <IonToggle
                           checked={autoDismissEnabled}
-                          onIonChange={(event) => { setAutoDismissEnabled(event.detail.checked); setValidated(false); }}
+                          onIonChange={(event) => {
+                            setAutoDismissEnabled(event.detail.checked);
+                            setValidated(false);
+                          }}
                         />
                         <IonInput
                           type="number"
                           fill="outline"
                           value={autoDismissSeconds}
                           disabled={!autoDismissEnabled}
-                          onIonInput={(e) => { setAutoDismissSeconds(Math.max(1, parseInt(e.detail.value ?? "10") || 10)); setValidated(false); }}
+                          onIonInput={(e) => {
+                            setAutoDismissSeconds(Math.max(1, parseInt(e.detail.value ?? "10") || 10));
+                            setValidated(false);
+                          }}
                           style={{ maxWidth: "5rem" }}
                         />
                         <span className="text-muted">seconds</span>

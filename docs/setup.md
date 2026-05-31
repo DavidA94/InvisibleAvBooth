@@ -363,7 +363,7 @@ The lower-third system uses a static HTML file loaded in OBS as a browser source
 The static wrapper needs to know where the frontend is hosted. Edit `packages/overlay/lower-thirds.html` and set the `data-overlay-url` attribute on the `<body>` tag:
 
 ```html
-<body data-overlay-url="https://invisible.av/overlay/lower-thirds">
+<body data-overlay-url="https://invisible.av/overlay/lower-thirds"></body>
 ```
 
 If your deployment uses a different hostname (e.g., `https://localhost`), update this value accordingly.
@@ -378,6 +378,6 @@ Fix by adjusting the browser source Width/Height in OBS properties.
 
 ### Environment Variables
 
-| Variable | Default | Description |
-|----------|---------|-------------|
+| Variable                             | Default | Description                                                                                                               |
+| ------------------------------------ | ------- | ------------------------------------------------------------------------------------------------------------------------- |
 | `VITE_OVERLAY_DISCONNECT_TIMEOUT_MS` | `15000` | Time (ms) before the overlay auto-dismisses a stuck graphic when disconnected from the backend. Build-time configuration. |

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent, act } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { SwipeableRow } from "./SwipeableRow";
 
 function getContent(): HTMLElement {
@@ -55,7 +55,15 @@ describe("SwipeableRow", () => {
 
     it("renders left actions container with correct width for leftCount=2", () => {
       render(
-        <SwipeableRow leftActions={<><button>Edit</button><button>Delete</button></>} leftCount={2}>
+        <SwipeableRow
+          leftActions={
+            <>
+              <button>Edit</button>
+              <button>Delete</button>
+            </>
+          }
+          leftCount={2}
+        >
           <div>Content</div>
         </SwipeableRow>,
       );
@@ -121,7 +129,15 @@ describe("SwipeableRow", () => {
 
     it("snaps open with leftCount=2 (threshold = 30% of 96px = 28.8px)", () => {
       render(
-        <SwipeableRow leftActions={<><button>Edit</button><button>Delete</button></>} leftCount={2}>
+        <SwipeableRow
+          leftActions={
+            <>
+              <button>Edit</button>
+              <button>Delete</button>
+            </>
+          }
+          leftCount={2}
+        >
           <div>Content</div>
         </SwipeableRow>,
       );
@@ -291,7 +307,15 @@ describe("SwipeableRow", () => {
       const onEdit = vi.fn();
       const onDelete = vi.fn();
       render(
-        <SwipeableRow leftActions={<><button onClick={onEdit}>Edit</button><button onClick={onDelete}>Delete</button></>} leftCount={2}>
+        <SwipeableRow
+          leftActions={
+            <>
+              <button onClick={onEdit}>Edit</button>
+              <button onClick={onDelete}>Delete</button>
+            </>
+          }
+          leftCount={2}
+        >
           <div>Content</div>
         </SwipeableRow>,
       );

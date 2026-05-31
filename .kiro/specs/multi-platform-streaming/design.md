@@ -1453,11 +1453,12 @@ Uses the same two-panel layout as Device Management and Platform Management: lef
 **Right panel** shows the edit form inline (not a modal) with the validate-then-save flow. Fields: Name, Format String (single-line for title, textarea for description), Minimum Role (react-select dropdown). Available tokens hint shown below the format string field.
 
 **Delete**: Available via button in the right panel and in the list item. "None" template cannot be deleted or edited.
-│                                          │
-│  ✗ Unknown token: {Foo}                  │  ← red blocker (if applicable)
-│                                          │
-│                          [Validate]      │  ← or [Save] after successful validation
+│ │
+│ ✗ Unknown token: {Foo} │ ← red blocker (if applicable)
+│ │
+│ [Validate] │ ← or [Save] after successful validation
 └──────────────────────────────────────────┘
+
 ```
 
 For description templates, the Template field is a multi-line `<textarea>` instead of a single-line `<input>`.
@@ -1509,20 +1510,26 @@ The `GlobalTitleBar` dashboard navigation label always links to the Dashboard Se
 **GlobalTitleBar layout — ADMIN user with dashboard loaded:**
 
 ```
-Main Dashboard (CHANGE) | Admin Pages          John Smith (ADMIN) | LOGOUT
+
+Main Dashboard (CHANGE) | Admin Pages John Smith (ADMIN) | LOGOUT
+
 ```
 
 **GlobalTitleBar layout — ADMIN user, no dashboard loaded (on admin pages or selection screen):**
 
 ```
-No Dashboard Selected (CHANGE) | Admin Pages   John Smith (ADMIN) | LOGOUT
+
+No Dashboard Selected (CHANGE) | Admin Pages John Smith (ADMIN) | LOGOUT
+
 ```
 
 **GlobalTitleBar layout — non-ADMIN user (unchanged from original spec):**
 
 ```
-Main Dashboard (CHANGE)                        John Smith (AvVolunteer) | LOGOUT
-```
+
+Main Dashboard (CHANGE) John Smith (AvVolunteer) | LOGOUT
+
+````
 
 "Admin Pages" is visible only to ADMIN users. Non-ADMIN users see the existing layout.
 
@@ -1555,7 +1562,7 @@ export function interpolateTemplate(manifest: SessionManifestFields, template: s
 
   return result;
 }
-```
+````
 
 **Backend verse text resolver**: Queries the `kjv` table and formats per Req 9:
 

@@ -6,14 +6,37 @@ import type { LowerThirdItem } from "@invisible-av-booth/shared";
 vi.mock("socket.io-client", () => ({ io: vi.fn(() => ({ on: vi.fn(), emit: vi.fn(), disconnect: vi.fn() })) }));
 
 const titleItem: LowerThirdItem = {
-  id: "item-1", type: "Title", style: "blue_rhombus", content: { title: "John Smith" },
-  autoDismissMs: null, source: "volunteer", templateId: null, templateName: null, used: false, createdAt: "2026-01-01T00:00:00Z", pages: null,
+  id: "item-1",
+  type: "Title",
+  style: "blue_rhombus",
+  content: { title: "John Smith" },
+  autoDismissMs: null,
+  source: "volunteer",
+  templateId: null,
+  templateName: null,
+  used: false,
+  createdAt: "2026-01-01T00:00:00Z",
+  pages: null,
 };
 
 const scriptureItem: LowerThirdItem = {
-  id: "item-2", type: "Scripture", style: "blue_rhombus",
-  content: { reference: { bookId: 1, chapter: 1, verse: 1, verseEnd: 2 }, formattedReference: "Genesis 1:1-2", verses: [{ verseNumber: 1, text: "In the beginning God created the heaven and the earth." }, { verseNumber: 2, text: "And the earth was without form, and void." }] },
-  autoDismissMs: null, source: "volunteer", templateId: null, templateName: null, used: false, createdAt: "2026-01-01T00:00:00Z",
+  id: "item-2",
+  type: "Scripture",
+  style: "blue_rhombus",
+  content: {
+    reference: { bookId: 1, chapter: 1, verse: 1, verseEnd: 2 },
+    formattedReference: "Genesis 1:1-2",
+    verses: [
+      { verseNumber: 1, text: "In the beginning God created the heaven and the earth." },
+      { verseNumber: 2, text: "And the earth was without form, and void." },
+    ],
+  },
+  autoDismissMs: null,
+  source: "volunteer",
+  templateId: null,
+  templateName: null,
+  used: false,
+  createdAt: "2026-01-01T00:00:00Z",
   pages: { totalPages: 1, currentPage: 1, pages: [{ pageNumber: 1, startVerse: 1, endVerse: 2 }], useWideWidth: false },
 };
 
@@ -50,13 +73,20 @@ describe("BlueRhombusStyle", () => {
   it("uses fixed reference for scripture page turn", () => {
     const page2Item: LowerThirdItem = {
       ...scriptureItem,
-      pages: { totalPages: 2, currentPage: 2, pages: [{ pageNumber: 1, startVerse: 1, endVerse: 1 }, { pageNumber: 2, startVerse: 2, endVerse: 2 }], useWideWidth: false },
+      pages: {
+        totalPages: 2,
+        currentPage: 2,
+        pages: [
+          { pageNumber: 1, startVerse: 1, endVerse: 1 },
+          { pageNumber: 2, startVerse: 2, endVerse: 2 },
+        ],
+        useWideWidth: false,
+      },
     };
-    const { container } = render(
-      <BlueRhombusStyle item={page2Item} prevItem={scriptureItem} phase="showing" isPushUp={true} onAnimationEnd={vi.fn()} />,
-    );
-    expect(screen.getAllByText("Genesis 1:1-2")).toHaveLength(1);
-    expect(container.querySelector(".br-verse-area")).toBeInTheDocument();
+    const { container } = render(<BlueRhombusStyle item={page2Item} prevItem={scriptureItem} phase="showing" isPushUp={true} onAnimationEnd={vi.fn()} />);
+    // During push-up, both old and new content render (for slide animation), so reference appears twice
+    expect(screen.getAllByText("Genesis 1:1-2")).toHaveLength(2);
+    expect(container.querySelector(".br-verses")).toBeInTheDocument();
   });
 
   it("Force Clear renders nothing when phase is hidden", () => {

@@ -3,8 +3,8 @@ import { io as ioClient } from "socket.io-client";
 import type { Socket } from "socket.io-client";
 import { buildTestServer, resetServer, destroyServer, loginAsAdmin } from "../harness.js";
 import type { TestServer } from "../harness.js";
-import { CTS_LOWER_THIRD_COMMAND, STC_LOWER_THIRD_STATE, OTS_LOWER_THIRD_PHASE } from "@invisible-av-booth/shared";
-import type { LowerThirdState, LowerThirdCommand } from "@invisible-av-booth/shared";
+import { CTS_LOWER_THIRD_COMMAND, OTS_LOWER_THIRD_PHASE } from "@invisible-av-booth/shared";
+import type { LowerThirdCommand } from "@invisible-av-booth/shared";
 
 let server: TestServer;
 

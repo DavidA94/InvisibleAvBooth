@@ -18,8 +18,7 @@ import { formatScripture } from "@invisible-av-booth/shared";
 import { createId } from "@paralleldrive/cuid2";
 
 type Result<T, E> = { success: true; value: T } | { success: false; error: E };
-import { MetadataTemplateDao } from "../dao/metadataTemplateDao.js";
-import type { MetadataTemplateRow } from "../dao/metadataTemplateDao.js";
+import type { MetadataTemplateDao, MetadataTemplateRow } from "../dao/metadataTemplateDao.js";
 import type { SessionManifestService } from "./sessionManifestService.js";
 import { eventBus } from "../eventBus/eventBus.js";
 import { BUS_LOWER_THIRD_STATE_CHANGED, BUS_SESSION_MANIFEST_UPDATED } from "../eventBus/types.js";
@@ -65,7 +64,10 @@ export class LowerThirdService {
     this.overlayConnected = connected;
     if (connected) {
       this.overlayStale = false;
-      if (this.staleTimer) { clearTimeout(this.staleTimer); this.staleTimer = null; }
+      if (this.staleTimer) {
+        clearTimeout(this.staleTimer);
+        this.staleTimer = null;
+      }
     } else if (this.active) {
       // Req 8.8: Mark active item as stale after 15s of overlay disconnect
       this.staleTimer = setTimeout(() => {
@@ -328,7 +330,10 @@ export class LowerThirdService {
   destroy(): void {
     this.cancelAutoDismiss();
     this.cancelFallbackTimer();
-    if (this.staleTimer) { clearTimeout(this.staleTimer); this.staleTimer = null; }
+    if (this.staleTimer) {
+      clearTimeout(this.staleTimer);
+      this.staleTimer = null;
+    }
     for (const timer of this.measurementTimers.values()) clearTimeout(timer);
     this.measurementTimers.clear();
   }
@@ -479,7 +484,7 @@ export class LowerThirdService {
     if (item) item.used = true;
   }
 
-  private returnToLibrary(item: LowerThirdItem): void {
+  private returnToLibrary(_item: LowerThirdItem): void {
     // Template items just deactivate (they're already in the library by templateId)
     // Volunteer items return to the library if they were removed
     // In our model, items stay in the library while active (with badge), so nothing to do
