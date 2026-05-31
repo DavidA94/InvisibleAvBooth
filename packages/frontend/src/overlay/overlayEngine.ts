@@ -97,9 +97,14 @@ function connectSocket(): void {
     }
   });
 
-  socket.on(STO_LOWER_THIRD_SHOW, (data: { item: LowerThirdItem }) => {
+  socket.on(STO_LOWER_THIRD_SHOW, (data: { item: LowerThirdItem; skipEntrance?: boolean }) => {
     measureAbort?.abort();
-    show(data.item);
+    if (data.skipEntrance) {
+      showImmediate(data.item);
+      reportPhase("visible");
+    } else {
+      show(data.item);
+    }
   });
 
   socket.on(STO_LOWER_THIRD_DISMISS, () => { dismiss(); });
@@ -367,7 +372,7 @@ function setWrapperVars(height: number): void {
   if (!jail) return;
   const jailWidth = jail.getBoundingClientRect().width;
   const rhombusBaseWidth = Math.max(0.005 * jailWidth, 4);
-  const slantShift = rhombusBaseWidth * 0.60;
+  const slantShift = rhombusBaseWidth * 0.85;
   wrapper!.style.setProperty("--wrapper-height", `${height}px`);
   wrapper!.style.setProperty("--slant-shift", `${slantShift}px`);
   wrapper!.style.setProperty("--rhombus-base-width", `${rhombusBaseWidth}px`);

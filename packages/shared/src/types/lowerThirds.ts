@@ -86,7 +86,7 @@ export interface EditLowerThirdInput {
 }
 
 export type LowerThirdCommand =
-  | { type: "activate"; itemId: string }
+  | { type: "activate"; itemId: string; skipAnimation?: boolean }
   | { type: "dismiss-active" }
   | { type: "force-clear" }
   | { type: "add-to-library"; input: AddLowerThirdInput }

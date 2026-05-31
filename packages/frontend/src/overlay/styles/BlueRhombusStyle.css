@@ -108,20 +108,20 @@
 
 .br-text--title {
   font-weight: 700;
-  font-size: 5.5cqh;
+  font-size: 5cqh;
 }
 
 .br-text--subtitle {
   font-weight: 400;
   font-style: italic;
-  font-size: 4cqh;
+  font-size: 3.5cqh;
   margin-top: 0.4cqh;
   color: #d0d0d0;
 }
 
 .br-text--reference {
   font-weight: 700;
-  font-size: 2.8cqh;
+  font-size: 3.5cqh;
   margin-bottom: 0.6cqh;
 }
 
@@ -131,13 +131,14 @@
 
 .br-verse {
   color: #e8e8e8;
-  font-size: 3.5cqh;
+  font-size: 4cqh;
   line-height: 1.5;
   margin: 0;
   white-space: normal;
 }
 
 .br-verse--zero {
+  font-size: 3cqh;
   font-style: italic;
 }
 

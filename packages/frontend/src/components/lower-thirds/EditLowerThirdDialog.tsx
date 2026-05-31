@@ -73,6 +73,7 @@ export function EditLowerThirdDialog({ item, onSave, onCancel }: EditLowerThirdD
             label="Title"
             labelPlacement="stacked"
             fill="outline"
+            autocapitalize="words"
             value={title}
             onIonInput={(event) => setTitle(event.detail.value ?? "")}
             data-testid={TEST_ID_LT_EDIT_TITLE_INPUT}
@@ -84,6 +85,7 @@ export function EditLowerThirdDialog({ item, onSave, onCancel }: EditLowerThirdD
             label="Subtitle"
             labelPlacement="stacked"
             fill="outline"
+            autocapitalize="words"
             value={subtitle}
             onIonInput={(event) => setSubtitle(event.detail.value ?? "")}
             data-testid={TEST_ID_LT_EDIT_SUBTITLE_INPUT}

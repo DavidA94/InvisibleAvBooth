@@ -44,6 +44,10 @@ export function LowerThirdWidget(): ReactNode {
     });
   };
 
+  const handleActivateImmediate = (itemId: string): void => {
+    sendCommand({ type: "activate", itemId, skipAnimation: true });
+  };
+
   const handleRemove = (itemId: string): void => {
     void sendCommand({ type: "remove-from-library", itemId });
   };
@@ -65,6 +69,15 @@ export function LowerThirdWidget(): ReactNode {
     console.log("[LT] Adding to library:", input);
     sendCommand({ type: "add-to-library", input }).then((result) => {
       console.log("[LT] Add result:", result);
+    });
+    setAddType(null);
+  };
+
+  const handleAddGoLive = (input: AddLowerThirdInput): void => {
+    sendCommand({ type: "add-to-library", input }).then((result) => {
+      if (result.success && "itemId" in result) {
+        sendCommand({ type: "activate", itemId: (result as { itemId: string }).itemId });
+      }
     });
     setAddType(null);
   };
@@ -125,6 +138,7 @@ export function LowerThirdWidget(): ReactNode {
                     isActive={active?.id === item.id}
                     transitionLocked={transitionLocked}
                     onActivate={handleActivate}
+                    onActivateImmediate={handleActivateImmediate}
                     onRemove={handleRemove}
                     onSwipeOpen={() => setOpenRowId(item.id)}
                     forceClose={openRowId !== item.id && openRowId !== null}
@@ -138,6 +152,7 @@ export function LowerThirdWidget(): ReactNode {
                     isActive={active?.id === item.id}
                     transitionLocked={transitionLocked}
                     onActivate={handleActivate}
+                    onActivateImmediate={handleActivateImmediate}
                     onRemove={handleRemove}
                     onEdit={setEditItem}
                     onSwipeOpen={() => setOpenRowId(item.id)}
@@ -164,7 +179,7 @@ export function LowerThirdWidget(): ReactNode {
         </div>
 
         {addType && (
-          <AddLowerThirdDialog type={addType} onSave={handleAddSave} onCancel={() => setAddType(null)} />
+          <AddLowerThirdDialog type={addType} onSave={handleAddSave} onGoLive={handleAddGoLive} onCancel={() => setAddType(null)} />
         )}
 
         {editItem && (

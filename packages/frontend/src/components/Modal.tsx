@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import type { ReactNode } from "react";
 import { TEST_ID_MODAL_BACKDROP, TEST_ID_MODAL_CONTAINER, TEST_ID_MODAL_HEADER, TEST_ID_MODAL_BODY, TEST_ID_MODAL_FOOTER } from "../constants/testIds";
 
@@ -13,6 +14,18 @@ interface ModalProps {
 }
 
 export function Modal({ isOpen, onClose, size = "small", header, footer, children }: ModalProps): ReactNode {
+  // Scroll focused input into view when virtual keyboard opens on mobile
+  useEffect(() => {
+    if (!isOpen || !window.visualViewport) return;
+    const onResize = (): void => {
+      const el = document.activeElement as HTMLElement | null;
+      if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA")) {
+        el.scrollIntoView({ block: "center", behavior: "smooth" });
+      }
+    };
+    window.visualViewport.addEventListener("resize", onResize);
+    return () => window.visualViewport?.removeEventListener("resize", onResize);
+  }, [isOpen]);
   if (!isOpen) return null;
 
   const hasBody = !!children;

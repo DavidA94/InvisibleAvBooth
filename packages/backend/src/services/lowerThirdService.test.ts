@@ -152,6 +152,14 @@ describe("activation and dismiss", () => {
     expect(service.getActive()?.id).toBe(b.value.id);
   });
 
+  it("activates with skipAnimation sends skipEntrance and sets phase to visible", () => {
+    const added = service.addToLibrary({ type: "Title", content: { title: "Test" } });
+    if (!added.success) throw new Error("add failed");
+    service.activate(added.value.id, true);
+    expect(sendToOverlay).toHaveBeenCalledWith("sto:lower-third:show", expect.objectContaining({ skipEntrance: true }));
+    expect(service.getAnimationPhase()).toBe("visible");
+  });
+
   it("dismisses the active item", () => {
     const added = service.addToLibrary({ type: "Title", content: { title: "Test" } });
     if (!added.success) throw new Error("add failed");

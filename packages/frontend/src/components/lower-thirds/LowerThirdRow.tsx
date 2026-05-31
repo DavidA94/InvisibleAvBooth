@@ -14,6 +14,7 @@ interface LowerThirdRowProps {
   onDismiss?: () => void;
   onForceClear?: () => void;
   onActivate?: (itemId: string) => void;
+  onActivateImmediate?: (itemId: string) => void;
   onRemove?: (itemId: string) => void;
   onEdit?: (item: LowerThirdItem) => void;
   onPageNext?: () => void;
@@ -46,6 +47,7 @@ export function LowerThirdRow({
   onDismiss,
   onForceClear,
   onActivate,
+  onActivateImmediate,
   onRemove,
   onEdit,
   onSwipeOpen,
@@ -71,7 +73,7 @@ export function LowerThirdRow({
       </button>
     </>
   ) : section === "library" && !isActive ? (
-    <button className="lt-action-btn lt-action-go-live" onClick={() => onActivate?.(item.id)} disabled={transitionLocked} aria-label="Go Live">
+    <button className="lt-action-btn lt-action-go-live" onClick={() => onActivateImmediate?.(item.id)} disabled={transitionLocked} aria-label="Go Live">
       <span className="lt-action-icon">⚡</span>
       <span className="lt-action-label">Go Live</span>
     </button>
@@ -80,7 +82,7 @@ export function LowerThirdRow({
   const leftCount = section === "active" ? 1 : item.source === "volunteer" && !isActive ? 2 : 1;
 
   const rightActions = section === "library" && !isActive ? (
-    <button className="lt-action-btn lt-action-go-live" onClick={() => onActivate?.(item.id)} disabled={transitionLocked} aria-label="Go Live">
+    <button className="lt-action-btn lt-action-go-live" onClick={() => onActivateImmediate?.(item.id)} disabled={transitionLocked} aria-label="Go Live">
       <span className="lt-action-icon">⚡</span>
       <span className="lt-action-label">Go Live</span>
     </button>

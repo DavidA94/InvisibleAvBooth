@@ -69,7 +69,7 @@ describe("LowerThirdModule", () => {
       const ack = vi.fn();
       handler({ type: "activate", itemId: "item1" }, ack);
 
-      expect(mockService.activate).toHaveBeenCalledWith("item1");
+      expect(mockService.activate).toHaveBeenCalledWith("item1", undefined);
       expect(ack).toHaveBeenCalledWith({ success: true });
     });
 

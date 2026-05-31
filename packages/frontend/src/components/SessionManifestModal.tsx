@@ -240,6 +240,7 @@ export function SessionManifestModal({ isOpen, onClose }: SessionManifestModalPr
                 label="Speaker"
                 labelPlacement="stacked"
                 fill="outline"
+                autocapitalize="words"
                 value={speaker}
                 onIonInput={(e) => setSpeaker(e.detail.value ?? "")}
                 clearInput
@@ -251,6 +252,7 @@ export function SessionManifestModal({ isOpen, onClose }: SessionManifestModalPr
                 label="Sermon Title"
                 labelPlacement="stacked"
                 fill="outline"
+                autocapitalize="words"
                 value={title}
                 onIonInput={(e) => setTitle(e.detail.value ?? "")}
                 clearInput

@@ -31,7 +31,7 @@ export class LowerThirdModule implements SocketModule {
   private handleCommand(command: LowerThirdCommand): CommandResult {
     switch (command.type) {
       case "activate": {
-        const result = this.service.activate(command.itemId);
+        const result = this.service.activate(command.itemId, command.skipAnimation);
         return result.success ? { success: true } : { success: false, error: result.error };
       }
       case "dismiss-active": {
@@ -44,7 +44,7 @@ export class LowerThirdModule implements SocketModule {
       }
       case "add-to-library": {
         const result = this.service.addToLibrary(command.input);
-        return result.success ? { success: true } : { success: false, error: result.error };
+        return result.success ? { success: true, itemId: result.value.id } : { success: false, error: result.error };
       }
       case "remove-from-library": {
         const result = this.service.removeFromLibrary(command.itemId);

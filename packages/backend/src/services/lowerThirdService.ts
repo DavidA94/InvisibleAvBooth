@@ -127,6 +127,10 @@ export class LowerThirdService {
       const content = this.resolveContent(item.type, patch.content);
       if (!content.success) return content;
       item.content = content.value;
+      if (item.type === "Scripture") {
+        item.pages = null;
+        this.requestMeasurement(item);
+      }
     }
     if (patch.autoDismissMs !== undefined) {
       item.autoDismissMs = patch.autoDismissMs ?? null;
@@ -138,7 +142,7 @@ export class LowerThirdService {
 
   // ── Activation & Dismiss ──────────────────────────────────────────────────
 
-  activate(itemId: string): Result<void, string> {
+  activate(itemId: string, skipAnimation = false): Result<void, string> {
     if (this.isTransitionLocked()) return { success: false, error: "Transition in progress" };
 
     const item = this.library.find((item) => item.id === itemId);
@@ -149,20 +153,32 @@ export class LowerThirdService {
       this.cancelAutoDismiss();
       const previous = this.active;
       this.active = { ...item, used: true };
+      if (this.active.pages) this.active.pages = { ...this.active.pages, currentPage: 1 };
       this.markUsed(itemId);
-      this.phase = "showing";
-      this.startFallbackTimer();
+      if (skipAnimation) {
+        this.phase = "visible";
+        this.sendToOverlay?.("sto:lower-third:show", { item: this.active, skipEntrance: true });
+      } else {
+        this.phase = "showing";
+        this.startFallbackTimer();
+        this.sendToOverlay?.("sto:lower-third:push-up", { item: this.active });
+      }
       this.startAutoDismissIfNeeded();
-      this.sendToOverlay?.("sto:lower-third:push-up", { item: this.active });
       this.returnToLibrary(previous);
     } else {
       // Fresh show
       this.active = { ...item, used: true };
+      if (this.active.pages) this.active.pages = { ...this.active.pages, currentPage: 1 };
       this.markUsed(itemId);
-      this.phase = "showing";
-      this.startFallbackTimer();
+      if (skipAnimation) {
+        this.phase = "visible";
+        this.sendToOverlay?.("sto:lower-third:show", { item: this.active, skipEntrance: true });
+      } else {
+        this.phase = "showing";
+        this.startFallbackTimer();
+        this.sendToOverlay?.("sto:lower-third:show", { item: this.active });
+      }
       this.startAutoDismissIfNeeded();
-      this.sendToOverlay?.("sto:lower-third:show", { item: this.active });
     }
 
     this.emitState();

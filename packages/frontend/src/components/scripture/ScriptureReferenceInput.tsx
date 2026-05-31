@@ -36,6 +36,7 @@ interface ScriptureReferenceInputProps {
   onChapterChange: (chapter: number | null) => void;
   onVerseChange: (verse: number | null) => void;
   onVerseEndChange: (verseEnd: number | null) => void;
+  autoFocus?: boolean;
 }
 
 const OLD_TESTAMENT_IDS = Array.from({ length: 39 }, (_, i) => i + 1);
@@ -76,6 +77,7 @@ export function ScriptureReferenceInput({
   onChapterChange,
   onVerseChange,
   onVerseEndChange,
+  autoFocus,
 }: ScriptureReferenceInputProps): ReactNode {
   const chapterOptions = useMemo(() => buildChapterOptions(bookId), [bookId]);
   const verseOptions = useMemo(() => buildVerseOptions(bookId, chapter), [bookId, chapter]);
@@ -153,6 +155,7 @@ export function ScriptureReferenceInput({
           placeholder="Book"
           isClearable
           isSearchable
+          autoFocus={autoFocus}
           styles={bookStyles}
           menuPortalTarget={document.body}
         />
