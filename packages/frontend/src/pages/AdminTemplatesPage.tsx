@@ -17,6 +17,8 @@ import {
   TEST_ID_TEMPLATE_FORM_ERROR,
   TEST_ID_TEMPLATE_VALIDATION_BLOCKERS,
   TEST_ID_TEMPLATE_VALIDATION_WARNINGS,
+  TEST_ID_TEMPLATE_FORM_AUTO_DISMISS,
+  TEST_ID_TEMPLATE_FORM_DELETE,
 } from "../constants/testIds";
 import type { Role } from "../types";
 
@@ -488,6 +490,7 @@ export function AdminTemplatesPage(): ReactNode {
                           }}
                         />
                         <IonInput
+                          data-testid={TEST_ID_TEMPLATE_FORM_AUTO_DISMISS}
                           type="number"
                           fill="outline"
                           value={autoDismissSeconds}
@@ -539,7 +542,12 @@ export function AdminTemplatesPage(): ReactNode {
                     </IonButton>
                   )}
                   {panel.mode === "edit" && (
-                    <IonButton fill="outline" color="danger" onClick={() => selectedTemplate && setDeleteTarget(selectedTemplate)}>
+                    <IonButton
+                      data-testid={TEST_ID_TEMPLATE_FORM_DELETE}
+                      fill="outline"
+                      color="danger"
+                      onClick={() => selectedTemplate && setDeleteTarget(selectedTemplate)}
+                    >
                       Delete
                     </IonButton>
                   )}

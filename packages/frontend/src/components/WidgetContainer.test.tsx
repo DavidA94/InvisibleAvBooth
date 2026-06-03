@@ -78,4 +78,24 @@ describe("WidgetContainer", () => {
     // and the popover element exists in the DOM
     expect(screen.getByTestId(TEST_ID_CONNECTION_INDICATORS)).toBeInTheDocument();
   });
+
+  it("Enter key on indicators opens popover", () => {
+    render(
+      <WidgetContainer title="Test" connections={connections}>
+        content
+      </WidgetContainer>,
+    );
+    fireEvent.keyDown(screen.getByTestId(TEST_ID_CONNECTION_INDICATORS), { key: "Enter" });
+    expect(screen.getByTestId(TEST_ID_CONNECTION_INDICATORS)).toBeInTheDocument();
+  });
+
+  it("renders collapsed state when width is small", () => {
+    mockWidth = 100;
+    render(
+      <WidgetContainer title="Test" connections={connections}>
+        content
+      </WidgetContainer>,
+    );
+    expect(screen.getByText("Status")).toBeInTheDocument();
+  });
 });

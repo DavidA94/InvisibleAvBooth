@@ -412,7 +412,7 @@ test.describe("SwipeableRow — touch swipe", () => {
     await goLiveBtn.click({ force: true });
 
     await page.waitForTimeout(100);
-    expect(socket.lastCommand()).toEqual({ type: "activate", itemId: "item-2" });
+    expect(socket.lastCommand()).toEqual({ type: "activate", itemId: "item-2", skipAnimation: true });
   });
 });
 

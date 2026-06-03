@@ -86,6 +86,72 @@ describe("LowerThirdModule", () => {
       expect(ack).toHaveBeenCalledWith({ success: true });
     });
 
+    it("handles dismiss-active command", () => {
+      const socket = { on: vi.fn() };
+      const auth = { socket, jwtPayload: { sub: "u1", username: "admin", role: "ADMIN", iat: 0, exp: 9999999999 } };
+      module.registerSocket(auth as never);
+      const handler = socket.on.mock.calls.find((c) => c[0] === CTS_LOWER_THIRD_COMMAND)?.[1] as (cmd: unknown, ack: (r: unknown) => void) => void;
+      const ack = vi.fn();
+      handler({ type: "dismiss-active" }, ack);
+      expect(mockService.dismissActive).toHaveBeenCalled();
+      expect(ack).toHaveBeenCalledWith({ success: true });
+    });
+
+    it("handles add-to-library command", () => {
+      const socket = { on: vi.fn() };
+      const auth = { socket, jwtPayload: { sub: "u1", username: "admin", role: "ADMIN", iat: 0, exp: 9999999999 } };
+      module.registerSocket(auth as never);
+      const handler = socket.on.mock.calls.find((c) => c[0] === CTS_LOWER_THIRD_COMMAND)?.[1] as (cmd: unknown, ack: (r: unknown) => void) => void;
+      const ack = vi.fn();
+      handler({ type: "add-to-library", input: { type: "Title", content: { title: "X" } } }, ack);
+      expect(mockService.addToLibrary).toHaveBeenCalled();
+      expect(ack).toHaveBeenCalledWith({ success: true, itemId: "new" });
+    });
+
+    it("handles remove-from-library command", () => {
+      const socket = { on: vi.fn() };
+      const auth = { socket, jwtPayload: { sub: "u1", username: "admin", role: "ADMIN", iat: 0, exp: 9999999999 } };
+      module.registerSocket(auth as never);
+      const handler = socket.on.mock.calls.find((c) => c[0] === CTS_LOWER_THIRD_COMMAND)?.[1] as (cmd: unknown, ack: (r: unknown) => void) => void;
+      const ack = vi.fn();
+      handler({ type: "remove-from-library", itemId: "x" }, ack);
+      expect(mockService.removeFromLibrary).toHaveBeenCalledWith("x");
+      expect(ack).toHaveBeenCalledWith({ success: true });
+    });
+
+    it("handles edit-library-item command", () => {
+      const socket = { on: vi.fn() };
+      const auth = { socket, jwtPayload: { sub: "u1", username: "admin", role: "ADMIN", iat: 0, exp: 9999999999 } };
+      module.registerSocket(auth as never);
+      const handler = socket.on.mock.calls.find((c) => c[0] === CTS_LOWER_THIRD_COMMAND)?.[1] as (cmd: unknown, ack: (r: unknown) => void) => void;
+      const ack = vi.fn();
+      handler({ type: "edit-library-item", itemId: "x", patch: { content: { title: "Y" } } }, ack);
+      expect(mockService.editLibraryItem).toHaveBeenCalledWith("x", { content: { title: "Y" } });
+      expect(ack).toHaveBeenCalledWith({ success: true });
+    });
+
+    it("handles page-next command", () => {
+      const socket = { on: vi.fn() };
+      const auth = { socket, jwtPayload: { sub: "u1", username: "admin", role: "ADMIN", iat: 0, exp: 9999999999 } };
+      module.registerSocket(auth as never);
+      const handler = socket.on.mock.calls.find((c) => c[0] === CTS_LOWER_THIRD_COMMAND)?.[1] as (cmd: unknown, ack: (r: unknown) => void) => void;
+      const ack = vi.fn();
+      handler({ type: "page-next" }, ack);
+      expect(mockService.pageNext).toHaveBeenCalled();
+      expect(ack).toHaveBeenCalledWith({ success: true });
+    });
+
+    it("handles page-previous command", () => {
+      const socket = { on: vi.fn() };
+      const auth = { socket, jwtPayload: { sub: "u1", username: "admin", role: "ADMIN", iat: 0, exp: 9999999999 } };
+      module.registerSocket(auth as never);
+      const handler = socket.on.mock.calls.find((c) => c[0] === CTS_LOWER_THIRD_COMMAND)?.[1] as (cmd: unknown, ack: (r: unknown) => void) => void;
+      const ack = vi.fn();
+      handler({ type: "page-previous" }, ack);
+      expect(mockService.pagePrevious).toHaveBeenCalled();
+      expect(ack).toHaveBeenCalledWith({ success: true });
+    });
+
     it("returns error on failed command", () => {
       mockService.activate.mockReturnValueOnce({ success: false, error: "Transition in progress" });
       const socket = { on: vi.fn() };
@@ -97,6 +163,39 @@ describe("LowerThirdModule", () => {
       handler({ type: "activate", itemId: "x" }, ack);
 
       expect(ack).toHaveBeenCalledWith({ success: false, error: "Transition in progress" });
+    });
+
+    it("returns error on failed dismiss", () => {
+      mockService.dismissActive.mockReturnValueOnce({ success: false, error: "Nothing active" });
+      const socket = { on: vi.fn() };
+      const auth = { socket, jwtPayload: { sub: "u1", username: "admin", role: "ADMIN", iat: 0, exp: 9999999999 } };
+      module.registerSocket(auth as never);
+      const handler = socket.on.mock.calls.find((c) => c[0] === CTS_LOWER_THIRD_COMMAND)?.[1] as (cmd: unknown, ack: (r: unknown) => void) => void;
+      const ack = vi.fn();
+      handler({ type: "dismiss-active" }, ack);
+      expect(ack).toHaveBeenCalledWith({ success: false, error: "Nothing active" });
+    });
+
+    it("returns error on failed add-to-library", () => {
+      mockService.addToLibrary.mockReturnValueOnce({ success: false, error: "Scripture not found" } as never);
+      const socket = { on: vi.fn() };
+      const auth = { socket, jwtPayload: { sub: "u1", username: "admin", role: "ADMIN", iat: 0, exp: 9999999999 } };
+      module.registerSocket(auth as never);
+      const handler = socket.on.mock.calls.find((c) => c[0] === CTS_LOWER_THIRD_COMMAND)?.[1] as (cmd: unknown, ack: (r: unknown) => void) => void;
+      const ack = vi.fn();
+      handler({ type: "add-to-library", input: { type: "Title", content: { title: "X" } } }, ack);
+      expect(ack).toHaveBeenCalledWith({ success: false, error: "Scripture not found" });
+    });
+
+    it("returns error on failed page-next", () => {
+      mockService.pageNext.mockReturnValueOnce({ success: false, error: "Already on last page" } as never);
+      const socket = { on: vi.fn() };
+      const auth = { socket, jwtPayload: { sub: "u1", username: "admin", role: "ADMIN", iat: 0, exp: 9999999999 } };
+      module.registerSocket(auth as never);
+      const handler = socket.on.mock.calls.find((c) => c[0] === CTS_LOWER_THIRD_COMMAND)?.[1] as (cmd: unknown, ack: (r: unknown) => void) => void;
+      const ack = vi.fn();
+      handler({ type: "page-next" }, ack);
+      expect(ack).toHaveBeenCalledWith({ success: false, error: "Already on last page" });
     });
   });
 

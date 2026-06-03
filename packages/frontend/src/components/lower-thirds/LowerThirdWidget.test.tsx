@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
+import "../../test/ionicMocks";
 import { LowerThirdWidget } from "./LowerThirdWidget";
 import { LowerThirdRow } from "./LowerThirdRow";
 import { ActiveCountdown } from "./ActiveCountdown";
@@ -16,6 +17,10 @@ vi.mock("../../providers/SocketProvider", () => ({
 
 vi.mock("../../hooks/useResizeObserver", () => ({
   useResizeObserver: () => 300,
+}));
+
+vi.mock("../scripture/ScriptureReferenceInput", () => ({
+  ScriptureReferenceInput: () => <div data-testid="scripture-input" />,
 }));
 
 const titleItem: LowerThirdItem = {
@@ -139,6 +144,62 @@ describe("LowerThirdRow", () => {
     render(<LowerThirdRow item={titleItem} section="library" isActive={true} transitionLocked={false} />);
     expect(screen.getByText("Active")).toBeInTheDocument();
   });
+
+  it("displays formattedReference as title for Scripture items", () => {
+    render(<LowerThirdRow item={scriptureItem} section="library" isActive={false} transitionLocked={false} />);
+    expect(screen.getByText("Genesis 1:1-3")).toBeInTheDocument();
+  });
+
+  it("shows Scripture subtitle with page count", () => {
+    render(<LowerThirdRow item={scriptureItem} section="library" isActive={false} transitionLocked={false} />);
+    expect(screen.getByText("Scripture · 2 pages")).toBeInTheDocument();
+  });
+
+  it("shows Scripture · Pending when pages is null", () => {
+    const noPagesItem = { ...scriptureItem, pages: null };
+    render(<LowerThirdRow item={noPagesItem} section="library" isActive={false} transitionLocked={false} />);
+    expect(screen.getByText("Scripture · Pending")).toBeInTheDocument();
+  });
+
+  it("shows Title + Subtitle subtitle for TitleSubtitle items", () => {
+    const tsItem: LowerThirdItem = { ...titleItem, type: "TitleSubtitle", content: { title: "Name", subtitle: "Role" } };
+    render(<LowerThirdRow item={tsItem} section="library" isActive={false} transitionLocked={false} />);
+    expect(screen.getByText("Title + Subtitle")).toBeInTheDocument();
+  });
+
+  it("renders Force Clear button in active section", () => {
+    const onForceClear = vi.fn();
+    render(<LowerThirdRow item={titleItem} section="active" isActive={true} transitionLocked={false} onDismiss={vi.fn()} onForceClear={onForceClear} />);
+    const forceClearBtn = screen.getByLabelText("Force Clear");
+    fireEvent.click(forceClearBtn);
+    expect(onForceClear).toHaveBeenCalled();
+  });
+
+  it("renders Go Live button for template items in library", () => {
+    const onActivateImmediate = vi.fn();
+    render(<LowerThirdRow item={templateItem} section="library" isActive={false} transitionLocked={false} onActivateImmediate={onActivateImmediate} />);
+    const goLiveButtons = screen.getAllByLabelText("Go Live");
+    fireEvent.click(goLiveButtons[0]!);
+    expect(onActivateImmediate).toHaveBeenCalledWith("item-2");
+  });
+
+  it("renders Show button for library non-active items", () => {
+    const onActivate = vi.fn();
+    render(<LowerThirdRow item={titleItem} section="library" isActive={false} transitionLocked={false} onActivate={onActivate} />);
+    const showBtn = screen.getByTestId("lt-show-button");
+    fireEvent.click(showBtn);
+    expect(onActivate).toHaveBeenCalledWith("item-1");
+  });
+
+  it("renders Edit and Delete buttons for volunteer items in library", () => {
+    const onEdit = vi.fn();
+    const onRemove = vi.fn();
+    render(<LowerThirdRow item={titleItem} section="library" isActive={false} transitionLocked={false} onEdit={onEdit} onRemove={onRemove} />);
+    fireEvent.click(screen.getByLabelText("Edit"));
+    expect(onEdit).toHaveBeenCalledWith(titleItem);
+    fireEvent.click(screen.getByLabelText("Delete"));
+    expect(onRemove).toHaveBeenCalledWith("item-1");
+  });
 });
 
 describe("ActiveCountdown", () => {
@@ -177,5 +238,424 @@ describe("PreviewDialog", () => {
     render(<PreviewDialog item={titleItem} transitionLocked={false} onGoLive={onGoLive} onCancel={vi.fn()} />);
     fireEvent.click(screen.getByTestId("lt-preview-go-live"));
     expect(onGoLive).toHaveBeenCalled();
+  });
+
+  it("renders TitleSubtitle content with title and subtitle", () => {
+    const item: LowerThirdItem = { ...titleItem, type: "TitleSubtitle", content: { title: "Name", subtitle: "Role" } };
+    render(<PreviewDialog item={item} transitionLocked={false} onGoLive={vi.fn()} onCancel={vi.fn()} />);
+    expect(screen.getByText("Name")).toBeInTheDocument();
+    expect(screen.getByText("Role")).toBeInTheDocument();
+  });
+
+  it("renders Scripture content with reference and verses", () => {
+    const item: LowerThirdItem = {
+      ...titleItem,
+      type: "Scripture",
+      content: {
+        reference: { bookId: 1, chapter: 1, verse: 1 },
+        formattedReference: "Genesis 1:1",
+        verses: [{ verseNumber: 1, text: "In the beginning" }],
+      },
+      pages: null,
+    };
+    render(<PreviewDialog item={item} transitionLocked={false} onGoLive={vi.fn()} onCancel={vi.fn()} />);
+    expect(screen.getByText("Genesis 1:1")).toBeInTheDocument();
+    expect(screen.getByText(/In the beginning/)).toBeInTheDocument();
+  });
+
+  it("renders Scripture with empty verses (no verse block)", () => {
+    const item: LowerThirdItem = {
+      ...titleItem,
+      type: "Scripture",
+      content: { reference: { bookId: 1, chapter: 1, verse: 1 }, formattedReference: "Genesis 1:1", verses: [] },
+      pages: null,
+    };
+    render(<PreviewDialog item={item} transitionLocked={false} onGoLive={vi.fn()} onCancel={vi.fn()} />);
+    expect(screen.getByText("Genesis 1:1")).toBeInTheDocument();
+  });
+
+  it("renders Scripture verse without number when verseNumber is 0", () => {
+    const item: LowerThirdItem = {
+      ...titleItem,
+      type: "Scripture",
+      content: {
+        reference: { bookId: 1, chapter: 1, verse: 1 },
+        formattedReference: "Genesis 1:1",
+        verses: [{ verseNumber: 0, text: "Some text" }],
+      },
+      pages: null,
+    };
+    const { container } = render(<PreviewDialog item={item} transitionLocked={false} onGoLive={vi.fn()} onCancel={vi.fn()} />);
+    expect(container.querySelector(".lt-preview-verse-num")).not.toBeInTheDocument();
+  });
+
+  it("shows pagination info when item has multiple pages", () => {
+    render(<PreviewDialog item={scriptureItem} transitionLocked={false} onGoLive={vi.fn()} onCancel={vi.fn()} />);
+    expect(screen.getByText("2 pages")).toBeInTheDocument();
+  });
+});
+
+describe("LowerThirdWidget — Add dropdown flow", () => {
+  it("opens dropdown when Add button is clicked", () => {
+    setState({ library: [] });
+    render(<LowerThirdWidget />);
+    fireEvent.click(screen.getByText("Add"));
+    expect(screen.getByText("Title")).toBeInTheDocument();
+    expect(screen.getByText("Title + Subtitle")).toBeInTheDocument();
+    expect(screen.getByText("Scripture")).toBeInTheDocument();
+  });
+
+  it("opens AddLowerThirdDialog for Title type", () => {
+    setState({ library: [] });
+    render(<LowerThirdWidget />);
+    fireEvent.click(screen.getByText("Add"));
+    fireEvent.click(screen.getByText("Title"));
+    expect(screen.getByTestId("lt-add-dialog")).toBeInTheDocument();
+  });
+
+  it("opens AddLowerThirdDialog for TitleSubtitle type", () => {
+    setState({ library: [] });
+    render(<LowerThirdWidget />);
+    fireEvent.click(screen.getByText("Add"));
+    fireEvent.click(screen.getByText("Title + Subtitle"));
+    expect(screen.getByTestId("lt-add-dialog")).toBeInTheDocument();
+  });
+
+  it("opens AddLowerThirdDialog for Scripture type", () => {
+    setState({ library: [] });
+    render(<LowerThirdWidget />);
+    fireEvent.click(screen.getByText("Add"));
+    fireEvent.click(screen.getByText("Scripture"));
+    expect(screen.getByTestId("lt-add-dialog")).toBeInTheDocument();
+  });
+});
+
+describe("LowerThirdWidget — Edit flow", () => {
+  it("opens EditLowerThirdDialog when edit is triggered on volunteer item", () => {
+    setState({ library: [titleItem] });
+    render(<LowerThirdWidget />);
+    // The edit button is in swipe actions — find it by aria-label
+    const editButton = screen.getByLabelText("Edit");
+    fireEvent.click(editButton);
+    expect(screen.getByTestId("lt-edit-dialog")).toBeInTheDocument();
+  });
+});
+
+describe("LowerThirdWidget — handleAddGoLive", () => {
+  it("calls sendCommand with activate after successful add-to-library", async () => {
+    mockEmit.mockImplementation((_event: string, command: Record<string, unknown>, callback: (r: unknown) => void) => {
+      if (command.type === "add-to-library") {
+        callback({ success: true, itemId: "new-item-1" });
+      } else {
+        callback({ success: true });
+      }
+    });
+    setState({ library: [] });
+    render(<LowerThirdWidget />);
+    fireEvent.click(screen.getByText("Add"));
+    fireEvent.click(screen.getByText("Title"));
+    // Fill in the title — AddLowerThirdDialog renders IonInput which is mocked as <input>
+    fireEvent.change(screen.getByTestId("lt-add-title-input"), { target: { value: "Live Speaker" } });
+    fireEvent.click(screen.getByText("Go Live"));
+    // Wait for the promise chain
+    await vi.waitFor(() => {
+      expect(mockEmit).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ type: "activate", itemId: "new-item-1" }), expect.any(Function));
+    });
+  });
+});
+
+describe("LowerThirdWidget — Pagination controls", () => {
+  it("renders PaginationControls when active item has multiple pages", () => {
+    setState({ active: scriptureItem, phase: "visible" });
+    render(<LowerThirdWidget />);
+    expect(screen.getByTestId("lt-page-info")).toBeInTheDocument();
+  });
+});
+
+describe("LowerThirdWidget — deriveOverlayStatus branches", () => {
+  it("shows overlay status as inactive when no templates in library", () => {
+    setState({ library: [titleItem], overlayConnected: true, overlayResolutionCorrect: true });
+    render(<LowerThirdWidget />);
+    // No template items → inactive
+    const indicators = screen.getByTestId("connection-indicators");
+    expect(indicators.querySelector("[data-status='inactive']")).toBeInTheDocument();
+  });
+
+  it("shows overlay status as unhealthy when overlay disconnected with templates present", () => {
+    setState({ library: [templateItem], overlayConnected: false, overlayResolutionCorrect: true });
+    render(<LowerThirdWidget />);
+    const indicators = screen.getByTestId("connection-indicators");
+    expect(indicators.querySelector("[data-status='unhealthy']")).toBeInTheDocument();
+  });
+
+  it("shows overlay status as degraded when connected but resolution incorrect", () => {
+    setState({ library: [templateItem], overlayConnected: true, overlayResolutionCorrect: false });
+    render(<LowerThirdWidget />);
+    const indicators = screen.getByTestId("connection-indicators");
+    expect(indicators.querySelector("[data-status='degraded']")).toBeInTheDocument();
+  });
+
+  it("shows overlay status as healthy when connected with correct resolution and templates present", () => {
+    setState({ library: [templateItem], overlayConnected: true, overlayResolutionCorrect: true });
+    render(<LowerThirdWidget />);
+    const indicators = screen.getByTestId("connection-indicators");
+    expect(indicators.querySelector("[data-status='healthy']")).toBeInTheDocument();
+  });
+});
+
+describe("LowerThirdWidget — dismiss and force-clear commands", () => {
+  it("sends dismiss-active command when dismiss button is clicked on active item", () => {
+    mockEmit.mockImplementation((_event: string, _command: unknown, callback: (r: unknown) => void) => {
+      callback({ success: true });
+    });
+    setState({ active: titleItem, phase: "visible", transitionLocked: false });
+    render(<LowerThirdWidget />);
+    fireEvent.click(screen.getByTestId("lt-dismiss-button"));
+    expect(mockEmit).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ type: "dismiss-active" }), expect.any(Function));
+  });
+
+  it("sends force-clear command when force-clear button is clicked on active item", () => {
+    mockEmit.mockImplementation((_event: string, _command: unknown, callback: (r: unknown) => void) => {
+      callback({ success: true });
+    });
+    setState({ active: titleItem, phase: "visible", transitionLocked: false });
+    render(<LowerThirdWidget />);
+    fireEvent.click(screen.getByLabelText("Force Clear"));
+    expect(mockEmit).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ type: "force-clear" }), expect.any(Function));
+  });
+});
+
+describe("LowerThirdWidget — library item actions", () => {
+  it("sends activate command when Show button is clicked on library item", () => {
+    mockEmit.mockImplementation((_event: string, _command: unknown, callback: (r: unknown) => void) => {
+      callback({ success: true });
+    });
+    setState({ library: [titleItem] });
+    render(<LowerThirdWidget />);
+    fireEvent.click(screen.getByTestId("lt-show-button"));
+    expect(mockEmit).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ type: "activate", itemId: "item-1" }), expect.any(Function));
+  });
+
+  it("sends activate with skipAnimation when Go Live is clicked on template item", () => {
+    mockEmit.mockImplementation((_event: string, _command: unknown, callback: (r: unknown) => void) => {
+      callback({ success: true });
+    });
+    setState({ library: [templateItem] });
+    render(<LowerThirdWidget />);
+    const goLiveButtons = screen.getAllByLabelText("Go Live");
+    fireEvent.click(goLiveButtons[0]!);
+    expect(mockEmit).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ type: "activate", itemId: "item-2", skipAnimation: true }),
+      expect.any(Function),
+    );
+  });
+
+  it("sends remove-from-library command when Delete is clicked on volunteer item", () => {
+    mockEmit.mockImplementation((_event: string, _command: unknown, callback: (r: unknown) => void) => {
+      callback({ success: true });
+    });
+    setState({ library: [titleItem] });
+    render(<LowerThirdWidget />);
+    fireEvent.click(screen.getByLabelText("Delete"));
+    expect(mockEmit).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ type: "remove-from-library", itemId: "item-1" }), expect.any(Function));
+  });
+});
+
+describe("LowerThirdWidget — pagination commands", () => {
+  it("sends page-next command when Next page button is clicked", () => {
+    mockEmit.mockImplementation((_event: string, _command: unknown, callback: (r: unknown) => void) => {
+      callback({ success: true });
+    });
+    setState({ active: scriptureItem, phase: "visible", transitionLocked: false });
+    render(<LowerThirdWidget />);
+    fireEvent.click(screen.getByLabelText("Next page"));
+    expect(mockEmit).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ type: "page-next" }), expect.any(Function));
+  });
+
+  it("does not render PaginationControls when active item has single page", () => {
+    const singlePageItem: LowerThirdItem = {
+      ...scriptureItem,
+      pages: { totalPages: 1, currentPage: 1, pages: [{ pageNumber: 1, startVerse: 1, endVerse: 3 }], useWideWidth: false },
+    };
+    setState({ active: singlePageItem, phase: "visible" });
+    render(<LowerThirdWidget />);
+    expect(screen.queryByTestId("lt-page-info")).not.toBeInTheDocument();
+  });
+
+  it("does not render PaginationControls when active item has no pages", () => {
+    const noPagesItem: LowerThirdItem = { ...scriptureItem, pages: null };
+    setState({ active: noPagesItem, phase: "visible" });
+    render(<LowerThirdWidget />);
+    expect(screen.queryByTestId("lt-page-info")).not.toBeInTheDocument();
+  });
+});
+
+describe("LowerThirdWidget — handleAddSave (Save without Go Live)", () => {
+  it("sends add-to-library command without subsequent activate when Save is clicked", () => {
+    mockEmit.mockImplementation((_event: string, _command: unknown, callback: (r: unknown) => void) => {
+      callback({ success: true, itemId: "new-item-2" });
+    });
+    setState({ library: [] });
+    render(<LowerThirdWidget />);
+    fireEvent.click(screen.getByText("Add"));
+    fireEvent.click(screen.getByText("Title"));
+    fireEvent.change(screen.getByTestId("lt-add-title-input"), { target: { value: "Saved Speaker" } });
+    fireEvent.click(screen.getByTestId("lt-add-save"));
+    expect(mockEmit).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ type: "add-to-library" }), expect.any(Function));
+    // Should NOT call activate after save
+    expect(mockEmit).not.toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ type: "activate" }), expect.any(Function));
+  });
+
+  it("closes add dialog after save", () => {
+    mockEmit.mockImplementation((_event: string, _command: unknown, callback: (r: unknown) => void) => {
+      callback({ success: true, itemId: "new-item-2" });
+    });
+    setState({ library: [] });
+    render(<LowerThirdWidget />);
+    fireEvent.click(screen.getByText("Add"));
+    fireEvent.click(screen.getByText("Title"));
+    fireEvent.change(screen.getByTestId("lt-add-title-input"), { target: { value: "Saved Speaker" } });
+    fireEvent.click(screen.getByTestId("lt-add-save"));
+    expect(screen.queryByTestId("lt-add-dialog")).not.toBeInTheDocument();
+  });
+});
+
+describe("LowerThirdWidget — handleAddGoLive failure", () => {
+  it("does not send activate when add-to-library returns success: false", async () => {
+    mockEmit.mockImplementation((_event: string, command: Record<string, unknown>, callback: (r: unknown) => void) => {
+      if (command.type === "add-to-library") {
+        callback({ success: false, error: "Something went wrong" });
+      } else {
+        callback({ success: true });
+      }
+    });
+    setState({ library: [] });
+    render(<LowerThirdWidget />);
+    fireEvent.click(screen.getByText("Add"));
+    fireEvent.click(screen.getByText("Title"));
+    fireEvent.change(screen.getByTestId("lt-add-title-input"), { target: { value: "Failed Speaker" } });
+    fireEvent.click(screen.getByText("Go Live"));
+    // Wait for promise to settle
+    await vi.waitFor(() => {
+      expect(mockEmit).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ type: "add-to-library" }), expect.any(Function));
+    });
+    // activate should NOT have been called
+    expect(mockEmit).not.toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ type: "activate" }), expect.any(Function));
+  });
+});
+
+describe("LowerThirdWidget — handleEditSave", () => {
+  it("sends edit-library-item command and closes dialog", () => {
+    mockEmit.mockImplementation((_event: string, _command: unknown, callback: (r: unknown) => void) => {
+      callback({ success: true });
+    });
+    setState({ library: [titleItem] });
+    render(<LowerThirdWidget />);
+    fireEvent.click(screen.getByLabelText("Edit"));
+    expect(screen.getByTestId("lt-edit-dialog")).toBeInTheDocument();
+    // Change title
+    fireEvent.change(screen.getByTestId("lt-edit-title-input"), { target: { value: "Updated Name" } });
+    fireEvent.click(screen.getByTestId("lt-edit-save"));
+    expect(mockEmit).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ type: "edit-library-item", itemId: "item-1" }), expect.any(Function));
+    // Dialog should close
+    expect(screen.queryByTestId("lt-edit-dialog")).not.toBeInTheDocument();
+  });
+});
+
+describe("LowerThirdWidget — Add dropdown toggle", () => {
+  it("closes dropdown when Add button is clicked again", () => {
+    setState({ library: [] });
+    render(<LowerThirdWidget />);
+    fireEvent.click(screen.getByText("Add"));
+    expect(screen.getByText("Scripture")).toBeInTheDocument();
+    fireEvent.click(screen.getByText("Add"));
+    expect(screen.queryByText("Scripture")).not.toBeInTheDocument();
+  });
+});
+
+describe("LowerThirdWidget — cancel dialogs", () => {
+  it("closes add dialog when cancel is clicked", () => {
+    setState({ library: [] });
+    render(<LowerThirdWidget />);
+    fireEvent.click(screen.getByText("Add"));
+    fireEvent.click(screen.getByText("Title"));
+    expect(screen.getByTestId("lt-add-dialog")).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("lt-add-cancel"));
+    expect(screen.queryByTestId("lt-add-dialog")).not.toBeInTheDocument();
+  });
+
+  it("closes edit dialog when cancel is clicked", () => {
+    setState({ library: [titleItem] });
+    render(<LowerThirdWidget />);
+    fireEvent.click(screen.getByLabelText("Edit"));
+    expect(screen.getByTestId("lt-edit-dialog")).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("lt-edit-cancel"));
+    expect(screen.queryByTestId("lt-edit-dialog")).not.toBeInTheDocument();
+  });
+});
+
+describe("LowerThirdWidget — socket disconnected", () => {
+  it("resolves with error when socket is null", async () => {
+    // Override the useSocket mock to return null
+    const socketMock = await import("../../providers/SocketProvider");
+    const useSocketSpy = vi.spyOn(socketMock, "useSocket").mockReturnValue(null);
+
+    setState({ active: titleItem, phase: "visible", transitionLocked: false });
+    render(<LowerThirdWidget />);
+    // Clicking dismiss should not throw — it just resolves with failure
+    fireEvent.click(screen.getByTestId("lt-dismiss-button"));
+    expect(mockEmit).not.toHaveBeenCalled();
+
+    useSocketSpy.mockRestore();
+  });
+});
+
+describe("LowerThirdWidget — library sorting", () => {
+  it("sorts templates alphabetically by templateName", () => {
+    const templateA: LowerThirdItem = { ...templateItem, id: "tmpl-a", templateName: "Alpha" };
+    const templateZ: LowerThirdItem = { ...templateItem, id: "tmpl-z", templateName: "Zulu" };
+    setState({ library: [templateZ, templateA] });
+    render(<LowerThirdWidget />);
+    const rows = screen.getAllByTestId(/lt-row-/);
+    expect(rows[0]).toHaveAttribute("data-testid", "lt-row-tmpl-a");
+    expect(rows[1]).toHaveAttribute("data-testid", "lt-row-tmpl-z");
+  });
+
+  it("sorts volunteer items by createdAt ascending", () => {
+    const older: LowerThirdItem = { ...titleItem, id: "vol-old", createdAt: "2026-01-01T00:00:00Z" };
+    const newer: LowerThirdItem = { ...titleItem, id: "vol-new", createdAt: "2026-01-02T00:00:00Z" };
+    setState({ library: [newer, older] });
+    render(<LowerThirdWidget />);
+    const rows = screen.getAllByTestId(/lt-row-/);
+    expect(rows[0]).toHaveAttribute("data-testid", "lt-row-vol-old");
+    expect(rows[1]).toHaveAttribute("data-testid", "lt-row-vol-new");
+  });
+
+  it("renders templates before volunteer items regardless of createdAt", () => {
+    const volunteerOld: LowerThirdItem = { ...titleItem, id: "vol-1", createdAt: "2020-01-01T00:00:00Z" };
+    const templateNew: LowerThirdItem = { ...templateItem, id: "tmpl-1", createdAt: "2026-12-01T00:00:00Z" };
+    setState({ library: [volunteerOld, templateNew] });
+    render(<LowerThirdWidget />);
+    const rows = screen.getAllByTestId(/lt-row-/);
+    expect(rows[0]).toHaveAttribute("data-testid", "lt-row-tmpl-1");
+    expect(rows[1]).toHaveAttribute("data-testid", "lt-row-vol-1");
+  });
+});
+
+describe("LowerThirdWidget — active item in library shows badge", () => {
+  it("marks library item as active when it matches the active item", () => {
+    setState({ active: titleItem, library: [titleItem], phase: "visible" });
+    render(<LowerThirdWidget />);
+    const librarySection = screen.getByTestId("lt-library-section");
+    expect(librarySection.querySelector(".lt-badge")).toBeInTheDocument();
+  });
+});
+
+describe("LowerThirdWidget — transitionLocked disables controls", () => {
+  it("disables Show button on library items when transition is locked", () => {
+    setState({ library: [titleItem], transitionLocked: true });
+    render(<LowerThirdWidget />);
+    expect(screen.getByTestId("lt-show-button")).toBeDisabled();
   });
 });

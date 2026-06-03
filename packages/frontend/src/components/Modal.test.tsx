@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { Modal } from "./Modal";
 import { TEST_ID_MODAL_BACKDROP, TEST_ID_MODAL_CONTAINER, TEST_ID_MODAL_HEADER, TEST_ID_MODAL_BODY, TEST_ID_MODAL_FOOTER } from "../constants/testIds";
@@ -112,5 +112,79 @@ describe("Modal", () => {
       </Modal>,
     );
     expect(screen.queryByTestId(TEST_ID_MODAL_FOOTER)).not.toBeInTheDocument();
+  });
+
+  describe("visualViewport resize handling", () => {
+    let originalVisualViewport: VisualViewport | null;
+    let fakeViewport: { addEventListener: ReturnType<typeof vi.fn>; removeEventListener: ReturnType<typeof vi.fn> };
+
+    beforeEach(() => {
+      originalVisualViewport = window.visualViewport;
+      fakeViewport = { addEventListener: vi.fn(), removeEventListener: vi.fn() };
+      Object.defineProperty(window, "visualViewport", { value: fakeViewport, writable: true, configurable: true });
+    });
+
+    afterEach(() => {
+      Object.defineProperty(window, "visualViewport", { value: originalVisualViewport, writable: true, configurable: true });
+    });
+
+    it("registers resize listener on visualViewport when open", () => {
+      render(<Modal isOpen={true} onClose={vi.fn()} header="H" />);
+      expect(fakeViewport.addEventListener).toHaveBeenCalledWith("resize", expect.any(Function));
+    });
+
+    it("does not register resize listener when closed", () => {
+      render(<Modal isOpen={false} onClose={vi.fn()} header="H" />);
+      expect(fakeViewport.addEventListener).not.toHaveBeenCalled();
+    });
+
+    it("removes resize listener on unmount", () => {
+      const { unmount } = render(<Modal isOpen={true} onClose={vi.fn()} header="H" />);
+      unmount();
+      expect(fakeViewport.removeEventListener).toHaveBeenCalledWith("resize", expect.any(Function));
+    });
+
+    it("scrolls active INPUT into view on resize", () => {
+      render(<Modal isOpen={true} onClose={vi.fn()} header="H" />);
+      const input = document.createElement("input");
+      input.scrollIntoView = vi.fn();
+      document.body.appendChild(input);
+      input.focus();
+
+      const resizeHandler = fakeViewport.addEventListener.mock.calls[0]![1] as () => void;
+      resizeHandler();
+
+      expect(input.scrollIntoView).toHaveBeenCalledWith({ block: "center", behavior: "smooth" });
+      document.body.removeChild(input);
+    });
+
+    it("scrolls active TEXTAREA into view on resize", () => {
+      render(<Modal isOpen={true} onClose={vi.fn()} header="H" />);
+      const textarea = document.createElement("textarea");
+      textarea.scrollIntoView = vi.fn();
+      document.body.appendChild(textarea);
+      textarea.focus();
+
+      const resizeHandler = fakeViewport.addEventListener.mock.calls[0]![1] as () => void;
+      resizeHandler();
+
+      expect(textarea.scrollIntoView).toHaveBeenCalledWith({ block: "center", behavior: "smooth" });
+      document.body.removeChild(textarea);
+    });
+
+    it("does not scroll non-input active elements on resize", () => {
+      render(<Modal isOpen={true} onClose={vi.fn()} header="H" />);
+      const div = document.createElement("div");
+      div.tabIndex = 0;
+      div.scrollIntoView = vi.fn();
+      document.body.appendChild(div);
+      div.focus();
+
+      const resizeHandler = fakeViewport.addEventListener.mock.calls[0]![1] as () => void;
+      resizeHandler();
+
+      expect(div.scrollIntoView).not.toHaveBeenCalled();
+      document.body.removeChild(div);
+    });
   });
 });

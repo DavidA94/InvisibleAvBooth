@@ -70,6 +70,27 @@ describe("NotificationLayer - Banner", () => {
   });
 });
 
+it("queues second toast when one is already active", async () => {
+  // Add two toasts — second should queue behind first
+  act(() => {
+    useStore.getState().addNotification({ id: "t1", level: "toast", severity: "info", message: "Toast 1" });
+    useStore.getState().addNotification({ id: "t2", level: "toast", severity: "info", message: "Toast 2" });
+  });
+  renderLayer();
+  // Both notifications exist in store
+  expect(useStore.getState().notifications).toHaveLength(2);
+});
+
+it("banner counter back button navigates to previous", () => {
+  useStore.getState().addNotification({ id: "b1", level: "banner", severity: "error", message: "Error 1" });
+  useStore.getState().addNotification({ id: "b2", level: "banner", severity: "error", message: "Error 2" });
+  renderLayer();
+  // Navigate forward then back
+  fireEvent.click(screen.getByText("▶"));
+  fireEvent.click(screen.getByText("◀"));
+  expect(screen.getByTestId(TEST_ID_NOTIFICATION_BANNER)).toHaveTextContent("Error 1");
+});
+
 describe("NotificationLayer - Modal", () => {
   it("modal requires acknowledgment", () => {
     useStore.getState().addNotification({ id: "m1", level: "modal", severity: "error", message: "Critical" });

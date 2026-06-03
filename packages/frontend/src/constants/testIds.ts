@@ -198,6 +198,8 @@ export const TEST_ID_TEMPLATE_FORM_CANCEL = "template-form-cancel";
 export const TEST_ID_TEMPLATE_FORM_ERROR = "template-form-error";
 export const TEST_ID_TEMPLATE_VALIDATION_BLOCKERS = "template-validation-blockers";
 export const TEST_ID_TEMPLATE_VALIDATION_WARNINGS = "template-validation-warnings";
+export const TEST_ID_TEMPLATE_FORM_AUTO_DISMISS = "template-form-auto-dismiss";
+export const TEST_ID_TEMPLATE_FORM_DELETE = "template-form-delete";
 
 // ── Platform Config Pages ──────────────────────────────────────────────────────
 export const TEST_ID_YOUTUBE_CONFIG_PAGE = "youtube-config-page";

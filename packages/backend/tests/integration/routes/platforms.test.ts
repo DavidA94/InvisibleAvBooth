@@ -242,3 +242,148 @@ describe("cleanupStaleOAuthStates", () => {
     expect(row).toBeUndefined();
   });
 });
+
+describe("PATCH /api/platforms/:platformType/settings", () => {
+  it("updates YouTube privacy setting", async () => {
+    const cookie = await loginAsAdmin(s.agent, s.ctx.authService);
+    await s.agent
+      .put("/api/admin/platforms/youtube")
+      .set("Cookie", cookie)
+      .send({ enabled: true, label: "YT", accessToken: "tok", metadata: { privacy: "unlisted" } });
+
+    const res = await s.agent.patch("/api/platforms/youtube/settings").set("Cookie", cookie).send({ privacy: "public" });
+    expect(res.status).toBe(200);
+    expect(res.body.metadata.privacy).toBe("public");
+  });
+
+  it("returns 404 when platform not configured", async () => {
+    const cookie = await loginAsAdmin(s.agent, s.ctx.authService);
+    const res = await s.agent.patch("/api/platforms/youtube/settings").set("Cookie", cookie).send({ privacy: "public" });
+    expect(res.status).toBe(404);
+  });
+
+  it("returns 400 for invalid privacy value", async () => {
+    const cookie = await loginAsAdmin(s.agent, s.ctx.authService);
+    await s.agent.put("/api/admin/platforms/youtube").set("Cookie", cookie).send({ enabled: true, label: "YT", accessToken: "tok" });
+
+    const res = await s.agent.patch("/api/platforms/youtube/settings").set("Cookie", cookie).send({ privacy: "INVALID" });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe("Invalid privacy value");
+  });
+
+  it("AvPowerUser can update privacy", async () => {
+    const adminCookie = await loginAsAdmin(s.agent, s.ctx.authService);
+    await s.agent
+      .put("/api/admin/platforms/youtube")
+      .set("Cookie", adminCookie)
+      .send({ enabled: true, label: "YT", accessToken: "tok", metadata: { privacy: "unlisted" } });
+
+    const powerCookie = await loginAs(s.agent, s.ctx.authService, "power", "pass", "AvPowerUser");
+    const res = await s.agent.patch("/api/platforms/youtube/settings").set("Cookie", powerCookie).send({ privacy: "private" });
+    expect(res.status).toBe(200);
+    expect(res.body.metadata.privacy).toBe("private");
+  });
+});
+
+describe("POST /api/admin/platforms/facebook/select-page", () => {
+  it("returns 404 when facebook not configured", async () => {
+    const cookie = await loginAsAdmin(s.agent, s.ctx.authService);
+    const res = await s.agent.post("/api/admin/platforms/facebook/select-page").set("Cookie", cookie).send({ pageId: "p1" });
+    expect(res.status).toBe(404);
+  });
+
+  it("returns 400 when pageId not provided", async () => {
+    const cookie = await loginAsAdmin(s.agent, s.ctx.authService);
+    await s.agent
+      .put("/api/admin/platforms/facebook")
+      .set("Cookie", cookie)
+      .send({ enabled: true, label: "FB", accessToken: "tok", metadata: { targetType: "pending", pages: [] } });
+
+    const res = await s.agent.post("/api/admin/platforms/facebook/select-page").set("Cookie", cookie).send({});
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe("pageId required");
+  });
+
+  it("selects user profile when pageId is 'user'", async () => {
+    const cookie = await loginAsAdmin(s.agent, s.ctx.authService);
+    await s.agent
+      .put("/api/admin/platforms/facebook")
+      .set("Cookie", cookie)
+      .send({
+        enabled: true,
+        label: "FB",
+        accessToken: "tok",
+        metadata: { targetType: "pending", userId: "u123", userName: "John", pages: [{ id: "p1", name: "Page1", access_token: "pt" }] },
+      });
+
+    const res = await s.agent.post("/api/admin/platforms/facebook/select-page").set("Cookie", cookie).send({ pageId: "user" });
+    expect(res.status).toBe(200);
+    expect(res.body.metadata.targetType).toBe("user");
+    expect(res.body.metadata.userId).toBe("u123");
+  });
+
+  it("selects a page from available pages", async () => {
+    const cookie = await loginAsAdmin(s.agent, s.ctx.authService);
+    await s.agent
+      .put("/api/admin/platforms/facebook")
+      .set("Cookie", cookie)
+      .send({
+        enabled: true,
+        label: "FB",
+        accessToken: "tok",
+        metadata: { targetType: "pending", pages: [{ id: "p1", name: "Church Page", access_token: "page-tok" }] },
+      });
+
+    const res = await s.agent.post("/api/admin/platforms/facebook/select-page").set("Cookie", cookie).send({ pageId: "p1" });
+    expect(res.status).toBe(200);
+    expect(res.body.metadata.targetType).toBe("page");
+    expect(res.body.metadata.pageName).toBe("Church Page");
+  });
+
+  it("returns 400 for invalid page selection", async () => {
+    const cookie = await loginAsAdmin(s.agent, s.ctx.authService);
+    await s.agent
+      .put("/api/admin/platforms/facebook")
+      .set("Cookie", cookie)
+      .send({
+        enabled: true,
+        label: "FB",
+        accessToken: "tok",
+        metadata: { targetType: "pending", pages: [{ id: "p1", name: "Page1", access_token: "pt" }] },
+      });
+
+    const res = await s.agent.post("/api/admin/platforms/facebook/select-page").set("Cookie", cookie).send({ pageId: "nonexistent" });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe("Invalid page selection");
+  });
+});
+
+describe("OAuth start — error cases", () => {
+  it("returns 400 when YOUTUBE_CLIENT_ID not configured", async () => {
+    const original = process.env["YOUTUBE_CLIENT_ID"];
+    process.env["YOUTUBE_CLIENT_ID"] = "";
+    const cookie = await loginAsAdmin(s.agent, s.ctx.authService);
+    const res = await s.agent.post("/api/admin/platforms/youtube/oauth-start").set("Cookie", cookie);
+    expect(res.status).toBe(400);
+    expect(res.body.error).toContain("YOUTUBE_CLIENT_ID");
+    process.env["YOUTUBE_CLIENT_ID"] = original;
+  });
+
+  it("returns 400 when FACEBOOK_APP_ID not configured", async () => {
+    const original = process.env["FACEBOOK_APP_ID"];
+    process.env["FACEBOOK_APP_ID"] = "";
+    const cookie = await loginAsAdmin(s.agent, s.ctx.authService);
+    const res = await s.agent.post("/api/admin/platforms/facebook/oauth-start").set("Cookie", cookie);
+    expect(res.status).toBe(400);
+    expect(res.body.error).toContain("FACEBOOK_APP_ID");
+    process.env["FACEBOOK_APP_ID"] = original;
+  });
+
+  it("facebook oauth-start includes profile scopes when target is profile", async () => {
+    const cookie = await loginAsAdmin(s.agent, s.ctx.authService);
+    const res = await s.agent.post("/api/admin/platforms/facebook/oauth-start").set("Cookie", cookie).send({ target: "profile" });
+    expect(res.status).toBe(200);
+    expect(res.body.authUrl).toContain("publish_video");
+    expect(res.body.authUrl).not.toContain("pages_manage_posts");
+  });
+});
