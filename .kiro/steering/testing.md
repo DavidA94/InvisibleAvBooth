@@ -294,3 +294,70 @@ See `code-style.md` for the full attribute reference. In tests:
 - Each test is independent — no shared mutable state between tests
 - Prefer testing one behavior per test
 - No live hardware is available during development; all hardware clients are mocked at their abstraction boundary
+
+---
+
+## Frontend Mocking Patterns
+
+### Ionic Component Mocks
+
+Ionic components don't render properly in jsdom. A shared mock file at `src/test/ionicMocks.tsx` replaces `IonInput`, `IonButton`, `IonCheckbox`, `IonTextarea`, `IonToggle`, `IonSelect`, and `IonSelectOption` with plain HTML equivalents.
+
+**Important:** This file is NOT loaded via `setupFiles`. Each test file that renders Ionic components must explicitly import it:
+
+```ts
+import "../test/ionicMocks"; // or "../../test/ionicMocks" depending on depth
+```
+
+The mock is hoisted by Vitest so the import order doesn't matter relative to component imports.
+
+### react-select Mock
+
+Components using `react-select` need a mock that renders a native `<select>`. Use this pattern:
+
+```ts
+vi.mock("react-select", () => ({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  default: ({ options, onChange, value, placeholder }: any) => {
+    const opts = options as Array<{ value: string; label: string }>;
+    return (
+      <select
+        data-testid="my-select"
+        value={value?.value ?? ""}
+        onChange={(e: { target: { value: string } }) => {
+          const opt = opts.find((o) => o.value === e.target.value);
+          if (opt) onChange(opt);
+        }}
+      >
+        {opts.map((o: { value: string; label: string }) => (
+          <option key={o.value} value={o.value}>{o.label}</option>
+        ))}
+      </select>
+    );
+  },
+}));
+```
+
+Then interact with it using `fireEvent.change(screen.getByTestId("my-select"), { target: { value: "option-value" } })`.
+
+### jsdom Limitations
+
+jsdom does not support:
+
+- `AnimationEvent` constructor — animation-end handlers cannot be reliably tested in unit tests. Test these through Playwright e2e instead.
+- `window.location` assignment — cannot test OAuth redirects via `window.location.href = url`. Verify the fetch call was made and trust the redirect in e2e.
+- CSS transitions/animations — elements never actually animate, so `transitionend`/`animationend` events don't fire naturally.
+
+### Overlay Namespace (Socket.IO)
+
+The `/overlay` namespace is unauthenticated (used by the OBS browser source). Integration tests connect directly without JWT:
+
+```ts
+import { io as ioClient } from "socket.io-client";
+
+const socket = ioClient(`http://localhost:${port}/overlay`, {
+  transports: ["websocket"],
+});
+```
+
+This is different from the main namespace which requires JWT auth via `socket.io-client`'s `auth` option.
