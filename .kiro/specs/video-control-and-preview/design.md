@@ -21,9 +21,10 @@ This is an extension document — it references and builds on the designs at `.k
 
 ### Breaking Changes
 
-- **`device_connections` table**: `deviceType` CHECK constraint expanded to include `"camera"`. New nullable columns for camera-specific config: `controlProtocol`, `viscaHost`, `viscaPort`, `ndiSourceName`, `fovWideAngle`, `features`.
+- **`device_connections` table**: `deviceType` CHECK constraint expanded to include `"camera-ptz"`. New nullable columns for camera-specific config: `ndiSourceName`, `viscaHost`, `viscaPort`, `fovWideAngle`, `cameraFeatures`. Camera devices store `"127.0.0.1"` / `0` in the existing `host` / `port` NOT NULL columns (unused by cameras — camera-specific connections use the new columns). OBS devices gain a new nullable `ndiSourceName` column for NDI preview output.
 - **New table**: `camera_presets` for preset storage.
 - **`seed-dashboard.ts`**: Two new widget entries (OBS Preview at 2×2, Camera at 6×4); existing widget positions adjusted to avoid overlap.
+- **Caddy routing**: Both `Caddyfile` and `Caddyfile.dev` must add `/preview/*` to the backend route matcher (alongside `/api/*` and `/socket.io/*`). Without this, preview WebSocket upgrade requests are routed to the frontend and fail silently.
 
 ---
 
@@ -51,18 +52,18 @@ graph TD
   end
 
   subgraph External
-    OBS[OBS Studio]
-    RTMPRelay[RTMP Relay — existing]
+    OBS[OBS Studio + DistroAV NDI Output]
+    RTMPRelay[RTMP Relay — existing, for streaming only]
     NDICamera[NDI Camera on LAN]
   end
 
   subgraph FFmpeg [FFmpeg Processes]
-    ObsFFmpeg[FFmpeg: RTMP → fMP4]
-    CamFFmpeg[FFmpeg: NDI → fMP4]
+    ObsFFmpeg[FFmpeg: NDI pipe → fMP4 — OBS preview]
+    CamFFmpeg[FFmpeg: NDI pipe → fMP4 — Camera preview]
   end
 
+  OBS -->|NDI output| ObsFFmpeg
   OBS -->|RTMP| RTMPRelay
-  RTMPRelay -->|RTMP read| ObsFFmpeg
   NDICamera -->|NDI video| CamFFmpeg
   NDICamera -->|NDI PTZ| NdiDriver
   NDICamera -->|VISCA/IP| ViscaDriver
@@ -81,25 +82,45 @@ graph TD
   CameraService --> ViscaDriver
   CameraService -->|stc:camera:state| CameraWidget
 
-  ObsService -->|streaming/recording state| PreviewManager
-  EventBus -->|bus:obs:state:changed| PreviewManager
+  EventBus -->|bus:camera:state:changed| CameraModule
 ```
 
 ### Key Architectural Decisions
 
-**Dedicated WebSocket for video (not Socket.io)**: Binary video data at 2-5 Mbps would saturate the Socket.io command channel and make debugging impossible. Separate WebSocket endpoints allow independent lifecycle, authentication, and monitoring. Socket.io remains for structured command/event exchange.
+**Dedicated WebSocket for video (not Socket.io)**: Binary video data at 2-5 Mbps would add unnecessary overhead through Socket.io's event framing and protocol layer. Separate raw WebSocket endpoints (via the `ws` library) provide direct binary streaming with minimal latency. The `ws` library handles the WebSocket upgrade on `/preview/*` paths; Socket.io handles `/socket.io/*` — no conflict because they listen on different HTTP upgrade paths. Caddy routes `/preview/*` to the backend alongside `/api/*` and `/socket.io/*`.
+
+**ws + Socket.io coexistence pattern**: `PreviewStreamManager` creates a `WebSocketServer` with `noServer: true` (no automatic upgrade handling). In `buildApp()`, after Socket.io is attached, a manual `httpServer.on('upgrade', (req, socket, head) => { ... })` handler routes upgrades by path: requests matching `/preview/*` are handled by the preview `WebSocketServer` (with cookie-based JWT validation); all other upgrade requests fall through to Socket.io's internal handler. Socket.io must be attached first as it registers its own upgrade handler internally.
 
 **fMP4 + MSE over WebRTC**: WebRTC adds ICE/STUN complexity for a LAN-only system where NAT traversal is unnecessary. fMP4 over WebSocket achieves equivalent latency (<500ms) with simpler implementation, no STUN server, and easier debugging (binary frames over a single TCP connection).
 
 **Single FFmpeg per source with fan-out**: Avoids redundant transcoding when multiple clients view the same preview. The `PreviewStreamManager` buffers the latest keyframe + subsequent frames so new subscribers get immediate playback without waiting for the next keyframe.
 
-**NDI SDK as optional dynamic dependency**: The NDI SDK requires native bindings (`grandiose`) that need C++ build tools. Making it a dynamic import (`import()` with try/catch) means `npm install` succeeds on any machine, and the system degrades gracefully to VISCA-only control without video preview.
+**NDI SDK as optional dynamic dependency**: The NDI SDK requires native bindings (`grandiose`) that need C++ build tools. Making it a dynamic import (`import()` with try/catch) means `npm install` succeeds on any machine, and the system degrades gracefully — cameras are simply unavailable without the NDI SDK while OBS, streaming, and lower thirds continue to work. NDI is the sole protocol for camera video and PTZ commands. VISCA is used only as an optional position-polling enhancement when configured alongside NDI.
 
 **Virtual joystick over D-pad**: Touch devices benefit from proportional analog input. The joystick provides natural diagonal movement, proportional speed control (distance from center), and better ergonomics for sustained operation during a service.
 
 **Adaptive speed tied to zoom**: Prevents PTZ overshoot at telephoto without requiring the operator to manually adjust speed. The formula `speed * (1 - zoom * 0.7)` gives 100% at wide angle, 30% at full telephoto.
 
 **Hybrid preset storage**: Database-first with optional camera onboard mirroring. Database presets are camera-agnostic (survive camera replacement), store metadata cameras can't (toggle states), and have well-defined content. Onboard presets provide MotionSync smooth recall on cameras that support it.
+
+**NDI video via grandiose receiver → FFmpeg stdin pipe**: Rather than requiring the FFmpeg NDI input plugin (which requires separate compilation against the NDI SDK), video frames are received by `grandiose`'s receiver API in Node.js and piped to FFmpeg's stdin as raw frames. This keeps the FFmpeg dependency simple (standard package-manager install) and centralizes all NDI SDK interaction in one native module. The tradeoff is slightly higher CPU usage from the JS → pipe → FFmpeg path, but this is negligible compared to the transcoding work FFmpeg performs.
+
+**Cookie-based WebSocket authentication**: Preview WebSocket endpoints authenticate via the same HttpOnly JWT cookie used by Socket.io and REST. The browser sends cookies automatically on same-origin WebSocket upgrade requests routed through Caddy. This requires no frontend token handling and maintains consistency with the existing auth model — no token appears in URLs or logs.
+
+**Caddy routing requirement**: The reverse proxy must route `/preview/*` to the backend alongside `/api/*` and `/socket.io/*`. This is a deployment prerequisite documented in the breaking changes section.
+
+### EventBus Events
+
+```typescript
+// Camera — Internal Bus Events
+export const BUS_CAMERA_STATE_CHANGED = "bus:camera:state:changed";
+
+interface CameraEventMap {
+  [BUS_CAMERA_STATE_CHANGED]: { cameraId: string; state: CameraState };
+}
+```
+
+`CameraSocketModule.register(io)` subscribes to `BUS_CAMERA_STATE_CHANGED` and broadcasts `stc:camera:state:update` to all connected clients. This follows the same pattern as `ObsModule` subscribing to `BUS_OBS_STATE_CHANGED`.
 
 ---
 
@@ -108,16 +129,17 @@ graph TD
 ### Modified: `device_connections`
 
 ```sql
--- Existing columns remain unchanged. New columns for camera devices:
-ALTER TABLE device_connections ADD COLUMN controlProtocol TEXT; -- 'ndi' | 'visca'
-ALTER TABLE device_connections ADD COLUMN viscaHost TEXT;
-ALTER TABLE device_connections ADD COLUMN viscaPort INTEGER DEFAULT 5500;
-ALTER TABLE device_connections ADD COLUMN ndiSourceName TEXT;
-ALTER TABLE device_connections ADD COLUMN fovWideAngle REAL DEFAULT 60.0;
-ALTER TABLE device_connections ADD COLUMN features TEXT; -- JSON string: ["pan","tilt","zoom","focus","ai-tracking","ai-tracking-tilt-disable","ai-tracking-zoom-disable"]
+-- Existing columns remain unchanged. New columns:
+ALTER TABLE device_connections ADD COLUMN ndiSourceName TEXT; -- cameras: NDI source for video+PTZ; OBS: NDI output for preview
+ALTER TABLE device_connections ADD COLUMN viscaHost TEXT; -- cameras only: optional VISCA IP for position polling
+ALTER TABLE device_connections ADD COLUMN viscaPort INTEGER DEFAULT 5500; -- cameras only: optional VISCA port
+ALTER TABLE device_connections ADD COLUMN fovWideAngle REAL DEFAULT 60.0; -- cameras only
+ALTER TABLE device_connections ADD COLUMN cameraFeatures TEXT; -- cameras only: JSON array of enabled features
 ```
 
-`deviceType` CHECK constraint updated: `CHECK(deviceType IN ('obs', 'camera'))`
+Camera devices store `"127.0.0.1"` / `0` in the existing `host` / `port` NOT NULL columns (these are used by OBS devices but irrelevant for cameras).
+
+Schema migration uses the existing ad-hoc column-check pattern: at startup, check for missing columns via `PRAGMA table_info(device_connections)` and add them if absent (same pattern as `migrateMetadataTemplates`). Validation of `deviceType` values is enforced at the route/TypeScript level, not via SQL CHECK constraint (SQLite doesn't support altering CHECK constraints on existing tables).
 
 ### New: `camera_presets`
 
@@ -193,22 +215,25 @@ const MAX_RESTART_ATTEMPTS = 3;
 const RESTART_DELAY_MS = 2000;
 ```
 
+**Integration in `buildApp()`**: `PreviewStreamManager` is instantiated in `buildApp()` after `httpServer = createServer(app)` and after Socket.io is attached. It receives `httpServer` (for upgrade handling), `authService` (for JWT validation on upgrade), and references to NDI source configurations (from `device_connections` table). It is included in `AppContext` for test access. In tests, a `createFakePreviewManager()` no-op implementation is injected.
+
 **FFmpeg command construction:**
 
 ```typescript
-function buildFfmpegArgs(input: string, encoder: HardwareEncoder): string[] {
+function buildFfmpegArgs(input: string, encoder: HardwareEncoder, withAudio: boolean): string[] {
   const base = [
     "-i", input,
     "-vf", `scale=${PREVIEW_RESOLUTION.width}:${PREVIEW_RESOLUTION.height}`,
     "-r", "30",
     "-g", "30",  // keyframe every 1s for fast subscriber join
-    "-an",       // no audio for camera; separate flag for OBS
   ];
+  const audioArgs = withAudio ? ["-c:a", "aac", "-b:a", "64k"] : ["-an"];
   const codecArgs = encoder
     ? ["-c:v", encoder]
     : ["-c:v", "libx264", "-preset", "ultrafast", "-tune", "zerolatency"];
   return [
     ...base,
+    ...audioArgs,
     ...codecArgs,
     "-f", "mp4",
     "-movflags", "frag_keyframe+empty_moov+default_base_moof",
@@ -218,7 +243,7 @@ function buildFfmpegArgs(input: string, encoder: HardwareEncoder): string[] {
 }
 ```
 
-For OBS preview (which includes audio), `-an` is replaced with `-c:a aac -b:a 64k`.
+OBS preview passes `withAudio: true`; camera previews pass `withAudio: false`.
 
 **Fan-out logic**: FFmpeg stdout is piped through a transform that detects the init segment (first `ftyp`+`moov` atoms). The init segment is cached. On new subscriber connection: send cached init segment, then stream subsequent `moof`+`mdat` pairs as they arrive.
 
@@ -265,8 +290,8 @@ WidgetContainer (title: "OBS Preview", connections: [{ label: "Feed", status }])
 ### Connection Status Derivation
 
 ```typescript
-function deriveObsFeedStatus(obsState: ObsState, wsState: WebSocketState): ConnectionStatus {
-  if (!obsState.streaming && !obsState.recording) return "inactive";
+function deriveObsFeedStatus(wsState: WebSocketState, framesRecent: boolean, ndiSourceConfigured: boolean): ConnectionStatus["status"] {
+  if (!ndiSourceConfigured) return "inactive";
   if (wsState === "connected" && framesRecent) return "healthy";
   return "unhealthy";
 }
@@ -281,7 +306,7 @@ function usePreviewStream(endpoint: string, enabled: boolean) {
   // Buffer trim: removes segments > 2s old on each append
   // Seek-to-live: if buffered.end - currentTime > 3s, seek to live edge
   // Reconnect: exponential backoff 1s→2s→4s→10s max
-  // Auth: appends ?token=jwt to WebSocket URL
+  // Auth: browser sends HttpOnly JWT cookie automatically on same-origin WS upgrade
 }
 ```
 
@@ -343,7 +368,9 @@ class NdiCameraDriver implements CameraControlInterface {
   // PTZ commands: NDIlib_recv_ptz_pan_tilt_speed, NDIlib_recv_ptz_pan_tilt, etc.
   // inquirePosition(): returns last-commanded values (NDI has no position query)
   // connect(): NDI find + receive + ptz_is_supported check
-  // Also provides video frame pipe for PreviewStreamManager
+  // Video: provides raw frame data via a readable stream that PreviewStreamManager
+  //   pipes to FFmpeg's stdin (format: raw UYVY/BGRA frames, resolution from NDI source)
+  //   This avoids requiring the FFmpeg NDI input plugin to be compiled separately.
   private lastCommanded: PositionInquiry;
   private receiver: NdiReceiver | null;
 }
@@ -352,14 +379,13 @@ class NdiCameraDriver implements CameraControlInterface {
 ### ViscaCameraDriver
 
 ```typescript
-class ViscaCameraDriver implements CameraControlInterface {
-  // Raw TCP socket to camera (host:port)
-  // Commands: binary VISCA packets per protocol spec
-  // inquirePosition(): CAM_PanTiltPosInq + CAM_ZoomPosInq + CAM_FocusPosInq
+class ViscaCameraDriver {
+  // Used ONLY for position inquiry — PTZ commands always go via NDI
+  // Raw TCP socket to camera (viscaHost:viscaPort)
+  // inquirePosition(): CAM_PanTiltPosInq + CAM_ZoomPosInq + CAM_FocusPosInq + CAM_FocusAFModeInq
   // Handles VISCA ACK/Completion/Error responses
-  // Command queue: VISCA allows max 2 concurrent commands
+  // Probe: CAM_PowerInq to verify connectivity
   private socket: net.Socket;
-  private commandQueue: ViscaCommand[];
   private host: string;
   private port: number;
 }
@@ -455,7 +481,7 @@ interface MoveSession {
   currentTilt: number;
 }
 
-const KEEPALIVE_TIMEOUT_MS = 750;
+const KEEPALIVE_TIMEOUT_MS = 750; // Tunable — increase if WiFi environments trigger false stops
 
 function onMoveStart(cameraId: string, pan: number, tilt: number) {
   const session: MoveSession = {
@@ -584,18 +610,24 @@ Same layout as expanded mode but fills the modal content area. Opened from compa
 ### ResizeObserver Mode Detection
 
 ```typescript
-const MIN_EXPANDED_WIDTH = 480; // px — enough for video (200px) + controls (280px)
-const MIN_EXPANDED_HEIGHT = 320; // px — enough for joystick + presets stacked
+// Thresholds defined in rem, converted at runtime using computed root font size
+const MIN_EXPANDED_WIDTH_REM = 30;  // 30rem — enough for video + controls side-by-side
+const MIN_EXPANDED_HEIGHT_REM = 20; // 20rem — enough for joystick + presets stacked
+const BASE_FONT_SIZE = parseFloat(getComputedStyle(document.documentElement).fontSize);
 
 function useWidgetMode(containerRef: RefObject<HTMLElement>) {
   const [mode, setMode] = useState<"compact" | "expanded">("compact");
   useEffect(() => {
     const observer = new ResizeObserver(([entry]) => {
       const { width, height } = entry.contentRect;
-      setMode(width >= MIN_EXPANDED_WIDTH && height >= MIN_EXPANDED_HEIGHT
-        ? "expanded" : "compact");
+      const fontSize = parseFloat(getComputedStyle(document.documentElement).fontSize);
+      setMode(
+        width >= MIN_EXPANDED_WIDTH_REM * fontSize &&
+        height >= MIN_EXPANDED_HEIGHT_REM * fontSize
+          ? "expanded" : "compact"
+      );
     });
-    observer.observe(containerRef.current!);
+    if (containerRef.current) observer.observe(containerRef.current);
     return () => observer.disconnect();
   }, []);
   return mode;
@@ -684,26 +716,47 @@ Vertical `<input type="range">` rotated 90° via CSS transform. Value 0 (bottom,
 .zoom-slider {
   writing-mode: vertical-lr;
   direction: rtl; /* 1.0 at top */
-  min-height: 160px;
-  width: 36px;
+  min-height: 10rem;
+  width: 2.75rem;
 }
 ```
 
-### Tap-to-Center Handler
+### Double-Tap-to-Center Handler
 
 ```typescript
-function handleVideoTap(e: React.MouseEvent, cameraState: CameraState) {
-  if (cameraState.aiTracking) {
-    showToast("Tap-to-center is disabled when AI Tracking is active.");
-    return;
+const DOUBLE_TAP_THRESHOLD_MS = 400;
+
+function useDoubleTapToCenter(cameraId: string, cameraState: CameraState) {
+  const lastTapTime = useRef(0);
+
+  function handleTap(e: React.MouseEvent | React.TouchEvent) {
+    const now = Date.now();
+    if (now - lastTapTime.current > DOUBLE_TAP_THRESHOLD_MS) {
+      // First tap — just record time
+      lastTapTime.current = now;
+      return;
+    }
+    // Second tap within threshold — use this tap's location
+    lastTapTime.current = 0; // reset
+
+    if (cameraState.aiTracking) {
+      showToast("Tap-to-center is disabled when AI Tracking is active.");
+      return;
+    }
+    const rect = e.currentTarget.getBoundingClientRect();
+    const clientX = "touches" in e ? e.changedTouches[0].clientX : e.clientX;
+    const clientY = "touches" in e ? e.changedTouches[0].clientY : e.clientY;
+    const offsetX = ((clientX - rect.left) / rect.width) * 2 - 1; // -1 to 1
+    const offsetY = ((clientY - rect.top) / rect.height) * 2 - 1;
+    const adjustedY = cameraState.disableTilt ? 0 : offsetY;
+    socket.emit(CTS_CAMERA_PTZ_TAP_TO_CENTER, { cameraId, offsetX, offsetY: adjustedY });
   }
-  const rect = e.currentTarget.getBoundingClientRect();
-  const offsetX = ((e.clientX - rect.left) / rect.width) * 2 - 1; // -1 to 1
-  const offsetY = ((e.clientY - rect.top) / rect.height) * 2 - 1;
-  const adjustedY = cameraState.disableTilt ? 0 : offsetY;
-  socket.emit(CTS_CAMERA_PTZ_TAP_TO_CENTER, { cameraId, offsetX, offsetY: adjustedY });
+
+  return handleTap;
 }
 ```
+
+The video container must set `touch-action: manipulation` to suppress browser double-tap-to-zoom.
 
 ---
 
@@ -712,11 +765,11 @@ function handleVideoTap(e: React.MouseEvent, cameraState: CameraState) {
 ### Preset List Component
 
 ```
-PresetList (max-height: 3 × 44px, overflow-y: auto)
+PresetList (max-height: 3 × 2.75rem, overflow-y: auto)
 ├── PresetRow
 │   ├── PresetName (text, truncate with ellipsis)
-│   └── ActivateButton (36px tall)
-│       States: "Activate" (enabled) | "Activating..." (disabled, spinner) | "Activated" (disabled, green)
+│   └── ActivateButton (min-height: 2.75rem)
+│       States: default | highlighted (color-primary, active preset)
 ├── PresetRow ...
 └── PresetRow ...
 ```
@@ -724,15 +777,16 @@ PresetList (max-height: 3 × 44px, overflow-y: auto)
 ### Preset Activation Flow
 
 ```typescript
-async function handleActivatePreset(cameraId: string, presetId: string) {
-  // Optimistic: set button to "Activating..."
+function handleActivatePreset(cameraId: string, presetId: string, presetName: string) {
   socket.emit(CTS_CAMERA_PRESET_ACTIVATE, { cameraId, presetId });
-  // Backend broadcasts updated state with activePresetId on success
-  // On failure, backend emits toast and state remains without activePresetId
+  showToast(`Moving to ${presetName}`);
+  // Backend broadcasts activePresetId immediately — button highlights on state update
+  // Volunteer relies on preview to verify camera arrived
+  // New preset tap or manual movement clears the active indicator
 }
 ```
 
-Active preset clears when `CameraService` detects any manual command (move, zoom, focus, tap-to-center, toggle change) on that camera.
+Active preset clears when `CameraService` detects any manual command (move, zoom, focus, double-tap-to-center, toggle change) on that camera. No timeout, no disabled state — matches a physical remote control mental model.
 
 ---
 
@@ -744,12 +798,13 @@ Active preset clears when `CameraService` detects any manual command (move, zoom
 CameraDeviceDetail
 ├── ConnectionSection
 │   ├── LabelInput
-│   ├── NdiSourceNameInput
-│   ├── ControlProtocolSelect ("ndi" | "visca")
-│   ├── ViscaHostInput (visible if protocol = visca)
-│   ├── ViscaPortInput (visible if protocol = visca, default 5500)
+│   ├── NdiSourceNameInput (required)
+│   ├── ViscaSection (collapsible, "Position Polling (Recommended)")
+│   │   ├── ViscaEnabledToggle
+│   │   ├── ViscaHostInput (visible when enabled)
+│   │   └── ViscaPortInput (visible when enabled, default 5500)
 │   ├── FovWideAngleInput (number, default 60, suffix "°")
-│   ├── NdiOnlyWarning (visible if protocol = ndi)
+│   ├── NdiOnlyNote (visible when VISCA disabled)
 │   └── ProbeResult (green checkmark | red X + reason)
 ├── FeaturesSection
 │   ├── FeatureToggle ("pan")
@@ -784,7 +839,7 @@ PresetConfigModal (title: "Configure Preset" | "Edit Preset: {name}")
 **Capture Position flow:**
 1. Admin positions camera using interactive controls
 2. Taps "Capture Position"
-3. Frontend calls `POST /api/cameras/{id}/capture-position`
+3. Frontend calls `POST /api/admin/cameras/{id}/capture-position`
 4. Backend runs `driver.inquirePosition()` (or returns last-commanded for NDI)
 5. Response displayed as summary; values stored in modal form state
 6. Admin taps "Save" → writes to `camera_presets` table + optional onboard storage
@@ -860,11 +915,11 @@ emitInitialState(socket: Socket) {
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| `GET` | `/api/cameras/:cameraId/presets` | ADMIN | List all presets for a camera |
-| `POST` | `/api/cameras/:cameraId/presets` | ADMIN | Create a preset |
-| `PUT` | `/api/cameras/:cameraId/presets/:presetId` | ADMIN | Update a preset |
-| `DELETE` | `/api/cameras/:cameraId/presets/:presetId` | ADMIN | Delete a preset |
-| `POST` | `/api/cameras/:cameraId/capture-position` | ADMIN | Poll current camera position |
+| `GET` | `/api/admin/cameras/:cameraId/presets` | ADMIN | List all presets for a camera |
+| `POST` | `/api/admin/cameras/:cameraId/presets` | ADMIN | Create a preset |
+| `PUT` | `/api/admin/cameras/:cameraId/presets/:presetId` | ADMIN | Update a preset |
+| `DELETE` | `/api/admin/cameras/:cameraId/presets/:presetId` | ADMIN | Delete a preset |
+| `POST` | `/api/admin/cameras/:cameraId/capture-position` | ADMIN | Poll current camera position |
 
 ### Capture Position Response
 
@@ -896,6 +951,38 @@ interface PresetBody {
   disableZoom: boolean;
 }
 ```
+
+---
+
+## Steering Document Updates Required
+
+This spec introduces patterns not yet documented in the steering doc. The following updates are required during implementation:
+
+- **§0 (Technology Stack)**: Add `grandiose` (NDI SDK native bindings, dynamic optional dependency) and `ws` (WebSocket library for binary preview streams) to Device Integration. Add DistroAV OBS plugin as a prerequisite for OBS preview.
+- **§1 (Scope)**: Move "Camera Control" from "Future Releases" to active implementation scope.
+- **§3 (Interfaces & Boundaries)**: Add Backend ↔ Preview Clients boundary (dedicated `/preview/*` WebSocket endpoints for binary fMP4 video, authenticated via cookie). Add Caddy routing for `/preview/*`. Note that `ndiSourceName` on OBS device_connections enables OBS preview via NDI (decoupled from RTMP relay).
+- **§7 (Event Naming)**: Add exception note that `/preview/*` WebSocket endpoints are raw binary transport — no event naming convention applies.
+
+---
+
+## FFmpeg NDI Input Arguments
+
+When receiving NDI frames via grandiose and piping to FFmpeg stdin, the input arguments must be derived at runtime from the NDI source's actual format:
+
+```typescript
+function buildNdiInputArgs(ndiFormat: NdiFrameFormat): string[] {
+  // ndiFormat is queried from the first received frame's metadata
+  return [
+    "-f", "rawvideo",
+    "-pix_fmt", ndiFormat.fourCC === "UYVY" ? "uyvy422" : "bgra",
+    "-s", `${ndiFormat.width}x${ndiFormat.height}`,
+    "-r", String(ndiFormat.frameRateN / ndiFormat.frameRateD),
+    "-i", "pipe:0",  // read raw frames from stdin
+  ];
+}
+```
+
+Backpressure handling: if FFmpeg's stdin pipe returns `false` on write (pipe full), the frame is dropped. This prevents the grandiose receiver's internal buffer from growing unbounded when FFmpeg can't keep up (e.g., during hardware encoder initialization).
 
 ---
 
