@@ -15,13 +15,14 @@ This is an extension document — it references and builds on the designs at `.k
 - `CameraService` — manages camera connections, state polling, dead-man's switch
 - Camera widget (`camera`) — 6×4, live preview with virtual joystick PTZ controls
 - Camera preset system — database-stored with optional onboard camera mirroring
-- Admin camera device type with feature toggles, preset configuration modal
+- Admin camera device type with Camera Model selector, feature toggles, preset drag-to-reorder
+- Model-specific AI tracking driver (Tongveo NVS20A-4KN via HTTP API)
 - `CameraSocketModule` — Socket.io gateway for PTZ commands and state broadcast
 - NDI SDK dynamic loading with graceful degradation
 
 ### Breaking Changes
 
-- **`device_connections` table**: `deviceType` CHECK constraint expanded to include `"camera-ptz"`. New nullable columns for camera-specific config: `ndiSourceName`, `viscaHost`, `viscaPort`, `fovWideAngle`, `cameraFeatures`. Camera devices store `"127.0.0.1"` / `0` in the existing `host` / `port` NOT NULL columns (unused by cameras — camera-specific connections use the new columns). OBS devices gain a new nullable `ndiSourceName` column for NDI preview output.
+- **`device_connections` table**: `deviceType` values expanded to include `"camera-ptz"`. Camera-specific config stored in the existing `metadata` JSON column. The existing `host`/`port` columns are reused for VISCA connectivity (placeholder `"127.0.0.1"`/`5500` when VISCA is not enabled). OBS devices gain an `ndiOutputName` field in their `metadata` JSON for NDI preview output.
 - **New table**: `camera_presets` for preset storage.
 - **`seed-dashboard.ts`**: Two new widget entries (OBS Preview at 2×2, Camera at 6×4); existing widget positions adjusted to avoid overlap.
 - **Caddy routing**: Both `Caddyfile` and `Caddyfile.dev` must add `/preview/*` to the backend route matcher (alongside `/api/*` and `/socket.io/*`). Without this, preview WebSocket upgrade requests are routed to the frontend and fail silently.
@@ -126,22 +127,43 @@ interface CameraEventMap {
 
 ## Database Schema
 
-### Modified: `device_connections`
+### `device_connections` — Camera Usage
 
-```sql
--- Existing columns remain unchanged. New columns:
-ALTER TABLE device_connections ADD COLUMN ndiSourceName TEXT; -- cameras: NDI source for video+PTZ; OBS: NDI output for preview
-ALTER TABLE device_connections ADD COLUMN viscaHost TEXT; -- cameras only: optional VISCA IP for position polling
-ALTER TABLE device_connections ADD COLUMN viscaPort INTEGER DEFAULT 5500; -- cameras only: optional VISCA port
-ALTER TABLE device_connections ADD COLUMN fovWideAngle REAL DEFAULT 60.0; -- cameras only
-ALTER TABLE device_connections ADD COLUMN cameraFeatures TEXT; -- cameras only: JSON array of enabled features
+Camera-specific configuration is stored in the existing `metadata` JSON column, consistent with how OBS stores its device-specific settings. No new columns are added to `device_connections`.
+
+The existing `host` and `port` columns are reused for VISCA connectivity:
+- When VISCA is enabled: `host` = camera's IP address, `port` = VISCA port (default 5500)
+- When VISCA is not enabled: `host` = `"127.0.0.1"` (placeholder), `port` = `5500` (default). The user never sees these values unless they enable VISCA in the admin form.
+
+**Camera metadata schema** (stored as JSON in `metadata` column):
+
+```typescript
+interface CameraMetadata {
+  ndiSourceName: string;           // required — NDI source name for video + PTZ
+  fovWideAngle: number;            // default 60 — horizontal FOV at full wide (degrees)
+  opticalZoomRatio: number;        // default 20 — max optical zoom (e.g., 20 for 20x)
+  cameraModel: CameraModel;        // "generic" | "tongveo-nvs20a-4kn"
+  cameraFeatures: CameraFeature[]; // enabled features array
+  viscaEnabled: boolean;            // whether to use host/port for VISCA polling
+  aiHttpCookie?: string;            // encrypted — for AI HTTP API (non-generic models only)
+  aiCredentialId?: string;          // encrypted — for AI HTTP API (non-generic models only)
+}
 ```
 
-Camera devices store `"127.0.0.1"` / `0` in the existing `host` / `port` NOT NULL columns (these are used by OBS devices but irrelevant for cameras).
+**OBS metadata schema** (existing, extended with NDI source name for preview):
 
-Schema migration uses the existing ad-hoc column-check pattern: at startup, check for missing columns via `PRAGMA table_info(device_connections)` and add them if absent (same pattern as `migrateMetadataTemplates`). Validation of `deviceType` values is enforced at the route/TypeScript level, not via SQL CHECK constraint (SQLite doesn't support altering CHECK constraints on existing tables).
+```typescript
+interface ObsMetadata {
+  ndiOutputName?: string;  // e.g., "OBS-MACHINE (OBS)" — for NDI preview
+  // ... existing OBS fields
+}
+```
+
+No schema migration needed — the `metadata` column already exists as TEXT. Camera devices simply store a different JSON shape than OBS devices. Validation of `deviceType` values is enforced at the route/TypeScript level.
 
 ### New: `camera_presets`
+
+Presets remain in a separate table (not in metadata) because they have independent CRUD lifecycle, benefit from indexing and cascade delete, and avoid read-modify-write race conditions on reorder operations.
 
 ```sql
 CREATE TABLE camera_presets (
@@ -157,8 +179,8 @@ CREATE TABLE camera_presets (
   focus REAL,
   autoFocus INTEGER NOT NULL DEFAULT 1, -- boolean
   aiTracking INTEGER NOT NULL DEFAULT 0, -- boolean
-  disableTilt INTEGER NOT NULL DEFAULT 0, -- boolean
-  disableZoom INTEGER NOT NULL DEFAULT 0, -- boolean
+  aiTilt INTEGER NOT NULL DEFAULT 0, -- boolean (AI controls tilt axis)
+  aiZoom INTEGER NOT NULL DEFAULT 0, -- boolean (AI controls zoom axis)
   createdAt TEXT NOT NULL
 );
 
@@ -381,7 +403,7 @@ class NdiCameraDriver implements CameraControlInterface {
 ```typescript
 class ViscaCameraDriver {
   // Used ONLY for position inquiry — PTZ commands always go via NDI
-  // Raw TCP socket to camera (viscaHost:viscaPort)
+  // Raw TCP socket to camera (host:port from device_connections columns)
   // inquirePosition(): CAM_PanTiltPosInq + CAM_ZoomPosInq + CAM_FocusPosInq + CAM_FocusAFModeInq
   // Handles VISCA ACK/Completion/Error responses
   // Probe: CAM_PowerInq to verify connectivity
@@ -405,6 +427,55 @@ function denormalizeViscaPan(normalized: number, maxRaw: number): number {
 }
 ```
 
+### AiTrackingDriver (Model-Specific)
+
+Handles AI tracking control via HTTP for known camera models. Only instantiated when `cameraModel !== "generic"`.
+
+```typescript
+interface AiTrackingDriver {
+  setAiState(enabled: boolean, aiTilt: boolean, aiZoom: boolean): Promise<void>;
+}
+
+class TongveoAiDriver implements AiTrackingDriver {
+  private baseUrl: string;   // http://{host} (from device_connections.host)
+  private cookie: string;    // from device metadata (decrypted)
+  private credentialId: string; // from device metadata (decrypted)
+
+  async setAiState(enabled: boolean, aiTilt: boolean, aiZoom: boolean): Promise<void> {
+    // Step 1: Set AI control state
+    await fetch(`${this.baseUrl}/api/aiControl`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Cookie": this.cookie },
+      body: JSON.stringify({
+        ai_on: enabled ? "1" : "0",
+        ai_enable: enabled ? "1" : "0",
+        ai_mode: "1",
+        ai_auto_zoom: aiZoom ? "1" : "0",
+        ai_auto_tilt: aiTilt ? "1" : "0",
+      }),
+    });
+
+    // Step 2: ONLY when enabling — select first tracking target
+    // DO NOT call setPTZCmd when disabling AI
+    if (enabled) {
+      await fetch(`${this.baseUrl}/api/setPTZCmd`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Cookie": this.cookie },
+        body: JSON.stringify({
+          Channel: 0,
+          PtzCmd: 15,
+          param1: 7,
+          param2: 0,
+          ID: this.credentialId,
+        }),
+      });
+    }
+  }
+}
+```
+
+The `CameraService` calls `aiDriver.setAiState()` when processing a `cts:camera:set` event that includes `aiTracking`, `aiTilt`, or `aiZoom` fields. For tilt/zoom toggle changes while AI is already enabled, the full `setAiState()` is called with the updated values (camera applies all fields atomically).
+
 ### CameraService
 
 ```typescript
@@ -422,10 +493,10 @@ interface CameraService {
   setFocusManual(cameraId: string, position: number): void;
   tapToCenter(cameraId: string, offsetX: number, offsetY: number): void;
 
-  // Toggles
+  // Toggles (ADMIN/AvPowerUser only)
   setAiTracking(cameraId: string, enabled: boolean): void;
-  setDisableTilt(cameraId: string, enabled: boolean): void;
-  setDisableZoom(cameraId: string, enabled: boolean): void;
+  setAiTilt(cameraId: string, enabled: boolean): void;
+  setAiZoom(cameraId: string, enabled: boolean): void;
 
   // Presets
   activatePreset(cameraId: string, presetId: string): Promise<Result<void, string>>;
@@ -443,14 +514,16 @@ interface CameraState {
   position: PositionInquiry | null;
   autoFocus: boolean;
   aiTracking: boolean;
-  disableTilt: boolean;
-  disableZoom: boolean;
+  aiTilt: boolean;
+  aiZoom: boolean;
   activePresetId: string | null;
   features: CameraFeature[];
+  capabilities: { tapToCenter: boolean }; // system-derived, not admin-controlled
   presets: CameraPreset[];
 }
 
-type CameraFeature = "pan" | "tilt" | "zoom" | "focus" | "ai-tracking" | "ai-tracking-tilt-disable" | "ai-tracking-zoom-disable";
+type CameraFeature = "pan" | "tilt" | "zoom" | "focus" | "ai-tracking" | "ai-tracking-tilt" | "ai-tracking-zoom";
+type CameraModel = "generic" | "tongveo-nvs20a-4kn";
 
 interface CameraPreset {
   id: string;
@@ -464,8 +537,8 @@ interface CameraPreset {
   focus: number | null;
   autoFocus: boolean;
   aiTracking: boolean;
-  disableTilt: boolean;
-  disableZoom: boolean;
+  aiTilt: boolean;
+  aiZoom: boolean;
 }
 ```
 
@@ -535,9 +608,10 @@ function computeTapTarget(
   tapOffsetX: number, // -1 to 1
   tapOffsetY: number, // -1 to 1
   fovWideAngle: number,
+  opticalZoomRatio: number,
   currentZoom: number,
 ): { pan: number; tilt: number } {
-  const effectiveFov = fovWideAngle * (1.0 - currentZoom);
+  const effectiveFov = fovWideAngle / (1 + currentZoom * (opticalZoomRatio - 1));
   const hFovNorm = effectiveFov / 360; // fraction of full pan range
   const vFovNorm = (effectiveFov * 9 / 16) / 180; // assuming 16:9, fraction of tilt range
   return {
@@ -575,9 +649,8 @@ startPolling(cameraId: string) {
 ```typescript
 interface CameraSlice {
   cameraStates: Record<string, CameraState>; // keyed by cameraId
-  ndiAvailable: boolean;
   setCameraState: (cameraId: string, state: CameraState) => void;
-  setAllCameraStates: (states: CameraState[], ndiAvailable: boolean) => void;
+  setAllCameraStates: (states: CameraState[]) => void;
   clearActivePreset: (cameraId: string) => void;
 }
 ```
@@ -586,20 +659,20 @@ interface CameraSlice {
 
 ```
 WidgetContainer (title: "Camera", connections: [{ label: "Camera", status }])
-├── CameraDropdown (hidden if only 1 camera, IonSelect)
+├── CameraDropdown (react-select, darkSelectStyles; disabled if only 1 camera)
+├── FullWidgetOverlay (covers video + controls when offline/connecting)
+│   └── "Connecting..." | "Camera Offline" | "Tap to Reconnect"
 ├── CompactMode (when widget too small for controls)
 │   └── VideoContainer (tap opens CameraControlModal)
-│       ├── <video> (object-fit: contain, centered)
-│       └── ConnectingOverlay | OfflineOverlay
+│       └── <video> (object-fit: contain, centered)
 └── ExpandedMode (when widget large enough)
-    ├── VideoSection (left, ~40% width)
-    │   ├── <video> (object-fit: contain, centered, tap-to-center enabled)
-    │   └── ConnectingOverlay | OfflineOverlay
+    ├── VideoSection (left, fills available height, double-tap-to-center enabled)
+    │   └── <video> (object-fit: contain, centered)
     └── ControlsSection (right, ~60% width)
         ├── VirtualJoystick
-        ├── ZoomSlider (vertical)
-        ├── ToggleRow (AI Tracking, Disable Tilt, Disable Zoom)
-        ├── FocusRow (Auto Focus toggle + focus slider, power-user only)
+        ├── ZoomSlider (ion-range, vertical)
+        ├── ToggleRow (AI Tracking, AI Tilt, AI Zoom — ADMIN/AvPowerUser only)
+        ├── FocusRow (Auto Focus toggle + ion-range focus slider — ADMIN/AvPowerUser only)
         └── PresetList (3 visible, scrollable)
 ```
 
@@ -710,14 +783,16 @@ function usePtzMove(cameraId: string) {
 
 ### Zoom Slider
 
-Vertical `<input type="range">` rotated 90° via CSS transform. Value 0 (bottom, wide) to 1 (top, telephoto). On change, emits `CTS_CAMERA_ZOOM_SET`. Reflects server state from `cameraStates[id].position.zoom`.
+Vertical `<ion-range>` with `orientation="vertical"`. Value 0 (bottom, wide) to 1 (top, telephoto). On `ionChange`, emits `cts:camera:set` with `{ cameraId, zoom }`. Reflects server state from `cameraStates[id].position.zoom`.
 
 ```css
 .zoom-slider {
-  writing-mode: vertical-lr;
-  direction: rtl; /* 1.0 at top */
   min-height: 10rem;
   width: 2.75rem;
+}
+.zoom-slider ion-range {
+  --bar-height: 4px;
+  --knob-size: 20px;
 }
 ```
 
@@ -739,6 +814,10 @@ function useDoubleTapToCenter(cameraId: string, cameraState: CameraState) {
     // Second tap within threshold — use this tap's location
     lastTapTime.current = 0; // reset
 
+    if (!cameraState.capabilities.tapToCenter) {
+      showToast("Tap-to-center is not available for this camera. Use the joystick or activate a preset.");
+      return;
+    }
     if (cameraState.aiTracking) {
       showToast("Tap-to-center is disabled when AI Tracking is active.");
       return;
@@ -748,8 +827,7 @@ function useDoubleTapToCenter(cameraId: string, cameraState: CameraState) {
     const clientY = "touches" in e ? e.changedTouches[0].clientY : e.clientY;
     const offsetX = ((clientX - rect.left) / rect.width) * 2 - 1; // -1 to 1
     const offsetY = ((clientY - rect.top) / rect.height) * 2 - 1;
-    const adjustedY = cameraState.disableTilt ? 0 : offsetY;
-    socket.emit(CTS_CAMERA_PTZ_TAP_TO_CENTER, { cameraId, offsetX, offsetY: adjustedY });
+    socket.emit(CTS_CAMERA_PTZ_TAP_TO_CENTER, { cameraId, offsetX, offsetY });
   }
 
   return handleTap;
@@ -798,34 +876,40 @@ Active preset clears when `CameraService` detects any manual command (move, zoom
 CameraDeviceDetail
 ├── ConnectionSection
 │   ├── LabelInput
+│   ├── CameraModelSelect (react-select, darkSelectStyles: "Generic" | "Tongveo NVS20A-4KN")
 │   ├── NdiSourceNameInput (required)
 │   ├── ViscaSection (collapsible, "Position Polling (Recommended)")
 │   │   ├── ViscaEnabledToggle
-│   │   ├── ViscaHostInput (visible when enabled)
-│   │   └── ViscaPortInput (visible when enabled, default 5500)
+│   │   ├── HostInput (visible when enabled, label: "Camera IP")
+│   │   └── PortInput (visible when enabled, default 5500, label: "VISCA Port")
 │   ├── FovWideAngleInput (number, default 60, suffix "°")
+│   ├── OpticalZoomRatioInput (number, default 20, suffix "×")
 │   ├── NdiOnlyNote (visible when VISCA disabled)
+│   ├── AiTrackingConfigSection (visible when model ≠ "Generic")
+│   │   ├── AiHttpCookieInput (password-masked, stored encrypted)
+│   │   └── AiCredentialIdInput (password-masked, stored encrypted)
 │   └── ProbeResult (green checkmark | red X + reason)
 ├── FeaturesSection
 │   ├── FeatureToggle ("pan")
 │   ├── FeatureToggle ("tilt")
 │   ├── FeatureToggle ("zoom")
 │   ├── FeatureToggle ("focus")
-│   ├── FeatureToggle ("ai-tracking")
-│   ├── FeatureToggle ("ai-tracking-tilt-disable")
-│   └── FeatureToggle ("ai-tracking-zoom-disable")
+│   ├── FeatureToggle ("ai-tracking") — only visible when model ≠ "Generic"
+│   ├── FeatureToggle ("ai-tracking-tilt") — only visible when model ≠ "Generic"
+│   └── FeatureToggle ("ai-tracking-zoom") — only visible when model ≠ "Generic"
 └── PresetsSection
-    ├── PresetRow (name, sortOrder, badge: "On Camera" | "Software Only", Edit/Delete)
+    ├── PresetRow (draggable, name, badge: "On Camera" | "Software Only", Edit/Delete)
     ├── PresetRow ...
     └── AddPresetButton
 ```
+
+Drag-to-reorder: preset rows support drag handles. On drop, the frontend sends the new order to the backend which assigns `sortOrder` values (0, 1, 2...) based on position.
 
 ### Preset Configuration Modal
 
 ```
 PresetConfigModal (title: "Configure Preset" | "Edit Preset: {name}")
 ├── NameInput
-├── SortOrderInput (number)
 ├── StoreOnCameraToggle
 │   └── SlotNumberInput (visible when toggled on)
 ├── LiveVideoPreview (same camera preview stream)
@@ -866,14 +950,9 @@ Follows the established `SocketModule` pattern.
 | `cts:camera:ptz:move:start` | `{ cameraId, pan, tilt }` | Begin continuous movement |
 | `cts:camera:ptz:move:keepalive` | `{ cameraId, pan, tilt }` | Continue movement (every 200ms) |
 | `cts:camera:ptz:move:stop` | `{ cameraId }` | End movement |
-| `cts:camera:zoom:set` | `{ cameraId, zoom }` | Set absolute zoom (0.0–1.0) |
-| `cts:camera:focus:auto` | `{ cameraId }` | Enable auto-focus |
-| `cts:camera:focus:set` | `{ cameraId, position }` | Set manual focus (0.0–1.0) |
+| `cts:camera:set` | `{ cameraId, zoom?, focus?, autoFocus?, aiTracking?, aiTilt?, aiZoom? }` | Set one or more camera values (undefined = no change) |
 | `cts:camera:preset:activate` | `{ cameraId, presetId }` | Activate a preset |
 | `cts:camera:ptz:tap-to-center` | `{ cameraId, offsetX, offsetY }` | Tap-to-center (-1.0 to 1.0) |
-| `cts:camera:ai-tracking:set` | `{ cameraId, enabled }` | Toggle AI tracking |
-| `cts:camera:disable-tilt:set` | `{ cameraId, enabled }` | Toggle disable tilt |
-| `cts:camera:disable-zoom:set` | `{ cameraId, enabled }` | Toggle disable zoom |
 
 **Event constants** (in `packages/shared/src/constants/socketEvents.ts`):
 
@@ -886,14 +965,9 @@ export const STC_CAMERA_STATE_UPDATE = "stc:camera:state:update";
 export const CTS_CAMERA_PTZ_MOVE_START = "cts:camera:ptz:move:start";
 export const CTS_CAMERA_PTZ_MOVE_KEEPALIVE = "cts:camera:ptz:move:keepalive";
 export const CTS_CAMERA_PTZ_MOVE_STOP = "cts:camera:ptz:move:stop";
-export const CTS_CAMERA_ZOOM_SET = "cts:camera:zoom:set";
-export const CTS_CAMERA_FOCUS_AUTO = "cts:camera:focus:auto";
-export const CTS_CAMERA_FOCUS_SET = "cts:camera:focus:set";
+export const CTS_CAMERA_SET = "cts:camera:set";
 export const CTS_CAMERA_PRESET_ACTIVATE = "cts:camera:preset:activate";
 export const CTS_CAMERA_PTZ_TAP_TO_CENTER = "cts:camera:ptz:tap-to-center";
-export const CTS_CAMERA_AI_TRACKING_SET = "cts:camera:ai-tracking:set";
-export const CTS_CAMERA_DISABLE_TILT_SET = "cts:camera:disable-tilt:set";
-export const CTS_CAMERA_DISABLE_ZOOM_SET = "cts:camera:disable-zoom:set";
 ```
 
 ### `emitInitialState` Handler
@@ -938,7 +1012,6 @@ interface CapturePositionResponse {
 ```typescript
 interface PresetBody {
   name: string;
-  sortOrder: number;
   storedOnCamera: boolean;
   cameraPresetSlot?: number;
   pan: number | null;
@@ -947,8 +1020,20 @@ interface PresetBody {
   focus: number | null;
   autoFocus: boolean;
   aiTracking: boolean;
-  disableTilt: boolean;
-  disableZoom: boolean;
+  aiTilt: boolean;
+  aiZoom: boolean;
+}
+```
+
+### Reorder Presets Endpoint
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| `PUT` | `/api/admin/cameras/:cameraId/presets/order` | ADMIN | Set preset display order |
+
+```typescript
+interface ReorderBody {
+  presetIds: string[]; // ordered array — index becomes sortOrder
 }
 ```
 
@@ -960,7 +1045,7 @@ This spec introduces patterns not yet documented in the steering doc. The follow
 
 - **§0 (Technology Stack)**: Add `grandiose` (NDI SDK native bindings, dynamic optional dependency) and `ws` (WebSocket library for binary preview streams) to Device Integration. Add DistroAV OBS plugin as a prerequisite for OBS preview.
 - **§1 (Scope)**: Move "Camera Control" from "Future Releases" to active implementation scope.
-- **§3 (Interfaces & Boundaries)**: Add Backend ↔ Preview Clients boundary (dedicated `/preview/*` WebSocket endpoints for binary fMP4 video, authenticated via cookie). Add Caddy routing for `/preview/*`. Note that `ndiSourceName` on OBS device_connections enables OBS preview via NDI (decoupled from RTMP relay).
+- **§3 (Interfaces & Boundaries)**: Add Backend ↔ Preview Clients boundary (dedicated `/preview/*` WebSocket endpoints for binary fMP4 video, authenticated via cookie). Add Caddy routing for `/preview/*`. Note that `ndiOutputName` in OBS device metadata enables OBS preview via NDI (decoupled from RTMP relay).
 - **§7 (Event Naming)**: Add exception note that `/preview/*` WebSocket endpoints are raw binary transport — no event naming convention applies.
 
 ---
