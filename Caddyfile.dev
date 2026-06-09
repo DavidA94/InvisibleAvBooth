@@ -7,7 +7,7 @@
 invisible.av, localhost {
 	tls certs/localhost.crt certs/localhost.key
 
-	@backend path /api/* /socket.io/*
+	@backend path /api/* /socket.io/* /preview/*
 	handle @backend {
 		reverse_proxy localhost:3001
 	}

@@ -29,6 +29,20 @@ export const STC_PLATFORM_HEALTH = "stc:platform:health" as const;
 export const STC_RELAY_STATE = "stc:relay:state" as const;
 export const STC_PLATFORM_READINESS = "stc:platform:readiness" as const;
 
+// ── Camera: Server → Client ───────────────────────────────────────────────────
+
+export const STC_CAMERA_STATE = "stc:camera:state" as const;
+export const STC_CAMERA_STATE_UPDATE = "stc:camera:state:update" as const;
+
+// ── Camera: Client → Server ──────────────────────────────────────────────────
+
+export const CTS_CAMERA_PTZ_MOVE_START = "cts:camera:ptz:move:start" as const;
+export const CTS_CAMERA_PTZ_MOVE_KEEPALIVE = "cts:camera:ptz:move:keepalive" as const;
+export const CTS_CAMERA_PTZ_MOVE_STOP = "cts:camera:ptz:move:stop" as const;
+export const CTS_CAMERA_SET = "cts:camera:set" as const;
+export const CTS_CAMERA_PRESET_ACTIVATE = "cts:camera:preset:activate" as const;
+export const CTS_CAMERA_PTZ_TAP_TO_CENTER = "cts:camera:ptz:tap-to-center" as const;
+
 // ── Lower Thirds: Client → Server ─────────────────────────────────────────────
 
 export const CTS_LOWER_THIRD_COMMAND = "cts:lower-third:command" as const;

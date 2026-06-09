@@ -6,53 +6,53 @@ Tests are part of each task's definition of done. Unit tests follow the unit or 
 
 ## Phase 1: Shared Types & Infrastructure
 
-- [ ] 1. Add shared types — `CameraState`, `CameraPreset`, `CameraFeature`, `CameraModel`, `CameraMetadata`, `ObsMetadata` (extended with `ndiOutputName`), `PositionInquiry`, `CameraSetPayload` to `packages/shared/src/types/`
+- [x] 1. Add shared types — `CameraState`, `CameraPreset`, `CameraFeature`, `CameraModel`, `CameraMetadata`, `ObsMetadata` (extended with `ndiOutputName`), `PositionInquiry`, `CameraSetPayload` to `packages/shared/src/types/`
   - _Requirements: 3, 4, 6_
 
-- [ ] 2. Add socket event constants — `STC_CAMERA_STATE`, `STC_CAMERA_STATE_UPDATE`, `CTS_CAMERA_PTZ_MOVE_START`, `CTS_CAMERA_PTZ_MOVE_KEEPALIVE`, `CTS_CAMERA_PTZ_MOVE_STOP`, `CTS_CAMERA_SET`, `CTS_CAMERA_PRESET_ACTIVATE`, `CTS_CAMERA_PTZ_TAP_TO_CENTER` to `packages/shared/src/constants/socketEvents.ts`
+- [x] 2. Add socket event constants — `STC_CAMERA_STATE`, `STC_CAMERA_STATE_UPDATE`, `CTS_CAMERA_PTZ_MOVE_START`, `CTS_CAMERA_PTZ_MOVE_KEEPALIVE`, `CTS_CAMERA_PTZ_MOVE_STOP`, `CTS_CAMERA_SET`, `CTS_CAMERA_PRESET_ACTIVATE`, `CTS_CAMERA_PTZ_TAP_TO_CENTER` to `packages/shared/src/constants/socketEvents.ts`
   - _Requirements: 3_
 
-- [ ] 3. Add `BUS_CAMERA_STATE_CHANGED` constant and `CameraEventMap` to backend EventBus types. Extend root `EventMap`.
+- [x] 3. Add `BUS_CAMERA_STATE_CHANGED` constant and `CameraEventMap` to backend EventBus types. Extend root `EventMap`.
   - _Requirements: 3_
 
-- [ ] 4. Database schema — create `camera_presets` table with migration in `applySchema()`. Verify `device_connections.metadata` column already exists (no migration needed for camera config).
+- [x] 4. Database schema — create `camera_presets` table with migration in `applySchema()`. Verify `device_connections.metadata` column already exists (no migration needed for camera config).
   - _Requirements: 6, 7_
 
-- [ ] 5. Write unit tests for schema — verify `camera_presets` table creation, cascade delete when parent device is removed, `sortOrder` ordering.
+- [x] 5. Write unit tests for schema — verify `camera_presets` table creation, cascade delete when parent device is removed, `sortOrder` ordering.
   - _Requirements: 6_
 
 ---
 
 ## Phase 2: Preview Infrastructure (Backend)
 
-- [ ] 6. Create `PreviewStreamManager` — FFmpeg hardware encoder probe at startup (VA-API → QSV → NVENC → libx264 ultrafast), INFO-level log of selected encoder, `PREVIEW_RESOLUTION` constant (1280×720), `MAX_PREVIEW_STREAMS` constant (4), `buildFfmpegArgs(input, encoder, withAudio)` function (OBS passes `withAudio: true`, cameras pass `false`).
+- [x] 6. Create `PreviewStreamManager` — FFmpeg hardware encoder probe at startup (VA-API → QSV → NVENC → libx264 ultrafast), INFO-level log of selected encoder, `PREVIEW_RESOLUTION` constant (1280×720), `MAX_PREVIEW_STREAMS` constant (4), `buildFfmpegArgs(input, encoder, withAudio)` function (OBS passes `withAudio: true`, cameras pass `false`).
   - _Requirements: 1_
 
-- [ ] 7. Implement WebSocket endpoint registration — `/preview/obs` and `/preview/camera/:cameraId` paths, cookie-based JWT authentication on upgrade, 4401 close code on invalid token, 4503 close code when max streams reached.
+- [x] 7. Implement WebSocket endpoint registration — `/preview/obs` and `/preview/camera/:cameraId` paths, cookie-based JWT authentication on upgrade, 4401 close code on invalid token, 4503 close code when max streams reached.
   - _Requirements: 1_
 
-- [ ] 8. Implement FFmpeg lifecycle — lazy spawn on first subscriber, 3-second grace period on last disconnect, fMP4 output flags, init segment (ftyp+moov) caching, fan-out to all subscribers.
+- [x] 8. Implement FFmpeg lifecycle — lazy spawn on first subscriber, 3-second grace period on last disconnect, fMP4 output flags, init segment (ftyp+moov) caching, fan-out to all subscribers.
   - _Requirements: 1_
 
-- [ ] 9. Implement FFmpeg failure handling — restart after 2s delay, max 3 consecutive failures then close all subscribers, OS scheduling priority lower than streaming forwarders.
+- [x] 9. Implement FFmpeg failure handling — restart after 2s delay, max 3 consecutive failures then close all subscribers, OS scheduling priority lower than streaming forwarders.
   - _Requirements: 1_
 
-- [ ] 10. Implement `setSourceAvailable()` — called by ObsService (for OBS NDI output) and CameraService (for camera NDI feeds). Connects source availability to FFmpeg spawn readiness.
+- [x] 10. Implement `setSourceAvailable()` — called by ObsService (for OBS NDI output) and CameraService (for camera NDI feeds). Connects source availability to FFmpeg spawn readiness.
   - _Requirements: 1, 2_
 
-- [ ] 11. Register `/preview/*` route in Caddy config files (`Caddyfile` and `Caddyfile.dev`) alongside `/api/*` and `/socket.io/*`.
+- [x] 11. Register `/preview/*` route in Caddy config files (`Caddyfile` and `Caddyfile.dev`) alongside `/api/*` and `/socket.io/*`.
   - _Requirements: 1_
 
-- [ ] 11a. Implement FFmpeg PATH check at startup — verify `ffmpeg` is available on system PATH (shared with multi-platform-streaming relay check). If not found, log ERROR, emit persistent Banner, mark preview unavailable, widgets display error state.
+- [x] 11a. Implement FFmpeg PATH check at startup — verify `ffmpeg` is available on system PATH (shared with multi-platform-streaming relay check). If not found, log ERROR, emit persistent Banner, mark preview unavailable, widgets display error state.
   - _Requirements: 1_
 
-- [ ] 11b. Implement signal handler cleanup — register SIGINT/SIGTERM handlers that terminate all active FFmpeg preview child processes on graceful shutdown. For crash scenarios, document that orphaned FFmpeg processes self-terminate when their stdin pipe closes.
+- [x] 11b. Implement signal handler cleanup — register SIGINT/SIGTERM handlers that terminate all active FFmpeg preview child processes on graceful shutdown. For crash scenarios, document that orphaned FFmpeg processes self-terminate when their stdin pipe closes.
   - _Requirements: 1_
 
-- [ ] 12. Write unit tests for `PreviewStreamManager` — encoder probe parsing, lazy spawn/teardown timing, grace period behavior, fan-out to multiple subscribers, max streams enforcement, auth rejection.
+- [x] 12. Write unit tests for `PreviewStreamManager` — encoder probe parsing, lazy spawn/teardown timing, grace period behavior, fan-out to multiple subscribers, max streams enforcement, auth rejection.
   - _Requirements: 1_
 
-- [ ] 13. Write integration tests for preview WebSocket — full server with harness, authenticated connection receives init segment + data, unauthenticated connection rejected with 4401, subscriber count tracking, graceful shutdown cleanup.
+- [x] 13. Write integration tests for preview WebSocket — full server with harness, authenticated connection receives init segment + data, unauthenticated connection rejected with 4401, subscriber count tracking, graceful shutdown cleanup.
   - _Requirements: 1_
 
 ---
@@ -259,7 +259,7 @@ Tests are part of each task's definition of done. Unit tests follow the unit or 
 
 ## Phase 8: Documentation
 
-- [ ] 73. Update steering document — §0 (add grandiose + ws to Technology Stack), §1 (move Camera Control from Future to active scope), §3 (add Backend ↔ Preview Clients boundary with /preview/* and Caddy routing), §7 (add exception note for /preview/* raw binary transport).
+- [ ] 73. Update steering document — §0 (add grandiose + ws to Technology Stack), §1 (move Camera Control from Future to active scope), §3 (add Backend ↔ Preview Clients boundary with /preview/_ and Caddy routing), §7 (add exception note for /preview/_ raw binary transport).
   - _Requirements: Design doc — Steering Document Updates Required_
 
 - [ ] 74. Implement NDI-only startup WARNING log — when CameraService initializes a camera without VISCA configured, emit WARNING: "Camera '{label}' uses NDI-only — position state is based on commanded values and may drift if the camera is controlled externally."

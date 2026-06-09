@@ -21,6 +21,9 @@ export type {
   GridCell,
 } from "./types.js";
 
+// Camera Types
+export type { CameraFeature, CameraModel, PositionInquiry, CameraPreset, CameraState, CameraMetadata, ObsMetadata, CameraSetPayload } from "./types/camera.js";
+
 // Lower-Third Types
 export type {
   LowerThirdType,

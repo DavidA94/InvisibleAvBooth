@@ -85,6 +85,26 @@ export function applySchema(database: Database): void {
       VERSENO   INTEGER,
       VERSETEXT TEXT
     );
+
+    CREATE TABLE IF NOT EXISTS camera_presets (
+      id TEXT PRIMARY KEY NOT NULL,
+      cameraId TEXT NOT NULL REFERENCES device_connections(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      sortOrder INTEGER NOT NULL DEFAULT 0,
+      storedOnCamera INTEGER NOT NULL DEFAULT 0,
+      cameraPresetSlot INTEGER,
+      pan REAL,
+      tilt REAL,
+      zoom REAL,
+      focus REAL,
+      autoFocus INTEGER NOT NULL DEFAULT 1,
+      aiTracking INTEGER NOT NULL DEFAULT 0,
+      aiTilt INTEGER NOT NULL DEFAULT 0,
+      aiZoom INTEGER NOT NULL DEFAULT 0,
+      createdAt TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_camera_presets_camera ON camera_presets(cameraId);
   `);
 
   migrateMetadataTemplates(database);

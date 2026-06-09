@@ -132,6 +132,7 @@ interface CameraEventMap {
 Camera-specific configuration is stored in the existing `metadata` JSON column, consistent with how OBS stores its device-specific settings. No new columns are added to `device_connections`.
 
 The existing `host` and `port` columns are reused for VISCA connectivity:
+
 - When VISCA is enabled: `host` = camera's IP address, `port` = VISCA port (default 5500)
 - When VISCA is not enabled: `host` = `"127.0.0.1"` (placeholder), `port` = `5500` (default). The user never sees these values unless they enable VISCA in the admin form.
 
@@ -139,14 +140,14 @@ The existing `host` and `port` columns are reused for VISCA connectivity:
 
 ```typescript
 interface CameraMetadata {
-  ndiSourceName: string;           // required — NDI source name for video + PTZ
-  fovWideAngle: number;            // default 60 — horizontal FOV at full wide (degrees)
-  opticalZoomRatio: number;        // default 20 — max optical zoom (e.g., 20 for 20x)
-  cameraModel: CameraModel;        // "generic" | "tongveo-nvs20a-4kn"
+  ndiSourceName: string; // required — NDI source name for video + PTZ
+  fovWideAngle: number; // default 60 — horizontal FOV at full wide (degrees)
+  opticalZoomRatio: number; // default 20 — max optical zoom (e.g., 20 for 20x)
+  cameraModel: CameraModel; // "generic" | "tongveo-nvs20a-4kn"
   cameraFeatures: CameraFeature[]; // enabled features array
-  viscaEnabled: boolean;            // whether to use host/port for VISCA polling
-  aiHttpCookie?: string;            // encrypted — for AI HTTP API (non-generic models only)
-  aiCredentialId?: string;          // encrypted — for AI HTTP API (non-generic models only)
+  viscaEnabled: boolean; // whether to use host/port for VISCA polling
+  aiHttpCookie?: string; // encrypted — for AI HTTP API (non-generic models only)
+  aiCredentialId?: string; // encrypted — for AI HTTP API (non-generic models only)
 }
 ```
 
@@ -154,7 +155,7 @@ interface CameraMetadata {
 
 ```typescript
 interface ObsMetadata {
-  ndiOutputName?: string;  // e.g., "OBS-MACHINE (OBS)" — for NDI preview
+  ndiOutputName?: string; // e.g., "OBS-MACHINE (OBS)" — for NDI preview
   // ... existing OBS fields
 }
 ```
@@ -215,8 +216,8 @@ interface PreviewStreamManager {
 
 // Internal types
 interface PreviewSource {
-  sourceId: string;          // e.g., "obs", "camera-{id}"
-  inputUrl: string;          // e.g., "rtmp://localhost:1935/live/stream" or NDI pipe path
+  sourceId: string; // e.g., "obs", "camera-{id}"
+  inputUrl: string; // e.g., "rtmp://localhost:1935/live/stream" or NDI pipe path
   ffmpegProcess: ChildProcess | null;
   subscribers: Set<WebSocket>;
   initSegment: Buffer | null; // fMP4 init segment (moov atom) — sent to new subscribers
@@ -244,22 +245,27 @@ const RESTART_DELAY_MS = 2000;
 ```typescript
 function buildFfmpegArgs(input: string, encoder: HardwareEncoder, withAudio: boolean): string[] {
   const base = [
-    "-i", input,
-    "-vf", `scale=${PREVIEW_RESOLUTION.width}:${PREVIEW_RESOLUTION.height}`,
-    "-r", "30",
-    "-g", "30",  // keyframe every 1s for fast subscriber join
+    "-i",
+    input,
+    "-vf",
+    `scale=${PREVIEW_RESOLUTION.width}:${PREVIEW_RESOLUTION.height}`,
+    "-r",
+    "30",
+    "-g",
+    "30", // keyframe every 1s for fast subscriber join
   ];
   const audioArgs = withAudio ? ["-c:a", "aac", "-b:a", "64k"] : ["-an"];
-  const codecArgs = encoder
-    ? ["-c:v", encoder]
-    : ["-c:v", "libx264", "-preset", "ultrafast", "-tune", "zerolatency"];
+  const codecArgs = encoder ? ["-c:v", encoder] : ["-c:v", "libx264", "-preset", "ultrafast", "-tune", "zerolatency"];
   return [
     ...base,
     ...audioArgs,
     ...codecArgs,
-    "-f", "mp4",
-    "-movflags", "frag_keyframe+empty_moov+default_base_moof",
-    "-frag_duration", "100000", // 100ms fragments
+    "-f",
+    "mp4",
+    "-movflags",
+    "frag_keyframe+empty_moov+default_base_moof",
+    "-frag_duration",
+    "100000", // 100ms fragments
     "pipe:1",
   ];
 }
@@ -423,7 +429,7 @@ function normalizeViscaPan(raw: number, maxRaw: number): number {
   return (raw / maxRaw) * 2 - 1; // center = 0
 }
 function denormalizeViscaPan(normalized: number, maxRaw: number): number {
-  return Math.round((normalized + 1) / 2 * maxRaw);
+  return Math.round(((normalized + 1) / 2) * maxRaw);
 }
 ```
 
@@ -437,15 +443,15 @@ interface AiTrackingDriver {
 }
 
 class TongveoAiDriver implements AiTrackingDriver {
-  private baseUrl: string;   // http://{host} (from device_connections.host)
-  private cookie: string;    // from device metadata (decrypted)
+  private baseUrl: string; // http://{host} (from device_connections.host)
+  private cookie: string; // from device metadata (decrypted)
   private credentialId: string; // from device metadata (decrypted)
 
   async setAiState(enabled: boolean, aiTilt: boolean, aiZoom: boolean): Promise<void> {
     // Step 1: Set AI control state
     await fetch(`${this.baseUrl}/api/aiControl`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "Cookie": this.cookie },
+      headers: { "Content-Type": "application/json", Cookie: this.cookie },
       body: JSON.stringify({
         ai_on: enabled ? "1" : "0",
         ai_enable: enabled ? "1" : "0",
@@ -460,7 +466,7 @@ class TongveoAiDriver implements AiTrackingDriver {
     if (enabled) {
       await fetch(`${this.baseUrl}/api/setPTZCmd`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Cookie": this.cookie },
+        headers: { "Content-Type": "application/json", Cookie: this.cookie },
         body: JSON.stringify({
           Channel: 0,
           PtzCmd: 15,
@@ -613,7 +619,7 @@ function computeTapTarget(
 ): { pan: number; tilt: number } {
   const effectiveFov = fovWideAngle / (1 + currentZoom * (opticalZoomRatio - 1));
   const hFovNorm = effectiveFov / 360; // fraction of full pan range
-  const vFovNorm = (effectiveFov * 9 / 16) / 180; // assuming 16:9, fraction of tilt range
+  const vFovNorm = (effectiveFov * 9) / 16 / 180; // assuming 16:9, fraction of tilt range
   return {
     pan: clamp(currentPan + tapOffsetX * hFovNorm, -1, 1),
     tilt: clamp(currentTilt + tapOffsetY * vFovNorm, -1, 1),
@@ -684,7 +690,7 @@ Same layout as expanded mode but fills the modal content area. Opened from compa
 
 ```typescript
 // Thresholds defined in rem, converted at runtime using computed root font size
-const MIN_EXPANDED_WIDTH_REM = 30;  // 30rem — enough for video + controls side-by-side
+const MIN_EXPANDED_WIDTH_REM = 30; // 30rem — enough for video + controls side-by-side
 const MIN_EXPANDED_HEIGHT_REM = 20; // 20rem — enough for joystick + presets stacked
 const BASE_FONT_SIZE = parseFloat(getComputedStyle(document.documentElement).fontSize);
 
@@ -694,11 +700,7 @@ function useWidgetMode(containerRef: RefObject<HTMLElement>) {
     const observer = new ResizeObserver(([entry]) => {
       const { width, height } = entry.contentRect;
       const fontSize = parseFloat(getComputedStyle(document.documentElement).fontSize);
-      setMode(
-        width >= MIN_EXPANDED_WIDTH_REM * fontSize &&
-        height >= MIN_EXPANDED_HEIGHT_REM * fontSize
-          ? "expanded" : "compact"
-      );
+      setMode(width >= MIN_EXPANDED_WIDTH_REM * fontSize && height >= MIN_EXPANDED_HEIGHT_REM * fontSize ? "expanded" : "compact");
     });
     if (containerRef.current) observer.observe(containerRef.current);
     return () => observer.disconnect();
@@ -721,6 +723,7 @@ interface PtzJoystickProps {
 ```
 
 Implementation:
+
 - Circular container, `min-width: 7.5rem; min-height: 7.5rem`
 - Track touch/mouse position relative to center
 - Compute angle (`atan2`) and distance (clamped to radius)
@@ -921,6 +924,7 @@ PresetConfigModal (title: "Configure Preset" | "Edit Preset: {name}")
 ```
 
 **Capture Position flow:**
+
 1. Admin positions camera using interactive controls
 2. Taps "Capture Position"
 3. Frontend calls `POST /api/admin/cameras/{id}/capture-position`
@@ -938,21 +942,21 @@ Follows the established `SocketModule` pattern.
 
 **Server → Client (STC):**
 
-| Event | Payload | Description |
-|-------|---------|-------------|
-| `stc:camera:state` | `{ cameras: CameraState[], ndiAvailable: boolean }` | Full state broadcast (initial + on change) |
-| `stc:camera:state:update` | `CameraState` | Single camera state update |
+| Event                     | Payload                                             | Description                                |
+| ------------------------- | --------------------------------------------------- | ------------------------------------------ |
+| `stc:camera:state`        | `{ cameras: CameraState[], ndiAvailable: boolean }` | Full state broadcast (initial + on change) |
+| `stc:camera:state:update` | `CameraState`                                       | Single camera state update                 |
 
 **Client → Server (CTS):**
 
-| Event | Payload | Description |
-|-------|---------|-------------|
-| `cts:camera:ptz:move:start` | `{ cameraId, pan, tilt }` | Begin continuous movement |
-| `cts:camera:ptz:move:keepalive` | `{ cameraId, pan, tilt }` | Continue movement (every 200ms) |
-| `cts:camera:ptz:move:stop` | `{ cameraId }` | End movement |
-| `cts:camera:set` | `{ cameraId, zoom?, focus?, autoFocus?, aiTracking?, aiTilt?, aiZoom? }` | Set one or more camera values (undefined = no change) |
-| `cts:camera:preset:activate` | `{ cameraId, presetId }` | Activate a preset |
-| `cts:camera:ptz:tap-to-center` | `{ cameraId, offsetX, offsetY }` | Tap-to-center (-1.0 to 1.0) |
+| Event                           | Payload                                                                  | Description                                           |
+| ------------------------------- | ------------------------------------------------------------------------ | ----------------------------------------------------- |
+| `cts:camera:ptz:move:start`     | `{ cameraId, pan, tilt }`                                                | Begin continuous movement                             |
+| `cts:camera:ptz:move:keepalive` | `{ cameraId, pan, tilt }`                                                | Continue movement (every 200ms)                       |
+| `cts:camera:ptz:move:stop`      | `{ cameraId }`                                                           | End movement                                          |
+| `cts:camera:set`                | `{ cameraId, zoom?, focus?, autoFocus?, aiTracking?, aiTilt?, aiZoom? }` | Set one or more camera values (undefined = no change) |
+| `cts:camera:preset:activate`    | `{ cameraId, presetId }`                                                 | Activate a preset                                     |
+| `cts:camera:ptz:tap-to-center`  | `{ cameraId, offsetX, offsetY }`                                         | Tap-to-center (-1.0 to 1.0)                           |
 
 **Event constants** (in `packages/shared/src/constants/socketEvents.ts`):
 
@@ -987,13 +991,13 @@ emitInitialState(socket: Socket) {
 
 ### Camera Preset Endpoints
 
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| `GET` | `/api/admin/cameras/:cameraId/presets` | ADMIN | List all presets for a camera |
-| `POST` | `/api/admin/cameras/:cameraId/presets` | ADMIN | Create a preset |
-| `PUT` | `/api/admin/cameras/:cameraId/presets/:presetId` | ADMIN | Update a preset |
-| `DELETE` | `/api/admin/cameras/:cameraId/presets/:presetId` | ADMIN | Delete a preset |
-| `POST` | `/api/admin/cameras/:cameraId/capture-position` | ADMIN | Poll current camera position |
+| Method   | Path                                             | Auth  | Description                   |
+| -------- | ------------------------------------------------ | ----- | ----------------------------- |
+| `GET`    | `/api/admin/cameras/:cameraId/presets`           | ADMIN | List all presets for a camera |
+| `POST`   | `/api/admin/cameras/:cameraId/presets`           | ADMIN | Create a preset               |
+| `PUT`    | `/api/admin/cameras/:cameraId/presets/:presetId` | ADMIN | Update a preset               |
+| `DELETE` | `/api/admin/cameras/:cameraId/presets/:presetId` | ADMIN | Delete a preset               |
+| `POST`   | `/api/admin/cameras/:cameraId/capture-position`  | ADMIN | Poll current camera position  |
 
 ### Capture Position Response
 
@@ -1027,9 +1031,9 @@ interface PresetBody {
 
 ### Reorder Presets Endpoint
 
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| `PUT` | `/api/admin/cameras/:cameraId/presets/order` | ADMIN | Set preset display order |
+| Method | Path                                         | Auth  | Description              |
+| ------ | -------------------------------------------- | ----- | ------------------------ |
+| `PUT`  | `/api/admin/cameras/:cameraId/presets/order` | ADMIN | Set preset display order |
 
 ```typescript
 interface ReorderBody {
@@ -1058,11 +1062,16 @@ When receiving NDI frames via grandiose and piping to FFmpeg stdin, the input ar
 function buildNdiInputArgs(ndiFormat: NdiFrameFormat): string[] {
   // ndiFormat is queried from the first received frame's metadata
   return [
-    "-f", "rawvideo",
-    "-pix_fmt", ndiFormat.fourCC === "UYVY" ? "uyvy422" : "bgra",
-    "-s", `${ndiFormat.width}x${ndiFormat.height}`,
-    "-r", String(ndiFormat.frameRateN / ndiFormat.frameRateD),
-    "-i", "pipe:0",  // read raw frames from stdin
+    "-f",
+    "rawvideo",
+    "-pix_fmt",
+    ndiFormat.fourCC === "UYVY" ? "uyvy422" : "bgra",
+    "-s",
+    `${ndiFormat.width}x${ndiFormat.height}`,
+    "-r",
+    String(ndiFormat.frameRateN / ndiFormat.frameRateD),
+    "-i",
+    "pipe:0", // read raw frames from stdin
   ];
 }
 ```
@@ -1093,7 +1102,10 @@ const newWidgets = [
     dashboardId: DASHBOARD_ID,
     widgetId: OBS_PREVIEW_WIDGET_ID,
     title: "OBS Preview",
-    col: 6, row: 0, colSpan: 2, rowSpan: 2,
+    col: 6,
+    row: 0,
+    colSpan: 2,
+    rowSpan: 2,
     roleMinimum: "AvVolunteer",
   },
   {
@@ -1101,7 +1113,10 @@ const newWidgets = [
     dashboardId: DASHBOARD_ID,
     widgetId: CAMERA_WIDGET_ID,
     title: "Camera",
-    col: 0, row: 2, colSpan: 6, rowSpan: 4,
+    col: 0,
+    row: 2,
+    colSpan: 6,
+    rowSpan: 4,
     roleMinimum: "AvVolunteer",
   },
 ];

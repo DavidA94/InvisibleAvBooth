@@ -29,7 +29,16 @@ export interface TestServer {
   agent: ReturnType<typeof request>;
 }
 
-const TABLES = ["users", "device_connections", "dashboards", "widget_configurations", "metadata_templates", "streaming_platforms", "oauth_states"];
+const TABLES = [
+  "users",
+  "device_connections",
+  "dashboards",
+  "widget_configurations",
+  "metadata_templates",
+  "streaming_platforms",
+  "oauth_states",
+  "camera_presets",
+];
 
 export async function buildTestServer(opts?: { seedKjv?: boolean; seedPlatform?: boolean }): Promise<TestServer> {
   const database = new Database(":memory:");
@@ -89,6 +98,7 @@ export function destroyServer(server: TestServer): void {
   server.ctx.manifestService.destroy();
   server.ctx.platformService.destroy();
   server.ctx.lowerThirdService.destroy();
+  server.ctx.previewManager.destroy();
   server.ctx.relayService.stop();
   server.ctx.httpServer.close();
   eventBus.removeAllListeners();

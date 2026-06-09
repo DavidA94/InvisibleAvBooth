@@ -22,6 +22,8 @@ import { LowerThirdService } from "./services/lowerThirdService.js";
 import { RelayService } from "./services/relayService.js";
 import type { NmsFactory, SpawnFn } from "./services/relayService.js";
 import { StreamingPlatformService } from "./services/streamingPlatformService.js";
+import { PreviewStreamManager } from "./services/previewStreamManager.js";
+import type { SpawnFn as PreviewSpawnFn } from "./services/previewStreamManager.js";
 import { PlatformConfigDao } from "./platforms/platformConfigDao.js";
 import type { StreamingPlatformClient } from "./platforms/platformClient.js";
 import { createAuthRouter } from "./routes/authRoutes.js";
@@ -48,6 +50,8 @@ export interface AppDependencies {
   /** Pre-built platform clients keyed by platform ID. */
   platformClients?: Map<string, StreamingPlatformClient>;
   relayPort?: number;
+  /** Override spawn for preview FFmpeg (for testing). */
+  previewSpawnFn?: PreviewSpawnFn;
 }
 
 export interface AppContext {
@@ -60,11 +64,12 @@ export interface AppContext {
   platformService: StreamingPlatformService;
   manifestService: SessionManifestService;
   lowerThirdService: LowerThirdService;
+  previewManager: PreviewStreamManager;
   gateway: SocketGateway;
 }
 
 export function buildApp(deps: AppDependencies): AppContext {
-  const { database, nmsFactory, spawnFn, obsClient, platformClients, relayPort = 1935 } = deps;
+  const { database, nmsFactory, spawnFn, obsClient, platformClients, relayPort = 1935, previewSpawnFn } = deps;
 
   const authService = new AuthService(database);
 
@@ -128,5 +133,8 @@ export function buildApp(deps: AppDependencies): AppContext {
 
   registerOverlayNamespace(gateway.getIo(), lowerThirdService);
 
-  return { httpServer, app, database, authService, obsService, relayService, platformService, manifestService, lowerThirdService, gateway };
+  const previewManager = new PreviewStreamManager(authService, previewSpawnFn);
+  previewManager.registerEndpoints(httpServer);
+
+  return { httpServer, app, database, authService, obsService, relayService, platformService, manifestService, lowerThirdService, previewManager, gateway };
 }

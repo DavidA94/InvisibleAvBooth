@@ -33,3 +33,7 @@ export const BUS_PLATFORM_READINESS_CHANGED = "bus:platform:readiness:changed" a
 // ── Lower-Third events ───────────────────────────────────────────────────────
 
 export const BUS_LOWER_THIRD_STATE_CHANGED = "bus:lower-third:state:changed" as const;
+
+// ── Camera events ────────────────────────────────────────────────────────────
+
+export const BUS_CAMERA_STATE_CHANGED = "bus:camera:state:changed" as const;
