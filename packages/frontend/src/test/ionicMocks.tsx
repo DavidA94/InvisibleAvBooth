@@ -66,5 +66,17 @@ vi.mock("@ionic/react", async () => {
       ),
     IonSelectOption: ({ value, children, ...props }: Record<string, unknown>) =>
       React.createElement("option", { ...props, value }, children as React.ReactNode),
+    IonRange: ({ onIonChange, value, min, max, step, disabled, ...props }: Record<string, unknown>) =>
+      React.createElement("input", {
+        type: "range",
+        ...props,
+        min: min as number,
+        max: max as number,
+        step: step as number,
+        value: value ?? 0,
+        disabled: disabled ?? false,
+        onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
+          (onIonChange as ((e: { detail: { value: number } }) => void) | undefined)?.({ detail: { value: Number(e.target.value) } }),
+      }),
   };
 });

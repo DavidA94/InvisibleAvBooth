@@ -7,6 +7,8 @@ import { getDatabase, resetDatabase } from "../src/database/database.js";
 const DASHBOARD_ID = "default";
 const WIDGET_ID = "obs";
 const LT_WIDGET_ID = "lower-thirds";
+const OBS_PREVIEW_WIDGET_ID = "obs-preview";
+const CAMERA_WIDGET_ID = "camera";
 
 function seed(): void {
   const database = getDatabase();
@@ -55,6 +57,40 @@ function seed(): void {
     console.log("Created widget: Lower Thirds");
   } else {
     console.log("Lower Thirds widget already exists — skipping");
+  }
+
+  const existingObsPreview = database
+    .prepare("SELECT id FROM widget_configurations WHERE dashboardId = ? AND widgetId = ?")
+    .get(DASHBOARD_ID, OBS_PREVIEW_WIDGET_ID);
+
+  if (!existingObsPreview) {
+    database
+      .prepare(
+        `INSERT INTO widget_configurations
+       (id, dashboardId, widgetId, title, col, row, colSpan, rowSpan, roleMinimum, createdAt)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(`${DASHBOARD_ID}-${OBS_PREVIEW_WIDGET_ID}`, DASHBOARD_ID, OBS_PREVIEW_WIDGET_ID, "OBS Preview", 6, 0, 2, 2, "AvVolunteer", new Date().toISOString());
+    console.log("Created widget: OBS Preview");
+  } else {
+    console.log("OBS Preview widget already exists — skipping");
+  }
+
+  const existingCameraWidget = database
+    .prepare("SELECT id FROM widget_configurations WHERE dashboardId = ? AND widgetId = ?")
+    .get(DASHBOARD_ID, CAMERA_WIDGET_ID);
+
+  if (!existingCameraWidget) {
+    database
+      .prepare(
+        `INSERT INTO widget_configurations
+       (id, dashboardId, widgetId, title, col, row, colSpan, rowSpan, roleMinimum, createdAt)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(`${DASHBOARD_ID}-${CAMERA_WIDGET_ID}`, DASHBOARD_ID, CAMERA_WIDGET_ID, "Camera", 0, 2, 6, 4, "AvVolunteer", new Date().toISOString());
+    console.log("Created widget: Camera");
+  } else {
+    console.log("Camera widget already exists — skipping");
   }
 }
 

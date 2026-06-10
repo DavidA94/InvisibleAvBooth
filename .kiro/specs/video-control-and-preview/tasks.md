@@ -59,175 +59,175 @@ Tests are part of each task's definition of done. Unit tests follow the unit or 
 
 ## Phase 3: OBS Preview Widget (Frontend)
 
-- [ ] 14. Create `usePreviewStream` hook — accepts `endpoint` and `enabled` boolean (false when off-dashboard, disconnects WebSocket and releases resources). WebSocket lifecycle (connect/disconnect on mount/unmount and enabled change), MSE `MediaSource` + `SourceBuffer` management, buffer trim (>2s), seek-to-live-edge (>3s), exponential backoff reconnect (1s→2s→4s→10s max), tap-to-reconnect after 3 failures. Shared between OBS Preview and Camera widgets.
+- [x] 14. Create `usePreviewStream` hook — accepts `endpoint` and `enabled` boolean (false when off-dashboard, disconnects WebSocket and releases resources). WebSocket lifecycle (connect/disconnect on mount/unmount and enabled change), MSE `MediaSource` + `SourceBuffer` management, buffer trim (>2s), seek-to-live-edge (>3s), exponential backoff reconnect (1s→2s→4s→10s max), tap-to-reconnect after 3 failures. Shared between OBS Preview and Camera widgets.
   - _Requirements: 1, 2_
 
-- [ ] 15. Create `ObsPreviewWidget` — `WidgetContainer` with "Feed" connection indicator, video element with `object-fit: contain` centering, inactive state ("OBS Preview Not Configured" / "OBS Preview Unavailable"), reconnecting overlay, tap-to-open modal.
+- [x] 15. Create `ObsPreviewWidget` — `WidgetContainer` with "Feed" connection indicator, video element with `object-fit: contain` centering, inactive state ("OBS Preview Not Configured" / "OBS Preview Unavailable"), reconnecting overlay, tap-to-open modal.
   - _Requirements: 2_
 
-- [ ] 16. Create mute/unmute button overlay — 3rem × 3rem touch target, bottom-right positioned, semi-transparent background, Ionicons volume icons, "Local Audio" label, muted by default, resets on refresh.
+- [x] 16. Create mute/unmute button overlay — 3rem × 3rem touch target, bottom-right positioned, semi-transparent background, Ionicons volume icons, "Local Audio" label, muted by default, resets on refresh.
   - _Requirements: 2_
 
-- [ ] 17. Create `StreamPreviewModal` — large modal titled "Stream Preview", shared WebSocket stream (no duplicate connection), mute button, dismiss button, shared audio state with widget.
+- [x] 17. Create `StreamPreviewModal` — large modal titled "Stream Preview", shared WebSocket stream (no duplicate connection), mute button, dismiss button, shared audio state with widget.
   - _Requirements: 2_
 
-- [ ] 18. Add `obsPreviewSlice` to Zustand store — status derivation from WebSocket state and NDI source configuration.
+- [x] 18. Add `obsPreviewSlice` to Zustand store — status derivation from WebSocket state and NDI source configuration.
   - _Requirements: 2_
 
-- [ ] 19. Update `seed-dashboard.ts` — add OBS Preview widget at (6,0) 2×2 with `roleMinimum: "AvVolunteer"`, idempotent check.
+- [x] 19. Update `seed-dashboard.ts` — add OBS Preview widget at (6,0) 2×2 with `roleMinimum: "AvVolunteer"`, idempotent check.
   - _Requirements: 8_
 
-- [ ] 20. Write unit tests for `usePreviewStream` hook — connection lifecycle, buffer management, reconnect backoff, tap-to-reconnect state transition, cleanup on unmount.
+- [x] 20. Write unit tests for `usePreviewStream` hook — connection lifecycle, buffer management, reconnect backoff, tap-to-reconnect state transition, cleanup on unmount.
   - _Requirements: 1, 2_
 
-- [ ] 21. Write unit tests for `ObsPreviewWidget` — renders inactive state when NDI not configured, renders video when streaming, mute toggle behavior, tap opens modal, modal shares stream, connection indicator derivation.
+- [x] 21. Write unit tests for `ObsPreviewWidget` — renders inactive state when NDI not configured, renders video when streaming, mute toggle behavior, tap opens modal, modal shares stream, connection indicator derivation.
   - _Requirements: 2_
 
 ---
 
 ## Phase 4: Camera HAL & Service (Backend)
 
-- [ ] 22. Create `CameraControlInterface` — TypeScript interface with `panTiltSpeed`, `panTiltAbsolute`, `zoomAbsolute`, `focusAuto`, `focusManual`, `stop`, `inquirePosition`, `connect`, `disconnect`, `isConnected`.
+- [x] 22. Create `CameraControlInterface` — TypeScript interface with `panTiltSpeed`, `panTiltAbsolute`, `zoomAbsolute`, `focusAuto`, `focusManual`, `stop`, `inquirePosition`, `connect`, `disconnect`, `isConnected`.
   - _Requirements: 3_
 
-- [ ] 22a. Implement NDI SDK dynamic loading — `import()` with try/catch for `grandiose`, ERROR log + persistent Banner on failure, camera features unavailable when NDI missing, rest of system unaffected. This is a prerequisite for NdiCameraDriver and NDI frame piping.
+- [x] 22a. Implement NDI SDK dynamic loading — `import()` with try/catch for `grandiose`, ERROR log + persistent Banner on failure, camera features unavailable when NDI missing, rest of system unaffected. This is a prerequisite for NdiCameraDriver and NDI frame piping.
   - _Requirements: 1, 3_
 
-- [ ] 23. Create `NdiCameraDriver` implementing `CameraControlInterface` — dynamic `grandiose` import, NDI find + receive + `ptz_is_supported` probe, PTZ commands via NDI SDK, last-commanded position tracking, raw frame readable stream for preview pipeline.
+- [x] 23. Create `NdiCameraDriver` implementing `CameraControlInterface` — dynamic `grandiose` import, NDI find + receive + `ptz_is_supported` probe, PTZ commands via NDI SDK, last-commanded position tracking, raw frame readable stream for preview pipeline.
   - _Requirements: 3_
 
-- [ ] 24. Create `ViscaCameraDriver` — TCP socket connection, binary VISCA packet construction/parsing, position inquiry commands (`CAM_PanTiltPosInq`, `CAM_ZoomPosInq`, `CAM_FocusPosInq`, `CAM_FocusAFModeInq`), ACK/Completion/Error handling, `CAM_PowerInq` probe, value normalization (16-bit ↔ float).
+- [x] 24. Create `ViscaCameraDriver` — TCP socket connection, binary VISCA packet construction/parsing, position inquiry commands (`CAM_PanTiltPosInq`, `CAM_ZoomPosInq`, `CAM_FocusPosInq`, `CAM_FocusAFModeInq`), ACK/Completion/Error handling, `CAM_PowerInq` probe, value normalization (16-bit ↔ float).
   - _Requirements: 3_
 
-- [ ] 25. Create `TongveoAiDriver` — HTTP POST to `/api/aiControl` (enable/disable with `ai_auto_zoom`/`ai_auto_tilt`), HTTP POST to `/api/setPTZCmd` (target selection, only on enable), cookie and credential from encrypted metadata, error handling with Toast notification.
+- [x] 25. Create `TongveoAiDriver` — HTTP POST to `/api/aiControl` (enable/disable with `ai_auto_zoom`/`ai_auto_tilt`), HTTP POST to `/api/setPTZCmd` (target selection, only on enable), cookie and credential from encrypted metadata, error handling with Toast notification.
   - _Requirements: 3_
 
-- [ ] 26. Create `CameraService` — initialize cameras from DB on startup, per-camera NDI driver + optional VISCA driver + optional AI driver, state management, 2s VISCA polling interval, position change detection and broadcast, reconnection with exponential backoff.
+- [x] 26. Create `CameraService` — initialize cameras from DB on startup, per-camera NDI driver + optional VISCA driver + optional AI driver, state management, 2s VISCA polling interval, position change detection and broadcast, reconnection with exponential backoff.
   - _Requirements: 3, 4_
 
-- [ ] 27. Implement dead-man's switch in `CameraService` — `startMove`/`keepAliveMove`/`stopMove`, 750ms timeout, session tracking, stale keepalive rejection, adaptive speed formula (`requestedSpeed * (1 - zoom * 0.7)`, capped at 0.6).
+- [x] 27. Implement dead-man's switch in `CameraService` — `startMove`/`keepAliveMove`/`stopMove`, 750ms timeout, session tracking, stale keepalive rejection, adaptive speed formula (`requestedSpeed * (1 - zoom * 0.7)`, capped at 0.6).
   - _Requirements: 3_
 
-- [ ] 28. Implement `cts:camera:set` handler in `CameraService` — partial state application (zoom, focus, autoFocus, aiTracking, aiTilt, aiZoom), AI driver invocation for tracking toggles, active preset clear on any manual change.
+- [x] 28. Implement `cts:camera:set` handler in `CameraService` — partial state application (zoom, focus, autoFocus, aiTracking, aiTilt, aiZoom), AI driver invocation for tracking toggles, active preset clear on any manual change.
   - _Requirements: 3, 5, 6_
 
-- [ ] 29. Implement `tapToCenter` in `CameraService` — validate VISCA is configured (reject with Toast if not), FOV calculation using `fovWideAngle / (1 + zoom * (opticalZoomRatio - 1))`, absolute pan/tilt command, respect aiTilt disable.
+- [x] 29. Implement `tapToCenter` in `CameraService` — validate VISCA is configured (reject with Toast if not), FOV calculation using `fovWideAngle / (1 + zoom * (opticalZoomRatio - 1))`, absolute pan/tilt command, respect aiTilt disable.
   - _Requirements: 5_
 
-- [ ] 30. Implement `activatePreset` in `CameraService` — `storedOnCamera` recall vs. absolute position commands, toggle state application (including AI via driver), `activePresetId` broadcast immediately (optimistic), Toast on camera unreachable but active indicator still set (volunteer sees via preview whether it worked).
+- [x] 30. Implement `activatePreset` in `CameraService` — `storedOnCamera` recall vs. absolute position commands, toggle state application (including AI via driver), `activePresetId` broadcast immediately (optimistic), Toast on camera unreachable but active indicator still set (volunteer sees via preview whether it worked).
   - _Requirements: 6_
 
-- [ ] 31. Create `CameraSocketModule` — implements `SocketModule`, handles all CTS events, `emitInitialState` sends `{ cameras: CameraState[], ndiAvailable: boolean }`, subscribes to `BUS_CAMERA_STATE_CHANGED` for STC broadcasts, role validation (AvVolunteer limited to `zoom` in `cts:camera:set` — silently strips AI/focus fields).
+- [x] 31. Create `CameraSocketModule` — implements `SocketModule`, handles all CTS events, `emitInitialState` sends `{ cameras: CameraState[], ndiAvailable: boolean }`, subscribes to `BUS_CAMERA_STATE_CHANGED` for STC broadcasts, role validation (AvVolunteer limited to `zoom` in `cts:camera:set` — silently strips AI/focus fields).
   - _Requirements: 3, 5_
 
-- [ ] 32. Register `CameraService` and `CameraSocketModule` in `buildApp`. Wire NDI source availability into `PreviewStreamManager`.
+- [x] 32. Register `CameraService` and `CameraSocketModule` in `buildApp`. Wire NDI source availability into `PreviewStreamManager`.
   - _Requirements: 3, 4_
 
-- [ ] 33. Write unit tests for `NdiCameraDriver` — mock grandiose, verify PTZ command mapping, last-commanded tracking, connect/disconnect lifecycle.
+- [x] 33. Write unit tests for `NdiCameraDriver` — mock grandiose, verify PTZ command mapping, last-commanded tracking, connect/disconnect lifecycle.
   - _Requirements: 3_
 
-- [ ] 34. Write unit tests for `ViscaCameraDriver` — VISCA packet construction, response parsing, value normalization (float ↔ 16-bit), inquiry error handling (mark axis as unknown), probe success/failure.
+- [x] 34. Write unit tests for `ViscaCameraDriver` — VISCA packet construction, response parsing, value normalization (float ↔ 16-bit), inquiry error handling (mark axis as unknown), probe success/failure.
   - _Requirements: 3_
 
-- [ ] 35. Write unit tests for `TongveoAiDriver` — enable sends aiControl + setPTZCmd, disable sends only aiControl (never setPTZCmd), cookie/credential in headers, HTTP failure handling.
+- [x] 35. Write unit tests for `TongveoAiDriver` — enable sends aiControl + setPTZCmd, disable sends only aiControl (never setPTZCmd), cookie/credential in headers, HTTP failure handling.
   - _Requirements: 3_
 
-- [ ] 36. Write unit tests for `CameraService` — dead-man's switch (timeout stops camera, stale keepalive ignored), adaptive speed at various zoom levels, `cts:camera:set` partial application, tap-to-center FOV math, preset activation (onboard vs. software), active preset cleared on manual change, position polling interval, `activePresetId` is null on fresh startup (no position matching attempted), startup WARNING log emitted for NDI-only cameras (no VISCA).
+- [x] 36. Write unit tests for `CameraService` — dead-man's switch (timeout stops camera, stale keepalive ignored), adaptive speed at various zoom levels, `cts:camera:set` partial application, tap-to-center FOV math, preset activation (onboard vs. software), active preset cleared on manual change, position polling interval, `activePresetId` is null on fresh startup (no position matching attempted), startup WARNING log emitted for NDI-only cameras (no VISCA).
   - _Requirements: 3, 5, 6_
 
-- [ ] 37. Write integration tests for camera socket events — full server with harness, `emitInitialState` returns camera states, `cts:camera:set` updates state and broadcasts, preset activation flow, role enforcement (volunteer cannot toggle AI), move:start/keepalive/stop lifecycle.
+- [x] 37. Write integration tests for camera socket events — full server with harness, `emitInitialState` returns camera states, `cts:camera:set` updates state and broadcasts, preset activation flow, role enforcement (volunteer cannot toggle AI), move:start/keepalive/stop lifecycle.
   - _Requirements: 3, 5, 6_
 
 ---
 
 ## Phase 5: Camera Widget (Frontend)
 
-- [ ] 38. Create `cameraSlice` in Zustand store — `cameraStates` record keyed by cameraId, `setCameraState`, `setAllCameraStates`, `clearActivePreset`.
+- [x] 38. Create `cameraSlice` in Zustand store — `cameraStates` record keyed by cameraId, `setCameraState`, `setAllCameraStates`, `clearActivePreset`.
   - _Requirements: 4_
 
-- [ ] 39. Create `cameraSocketModule` — register `STC_CAMERA_STATE` and `STC_CAMERA_STATE_UPDATE` listeners, wire to store.
+- [x] 39. Create `cameraSocketModule` — register `STC_CAMERA_STATE` and `STC_CAMERA_STATE_UPDATE` listeners, wire to store.
   - _Requirements: 4_
 
-- [ ] 40. Create `CameraWidget` — `WidgetContainer` with "Camera" connection indicator, camera dropdown (react-select, disabled when 1 camera), `ResizeObserver` mode detection (compact vs expanded at 30rem × 20rem thresholds), full-widget overlay for offline/connecting states, localStorage camera persistence, camera switch transition (freeze last frame beneath "Connecting..." overlay until new stream's first frame arrives).
+- [x] 40. Create `CameraWidget` — `WidgetContainer` with "Camera" connection indicator, camera dropdown (react-select, disabled when 1 camera), `ResizeObserver` mode detection (compact vs expanded at 30rem × 20rem thresholds), full-widget overlay for offline/connecting states, localStorage camera persistence, camera switch transition (freeze last frame beneath "Connecting..." overlay until new stream's first frame arrives).
   - _Requirements: 4_
 
-- [ ] 41. Create `PtzJoystick` component — circular touch zone (min 7.5rem diameter), dead-zone ring indicator (15% radius, `color-border`), indicator dot tracking (`color-primary`), distance/angle → pan/tilt speed conversion, dead-zone enforcement, 0.05 quantization, mouse event support.
+- [x] 41. Create `PtzJoystick` component — circular touch zone (min 7.5rem diameter), dead-zone ring indicator (15% radius, `color-border`), indicator dot tracking (`color-primary`), distance/angle → pan/tilt speed conversion, dead-zone enforcement, 0.05 quantization, mouse event support.
   - _Requirements: 5_
 
-- [ ] 42. Create `usePtzMove` hook — emits `move:start` on first touch outside dead-zone, 200ms keepalive interval with updated speed values, emits `move:stop` on touch release, cleanup on unmount.
+- [x] 42. Create `usePtzMove` hook — emits `move:start` on first touch outside dead-zone, 200ms keepalive interval with updated speed values, emits `move:stop` on touch release, cleanup on unmount.
   - _Requirements: 5_
 
-- [ ] 43. Create zoom slider — vertical `ion-range`, min-height 10rem, 0.0 (wide) to 1.0 (telephoto), reflects server state, emits `cts:camera:set` with zoom value on change.
+- [x] 43. Create zoom slider — vertical `ion-range`, min-height 10rem, 0.0 (wide) to 1.0 (telephoto), reflects server state, emits `cts:camera:set` with zoom value on change.
   - _Requirements: 5_
 
-- [ ] 44. Create toggle row — AI Tracking, AI Tilt (visible when AI on), AI Zoom (visible when AI on), Auto Focus toggles. All using Ionic toggle pattern. Hidden for AvVolunteer. Emits `cts:camera:set` with the changed field.
+- [x] 44. Create toggle row — AI Tracking, AI Tilt (visible when AI on), AI Zoom (visible when AI on), Auto Focus toggles. All using Ionic toggle pattern. Hidden for AvVolunteer. Emits `cts:camera:set` with the changed field.
   - _Requirements: 5_
 
-- [ ] 45. Create focus slider — horizontal `ion-range`, min-height 2.75rem, greyed out when auto-focus enabled, emits `cts:camera:set` with focus value. Visible only to ADMIN/AvPowerUser.
+- [x] 45. Create focus slider — horizontal `ion-range`, min-height 2.75rem, greyed out when auto-focus enabled, emits `cts:camera:set` with focus value. Visible only to ADMIN/AvPowerUser.
   - _Requirements: 5_
 
-- [ ] 46. Create `useDoubleTapToCenter` hook — 400ms double-tap detection, `touch-action: manipulation` requirement, coordinate calculation (-1 to 1), capability check (Toast if no VISCA), AI tracking check (Toast if active), emits `cts:camera:ptz:tap-to-center`.
+- [x] 46. Create `useDoubleTapToCenter` hook — 400ms double-tap detection, `touch-action: manipulation` requirement, coordinate calculation (-1 to 1), capability check (Toast if no VISCA), AI tracking check (Toast if active), emits `cts:camera:ptz:tap-to-center`.
   - _Requirements: 5_
 
-- [ ] 47. Create `CameraControlModal` — same layout as expanded mode, full-size video + all controls, opened from compact mode tap, shares WebSocket stream.
+- [x] 47. Create `CameraControlModal` — same layout as expanded mode, full-size video + all controls, opened from compact mode tap, shares WebSocket stream.
   - _Requirements: 4, 5_
 
-- [ ] 48. Integrate feature set gating — hide/disable controls based on `CameraState.features` array. Joystick horizontal disabled if no `pan`, vertical if no `tilt`, hidden if both missing. Zoom hidden if no `zoom`. Focus hidden if no `focus`. AI toggles hidden if no `ai-tracking` or camera model is Generic.
+- [x] 48. Integrate feature set gating — hide/disable controls based on `CameraState.features` array. Joystick horizontal disabled if no `pan`, vertical if no `tilt`, hidden if both missing. Zoom hidden if no `zoom`. Focus hidden if no `focus`. AI toggles hidden if no `ai-tracking` or camera model is Generic.
   - _Requirements: 5_
 
-- [ ] 49. Update `seed-dashboard.ts` — add Camera widget at (0,2) 6×4 with `roleMinimum: "AvVolunteer"`, idempotent check.
+- [x] 49. Update `seed-dashboard.ts` — add Camera widget at (0,2) 6×4 with `roleMinimum: "AvVolunteer"`, idempotent check.
   - _Requirements: 8_
 
-- [ ] 50. Write unit tests for `PtzJoystick` — dead-zone produces (0,0), edge produces (1,0)/(0,1), diagonal angle correct, quantization snaps values, only emits on change, mouse event parity.
+- [x] 50. Write unit tests for `PtzJoystick` — dead-zone produces (0,0), edge produces (1,0)/(0,1), diagonal angle correct, quantization snaps values, only emits on change, mouse event parity.
   - _Requirements: 5_
 
-- [ ] 51. Write unit tests for `usePtzMove` — start/keepalive/stop event sequence, 200ms interval, cleanup on unmount, updated values carried in keepalive.
+- [x] 51. Write unit tests for `usePtzMove` — start/keepalive/stop event sequence, 200ms interval, cleanup on unmount, updated values carried in keepalive.
   - _Requirements: 5_
 
-- [ ] 52. Write unit tests for `useDoubleTapToCenter` — single tap ignored, double tap within 400ms fires, second tap coordinates used, AI tracking Toast shown, no-VISCA Toast shown, resets after timeout.
+- [x] 52. Write unit tests for `useDoubleTapToCenter` — single tap ignored, double tap within 400ms fires, second tap coordinates used, AI tracking Toast shown, no-VISCA Toast shown, resets after timeout.
   - _Requirements: 5_
 
-- [ ] 53. Write unit tests for `CameraWidget` — compact mode renders video only, expanded mode renders controls, mode switches at threshold, dropdown disabled with 1 camera, offline overlay covers entire widget, camera switching disconnects/reconnects, feature gating hides controls.
+- [x] 53. Write unit tests for `CameraWidget` — compact mode renders video only, expanded mode renders controls, mode switches at threshold, dropdown disabled with 1 camera, offline overlay covers entire widget, camera switching disconnects/reconnects, feature gating hides controls.
   - _Requirements: 4, 5_
 
 ---
 
 ## Phase 6: Presets & Admin Configuration (Frontend + Backend)
 
-- [ ] 54. Create `PresetList` component — scrollable list (3 visible), preset rows with name and Activate button (min-height 2.75rem), active preset highlighted with `color-primary`, emits `cts:camera:preset:activate`, Toast on activate, clears highlight on manual change.
+- [x] 54. Create `PresetList` component — scrollable list (3 visible), preset rows with name and Activate button (min-height 2.75rem), active preset highlighted with `color-primary`, emits `cts:camera:preset:activate`, Toast on activate, clears highlight on manual change.
   - _Requirements: 6_
 
-- [ ] 55. Create camera device admin panel — Camera Model dropdown (react-select: "Generic" / "Tongveo NVS20A-4KN"), NDI Source Name input, VISCA section (collapsible with toggle), FOV Wide Angle input, Optical Zoom Ratio input, AI Tracking Configuration section (visible when model ≠ Generic: cookie + credential inputs, encrypted storage), probe result display, no-VISCA informational note.
+- [x] 55. Create camera device admin panel — Camera Model dropdown (react-select: "Generic" / "Tongveo NVS20A-4KN"), NDI Source Name input, VISCA section (collapsible with toggle), FOV Wide Angle input, Optical Zoom Ratio input, AI Tracking Configuration section (visible when model ≠ Generic: cookie + credential inputs, encrypted storage), probe result display, no-VISCA informational note.
   - _Requirements: 7_
 
-- [ ] 56. Create Features section in admin panel — toggles for `pan`, `tilt`, `zoom`, `focus`, conditional AI toggles (`ai-tracking`, `ai-tracking-tilt`, `ai-tracking-zoom` only when model ≠ Generic), all default enabled.
+- [x] 56. Create Features section in admin panel — toggles for `pan`, `tilt`, `zoom`, `focus`, conditional AI toggles (`ai-tracking`, `ai-tracking-tilt`, `ai-tracking-zoom` only when model ≠ Generic), all default enabled.
   - _Requirements: 7_
 
-- [ ] 57. Create Presets section in admin panel — drag-to-reorder list, "On Camera"/"Software Only" badges, Edit/Delete buttons, Add Preset button.
+- [x] 57. Create Presets section in admin panel — drag-to-reorder list, "On Camera"/"Software Only" badges, Edit/Delete buttons, Add Preset button.
   - _Requirements: 7_
 
-- [ ] 58. Create `PresetConfigModal` — Name input, Store on Camera toggle with slot number, live video preview, PTZ controls (joystick, zoom, toggles), Capture Position button with summary display, Save/Cancel.
+- [x] 58. Create `PresetConfigModal` — Name input, Store on Camera toggle with slot number, live video preview, PTZ controls (joystick, zoom, toggles), Capture Position button with summary display, Save/Cancel.
   - _Requirements: 7_
 
-- [ ] 59. Implement preset REST endpoints — `GET/POST /api/admin/cameras/:cameraId/presets`, `PUT/DELETE /api/admin/cameras/:cameraId/presets/:presetId`, `PUT /api/admin/cameras/:cameraId/presets/order`, `POST /api/admin/cameras/:cameraId/capture-position`. All ADMIN-only. Broadcast updated preset list via Socket.io on mutation.
+- [x] 59. Implement preset REST endpoints — `GET/POST /api/admin/cameras/:cameraId/presets`, `PUT/DELETE /api/admin/cameras/:cameraId/presets/:presetId`, `PUT /api/admin/cameras/:cameraId/presets/order`, `POST /api/admin/cameras/:cameraId/capture-position`. All ADMIN-only. Broadcast updated preset list via Socket.io on mutation.
   - _Requirements: 7_
 
-- [ ] 60. Implement camera device CRUD validation — conditional validation when `deviceType === "camera-ptz"`: require `metadata.ndiSourceName`, validate `metadata.cameraModel` enum, store encrypted `aiHttpCookie`/`aiCredentialId`, default `host`/`port` to `"127.0.0.1"`/`5500` when VISCA not enabled.
+- [x] 60. Implement camera device CRUD validation — conditional validation when `deviceType === "camera-ptz"`: require `metadata.ndiSourceName`, validate `metadata.cameraModel` enum, store encrypted `aiHttpCookie`/`aiCredentialId`, default `host`/`port` to `"127.0.0.1"`/`5500` when VISCA not enabled.
   - _Requirements: 7_
 
-- [ ] 61. Write unit tests for `PresetList` — renders presets in sortOrder, activate button emits event and shows Toast, active highlight appears on state update, highlight clears on manual change, scrolls when >3 presets.
+- [x] 61. Write unit tests for `PresetList` — renders presets in sortOrder, activate button emits event and shows Toast, active highlight appears on state update, highlight clears on manual change, scrolls when >3 presets.
   - _Requirements: 6_
 
-- [ ] 62. Write unit tests for camera admin panel — model selection shows/hides AI config section, VISCA toggle shows/hides host/port fields, feature toggles conditionally rendered based on model, probe result display.
+- [x] 62. Write unit tests for camera admin panel — model selection shows/hides AI config section, VISCA toggle shows/hides host/port fields, feature toggles conditionally rendered based on model, probe result display.
   - _Requirements: 7_
 
-- [ ] 63. Write unit tests for `PresetConfigModal` — capture position displays summary, null values show N/A, store-on-camera toggle reveals slot input, save emits correct payload.
+- [x] 63. Write unit tests for `PresetConfigModal` — capture position displays summary, null values show N/A, store-on-camera toggle reveals slot input, save emits correct payload.
   - _Requirements: 7_
 
-- [ ] 64. Write integration tests for preset REST endpoints — CRUD lifecycle, reorder persists sortOrder correctly, capture-position returns current camera state, cascade delete with parent device, ADMIN role enforcement (volunteer rejected), preset broadcast on mutation.
+- [x] 64. Write integration tests for preset REST endpoints — CRUD lifecycle, reorder persists sortOrder correctly, capture-position returns current camera state, cascade delete with parent device, ADMIN role enforcement (volunteer rejected), preset broadcast on mutation.
   - _Requirements: 6, 7_
 
-- [ ] 65. Write integration tests for camera device CRUD — create camera-ptz device with metadata, probe on save, NDI unavailable degrades gracefully, VISCA probe failure logs warning but device saves, encrypted fields not exposed in GET response.
+- [x] 65. Write integration tests for camera device CRUD — create camera-ptz device with metadata, probe on save, NDI unavailable degrades gracefully, VISCA probe failure logs warning but device saves, encrypted fields not exposed in GET response.
   - _Requirements: 7_
 
 ---

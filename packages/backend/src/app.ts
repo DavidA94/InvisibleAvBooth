@@ -24,6 +24,8 @@ import type { NmsFactory, SpawnFn } from "./services/relayService.js";
 import { StreamingPlatformService } from "./services/streamingPlatformService.js";
 import { PreviewStreamManager } from "./services/previewStreamManager.js";
 import type { SpawnFn as PreviewSpawnFn } from "./services/previewStreamManager.js";
+import { CameraService } from "./camera/CameraService.js";
+import { CameraSocketModule } from "./camera/CameraSocketModule.js";
 import { PlatformConfigDao } from "./platforms/platformConfigDao.js";
 import type { StreamingPlatformClient } from "./platforms/platformClient.js";
 import { createAuthRouter } from "./routes/authRoutes.js";
@@ -36,6 +38,7 @@ import { createLogRouter } from "./routes/logRoutes.js";
 import { createKjvRouter } from "./routes/kjvRoutes.js";
 import { createAdminTemplateRouter } from "./routes/adminTemplateRoutes.js";
 import { createTemplateRouter } from "./routes/templateRoutes.js";
+import { createPresetRouter } from "./routes/adminPresetRoutes.js";
 import { MetadataTemplateDao } from "./dao/metadataTemplateDao.js";
 import { createPlatformRouter, cleanupStaleOAuthStates } from "./routes/platformRoutes.js";
 import { createOverlayLogRouter } from "./routes/overlayLogRoutes.js";
@@ -64,6 +67,7 @@ export interface AppContext {
   platformService: StreamingPlatformService;
   manifestService: SessionManifestService;
   lowerThirdService: LowerThirdService;
+  cameraService: CameraService;
   previewManager: PreviewStreamManager;
   gateway: SocketGateway;
 }
@@ -108,6 +112,7 @@ export function buildApp(deps: AppDependencies): AppContext {
   app.use("/api/logs", mustBeAuthenticated, mustHaveChangedPassword, createLogRouter(authService));
   app.use("/api/kjv", mustBeAuthenticated, mustHaveChangedPassword, createKjvRouter(database, authService));
   app.use("/api/admin/templates", mustBeAuthenticated, mustHaveChangedPassword, createAdminTemplateRouter(database, authService));
+  app.use("/api/admin/cameras/:cameraId/presets", mustBeAuthenticated, mustHaveChangedPassword, createPresetRouter(database, authService));
   app.use("/api/templates", mustBeAuthenticated, mustHaveChangedPassword, createTemplateRouter(database, authService));
 
   const httpServer = createServer(app);
@@ -121,6 +126,8 @@ export function buildApp(deps: AppDependencies): AppContext {
   const templateDao = new MetadataTemplateDao(database);
   const lowerThirdService = new LowerThirdService(templateDao, database, manifestService);
 
+  const cameraService = new CameraService(database);
+
   const onPlatformChanged = (): void => platformServiceRef?.reloadPlatforms();
   app.use("/api", mustBeAuthenticated, mustHaveChangedPassword, createPlatformRouter(database, authService, onPlatformChanged));
 
@@ -129,6 +136,7 @@ export function buildApp(deps: AppDependencies): AppContext {
     new SessionManifestModule(manifestService),
     new StreamingPlatformModule(platformService, relayService),
     new LowerThirdModule(lowerThirdService),
+    new CameraSocketModule(cameraService),
   ]);
 
   registerOverlayNamespace(gateway.getIo(), lowerThirdService);
@@ -136,5 +144,18 @@ export function buildApp(deps: AppDependencies): AppContext {
   const previewManager = new PreviewStreamManager(authService, previewSpawnFn);
   previewManager.registerEndpoints(httpServer);
 
-  return { httpServer, app, database, authService, obsService, relayService, platformService, manifestService, lowerThirdService, previewManager, gateway };
+  return {
+    httpServer,
+    app,
+    database,
+    authService,
+    obsService,
+    relayService,
+    platformService,
+    manifestService,
+    lowerThirdService,
+    cameraService,
+    previewManager,
+    gateway,
+  };
 }

@@ -240,3 +240,12 @@ export const TEST_ID_LT_EDIT_CANCEL = "lt-edit-cancel";
 export const TEST_ID_LT_EDIT_SAVE = "lt-edit-save";
 export const TEST_ID_BLUE_RHOMBUS = "blue-rhombus";
 export const TEST_ID_SWIPEABLE_ROW = "swipeable-row";
+
+// ── OBS Preview Widget ─────────────────────────────────────────────────────────
+export const TEST_ID_OBS_PREVIEW_WIDGET = "obs-preview-widget";
+export const TEST_ID_OBS_PREVIEW_VIDEO = "obs-preview-video";
+export const TEST_ID_OBS_PREVIEW_MUTE_BTN = "obs-preview-mute-btn";
+export const TEST_ID_OBS_PREVIEW_INACTIVE = "obs-preview-inactive";
+export const TEST_ID_OBS_PREVIEW_RECONNECTING = "obs-preview-reconnecting";
+export const TEST_ID_STREAM_PREVIEW_MODAL = "stream-preview-modal";
+export const TEST_ID_STREAM_PREVIEW_DISMISS = "stream-preview-dismiss";
