@@ -150,6 +150,7 @@ export const TEST_ID_DEVICE_FORM_PASSWORD = "device-form-password";
 export const TEST_ID_DEVICE_FORM_TEMPLATE = "device-form-template";
 export const TEST_ID_DEVICE_FORM_TEMPLATE_PREVIEW = "device-form-template-preview";
 export const TEST_ID_DEVICE_FORM_ENABLED = "device-form-enabled";
+export const TEST_ID_DEVICE_FORM_NDI_OUTPUT_NAME = "device-form-ndi-output-name";
 export const TEST_ID_DEVICE_FORM_SAVE = "device-form-save";
 export const TEST_ID_DEVICE_FORM_DELETE = "device-form-delete";
 export const TEST_ID_DEVICE_FORM_ERROR = "device-form-error";

@@ -13,6 +13,7 @@ import {
   TEST_ID_DEVICE_FORM_SAVE,
   TEST_ID_DEVICE_FORM_DELETE,
   TEST_ID_DEVICE_FORM_ERROR,
+  TEST_ID_DEVICE_FORM_NDI_OUTPUT_NAME,
 } from "../../constants/testIds";
 
 export function ObsDeviceForm({ device, onSaved, onDeleted, registerDirtyCheck }: DeviceFormProps): ReactNode {
@@ -53,6 +54,7 @@ export function ObsDeviceForm({ device, onSaved, onDeleted, registerDirtyCheck }
         label: form.label,
         host: form.host,
         port: Number(form.port),
+        metadata: { ndiOutputName: form.ndiOutputName || undefined },
       };
       if (isEdit) {
         body["enabled"] = form.enabled;
@@ -146,6 +148,16 @@ export function ObsDeviceForm({ device, onSaved, onDeleted, registerDirtyCheck }
         type="password"
         value={form.password}
         onIonInput={(e) => updateField("password", e.detail.value ?? "")}
+        clearInput
+      />
+      <IonInput
+        data-testid={TEST_ID_DEVICE_FORM_NDI_OUTPUT_NAME}
+        label="NDI Output Name"
+        labelPlacement="stacked"
+        fill="outline"
+        placeholder="OBS-MACHINE (OBS)"
+        value={form.ndiOutputName}
+        onIonInput={(e) => updateField("ndiOutputName", e.detail.value ?? "")}
         clearInput
       />
 

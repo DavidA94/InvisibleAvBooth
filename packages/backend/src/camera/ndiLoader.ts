@@ -1,4 +1,6 @@
 import { logger } from "../logger.js";
+import { eventBus } from "../eventBus/eventBus.js";
+import { BUS_DEVICE_CAPABILITIES_UPDATED } from "../eventBus/types.js";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let ndiModule: any = null;
@@ -14,7 +16,11 @@ export async function loadNdi(): Promise<boolean> {
     logger.info("NDI SDK loaded successfully");
   } catch {
     ndiAvailable = false;
-    logger.error("NDI SDK (grandiose) not available — camera features disabled");
+    logger.error("NDI SDK not available — camera features are disabled. Install the NDI SDK to enable cameras.");
+    eventBus.emit(BUS_DEVICE_CAPABILITIES_UPDATED, {
+      deviceId: "ndi",
+      capabilities: { deviceId: "ndi", deviceType: "camera-ptz", features: { ndi: false } },
+    });
   }
   return ndiAvailable;
 }

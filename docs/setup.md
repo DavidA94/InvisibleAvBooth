@@ -343,6 +343,68 @@ If `DEVICE_SECRET_KEY` is changed, all stored device passwords become unreadable
 
 ## Lower-Third Overlay (OBS Browser Source)
 
+---
+
+## NDI Setup (Video Preview & Camera Control)
+
+### OBS Preview — DistroAV Plugin
+
+The OBS Preview widget displays a real-time feed of what OBS is outputting, regardless of streaming/recording state. This requires the DistroAV (NDI) plugin:
+
+1. **Install DistroAV:**
+   - **Linux (apt):** `sudo apt install obs-ndi`
+   - **Windows:** Download from [github.com/DistroAV/DistroAV/releases](https://github.com/DistroAV/DistroAV/releases) and run the installer
+   - **macOS:** `brew install obs-ndi`
+
+2. **Enable NDI output in OBS:**
+   - Open OBS → Tools → NDI Output Settings
+   - Check "Main Output"
+   - The output name defaults to `MACHINE-NAME (OBS)` — note this value
+
+3. **Configure in Invisible A/V Booth:**
+   - Go to `/admin/devices`, select your OBS connection
+   - Enter the NDI output name in the "NDI Output Name" field (e.g., `MY-PC (OBS)`)
+   - Save
+
+The preview widget will display "OBS Preview Unavailable" if DistroAV is not enabled or OBS is not running. Once configured, the preview is always available when OBS is running — even without streaming or recording active.
+
+### Camera Features — NDI SDK
+
+Camera video preview and PTZ control require the NDI SDK (via the `grandiose` native module):
+
+1. **Install the NDI SDK:**
+   - Download from [ndi.video/tools](https://ndi.video/tools/) (NDI SDK, free registration)
+   - **Linux:** Extract and copy libraries to `/usr/local/lib`, run `sudo ldconfig`
+   - **Windows:** Run the installer (adds to PATH automatically)
+
+2. **Build native bindings:**
+
+   ```bash
+   cd packages/backend
+   npm rebuild grandiose
+   ```
+
+3. If the NDI SDK is not installed, the system logs an error at startup and camera features are disabled. OBS preview, streaming, and all other features continue to work normally.
+
+### Camera AI Tracking Credentials (Tongveo NVS20A-4KN)
+
+To configure AI tracking for supported camera models, you need the camera's HTTP cookie and credential ID. These are obtained from the camera's web interface:
+
+1. Open the camera's web interface (e.g., `http://192.168.1.x`) in a browser
+2. Log in and enable AI tracking manually once
+3. Open browser Developer Tools → Network tab
+4. Toggle AI tracking on/off and find the request to `/api/aiControl`
+5. Copy the `Cookie` header value from the request headers
+6. Find the request to `/api/setPTZCmd` and copy the `ID` field from the JSON body
+
+Enter these values in the camera's admin configuration under "AI Tracking Configuration."
+
+> **Warning:** These credentials may expire on camera reboot or session timeout. If AI tracking commands start failing, re-obtain the cookie from the camera's web interface.
+
+---
+
+## Lower-Third Overlay (OBS Browser Source)
+
 The lower-third system uses a static HTML file loaded in OBS as a browser source. This file wraps an iFrame that connects to the frontend overlay page.
 
 ### OBS Browser Source Configuration

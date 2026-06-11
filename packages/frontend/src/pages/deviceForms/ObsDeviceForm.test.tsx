@@ -10,6 +10,7 @@ import {
   TEST_ID_DEVICE_FORM_SAVE,
   TEST_ID_DEVICE_FORM_DELETE,
   TEST_ID_DEVICE_FORM_ERROR,
+  TEST_ID_DEVICE_FORM_NDI_OUTPUT_NAME,
   TEST_ID_CONFIRMATION_CONFIRM_BUTTON,
   TEST_ID_CONFIRMATION_CANCEL_BUTTON,
 } from "../../constants/testIds";
@@ -80,6 +81,32 @@ describe("ObsDeviceForm — create mode", () => {
 
     expect(mockFetch).toHaveBeenCalledWith("/api/admin/devices", expect.objectContaining({ method: "POST" }));
     expect(onSaved).toHaveBeenCalled();
+  });
+
+  it("renders NDI Output Name field with placeholder", () => {
+    renderCreate();
+    const ndiField = screen.getByTestId(TEST_ID_DEVICE_FORM_NDI_OUTPUT_NAME);
+    expect(ndiField).toBeInTheDocument();
+    expect(ndiField).toHaveAttribute("placeholder", "OBS-MACHINE (OBS)");
+  });
+
+  it("includes ndiOutputName in metadata on save", async () => {
+    const onSaved = vi.fn();
+    renderCreate({ onSaved });
+
+    fireEvent(screen.getByTestId(TEST_ID_DEVICE_FORM_LABEL), new CustomEvent("ionInput", { detail: { value: "OBS" } }));
+    fireEvent(screen.getByTestId(TEST_ID_DEVICE_FORM_HOST), new CustomEvent("ionInput", { detail: { value: "10.0.0.1" } }));
+    fireEvent(screen.getByTestId(TEST_ID_DEVICE_FORM_NDI_OUTPUT_NAME), new CustomEvent("ionInput", { detail: { value: "MY-PC (OBS)" } }));
+
+    mockFetch.mockResolvedValueOnce({ ok: true, json: async () => ({ id: "d3" }) });
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId(TEST_ID_DEVICE_FORM_SAVE));
+    });
+
+    const call = mockFetch.mock.calls[0]!;
+    const body = JSON.parse(call[1].body as string);
+    expect(body.metadata).toEqual({ ndiOutputName: "MY-PC (OBS)" });
   });
 
   it("shows error on failed create", async () => {

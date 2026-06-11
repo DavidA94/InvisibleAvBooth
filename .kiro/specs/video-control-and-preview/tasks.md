@@ -234,25 +234,25 @@ Tests are part of each task's definition of done. Unit tests follow the unit or 
 
 ## Phase 7: NDI SDK Integration & OBS Preview Backend
 
-- [ ] 66. Implement NDI frame → FFmpeg stdin pipe — raw frame format detection from first frame metadata, `buildNdiInputArgs` with correct pixel format/resolution/framerate, backpressure handling (drop frames when pipe full).
+- [x] 66. Implement NDI frame → FFmpeg stdin pipe — raw frame format detection from first frame metadata, `buildNdiInputArgs` with correct pixel format/resolution/framerate, backpressure handling (drop frames when pipe full).
   - _Requirements: 1, 4_
 
-- [ ] 67. Implement OBS NDI preview source — read `ndiOutputName` from OBS device metadata, connect to OBS NDI output via grandiose receiver, pipe to PreviewStreamManager, handle DistroAV not enabled (mark source unavailable).
+- [x] 67. Implement OBS NDI preview source — read `ndiOutputName` from OBS device metadata, connect to OBS NDI output via grandiose receiver, pipe to PreviewStreamManager, handle DistroAV not enabled (mark source unavailable).
   - _Requirements: 2_
 
-- [ ] 68. Add `ndiOutputName` field to OBS device admin panel — "NDI Output Name" input with placeholder `"OBS-MACHINE (OBS)"`, stored in OBS device metadata.
+- [x] 68. Add `ndiOutputName` field to OBS device admin panel — "NDI Output Name" input with placeholder `"OBS-MACHINE (OBS)"`, stored in OBS device metadata.
   - _Requirements: 2_
 
-- [ ] 69. Update `docs/setup.md` — document DistroAV plugin installation, NDI output configuration in OBS, NDI SDK installation for camera features, how to obtain camera AI cookie/credential from browser dev tools (with stability warning).
+- [x] 69. Update `docs/setup.md` — document DistroAV plugin installation, NDI output configuration in OBS, NDI SDK installation for camera features, how to obtain camera AI cookie/credential from browser dev tools (with stability warning).
   - _Requirements: 2, 7_
 
-- [ ] 70. Write unit tests for NDI dynamic loading — graceful failure path (Banner emitted, cameras unavailable), success path (module cached).
+- [x] 70. Write unit tests for NDI dynamic loading — graceful failure path (Banner emitted, cameras unavailable), success path (module cached).
   - _Requirements: 1_
 
-- [ ] 71. Write unit tests for NDI frame pipe — format detection, backpressure drop behavior, correct FFmpeg input args for UYVY vs BGRA.
+- [x] 71. Write unit tests for NDI frame pipe — format detection, backpressure drop behavior, correct FFmpeg input args for UYVY vs BGRA.
   - _Requirements: 1_
 
-- [ ] 72. Write integration tests for OBS preview — full server, OBS device with `ndiOutputName` configured, preview WebSocket serves data when source available, serves nothing when source unavailable, connection indicator reflects state.
+- [x] 72. Write integration tests for OBS preview — full server, OBS device with `ndiOutputName` configured, preview WebSocket serves data when source available, serves nothing when source unavailable, connection indicator reflects state.
   - _Requirements: 2_
 
 ---
