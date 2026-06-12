@@ -13,7 +13,12 @@ vi.mock("../logger.js", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
+vi.mock("../eventBus/eventBus.js", () => ({
+  eventBus: { emit: vi.fn(), subscribe: vi.fn() },
+}));
+
 import { isNdiAvailable, getNdiModule } from "./ndiLoader.js";
+import { eventBus } from "../eventBus/eventBus.js";
 const mockIsNdiAvailable = vi.mocked(isNdiAvailable);
 const mockGetNdiModule = vi.mocked(getNdiModule);
 
@@ -50,6 +55,13 @@ describe("ObsNdiPreviewSource", () => {
     await source.initialize();
     expect(source.getNdiOutputName()).toBeNull();
     expect(previewManager.setSourceAvailable).not.toHaveBeenCalled();
+    expect(eventBus.emit).toHaveBeenCalledWith(
+      "bus:device:capabilities:updated",
+      expect.objectContaining({
+        deviceId: "obs-preview",
+        capabilities: expect.objectContaining({ features: { ndiConfigured: false } }),
+      }),
+    );
   });
 
   it("does nothing when OBS device has no ndiOutputName", async () => {
@@ -59,9 +71,15 @@ describe("ObsNdiPreviewSource", () => {
 
     await source.initialize();
     expect(source.getNdiOutputName()).toBeNull();
+    expect(eventBus.emit).toHaveBeenCalledWith(
+      "bus:device:capabilities:updated",
+      expect.objectContaining({
+        capabilities: expect.objectContaining({ features: { ndiConfigured: false } }),
+      }),
+    );
   });
 
-  it("logs warning when NDI SDK not available", async () => {
+  it("emits ndiConfigured=true when ndiOutputName is set", async () => {
     const db = createDbWithObsDevice("MY-PC (OBS)");
     previewManager = createMockPreviewManager();
     mockIsNdiAvailable.mockReturnValue(false);
@@ -69,6 +87,12 @@ describe("ObsNdiPreviewSource", () => {
 
     await source.initialize();
     expect(source.getNdiOutputName()).toBe("MY-PC (OBS)");
+    expect(eventBus.emit).toHaveBeenCalledWith(
+      "bus:device:capabilities:updated",
+      expect.objectContaining({
+        capabilities: expect.objectContaining({ features: { ndiConfigured: true } }),
+      }),
+    );
   });
 
   it("attempts connect when NDI is available and ndiOutputName configured", async () => {

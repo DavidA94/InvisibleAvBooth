@@ -65,10 +65,14 @@ describe("usePreviewStream", () => {
     expect(MockWebSocket.instances[0]!.url).toContain("/preview/cam1");
   });
 
-  it("sets status to streaming on ws open", () => {
+  it("sets status to streaming on first message (not on ws open)", () => {
     const { result } = renderHook(() => usePreviewStream("/preview/cam1", true));
     act(() => {
       MockWebSocket.instances[0]!.onopen!();
+    });
+    expect(result.current.status).toBe("connecting");
+    act(() => {
+      MockWebSocket.instances[0]!.onmessage!({ data: new ArrayBuffer(8) } as MessageEvent);
     });
     expect(result.current.status).toBe("streaming");
   });

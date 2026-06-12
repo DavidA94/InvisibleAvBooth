@@ -59,8 +59,8 @@ export class CameraService {
 
   async initialize(): Promise<void> {
     const rows = this.database
-      .prepare("SELECT id, host, port, metadata, features FROM device_connections WHERE deviceType = 'camera-ptz' AND enabled = 1")
-      .all() as Array<{ id: string; host: string; port: number; metadata: string; features: string }>;
+      .prepare("SELECT id, label, host, port, metadata, features FROM device_connections WHERE deviceType = 'camera-ptz' AND enabled = 1")
+      .all() as Array<{ id: string; label: string; host: string; port: number; metadata: string; features: string }>;
 
     for (const row of rows) {
       const meta: CameraMetadata = JSON.parse(row.metadata);
@@ -74,7 +74,7 @@ export class CameraService {
       if (meta.viscaEnabled) {
         viscaDriver = new ViscaCameraDriver(row.host, row.port);
       } else {
-        logger.warn(`Camera '${row.id}' uses NDI-only — position state is based on commanded values and may drift if the camera is controlled externally.`);
+        logger.warn(`Camera '${row.label}' uses NDI-only — position state is based on commanded values and may drift if the camera is controlled externally.`);
       }
 
       if (meta.cameraModel !== "generic" && meta.aiHttpCookie && meta.aiCredentialId) {

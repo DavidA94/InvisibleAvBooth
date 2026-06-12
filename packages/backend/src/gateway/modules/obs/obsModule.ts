@@ -17,7 +17,10 @@ interface CommandResult {
 }
 
 export class ObsModule implements SocketModule {
-  constructor(private readonly obsService: ObsService) {}
+  constructor(
+    private readonly obsService: ObsService,
+    private readonly getNdiConfigured?: () => boolean,
+  ) {}
 
   register(io: Server): void {
     // Forward EventBus OBS events to all connected clients.
@@ -85,5 +88,11 @@ export class ObsModule implements SocketModule {
     const state = this.obsService.getState();
     logger.info("Emitting initial OBS state", { userId: auth.jwtPayload.sub, context: { state } });
     auth.socket.emit(STC_OBS_STATE, state);
+    if (this.getNdiConfigured) {
+      auth.socket.emit(STC_DEVICE_CAPABILITIES, {
+        deviceId: "obs-preview",
+        capabilities: { deviceId: "obs-preview", deviceType: "obs", features: { ndiConfigured: this.getNdiConfigured() } },
+      });
+    }
   }
 }

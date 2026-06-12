@@ -1,4 +1,6 @@
 import type { ReactNode } from "react";
+import { IonIcon } from "@ionic/react";
+import { volumeMuteOutline, volumeHighOutline } from "ionicons/icons";
 import { TEST_ID_OBS_PREVIEW_MUTE_BTN } from "../../constants/testIds";
 
 interface MuteButtonProps {
@@ -18,7 +20,8 @@ export function MuteButton({ muted, onToggle }: MuteButtonProps): ReactNode {
       aria-label={muted ? "Unmute Local Audio" : "Mute Local Audio"}
       type="button"
     >
-      {muted ? "🔇" : "🔊"}
+      <IonIcon icon={muted ? volumeMuteOutline : volumeHighOutline} />
+      <span className="preview-mute-label">Local Audio</span>
     </button>
   );
 }

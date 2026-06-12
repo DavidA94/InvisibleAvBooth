@@ -26,6 +26,7 @@ import { PreviewStreamManager } from "./services/previewStreamManager.js";
 import type { SpawnFn as PreviewSpawnFn } from "./services/previewStreamManager.js";
 import { CameraService } from "./camera/CameraService.js";
 import { CameraSocketModule } from "./camera/CameraSocketModule.js";
+import { ObsNdiPreviewSource } from "./camera/ObsNdiPreviewSource.js";
 import { PlatformConfigDao } from "./platforms/platformConfigDao.js";
 import type { StreamingPlatformClient } from "./platforms/platformClient.js";
 import { createAuthRouter } from "./routes/authRoutes.js";
@@ -69,6 +70,7 @@ export interface AppContext {
   lowerThirdService: LowerThirdService;
   cameraService: CameraService;
   previewManager: PreviewStreamManager;
+  obsNdiPreviewSource: ObsNdiPreviewSource;
   gateway: SocketGateway;
 }
 
@@ -131,8 +133,11 @@ export function buildApp(deps: AppDependencies): AppContext {
   const onPlatformChanged = (): void => platformServiceRef?.reloadPlatforms();
   app.use("/api", mustBeAuthenticated, mustHaveChangedPassword, createPlatformRouter(database, authService, onPlatformChanged));
 
+  const previewManager = new PreviewStreamManager(authService, previewSpawnFn);
+  const obsNdiPreviewSource = new ObsNdiPreviewSource(database, previewManager);
+
   const gateway = new SocketGateway(httpServer, authService, [
-    new ObsModule(obsService),
+    new ObsModule(obsService, () => !!obsNdiPreviewSource.getNdiOutputName()),
     new SessionManifestModule(manifestService),
     new StreamingPlatformModule(platformService, relayService),
     new LowerThirdModule(lowerThirdService),
@@ -141,7 +146,6 @@ export function buildApp(deps: AppDependencies): AppContext {
 
   registerOverlayNamespace(gateway.getIo(), lowerThirdService);
 
-  const previewManager = new PreviewStreamManager(authService, previewSpawnFn);
   previewManager.registerEndpoints(httpServer);
 
   return {
@@ -156,6 +160,7 @@ export function buildApp(deps: AppDependencies): AppContext {
     lowerThirdService,
     cameraService,
     previewManager,
+    obsNdiPreviewSource,
     gateway,
   };
 }

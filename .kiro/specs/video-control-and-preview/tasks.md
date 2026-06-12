@@ -259,8 +259,8 @@ Tests are part of each task's definition of done. Unit tests follow the unit or 
 
 ## Phase 8: Documentation
 
-- [ ] 73. Update steering document — §0 (add grandiose + ws to Technology Stack), §1 (move Camera Control from Future to active scope), §3 (add Backend ↔ Preview Clients boundary with /preview/_ and Caddy routing), §7 (add exception note for /preview/_ raw binary transport).
+- [x] 73. Update steering document — §0 (add grandiose + ws to Technology Stack), §1 (move Camera Control from Future to active scope), §3 (add Backend ↔ Preview Clients boundary with /preview/_ and Caddy routing), §7 (add exception note for /preview/_ raw binary transport).
   - _Requirements: Design doc — Steering Document Updates Required_
 
-- [ ] 74. Implement NDI-only startup WARNING log — when CameraService initializes a camera without VISCA configured, emit WARNING: "Camera '{label}' uses NDI-only — position state is based on commanded values and may drift if the camera is controlled externally."
+- [x] 74. Implement NDI-only startup WARNING log — when CameraService initializes a camera without VISCA configured, emit WARNING: "Camera '{label}' uses NDI-only — position state is based on commanded values and may drift if the camera is controlled externally."
   - _Requirements: 3_

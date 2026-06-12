@@ -14,6 +14,8 @@ vi.mock("../logger.js", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
+import { logger } from "../logger.js";
+
 vi.mock("../crypto.js", () => ({
   decrypt: (val: string) => `decrypted-${val}`,
 }));
@@ -166,6 +168,16 @@ describe("CameraService", () => {
     await vi.runAllTimersAsync();
     expect(service.getCameraState("cam1")?.presets).toHaveLength(1);
     expect(service.getCameraState("cam1")?.presets[0]?.name).toBe("Wide");
+  });
+
+  it("emits WARNING log with camera label for NDI-only cameras (no VISCA)", async () => {
+    await initService({ viscaEnabled: false });
+    expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining("Camera 'Test Camera' uses NDI-only"));
+  });
+
+  it("does not emit NDI-only warning when VISCA is configured", async () => {
+    await initService({ viscaEnabled: true });
+    expect(logger.warn).not.toHaveBeenCalledWith(expect.stringContaining("uses NDI-only"));
   });
 
   it("returns null for unknown camera", async () => {

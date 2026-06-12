@@ -99,6 +99,7 @@ export function destroyServer(server: TestServer): void {
   server.ctx.platformService.destroy();
   server.ctx.lowerThirdService.destroy();
   server.ctx.cameraService.destroy();
+  server.ctx.obsNdiPreviewSource.destroy();
   server.ctx.previewManager.destroy();
   server.ctx.relayService.stop();
   server.ctx.httpServer.close();

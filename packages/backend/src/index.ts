@@ -38,7 +38,7 @@ const { default: NodeMediaServer } = await import("node-media-server");
 const { spawn } = await import("child_process");
 
 logger.info("Building application…");
-const { httpServer, authService, obsService, relayService, platformService } = buildApp({
+const { httpServer, authService, obsService, relayService, platformService, obsNdiPreviewSource } = buildApp({
   database,
   nmsFactory: () =>
     new NodeMediaServer({ rtmp: { port: relayPort, chunk_size: 60000, gop_cache: false, ping: 5, ping_timeout: 3 }, logType: 0 }) as unknown as NmsInstance,
@@ -59,6 +59,7 @@ httpServer.listen(PORT, () => {
   void obsService.connect();
   void relayService.start().catch((err) => logger.warn("Relay start failed (FFmpeg may not be installed)", { error: String(err) }));
   void platformService.validateTokensOnStartup().catch((err) => logger.warn("Token validation failed", { error: String(err) }));
+  void obsNdiPreviewSource.initialize();
 });
 
 // Graceful shutdown

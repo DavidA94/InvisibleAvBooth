@@ -85,10 +85,11 @@ export function usePreviewStream(endpoint: string, enabled: boolean): UsePreview
 
     ws.onopen = () => {
       retriesRef.current = 0;
-      setStatus("streaming");
+      setStatus("connecting");
     };
 
     ws.onmessage = (event) => {
+      setStatus("streaming");
       const sb = sourceBufferRef.current;
       if (!sb || sb.updating) return;
       try {

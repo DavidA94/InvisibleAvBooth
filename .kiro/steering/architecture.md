@@ -11,7 +11,7 @@ inclusion: always
 - **Frontend:** React + Ionic React (`packages/frontend`) — Ionic provides the touch-first component library; themed via CSS custom properties in `src/theme/variables.css`. **Zustand** is used for all frontend state management (slice pattern — auth, OBS state, session manifest, notifications — see design doc). **react-router** v7 for client-side routing. **react-select** for styled dropdowns.
 - **Database:** SQLite via `better-sqlite3` — single-file embedded database (`data/app.db`), no external server required. WAL mode for concurrent read performance.
 - **Authentication:** JWT issued as HttpOnly cookies (`token`), bcrypt for password hashing, role-based access control (ADMIN > AvPowerUser > AvVolunteer). A non-HttpOnly `user_info` cookie (`{ id, username, role }`) is set alongside the JWT so the frontend can hydrate auth state without decoding the token.
-- **Device Integration:** obs-websocket-js for OBS Studio communication. Device passwords encrypted at rest with AES-256-GCM via `DEVICE_SECRET_KEY` environment variable.
+- **Device Integration:** obs-websocket-js for OBS Studio communication. `grandiose` (NDI SDK native bindings) for camera video/PTZ and OBS preview — dynamically imported at runtime; if unavailable, camera features degrade gracefully while the rest of the system operates normally. `ws` (WebSocket library) for dedicated binary preview stream endpoints (separate from Socket.io). Device passwords encrypted at rest with AES-256-GCM via `DEVICE_SECRET_KEY` environment variable. DistroAV OBS plugin required for OBS NDI preview output (free, cross-platform — see `docs/setup.md`).
 - **Streaming Infrastructure:** `node-media-server` as a local RTMP relay (accepts OBS stream, fans out to platforms). FFmpeg child processes forward from the relay to each platform's RTMP ingest URL (`-c copy`, no re-encoding). `googleapis` npm package for YouTube Live Streaming API; native `fetch` for Facebook Graph API (v25.0). OAuth tokens encrypted at rest alongside device passwords.
 - **Structure:** Monorepo with a shared root ESLint + Prettier config and a `tsconfig.base.json`. Includes `packages/shared` (`@invisible-av-booth/shared`) for constants, types, and utilities shared between frontend and backend — socket event names (`CTS_*`/`STC_*`), REST URL constants, shared TypeScript types (`ObsState`, `Notification`, `GridManifest`, etc.), `BIBLE_BOOKS` data, and interpolation/scripture utilities. Consumed via TypeScript project references — no separate build step required.
 - **Code style:** See `code-style.md` for naming conventions, formatting rules, and TypeScript patterns
@@ -26,10 +26,11 @@ The system provides **modular control of livestream operations** for a church en
 
 - **OBS Control:** Start/stop recording, start/stop streaming (via RTMP relay).
 - **Multi-Platform Streaming:** Simultaneous streaming to YouTube and Facebook from a single OBS source, with per-platform lifecycle management, health monitoring, and auto-recovery.
+- **Camera Control:** Manual PTZ control via NDI (with optional VISCA position polling), presets for framing, tap-to-center behavior, AI tracking toggles for supported camera models, dead-man's switch safety.
+- **Video Preview:** Real-time fMP4 preview streams (OBS output and camera feeds) delivered over dedicated WebSocket endpoints via FFmpeg transcoding with hardware encoder auto-detection.
 
 ### Future Releases (out of scope for initial release)
 
-- **Camera Control:** Manual PTZ control, presets for framing, tap-to-center behavior.
 - **Audio Control:** Mixer volume, mute/unmute, and monitoring.
 - **Text Overlays:** Lower-thirds, speaker names, Bible verses, lyrics, etc.
 
@@ -76,8 +77,9 @@ The system provides **modular control of livestream operations** for a church en
 
 ## 3. Interfaces & Boundaries
 
-- **Reverse Proxy (Caddy):** All traffic flows through Caddy on port 443 (HTTPS). Caddy routes `/api/*` and `/socket.io/*` to the Express backend on port 3001; all other requests go to the frontend (Vite dev server in development, static files in production). This eliminates CORS, simplifies cookie scoping, and ensures the frontend never needs to know the backend's port. See `Caddyfile` (production) and `Caddyfile.dev` (development).
+- **Reverse Proxy (Caddy):** All traffic flows through Caddy on port 443 (HTTPS). Caddy routes `/api/*`, `/socket.io/*`, and `/preview/*` to the Express backend on port 3001; all other requests go to the frontend (Vite dev server in development, static files in production). This eliminates CORS, simplifies cookie scoping, and ensures the frontend never needs to know the backend's port. See `Caddyfile` (production) and `Caddyfile.dev` (development).
 - **Frontend ↔ Backend:** JSON-based commands and status updates over REST and Socket.io; backend mediates all device communication. All requests use relative URLs (`/api/...`, `/socket.io/...`) — Caddy handles routing to the correct server.
+- **Backend ↔ Preview Clients:** Dedicated `/preview/*` WebSocket endpoints deliver binary fMP4 video streams to dashboard widgets (OBS preview and camera preview). These use the `ws` library (not Socket.io) for minimal-overhead binary transport. Authentication uses the same HttpOnly JWT cookie — the browser sends it automatically on same-origin WebSocket upgrade requests routed through Caddy. One endpoint per source: `/preview/obs` for the OBS NDI output, `/preview/camera/:cameraId` for each camera. The `ndiOutputName` field in OBS device metadata enables OBS preview via NDI (decoupled from RTMP relay — preview works even when not streaming). `PreviewStreamManager` handles lazy FFmpeg spawn, fan-out to subscribers, grace period teardown, and hardware encoder selection.
 - **Backend ↔ Devices:** Handles all network/API calls to devices and reconciling reported states.
 - **Backend ↔ Streaming Platforms:** `StreamingPlatformService` orchestrates the full broadcast lifecycle (create → stream → end) via platform-specific clients (`YouTubeClient`, `FacebookClient`). OBS streams to a local RTMP relay; per-platform FFmpeg forwarders read from the relay and push to platform ingest URLs. The relay runs for the lifetime of the backend process. Platform configurations are hot-reloaded after admin CRUD operations (`reloadPlatforms()`) — no server restart required for new connections to take effect.
 - **OBS Browser Source ↔ Overlay:** A static HTML file (`packages/overlay/lower-thirds.html`) is loaded via `file://` in OBS. It wraps an iFrame pointing at the frontend-served overlay page (`/overlay/lower-thirds`). The overlay page connects to the backend via an unauthenticated `/overlay` Socket.io namespace for display commands and phase reporting. Logging from the overlay uses `POST /api/overlay/logs` (unauthenticated, rate-limited).
@@ -153,6 +155,8 @@ All event name constants are defined in `packages/shared/src/constants/socketEve
 **Exception:** The `notification` socket event does not follow the `stc:` convention. This is a known inconsistency from the initial implementation.
 
 **Exception:** The `/overlay` Socket.io namespace is unauthenticated and does not use the `SocketModule` interface. It is registered as a standalone namespace handler (`registerOverlayNamespace`) because it serves a non-interactive renderer (OBS browser source) that cannot authenticate via JWT. See `packages/backend/src/gateway/overlayNamespace.ts`.
+
+**Exception:** The `/preview/*` WebSocket endpoints are raw binary transport (fMP4 video chunks via the `ws` library) and do not use Socket.io or the event naming convention. They have no named events — the server sends binary `Buffer` frames and the client receives them as `MessageEvent` data. Authentication is cookie-based (same HttpOnly JWT), and the endpoints are managed by `PreviewStreamManager`, not the `SocketGateway`. These are data streams, not command/event channels.
 
 ### Socket Module Pattern
 

@@ -9,6 +9,8 @@ import type { Database } from "better-sqlite3";
 import type { PreviewStreamManager } from "../services/previewStreamManager.js";
 import { NdiFramePipe } from "./ndiFramePipe.js";
 import { getNdiModule, isNdiAvailable } from "./ndiLoader.js";
+import { eventBus } from "../eventBus/eventBus.js";
+import { BUS_DEVICE_CAPABILITIES_UPDATED } from "../eventBus/types.js";
 import { logger } from "../logger.js";
 
 const OBS_PREVIEW_SOURCE_ID = "obs";
@@ -32,6 +34,10 @@ export class ObsNdiPreviewSource {
   /** Initialize — read OBS device config and start receiving if configured. */
   async initialize(): Promise<void> {
     this.ndiOutputName = this.readNdiOutputName();
+    eventBus.emit(BUS_DEVICE_CAPABILITIES_UPDATED, {
+      deviceId: "obs-preview",
+      capabilities: { deviceId: "obs-preview", deviceType: "obs", features: { ndiConfigured: !!this.ndiOutputName } },
+    });
     if (!this.ndiOutputName) {
       logger.info("OBS NDI preview not configured — no ndiOutputName in OBS device metadata");
       return;

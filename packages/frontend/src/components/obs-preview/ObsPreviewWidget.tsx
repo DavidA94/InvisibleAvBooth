@@ -42,26 +42,35 @@ export function ObsPreviewWidget({ enabled = true, ndiConfigured = false }: ObsP
   const connection = deriveConnectionStatus(status, ndiConfigured);
 
   return (
-    <div data-testid={TEST_ID_OBS_PREVIEW_WIDGET}>
+    <div data-testid={TEST_ID_OBS_PREVIEW_WIDGET} className="full-height">
       <WidgetContainer title="OBS Preview" connections={[connection]}>
         <div className="preview-video-container" onClick={() => status === "streaming" && setModalOpen(true)}>
-          <video data-testid={TEST_ID_OBS_PREVIEW_VIDEO} ref={videoRef} className="preview-video" autoPlay playsInline muted={muted} />
+          {status === "streaming" && (
+            <video data-testid={TEST_ID_OBS_PREVIEW_VIDEO} ref={videoRef} className="preview-video" autoPlay playsInline muted={muted} />
+          )}
 
           {!ndiConfigured && (
             <div data-testid={TEST_ID_OBS_PREVIEW_INACTIVE} className="preview-overlay">
-              OBS Preview Not Configured
+              <div className="error-overlay-content">
+                <p className="text-muted margin-none">OBS Preview Not Configured</p>
+              </div>
             </div>
           )}
 
           {ndiConfigured && status === "error" && (
-            <div data-testid={TEST_ID_OBS_PREVIEW_INACTIVE} className="preview-overlay" onClick={reconnect}>
-              OBS Preview Unavailable — Tap to Reconnect
+            <div data-testid={TEST_ID_OBS_PREVIEW_INACTIVE} className="preview-overlay preview-overlay-interactive" onClick={reconnect}>
+              <div className="error-overlay-content">
+                <p className="text-danger text-bold error-overlay-message">OBS Preview Unavailable</p>
+                <p className="margin-none">Tap to Reconnect</p>
+              </div>
             </div>
           )}
 
           {status === "reconnecting" && (
             <div data-testid={TEST_ID_OBS_PREVIEW_RECONNECTING} className="preview-overlay">
-              Reconnecting…
+              <div className="error-overlay-content">
+                <p className="margin-none">Reconnecting…</p>
+              </div>
             </div>
           )}
 
