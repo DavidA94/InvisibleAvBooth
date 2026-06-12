@@ -20,7 +20,7 @@ beforeEach(async () => {
 
 describe("ndiLoader", () => {
   it("returns true and sets module when grandiose loads successfully", async () => {
-    vi.doMock("grandiose", () => ({ default: { find: vi.fn() } }));
+    vi.doMock("grandi", () => ({ default: { find: vi.fn() } }));
     const mod = await import("./ndiLoader.js");
     loadNdi = mod.loadNdi;
     getNdiModule = mod.getNdiModule;
@@ -35,8 +35,8 @@ describe("ndiLoader", () => {
   });
 
   it("returns false and emits Banner when grandiose is unavailable", async () => {
-    vi.doMock("grandiose", () => {
-      throw new Error("Cannot find module 'grandiose'");
+    vi.doMock("grandi", () => {
+      throw new Error("Cannot find module 'grandi'");
     });
     const mod = await import("./ndiLoader.js");
     loadNdi = mod.loadNdi;
@@ -58,7 +58,7 @@ describe("ndiLoader", () => {
   });
 
   it("returns cached result on second call without re-emitting Banner", async () => {
-    vi.doMock("grandiose", () => ({ default: { find: vi.fn() } }));
+    vi.doMock("grandi", () => ({ default: { find: vi.fn() } }));
     const mod = await import("./ndiLoader.js");
     loadNdi = mod.loadNdi;
     isNdiAvailable = mod.isNdiAvailable;

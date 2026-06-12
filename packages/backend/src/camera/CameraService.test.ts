@@ -36,6 +36,12 @@ const mockViscaDriver = {
   disconnect: vi.fn(),
   isConnected: vi.fn().mockReturnValue(true),
   inquirePosition: vi.fn().mockResolvedValue({ pan: 0, tilt: 0, zoom: 0.5, focus: 0.5, autoFocus: true }),
+  panTiltSpeed: vi.fn().mockResolvedValue(undefined),
+  panTiltAbsolute: vi.fn().mockResolvedValue(undefined),
+  zoomAbsolute: vi.fn().mockResolvedValue(undefined),
+  focusAuto: vi.fn().mockResolvedValue(undefined),
+  focusManual: vi.fn().mockResolvedValue(undefined),
+  stop: vi.fn().mockResolvedValue(undefined),
 };
 
 const mockAiDriver = {
@@ -186,84 +192,84 @@ describe("CameraService", () => {
   });
 
   describe("startMove / keepAliveMove / stopMove", () => {
-    it("startMove calls ndiDriver.panTiltSpeed with adaptive speed", async () => {
-      await initService();
+    it("startMove calls viscaDriver.panTiltSpeed with adaptive speed", async () => {
+      await initService({ viscaEnabled: true });
       service.startMove("cam1", 0.5, 0.3);
-      expect(mockNdiDriver.panTiltSpeed).toHaveBeenCalled();
+      expect(mockViscaDriver.panTiltSpeed).toHaveBeenCalled();
     });
 
-    it("stopMove calls ndiDriver.stop", async () => {
-      await initService();
+    it("stopMove calls viscaDriver.stop", async () => {
+      await initService({ viscaEnabled: true });
       service.startMove("cam1", 0.5, 0.3);
       service.stopMove("cam1");
-      expect(mockNdiDriver.stop).toHaveBeenCalled();
+      expect(mockViscaDriver.stop).toHaveBeenCalled();
     });
 
     it("deadManStop fires after keepalive timeout", async () => {
-      await initService();
+      await initService({ viscaEnabled: true });
       service.startMove("cam1", 0.5, 0.3);
-      mockNdiDriver.stop.mockClear();
+      mockViscaDriver.stop.mockClear();
       vi.advanceTimersByTime(KEEPALIVE_TIMEOUT_MS + 1);
-      expect(mockNdiDriver.stop).toHaveBeenCalled();
+      expect(mockViscaDriver.stop).toHaveBeenCalled();
     });
 
     it("keepAliveMove resets the timeout", async () => {
-      await initService();
+      await initService({ viscaEnabled: true });
       service.startMove("cam1", 0.5, 0.3);
       vi.advanceTimersByTime(KEEPALIVE_TIMEOUT_MS - 100);
       service.keepAliveMove("cam1", 0.5, 0.3);
       vi.advanceTimersByTime(KEEPALIVE_TIMEOUT_MS - 100);
-      mockNdiDriver.stop.mockClear();
+      mockViscaDriver.stop.mockClear();
       // Should not have fired yet
-      expect(mockNdiDriver.stop).not.toHaveBeenCalled();
+      expect(mockViscaDriver.stop).not.toHaveBeenCalled();
     });
 
     it("keepAliveMove updates speed when changed", async () => {
-      await initService();
+      await initService({ viscaEnabled: true });
       service.startMove("cam1", 0.5, 0.3);
-      mockNdiDriver.panTiltSpeed.mockClear();
+      mockViscaDriver.panTiltSpeed.mockClear();
       service.keepAliveMove("cam1", 0.8, 0.1);
-      expect(mockNdiDriver.panTiltSpeed).toHaveBeenCalled();
+      expect(mockViscaDriver.panTiltSpeed).toHaveBeenCalled();
     });
 
     it("keepAliveMove does nothing for unknown session", async () => {
-      await initService();
+      await initService({ viscaEnabled: true });
       service.keepAliveMove("cam1", 0.5, 0.3);
-      expect(mockNdiDriver.panTiltSpeed).not.toHaveBeenCalled();
+      expect(mockViscaDriver.panTiltSpeed).not.toHaveBeenCalled();
     });
 
     it("startMove on unknown camera does nothing", async () => {
-      await initService();
+      await initService({ viscaEnabled: true });
       service.startMove("unknown", 0.5, 0.3);
-      expect(mockNdiDriver.panTiltSpeed).not.toHaveBeenCalled();
+      expect(mockViscaDriver.panTiltSpeed).not.toHaveBeenCalled();
     });
   });
 
   describe("applySet", () => {
     it("sets zoom", async () => {
-      await initService();
+      await initService({ viscaEnabled: true });
       await service.applySet("cam1", { zoom: 0.7 });
-      expect(mockNdiDriver.zoomAbsolute).toHaveBeenCalledWith(0.7);
+      expect(mockViscaDriver.zoomAbsolute).toHaveBeenCalledWith(0.7);
     });
 
     it("sets autoFocus=true calls focusAuto", async () => {
-      await initService();
+      await initService({ viscaEnabled: true });
       await service.applySet("cam1", { autoFocus: true });
-      expect(mockNdiDriver.focusAuto).toHaveBeenCalled();
+      expect(mockViscaDriver.focusAuto).toHaveBeenCalled();
     });
 
     it("sets focus when autoFocus is off", async () => {
-      await initService();
+      await initService({ viscaEnabled: true });
       // First disable autoFocus
       await service.applySet("cam1", { autoFocus: false });
       await service.applySet("cam1", { focus: 0.3 });
-      expect(mockNdiDriver.focusManual).toHaveBeenCalledWith(0.3);
+      expect(mockViscaDriver.focusManual).toHaveBeenCalledWith(0.3);
     });
 
     it("ignores focus when autoFocus is on", async () => {
-      await initService();
+      await initService({ viscaEnabled: true });
       await service.applySet("cam1", { focus: 0.3 });
-      expect(mockNdiDriver.focusManual).not.toHaveBeenCalled();
+      expect(mockViscaDriver.focusManual).not.toHaveBeenCalled();
     });
 
     it("sets AI state and calls aiDriver", async () => {
@@ -289,9 +295,9 @@ describe("CameraService", () => {
     });
 
     it("does nothing for unknown camera", async () => {
-      await initService();
+      await initService({ viscaEnabled: true });
       await service.applySet("unknown", { zoom: 0.5 });
-      expect(mockNdiDriver.zoomAbsolute).not.toHaveBeenCalled();
+      expect(mockViscaDriver.zoomAbsolute).not.toHaveBeenCalled();
     });
 
     it("broadcasts state after apply", async () => {
@@ -305,16 +311,16 @@ describe("CameraService", () => {
 
   describe("activatePreset", () => {
     it("applies preset position and toggles", async () => {
-      seedCamera(db);
+      seedCamera(db, { viscaEnabled: true });
       seedPreset(db);
       service = new CameraService(db);
       await service.initialize();
-      await vi.runAllTimersAsync();
+      await vi.advanceTimersByTimeAsync(10);
 
       const result = await service.activatePreset("cam1", "p1");
       expect(result.success).toBe(true);
-      expect(mockNdiDriver.zoomAbsolute).toHaveBeenCalledWith(0.3);
-      expect(mockNdiDriver.panTiltAbsolute).toHaveBeenCalledWith(0.1, 0.2);
+      expect(mockViscaDriver.zoomAbsolute).toHaveBeenCalledWith(0.3);
+      expect(mockViscaDriver.panTiltAbsolute).toHaveBeenCalledWith(0.1, 0.2);
     });
 
     it("returns error for unknown camera", async () => {
@@ -330,7 +336,7 @@ describe("CameraService", () => {
     });
 
     it("calls focusManual for preset with autoFocus=false", async () => {
-      seedCamera(db);
+      seedCamera(db, { viscaEnabled: true });
       db.prepare(
         "INSERT INTO camera_presets (id, cameraId, name, sortOrder, storedOnCamera, cameraPresetSlot, pan, tilt, zoom, focus, autoFocus, aiTracking, aiTilt, aiZoom, createdAt) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
       ).run("p2", "cam1", "Manual", 1, 0, null, 0, 0, 0.5, 0.7, 0, 0, 0, 0, new Date().toISOString());
@@ -339,7 +345,7 @@ describe("CameraService", () => {
       await vi.advanceTimersByTimeAsync(10);
 
       await service.activatePreset("cam1", "p2");
-      expect(mockNdiDriver.focusManual).toHaveBeenCalledWith(0.7);
+      expect(mockViscaDriver.focusManual).toHaveBeenCalledWith(0.7);
     });
 
     it("calls aiDriver.setAiState during preset activation", async () => {
@@ -389,7 +395,7 @@ describe("CameraService", () => {
         viscaEnabled: true,
       });
       expect(result.success).toBe(true);
-      expect(mockNdiDriver.panTiltAbsolute).toHaveBeenCalled();
+      expect(mockViscaDriver.panTiltAbsolute).toHaveBeenCalled();
     });
   });
 

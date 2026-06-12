@@ -3,6 +3,13 @@ import type { CameraControlInterface } from "./CameraControlInterface.js";
 import { getNdiModule } from "./ndiLoader.js";
 import { logger } from "../logger.js";
 
+/**
+ * NDI Camera Driver — video receive only.
+ *
+ * grandi does not yet support PTZ control APIs. All PTZ commands are
+ * handled by ViscaCameraDriver (required for camera control).
+ * This driver provides NDI source connection and video frame access.
+ */
 export class NdiCameraDriver implements CameraControlInterface {
   private sourceName: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -18,13 +25,16 @@ export class NdiCameraDriver implements CameraControlInterface {
     const ndi = getNdiModule();
     if (!ndi) return false;
     try {
-      const sources = await ndi.find({ showLocalSources: true });
-      const source = sources.find((s: { name: string }) => s.name === this.sourceName);
+      const mod = ndi.default ?? ndi;
+      const finder = await mod.find({ showLocalSources: true });
+      const sources = finder.sources ? finder.sources() : finder;
+      const source = (Array.isArray(sources) ? sources : []).find((s: { name: string }) => s.name === this.sourceName);
+      if (finder.destroy) finder.destroy();
       if (!source) {
         logger.warn(`NDI source "${this.sourceName}" not found`);
         return false;
       }
-      this.receiver = await ndi.receive({ source, colorFormat: ndi.COLOR_FORMAT_FASTEST });
+      this.receiver = await mod.receive({ source, colorFormat: mod.COLOR_FORMAT_FASTEST ?? 100 });
       this.connected = true;
       return true;
     } catch (err) {
@@ -34,6 +44,7 @@ export class NdiCameraDriver implements CameraControlInterface {
   }
 
   disconnect(): void {
+    if (this.receiver?.destroy) this.receiver.destroy();
     this.receiver = null;
     this.connected = false;
   }
@@ -42,65 +53,24 @@ export class NdiCameraDriver implements CameraControlInterface {
     return this.connected;
   }
 
-  async panTiltSpeed(panSpeed: number, tiltSpeed: number): Promise<void> {
-    if (!this.receiver) return;
-    try {
-      await this.receiver.ptz_pan_tilt_speed(panSpeed, tiltSpeed);
-    } catch {
-      // ignore
-    }
-  }
-
+  // PTZ commands are no-ops — grandi doesn't support PTZ yet.
+  // All PTZ is handled by ViscaCameraDriver.
+  async panTiltSpeed(_panSpeed: number, _tiltSpeed: number): Promise<void> {}
   async panTiltAbsolute(pan: number, tilt: number): Promise<void> {
-    if (!this.receiver) return;
-    try {
-      await this.receiver.ptz_pan_tilt(pan, tilt);
-      this.lastCommanded.pan = pan;
-      this.lastCommanded.tilt = tilt;
-    } catch {
-      // ignore
-    }
+    this.lastCommanded.pan = pan;
+    this.lastCommanded.tilt = tilt;
   }
-
   async zoomAbsolute(zoom: number): Promise<void> {
-    if (!this.receiver) return;
-    try {
-      await this.receiver.ptz_zoom(zoom);
-      this.lastCommanded.zoom = zoom;
-    } catch {
-      // ignore
-    }
+    this.lastCommanded.zoom = zoom;
   }
-
   async focusAuto(): Promise<void> {
-    if (!this.receiver) return;
-    try {
-      await this.receiver.ptz_focus_auto();
-      this.lastCommanded.autoFocus = true;
-    } catch {
-      // ignore
-    }
+    this.lastCommanded.autoFocus = true;
   }
-
   async focusManual(position: number): Promise<void> {
-    if (!this.receiver) return;
-    try {
-      await this.receiver.ptz_focus(position);
-      this.lastCommanded.focus = position;
-      this.lastCommanded.autoFocus = false;
-    } catch {
-      // ignore
-    }
+    this.lastCommanded.focus = position;
+    this.lastCommanded.autoFocus = false;
   }
-
-  async stop(): Promise<void> {
-    if (!this.receiver) return;
-    try {
-      await this.receiver.ptz_pan_tilt_speed(0, 0);
-    } catch {
-      // ignore
-    }
-  }
+  async stop(): Promise<void> {}
 
   async inquirePosition(): Promise<PositionInquiry> {
     return { ...this.lastCommanded };

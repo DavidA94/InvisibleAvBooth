@@ -87,8 +87,11 @@ export class ObsNdiPreviewSource {
     if (!ndi) return;
 
     try {
-      const sources = await ndi.find({ showLocalSources: true });
-      const source = sources.find((s: { name: string }) => s.name === this.ndiOutputName);
+      const mod = ndi.default ?? ndi;
+      const finder = await mod.find({ showLocalSources: true });
+      const sources = finder.sources ? finder.sources() : finder;
+      const source = (Array.isArray(sources) ? sources : []).find((s: { name: string }) => s.name === this.ndiOutputName);
+      if (finder.destroy) finder.destroy();
       if (!source) {
         logger.warn(`OBS NDI source "${this.ndiOutputName}" not found — DistroAV may not be enabled`);
         this.previewManager.setSourceAvailable(OBS_PREVIEW_SOURCE_ID, false, "pipe:0");
@@ -96,7 +99,7 @@ export class ObsNdiPreviewSource {
         return;
       }
 
-      this.receiver = await ndi.receive({ source, colorFormat: ndi.COLOR_FORMAT_FASTEST });
+      this.receiver = await mod.receive({ source, colorFormat: mod.COLOR_FORMAT_FASTEST ?? 100 });
       this.running = true;
       this.previewManager.setSourceAvailable(OBS_PREVIEW_SOURCE_ID, true, "pipe:0");
       logger.info(`Connected to OBS NDI output: "${this.ndiOutputName}"`);

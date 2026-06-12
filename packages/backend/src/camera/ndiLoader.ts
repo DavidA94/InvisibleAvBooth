@@ -11,12 +11,12 @@ export async function loadNdi(): Promise<boolean> {
   if (ndiAttempted) return ndiAvailable;
   ndiAttempted = true;
   try {
-    ndiModule = await import("grandiose");
+    ndiModule = await import("grandi");
     ndiAvailable = true;
-    logger.info("NDI SDK loaded successfully");
+    logger.info("NDI SDK loaded successfully (grandi)");
   } catch {
     ndiAvailable = false;
-    logger.error("NDI SDK not available — camera features are disabled. Install the NDI SDK to enable cameras.");
+    logger.error("NDI SDK not available — camera features are disabled. Install grandi dependencies (libavahi-client3, avahi-daemon) to enable cameras.");
     eventBus.emit(BUS_DEVICE_CAPABILITIES_UPDATED, {
       deviceId: "ndi",
       capabilities: { deviceId: "ndi", deviceType: "camera-ptz", features: { ndi: false } },

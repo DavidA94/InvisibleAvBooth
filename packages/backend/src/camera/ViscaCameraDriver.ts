@@ -160,6 +160,100 @@ export class ViscaCameraDriver {
     return result;
   }
 
+  // ── PTZ Commands ─────────────────────────────────────────────────────────
+
+  async panTiltSpeed(panSpeed: number, tiltSpeed: number): Promise<void> {
+    // VISCA PanTiltDrive: 81 01 06 01 VV WW 03 01 FF (continuous move)
+    // VV = pan speed (01-18), WW = tilt speed (01-14)
+    const ps = Math.max(1, Math.min(0x18, Math.round(Math.abs(panSpeed) * 0x18)));
+    const ts = Math.max(1, Math.min(0x14, Math.round(Math.abs(tiltSpeed) * 0x14)));
+    const panDir = panSpeed > 0 ? 0x02 : panSpeed < 0 ? 0x01 : 0x03;
+    const tiltDir = tiltSpeed > 0 ? 0x02 : tiltSpeed < 0 ? 0x01 : 0x03;
+    const cmd = Buffer.from([VISCA_HEADER, 0x01, 0x06, 0x01, ps, ts, panDir, tiltDir, VISCA_TERMINATOR]);
+    try {
+      await this.sendCommand(cmd);
+    } catch {
+      /* ignore NAK */
+    }
+  }
+
+  async panTiltAbsolute(pan: number, tilt: number): Promise<void> {
+    const panRaw = denormalizePan(pan);
+    const tiltRaw = denormalizePan(tilt);
+    // 81 01 06 02 VV WW 0p 0q 0r 0s 0t 0u 0v 0w FF
+    const cmd = Buffer.from([
+      VISCA_HEADER,
+      0x01,
+      0x06,
+      0x02,
+      0x0c,
+      0x0c,
+      (panRaw >> 12) & 0x0f,
+      (panRaw >> 8) & 0x0f,
+      (panRaw >> 4) & 0x0f,
+      panRaw & 0x0f,
+      (tiltRaw >> 12) & 0x0f,
+      (tiltRaw >> 8) & 0x0f,
+      (tiltRaw >> 4) & 0x0f,
+      tiltRaw & 0x0f,
+      VISCA_TERMINATOR,
+    ]);
+    try {
+      await this.sendCommand(cmd);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  async zoomAbsolute(zoom: number): Promise<void> {
+    const raw = denormalizeZoom(zoom);
+    // 81 01 04 47 0p 0q 0r 0s FF
+    const cmd = Buffer.from([VISCA_HEADER, 0x01, 0x04, 0x47, (raw >> 12) & 0x0f, (raw >> 8) & 0x0f, (raw >> 4) & 0x0f, raw & 0x0f, VISCA_TERMINATOR]);
+    try {
+      await this.sendCommand(cmd);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  async focusAuto(): Promise<void> {
+    // 81 01 04 38 02 FF (auto focus on)
+    const cmd = Buffer.from([VISCA_HEADER, 0x01, 0x04, 0x38, 0x02, VISCA_TERMINATOR]);
+    try {
+      await this.sendCommand(cmd);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  async focusManual(position: number): Promise<void> {
+    // Switch to manual: 81 01 04 38 03 FF
+    const manual = Buffer.from([VISCA_HEADER, 0x01, 0x04, 0x38, 0x03, VISCA_TERMINATOR]);
+    try {
+      await this.sendCommand(manual);
+    } catch {
+      /* ignore */
+    }
+    // Set position: 81 01 04 48 0p 0q 0r 0s FF
+    const raw = denormalizeFocus(position);
+    const cmd = Buffer.from([VISCA_HEADER, 0x01, 0x04, 0x48, (raw >> 12) & 0x0f, (raw >> 8) & 0x0f, (raw >> 4) & 0x0f, raw & 0x0f, VISCA_TERMINATOR]);
+    try {
+      await this.sendCommand(cmd);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  async stop(): Promise<void> {
+    // PanTiltDrive Stop: 81 01 06 01 01 01 03 03 FF
+    const cmd = Buffer.from([VISCA_HEADER, 0x01, 0x06, 0x01, 0x01, 0x01, 0x03, 0x03, VISCA_TERMINATOR]);
+    try {
+      await this.sendCommand(cmd);
+    } catch {
+      /* ignore */
+    }
+  }
+
   private sendCommand(cmd: Buffer): Promise<Buffer> {
     return new Promise((resolve, reject) => {
       if (!this.socket || !this.connected) {

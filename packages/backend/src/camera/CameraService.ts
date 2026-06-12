@@ -151,7 +151,7 @@ export class CameraService {
       timeout: setTimeout(() => this.deadManStop(cameraId), KEEPALIVE_TIMEOUT_MS),
     };
     this.moveSessions.set(cameraId, session);
-    instance.ndiDriver.panTiltSpeed(adjPan, adjTilt);
+    if (instance.viscaDriver) instance.viscaDriver.panTiltSpeed(adjPan, adjTilt);
   }
 
   keepAliveMove(cameraId: string, panSpeed: number, tiltSpeed: number): void {
@@ -171,7 +171,7 @@ export class CameraService {
     if (adjPan !== session.currentPan || adjTilt !== session.currentTilt) {
       session.currentPan = adjPan;
       session.currentTilt = adjTilt;
-      instance.ndiDriver.panTiltSpeed(adjPan, adjTilt);
+      if (instance.viscaDriver) instance.viscaDriver.panTiltSpeed(adjPan, adjTilt);
     }
   }
 
@@ -182,7 +182,7 @@ export class CameraService {
       this.moveSessions.delete(cameraId);
     }
     const instance = this.cameras.get(cameraId);
-    if (instance) instance.ndiDriver.stop();
+    if (instance?.viscaDriver) instance.viscaDriver.stop();
   }
 
   // ── Camera set (partial state) ───────────────────────────────────────────
@@ -200,19 +200,19 @@ export class CameraService {
     }
 
     if (payload.zoom !== undefined) {
-      await instance.ndiDriver.zoomAbsolute(payload.zoom);
+      if (instance.viscaDriver) await instance.viscaDriver.zoomAbsolute(payload.zoom);
       if (instance.state.position) instance.state.position.zoom = payload.zoom;
     }
 
     if (payload.autoFocus !== undefined) {
-      if (payload.autoFocus) {
-        await instance.ndiDriver.focusAuto();
+      if (payload.autoFocus && instance.viscaDriver) {
+        await instance.viscaDriver.focusAuto();
       }
       instance.state.autoFocus = payload.autoFocus;
     }
 
     if (payload.focus !== undefined && !instance.state.autoFocus) {
-      await instance.ndiDriver.focusManual(payload.focus);
+      if (instance.viscaDriver) await instance.viscaDriver.focusManual(payload.focus);
       if (instance.state.position) instance.state.position.focus = payload.focus;
     }
 
@@ -246,7 +246,7 @@ export class CameraService {
     const currentPan = instance.state.position?.pan ?? 0;
     const currentTilt = instance.state.position?.tilt ?? 0;
 
-    await instance.ndiDriver.panTiltAbsolute(currentPan + panDelta, currentTilt + tiltDelta);
+    await instance.viscaDriver!.panTiltAbsolute(currentPan + panDelta, currentTilt + tiltDelta);
     instance.state.activePresetId = null;
     this.broadcastState(instance);
     return { success: true };
@@ -271,12 +271,14 @@ export class CameraService {
     }
 
     // Apply position
-    if (preset.zoom !== null) await instance.ndiDriver.zoomAbsolute(preset.zoom);
-    if (preset.pan !== null && preset.tilt !== null) await instance.ndiDriver.panTiltAbsolute(preset.pan, preset.tilt);
-    if (preset.autoFocus) {
-      await instance.ndiDriver.focusAuto();
-    } else if (preset.focus !== null) {
-      await instance.ndiDriver.focusManual(preset.focus);
+    if (instance.viscaDriver) {
+      if (preset.zoom !== null) await instance.viscaDriver.zoomAbsolute(preset.zoom);
+      if (preset.pan !== null && preset.tilt !== null) await instance.viscaDriver.panTiltAbsolute(preset.pan, preset.tilt);
+      if (preset.autoFocus) {
+        await instance.viscaDriver.focusAuto();
+      } else if (preset.focus !== null) {
+        await instance.viscaDriver.focusManual(preset.focus);
+      }
     }
 
     // Apply toggles
@@ -318,7 +320,7 @@ export class CameraService {
   private deadManStop(cameraId: string): void {
     this.moveSessions.delete(cameraId);
     const instance = this.cameras.get(cameraId);
-    if (instance) instance.ndiDriver.stop();
+    if (instance?.viscaDriver) instance.viscaDriver.stop();
   }
 
   private async pollPosition(instance: CameraInstance): Promise<void> {

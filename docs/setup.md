@@ -370,21 +370,20 @@ The preview widget will display "OBS Preview Unavailable" if DistroAV is not ena
 
 ### Camera Features — NDI SDK
 
-Camera video preview and PTZ control require the NDI SDK (via the `grandiose` native module):
+Camera video preview requires the `grandi` NDI module (prebuilt binaries, no compilation needed). PTZ control requires VISCA over IP.
 
-1. **Install the NDI SDK:**
-   - Download from [ndi.video/tools](https://ndi.video/tools/) (NDI SDK, free registration)
-   - **Linux:** Extract and copy libraries to `/usr/local/lib`, run `sudo ldconfig`
-   - **Windows:** Run the installer (adds to PATH automatically)
-
-2. **Build native bindings:**
+1. **Install system dependencies (Linux):**
 
    ```bash
-   cd packages/backend
-   npm rebuild grandiose
+   sudo apt install libavahi-client3 avahi-daemon
+   sudo systemctl enable --now avahi-daemon
    ```
 
-3. If the NDI SDK is not installed, the system logs an error at startup and camera features are disabled. OBS preview, streaming, and all other features continue to work normally.
+2. **Install grandi:** Already included in `package.json`. No separate NDI SDK download or C++ compilation is needed — `grandi` ships prebuilt binaries that include the NDI 6 runtime for Linux x64, macOS, and Windows.
+
+3. **VISCA is required for PTZ control.** `grandi` provides video receive only (PTZ APIs are not yet exposed). All camera pan/tilt/zoom/focus commands are sent via VISCA over IP. Configure the camera's VISCA IP and port in the admin device panel.
+
+4. If `grandi` cannot load (missing avahi libraries), the system logs an error at startup and camera/preview features are disabled. OBS streaming, lower thirds, and all other features continue to work normally.
 
 ### Camera AI Tracking Credentials (Tongveo NVS20A-4KN)
 
