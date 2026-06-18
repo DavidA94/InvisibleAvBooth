@@ -96,7 +96,7 @@ graph TD
 
 **Single FFmpeg per source with fan-out**: Avoids redundant transcoding when multiple clients view the same preview. The `PreviewStreamManager` buffers the latest keyframe + subsequent frames so new subscribers get immediate playback without waiting for the next keyframe.
 
-**NDI SDK as optional dynamic dependency**: The NDI SDK requires native bindings (`grandiose`) that need C++ build tools. Making it a dynamic import (`import()` with try/catch) means `npm install` succeeds on any machine, and the system degrades gracefully — cameras are simply unavailable without the NDI SDK while OBS, streaming, and lower thirds continue to work. NDI is the sole protocol for camera video and PTZ commands. VISCA is used only as an optional position-polling enhancement when configured alongside NDI.
+**NDI SDK as optional dynamic dependency**: The NDI library (`grandi`) provides prebuilt binaries for Linux/macOS/Windows — no C++ build tools needed. Making it a dynamic import (`import()` with try/catch) means `npm install` succeeds on any machine, and the system degrades gracefully — cameras are simply unavailable without the NDI runtime (requires `libavahi-client3` and `avahi-daemon` on Linux). NDI is used for video receive only. All PTZ control is handled via VISCA over IP (required when pan/tilt/zoom features are enabled). `grandi` uses `COLOR_FORMAT_BEST` to decode NDI|HX (H.264/H.265) streams from cameras that don't support full-bandwidth NDI.
 
 **Virtual joystick over D-pad**: Touch devices benefit from proportional analog input. The joystick provides natural diagonal movement, proportional speed control (distance from center), and better ergonomics for sustained operation during a service.
 
@@ -104,7 +104,7 @@ graph TD
 
 **Hybrid preset storage**: Database-first with optional camera onboard mirroring. Database presets are camera-agnostic (survive camera replacement), store metadata cameras can't (toggle states), and have well-defined content. Onboard presets provide MotionSync smooth recall on cameras that support it.
 
-**NDI video via grandiose receiver → FFmpeg stdin pipe**: Rather than requiring the FFmpeg NDI input plugin (which requires separate compilation against the NDI SDK), video frames are received by `grandiose`'s receiver API in Node.js and piped to FFmpeg's stdin as raw frames. This keeps the FFmpeg dependency simple (standard package-manager install) and centralizes all NDI SDK interaction in one native module. The tradeoff is slightly higher CPU usage from the JS → pipe → FFmpeg path, but this is negligible compared to the transcoding work FFmpeg performs.
+**NDI video via grandi receiver → FFmpeg stdin pipe**: Rather than requiring the FFmpeg NDI input plugin (which requires separate compilation against the NDI SDK), video frames are received by `grandi`'s receiver API in Node.js and piped to FFmpeg's stdin as raw frames. This keeps the FFmpeg dependency simple (standard package-manager install) and centralizes all NDI SDK interaction in one native module. The tradeoff is slightly higher CPU usage from the JS → pipe → FFmpeg path, but this is acceptable for 720p 15fps preview streams. `grandi` handles NDI|HX decode internally via `COLOR_FORMAT_BEST`.
 
 **Cookie-based WebSocket authentication**: Preview WebSocket endpoints authenticate via the same HttpOnly JWT cookie used by Socket.io and REST. The browser sends cookies automatically on same-origin WebSocket upgrade requests routed through Caddy. This requires no frontend token handling and maintains consistency with the existing auth model — no token appears in URLs or logs.
 
@@ -250,9 +250,9 @@ function buildFfmpegArgs(input: string, encoder: HardwareEncoder, withAudio: boo
     "-vf",
     `scale=${PREVIEW_RESOLUTION.width}:${PREVIEW_RESOLUTION.height}`,
     "-r",
-    "30",
+    "15",
     "-g",
-    "30", // keyframe every 1s for fast subscriber join
+    "15", // keyframe every 1s for fast subscriber join
   ];
   const audioArgs = withAudio ? ["-c:a", "aac", "-b:a", "64k"] : ["-an"];
   const codecArgs = encoder ? ["-c:v", encoder] : ["-c:v", "libx264", "-preset", "ultrafast", "-tune", "zerolatency"];
@@ -268,6 +268,16 @@ function buildFfmpegArgs(input: string, encoder: HardwareEncoder, withAudio: boo
     "100000", // 100ms fragments
     "pipe:1",
   ];
+}
+
+// For piped NDI sources (raw video on stdin) — forces software encode with baseline profile
+function buildFfmpegArgsWithInput(inputArgs: string[], encoder: HardwareEncoder, withAudio: boolean): string[] {
+  const output = ["-vf", `scale=${PREVIEW_RESOLUTION.width}:${PREVIEW_RESOLUTION.height},format=yuv420p`, "-r", "15", "-g", "15"];
+  const audioArgs = withAudio ? ["-c:a", "aac", "-b:a", "64k"] : ["-an"];
+  // Hardware encoders can't accept raw piped input through software scale filter — use libx264
+  const codecArgs = ["-c:v", "libx264", "-preset", "ultrafast", "-tune", "zerolatency", "-profile:v", "baseline", "-level", "3.1"];
+  return ["-probesize", "32", "-analyzeduration", "0", ...inputArgs, ...output, ...audioArgs, ...codecArgs,
+    "-f", "mp4", "-movflags", "frag_keyframe+empty_moov+default_base_moof", "-frag_duration", "33333", "pipe:1"];
 }
 ```
 
@@ -392,7 +402,10 @@ interface PositionInquiry {
 
 ```typescript
 class NdiCameraDriver implements CameraControlInterface {
-  // Uses grandiose (dynamic import) for NDI SDK access
+  // Uses grandi (dynamic import) for NDI SDK access
+  // PTZ commands: NOT available via grandi — all PTZ is handled by ViscaCameraDriver
+  // Video: provides raw frame data via receiver.data() for preview pipeline
+  // inquirePosition(): returns last-commanded values (NDI has no position query)
   // PTZ commands: NDIlib_recv_ptz_pan_tilt_speed, NDIlib_recv_ptz_pan_tilt, etc.
   // inquirePosition(): returns last-commanded values (NDI has no position query)
   // connect(): NDI find + receive + ptz_is_supported check
@@ -408,10 +421,11 @@ class NdiCameraDriver implements CameraControlInterface {
 
 ```typescript
 class ViscaCameraDriver {
-  // Used ONLY for position inquiry — PTZ commands always go via NDI
-  // Raw TCP socket to camera (host:port from device_connections columns)
-  // inquirePosition(): CAM_PanTiltPosInq + CAM_ZoomPosInq + CAM_FocusPosInq + CAM_FocusAFModeInq
-  // Handles VISCA ACK/Completion/Error responses
+  // Primary PTZ driver — all movement commands go via VISCA over TCP
+  // panTiltSpeed, panTiltAbsolute, zoomAbsolute, focusAuto, focusManual, stop
+  // Also handles position inquiry: CAM_PanTiltPosInq + CAM_ZoomPosInq + CAM_FocusPosInq + CAM_FocusAFModeInq
+  // Handles VISCA ACK/Completion/Error responses with command queue
+  // Auto-reconnects on command if TCP connection has dropped
   // Probe: CAM_PowerInq to verify connectivity
   private socket: net.Socket;
   private host: string;
@@ -627,7 +641,7 @@ function computeTapTarget(
 }
 ```
 
-**Position polling (2s interval):**
+**Position polling (5s interval):**
 
 ```typescript
 // Only for cameras with VISCA driver
@@ -1047,7 +1061,7 @@ interface ReorderBody {
 
 This spec introduces patterns not yet documented in the steering doc. The following updates are required during implementation:
 
-- **§0 (Technology Stack)**: Add `grandiose` (NDI SDK native bindings, dynamic optional dependency) and `ws` (WebSocket library for binary preview streams) to Device Integration. Add DistroAV OBS plugin as a prerequisite for OBS preview.
+- **§0 (Technology Stack)**: Add `grandi` (NDI 6 native bindings with prebuilt binaries, dynamic optional dependency) and `ws` (WebSocket library for binary preview streams) to Device Integration. VISCA over IP required for all PTZ control. Add DistroAV OBS plugin as a prerequisite for OBS preview.
 - **§1 (Scope)**: Move "Camera Control" from "Future Releases" to active implementation scope.
 - **§3 (Interfaces & Boundaries)**: Add Backend ↔ Preview Clients boundary (dedicated `/preview/*` WebSocket endpoints for binary fMP4 video, authenticated via cookie). Add Caddy routing for `/preview/*`. Note that `ndiOutputName` in OBS device metadata enables OBS preview via NDI (decoupled from RTMP relay).
 - **§7 (Event Naming)**: Add exception note that `/preview/*` WebSocket endpoints are raw binary transport — no event naming convention applies.
@@ -1056,7 +1070,7 @@ This spec introduces patterns not yet documented in the steering doc. The follow
 
 ## FFmpeg NDI Input Arguments
 
-When receiving NDI frames via grandiose and piping to FFmpeg stdin, the input arguments must be derived at runtime from the NDI source's actual format:
+When receiving NDI frames via grandi and piping to FFmpeg stdin, the input arguments must be derived at runtime from the NDI source's actual format:
 
 ```typescript
 function buildNdiInputArgs(ndiFormat: NdiFrameFormat): string[] {

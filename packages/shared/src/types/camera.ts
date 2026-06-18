@@ -48,12 +48,14 @@ export interface CameraMetadata {
   cameraModel: CameraModel;
   cameraFeatures: CameraFeature[];
   viscaEnabled: boolean;
+  ndiExtraIPs?: string;
   aiHttpCookie?: string;
   aiCredentialId?: string;
 }
 
 export interface ObsMetadata {
   ndiOutputName?: string;
+  ndiExtraIPs?: string;
 }
 
 export interface CameraSetPayload {

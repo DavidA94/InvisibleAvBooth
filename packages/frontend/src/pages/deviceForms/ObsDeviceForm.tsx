@@ -54,7 +54,7 @@ export function ObsDeviceForm({ device, onSaved, onDeleted, registerDirtyCheck }
         label: form.label,
         host: form.host,
         port: Number(form.port),
-        metadata: { ndiOutputName: form.ndiOutputName || undefined },
+        metadata: { ndiOutputName: form.ndiOutputName || undefined, ndiExtraIPs: form.ndiExtraIPs || undefined },
       };
       if (isEdit) {
         body["enabled"] = form.enabled;
@@ -158,6 +158,16 @@ export function ObsDeviceForm({ device, onSaved, onDeleted, registerDirtyCheck }
         placeholder="OBS-MACHINE (OBS)"
         value={form.ndiOutputName}
         onIonInput={(e) => updateField("ndiOutputName", e.detail.value ?? "")}
+        clearInput
+      />
+      <IonInput
+        data-testid="device-form-ndi-extra-ips"
+        label="NDI Extra IPs (optional)"
+        labelPlacement="stacked"
+        fill="outline"
+        placeholder="127.0.0.1,192.168.1.100"
+        value={form.ndiExtraIPs}
+        onIonInput={(e) => updateField("ndiExtraIPs", e.detail.value ?? "")}
         clearInput
       />
 

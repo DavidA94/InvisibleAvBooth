@@ -40,9 +40,11 @@ export interface DeviceTypeEntry {
  * To add a new device type: import its form component and add one entry here.
  */
 import { ObsDeviceForm } from "./ObsDeviceForm";
+import { CameraDeviceForm } from "./CameraDeviceForm";
 
 export const DEVICE_TYPE_REGISTRY: Record<string, DeviceTypeEntry> = {
   obs: { displayName: "OBS", formComponent: ObsDeviceForm },
+  "camera-ptz": { displayName: "Camera (PTZ)", formComponent: CameraDeviceForm },
 };
 
 /** Ordered list of device type keys for the "Add Device" popover. */

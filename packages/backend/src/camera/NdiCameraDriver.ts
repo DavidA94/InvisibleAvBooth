@@ -12,13 +12,15 @@ import { logger } from "../logger.js";
  */
 export class NdiCameraDriver implements CameraControlInterface {
   private sourceName: string;
+  private extraIPs: string | null;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private receiver: any = null;
   private connected = false;
   private lastCommanded: PositionInquiry = { pan: 0, tilt: 0, zoom: 0, focus: 0.5, autoFocus: true };
 
-  constructor(sourceName: string) {
+  constructor(sourceName: string, extraIPs?: string) {
     this.sourceName = sourceName;
+    this.extraIPs = extraIPs ?? null;
   }
 
   async connect(): Promise<boolean> {
@@ -26,15 +28,21 @@ export class NdiCameraDriver implements CameraControlInterface {
     if (!ndi) return false;
     try {
       const mod = ndi.default ?? ndi;
-      const finder = await mod.find({ showLocalSources: true });
+      const findOpts: Record<string, unknown> = { showLocalSources: true };
+      if (this.extraIPs) findOpts["extraIPs"] = this.extraIPs;
+      logger.info(`NDI camera connecting: "${this.sourceName}" (extraIPs: ${this.extraIPs ?? "none"})`);
+      const finder = await mod.find(findOpts);
+      if (finder.wait) finder.wait(3000);
       const sources = finder.sources ? finder.sources() : finder;
-      const source = (Array.isArray(sources) ? sources : []).find((s: { name: string }) => s.name === this.sourceName);
+      const sourceList = Array.isArray(sources) ? sources : [];
+      logger.info(`NDI finder discovered ${sourceList.length} source(s): ${sourceList.map((s: { name: string }) => s.name).join(", ") || "(none)"}`);
+      const source = sourceList.find((s: { name: string }) => s.name === this.sourceName);
       if (finder.destroy) finder.destroy();
       if (!source) {
         logger.warn(`NDI source "${this.sourceName}" not found`);
         return false;
       }
-      this.receiver = await mod.receive({ source, colorFormat: mod.COLOR_FORMAT_FASTEST ?? 100 });
+      this.receiver = await mod.receive({ source, colorFormat: mod.COLOR_FORMAT_BEST ?? mod.COLOR_FORMAT_BGRX_BGRA ?? 101 });
       this.connected = true;
       return true;
     } catch (err) {

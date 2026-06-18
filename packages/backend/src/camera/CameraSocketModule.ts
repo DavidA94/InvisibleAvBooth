@@ -34,6 +34,7 @@ export class CameraSocketModule implements SocketModule {
     const role = jwtPayload.role;
 
     socket.on(CTS_CAMERA_PTZ_MOVE_START, (payload: { cameraId: string; pan: number; tilt: number }) => {
+      logger.info("Camera PTZ move:start", { userId: jwtPayload.sub, context: { cameraId: payload.cameraId, pan: payload.pan, tilt: payload.tilt } });
       this.cameraService.startMove(payload.cameraId, payload.pan, payload.tilt);
     });
 
@@ -42,12 +43,14 @@ export class CameraSocketModule implements SocketModule {
     });
 
     socket.on(CTS_CAMERA_PTZ_MOVE_STOP, (payload: { cameraId: string }) => {
+      logger.info("Camera PTZ move:stop", { userId: jwtPayload.sub, context: { cameraId: payload.cameraId } });
       this.cameraService.stopMove(payload.cameraId);
     });
 
     socket.on(
       CTS_CAMERA_SET,
       (payload: { cameraId: string; zoom?: number; focus?: number; autoFocus?: boolean; aiTracking?: boolean; aiTilt?: boolean; aiZoom?: boolean }) => {
+        logger.debug("Camera set command", { userId: jwtPayload.sub, context: { cameraId: payload.cameraId, fields: Object.keys(payload).filter((k) => k !== "cameraId") } });
         // Role enforcement: AvVolunteer can only set zoom
         if (role === "AvVolunteer") {
           if (payload.zoom !== undefined) {
@@ -63,6 +66,7 @@ export class CameraSocketModule implements SocketModule {
     socket.on(
       CTS_CAMERA_PRESET_ACTIVATE,
       async (payload: { cameraId: string; presetId: string }, ack?: (result: { success: boolean; error?: string }) => void) => {
+        logger.info("Camera preset activate", { userId: jwtPayload.sub, context: { cameraId: payload.cameraId, presetId: payload.presetId } });
         const result = await this.cameraService.activatePreset(payload.cameraId, payload.presetId);
         ack?.(result);
       },

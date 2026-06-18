@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
 import "../../test/ionicMocks";
 import { PresetConfigModal } from "./PresetConfigModal";
+import { TEST_ID_MODAL_CONTAINER } from "../../constants/testIds";
 
 describe("PresetConfigModal", () => {
   const onClose = vi.fn();
@@ -12,30 +13,22 @@ describe("PresetConfigModal", () => {
 
   it("does not render when closed", () => {
     render(<PresetConfigModal open={false} onClose={onClose} onSave={onSave} onCapturePosition={onCapturePosition} />);
-    expect(screen.queryByTestId("preset-config-modal")).not.toBeInTheDocument();
+    expect(screen.queryByTestId(TEST_ID_MODAL_CONTAINER)).not.toBeInTheDocument();
   });
 
   it("renders when open", () => {
     render(<PresetConfigModal open={true} onClose={onClose} onSave={onSave} onCapturePosition={onCapturePosition} />);
-    expect(screen.getByTestId("preset-config-modal")).toBeInTheDocument();
+    expect(screen.getByTestId(TEST_ID_MODAL_CONTAINER)).toBeInTheDocument();
   });
 
-  it("capture position displays summary", async () => {
+  it("shows Create Preset title for new preset", () => {
     render(<PresetConfigModal open={true} onClose={onClose} onSave={onSave} onCapturePosition={onCapturePosition} />);
-    await act(async () => {
-      fireEvent.click(screen.getByTestId("capture-position-btn"));
-    });
-    expect(screen.getByTestId("position-summary")).toBeInTheDocument();
-    expect(screen.getByTestId("position-summary")).toHaveTextContent("0.5");
-    expect(screen.getByTestId("position-summary")).toHaveTextContent("0.75");
+    expect(screen.getByText("Create Preset")).toBeInTheDocument();
   });
 
-  it("null values show N/A", async () => {
-    render(<PresetConfigModal open={true} onClose={onClose} onSave={onSave} onCapturePosition={onCapturePosition} />);
-    await act(async () => {
-      fireEvent.click(screen.getByTestId("capture-position-btn"));
-    });
-    expect(screen.getByTestId("position-summary")).toHaveTextContent("N/A");
+  it("shows Edit Preset title when editing", () => {
+    render(<PresetConfigModal open={true} onClose={onClose} onSave={onSave} onCapturePosition={onCapturePosition} initialName="Wide" />);
+    expect(screen.getByText("Edit Preset: Wide")).toBeInTheDocument();
   });
 
   it("store-on-camera toggle reveals slot input", () => {
@@ -45,11 +38,15 @@ describe("PresetConfigModal", () => {
     expect(screen.getByTestId("preset-slot-input")).toBeInTheDocument();
   });
 
-  it("save emits correct payload", () => {
+  it("capture position and save calls both handlers", async () => {
     render(<PresetConfigModal open={true} onClose={onClose} onSave={onSave} onCapturePosition={onCapturePosition} />);
-    const nameInput = screen.getByLabelText("Name");
+    // Set the name via the input
+    const nameInput = screen.getByTestId("preset-name-input").querySelector("input")!;
     fireEvent.change(nameInput, { target: { value: "My Preset" } });
-    fireEvent.click(screen.getByTestId("preset-save-btn"));
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("preset-save-btn"));
+    });
+    expect(onCapturePosition).toHaveBeenCalled();
     expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ name: "My Preset", storedOnCamera: false, cameraPresetSlot: null }));
   });
 });

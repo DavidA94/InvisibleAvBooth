@@ -7,6 +7,7 @@ import type { PreviewStreamManager } from "../services/previewStreamManager.js";
 vi.mock("./ndiLoader.js", () => ({
   getNdiModule: vi.fn(),
   isNdiAvailable: vi.fn().mockReturnValue(false),
+  loadNdi: vi.fn().mockResolvedValue(false),
 }));
 
 vi.mock("../logger.js", () => ({

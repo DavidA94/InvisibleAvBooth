@@ -16,11 +16,11 @@ const DEVICE: DeviceRecord = {
 
 describe("buildInitialState", () => {
   it("returns blank defaults when device is null", () => {
-    expect(buildInitialState(null)).toEqual({ label: "", host: "", port: DEFAULT_PORT, password: "", enabled: true, ndiOutputName: "" });
+    expect(buildInitialState(null)).toEqual({ label: "", host: "", port: DEFAULT_PORT, password: "", enabled: true, ndiOutputName: "", ndiExtraIPs: "" });
   });
 
   it("copies fields from device and clears password when editing", () => {
-    expect(buildInitialState(DEVICE)).toEqual({ label: "Main OBS", host: "10.0.0.1", port: "4455", password: "", enabled: true, ndiOutputName: "" });
+    expect(buildInitialState(DEVICE)).toEqual({ label: "Main OBS", host: "10.0.0.1", port: "4455", password: "", enabled: true, ndiOutputName: "", ndiExtraIPs: "" });
   });
 
   it("reads ndiOutputName from metadata", () => {
@@ -33,7 +33,7 @@ describe("buildInitialState", () => {
   });
 });
 
-const BASE: ObsFormState = { label: "L", host: "H", port: "4455", password: "", enabled: true, ndiOutputName: "" };
+const BASE: ObsFormState = { label: "L", host: "H", port: "4455", password: "", enabled: true, ndiOutputName: "", ndiExtraIPs: "" };
 
 describe("isFormDirty", () => {
   it.each`

@@ -171,7 +171,7 @@ describe("CameraWidget", () => {
       cameraStates: { cam1: { ...CAMERA_STATE, aiTracking: true } },
     });
     render(<CameraWidget />);
-    fireEvent.click(screen.getByLabelText("AI Tilt"));
+    fireEvent.click(screen.getByLabelText("AI Tilting"));
     expect(mockEmit).toHaveBeenCalledWith("cts:camera:set", { cameraId: "cam1", aiTilt: true });
   });
 
@@ -180,7 +180,7 @@ describe("CameraWidget", () => {
       cameraStates: { cam1: { ...CAMERA_STATE, aiTracking: true } },
     });
     render(<CameraWidget />);
-    fireEvent.click(screen.getByLabelText("AI Zoom"));
+    fireEvent.click(screen.getByLabelText("AI Zooming"));
     expect(mockEmit).toHaveBeenCalledWith("cts:camera:set", { cameraId: "cam1", aiZoom: true });
   });
 
@@ -194,18 +194,17 @@ describe("CameraWidget", () => {
     mockWidth = 400;
     render(<CameraWidget />);
     fireEvent.click(screen.getByTestId("camera-preview"));
-    expect(screen.getByTestId("camera-control-modal")).toBeInTheDocument();
-    fireEvent.click(screen.getByText("Close"));
-    expect(screen.queryByTestId("camera-control-modal")).not.toBeInTheDocument();
+    expect(screen.getByTestId("modal-container")).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("modal-backdrop"));
+    expect(screen.queryByTestId("modal-container")).not.toBeInTheDocument();
   });
 
   it("modal content click does not close modal", () => {
     mockWidth = 400;
     render(<CameraWidget />);
     fireEvent.click(screen.getByTestId("camera-preview"));
-    const content = screen.getByTestId("camera-control-modal").querySelector(".preview-modal-content")!;
-    fireEvent.click(content);
-    expect(screen.getByTestId("camera-control-modal")).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("modal-container"));
+    expect(screen.getByTestId("modal-container")).toBeInTheDocument();
   });
 
   it("shows AI Tilt and AI Zoom when aiTracking is on", () => {
@@ -213,14 +212,14 @@ describe("CameraWidget", () => {
       cameraStates: { cam1: { ...CAMERA_STATE, aiTracking: true } },
     });
     render(<CameraWidget />);
-    expect(screen.getByLabelText("AI Tilt")).toBeInTheDocument();
-    expect(screen.getByLabelText("AI Zoom")).toBeInTheDocument();
+    expect(screen.getByLabelText("AI Tilting")).toBeInTheDocument();
+    expect(screen.getByLabelText("AI Zooming")).toBeInTheDocument();
   });
 
   it("hides AI Tilt and AI Zoom when aiTracking is off", () => {
     render(<CameraWidget />);
-    expect(screen.queryByLabelText("AI Tilt")).not.toBeInTheDocument();
-    expect(screen.queryByLabelText("AI Zoom")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("AI Tilting")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("AI Zooming")).not.toBeInTheDocument();
   });
 
   it("shows focus slider for admin with focus feature", () => {
@@ -292,21 +291,21 @@ describe("CameraWidget", () => {
     mockWidth = 400;
     render(<CameraWidget />);
     fireEvent.click(screen.getByTestId("camera-preview"));
-    expect(screen.getByTestId("camera-control-modal")).toBeInTheDocument();
+    expect(screen.getByTestId("modal-container")).toBeInTheDocument();
   });
 
   it("closes modal on backdrop click", () => {
     mockWidth = 400;
     render(<CameraWidget />);
     fireEvent.click(screen.getByTestId("camera-preview"));
-    fireEvent.click(screen.getByTestId("camera-control-modal"));
-    expect(screen.queryByTestId("camera-control-modal")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("modal-backdrop"));
+    expect(screen.queryByTestId("modal-container")).not.toBeInTheDocument();
   });
 
   it("auto-selects first camera when no selection", () => {
     localStorage.removeItem("camera-widget-selected");
     render(<CameraWidget />);
-    expect(screen.getByTestId("camera-preview")).toBeInTheDocument();
+    expect(screen.getByTestId("camera-controls")).toBeInTheDocument();
   });
 
   it("persists selection to localStorage", () => {

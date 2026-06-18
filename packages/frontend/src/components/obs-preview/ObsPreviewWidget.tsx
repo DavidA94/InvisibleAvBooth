@@ -45,9 +45,15 @@ export function ObsPreviewWidget({ enabled = true, ndiConfigured = false }: ObsP
     <div data-testid={TEST_ID_OBS_PREVIEW_WIDGET} className="full-height">
       <WidgetContainer title="OBS Preview" connections={[connection]}>
         <div className="preview-video-container" onClick={() => status === "streaming" && setModalOpen(true)}>
-          {status === "streaming" && (
-            <video data-testid={TEST_ID_OBS_PREVIEW_VIDEO} ref={videoRef} className="preview-video" autoPlay playsInline muted={muted} />
-          )}
+          <video
+            data-testid={TEST_ID_OBS_PREVIEW_VIDEO}
+            ref={videoRef}
+            className="preview-video"
+            autoPlay
+            playsInline
+            muted={muted}
+            style={status !== "streaming" ? { display: "none" } : undefined}
+          />
 
           {!ndiConfigured && (
             <div data-testid={TEST_ID_OBS_PREVIEW_INACTIVE} className="preview-overlay">

@@ -1,5 +1,6 @@
 import { Socket } from "net";
 import type { PositionInquiry } from "@invisible-av-booth/shared";
+import { logger } from "../logger.js";
 
 const VISCA_HEADER = 0x81;
 const VISCA_TERMINATOR = 0xff;
@@ -56,6 +57,7 @@ export class ViscaCameraDriver {
   private connected = false;
   private responseBuffer = Buffer.alloc(0);
   private pendingResolve: ((data: Buffer) => void) | null = null;
+  private commandQueue: Array<{ cmd: Buffer; resolve: (data: Buffer) => void; reject: (err: Error) => void }> = [];
 
   constructor(host: string, port: number) {
     this.host = host;
@@ -116,6 +118,7 @@ export class ViscaCameraDriver {
   }
 
   async inquirePosition(): Promise<PositionInquiry> {
+    if (!this.connected) await this.connect();
     const result: PositionInquiry = { pan: null, tilt: null, zoom: null, focus: null, autoFocus: null };
 
     try {
@@ -163,13 +166,13 @@ export class ViscaCameraDriver {
   // ── PTZ Commands ─────────────────────────────────────────────────────────
 
   async panTiltSpeed(panSpeed: number, tiltSpeed: number): Promise<void> {
-    // VISCA PanTiltDrive: 81 01 06 01 VV WW 03 01 FF (continuous move)
-    // VV = pan speed (01-18), WW = tilt speed (01-14)
+    if (!this.connected) await this.connect();
     const ps = Math.max(1, Math.min(0x18, Math.round(Math.abs(panSpeed) * 0x18)));
     const ts = Math.max(1, Math.min(0x14, Math.round(Math.abs(tiltSpeed) * 0x14)));
     const panDir = panSpeed > 0 ? 0x02 : panSpeed < 0 ? 0x01 : 0x03;
-    const tiltDir = tiltSpeed > 0 ? 0x02 : tiltSpeed < 0 ? 0x01 : 0x03;
+    const tiltDir = tiltSpeed > 0 ? 0x01 : tiltSpeed < 0 ? 0x02 : 0x03;
     const cmd = Buffer.from([VISCA_HEADER, 0x01, 0x06, 0x01, ps, ts, panDir, tiltDir, VISCA_TERMINATOR]);
+    logger.info("VISCA sending panTiltSpeed", { context: { panSpeed, tiltSpeed, ps, ts, panDir, tiltDir, hex: cmd.toString("hex"), queueLen: this.commandQueue.length, hasPending: !!this.pendingResolve } });
     try {
       await this.sendCommand(cmd);
     } catch {
@@ -178,6 +181,7 @@ export class ViscaCameraDriver {
   }
 
   async panTiltAbsolute(pan: number, tilt: number): Promise<void> {
+    if (!this.connected) await this.connect();
     const panRaw = denormalizePan(pan);
     const tiltRaw = denormalizePan(tilt);
     // 81 01 06 02 VV WW 0p 0q 0r 0s 0t 0u 0v 0w FF
@@ -206,6 +210,7 @@ export class ViscaCameraDriver {
   }
 
   async zoomAbsolute(zoom: number): Promise<void> {
+    if (!this.connected) await this.connect();
     const raw = denormalizeZoom(zoom);
     // 81 01 04 47 0p 0q 0r 0s FF
     const cmd = Buffer.from([VISCA_HEADER, 0x01, 0x04, 0x47, (raw >> 12) & 0x0f, (raw >> 8) & 0x0f, (raw >> 4) & 0x0f, raw & 0x0f, VISCA_TERMINATOR]);
@@ -217,6 +222,7 @@ export class ViscaCameraDriver {
   }
 
   async focusAuto(): Promise<void> {
+    if (!this.connected) await this.connect();
     // 81 01 04 38 02 FF (auto focus on)
     const cmd = Buffer.from([VISCA_HEADER, 0x01, 0x04, 0x38, 0x02, VISCA_TERMINATOR]);
     try {
@@ -227,6 +233,7 @@ export class ViscaCameraDriver {
   }
 
   async focusManual(position: number): Promise<void> {
+    if (!this.connected) await this.connect();
     // Switch to manual: 81 01 04 38 03 FF
     const manual = Buffer.from([VISCA_HEADER, 0x01, 0x04, 0x38, 0x03, VISCA_TERMINATOR]);
     try {
@@ -245,6 +252,7 @@ export class ViscaCameraDriver {
   }
 
   async stop(): Promise<void> {
+    if (!this.connected) await this.connect();
     // PanTiltDrive Stop: 81 01 06 01 01 01 03 03 FF
     const cmd = Buffer.from([VISCA_HEADER, 0x01, 0x06, 0x01, 0x01, 0x01, 0x03, 0x03, VISCA_TERMINATOR]);
     try {
@@ -258,6 +266,11 @@ export class ViscaCameraDriver {
     return new Promise((resolve, reject) => {
       if (!this.socket || !this.connected) {
         reject(new Error("Not connected"));
+        return;
+      }
+      // Queue if another command is in-flight
+      if (this.pendingResolve) {
+        this.commandQueue.push({ cmd, resolve, reject });
         return;
       }
       this.pendingResolve = resolve;
@@ -284,8 +297,16 @@ export class ViscaCameraDriver {
 
     // Skip ACK packets (y0 4x FF)
     if (packet.length === 3 && (packet[1]! & 0xf0) === 0x40) {
+      logger.info("VISCA ACK received", { context: { hex: packet.toString("hex") } });
       this.processBuffer();
       return;
+    }
+
+    // Check for error response (y0 6x FF)
+    if (packet.length >= 3 && (packet[1]! & 0xf0) === 0x60) {
+      logger.warn("VISCA error response", { context: { hex: packet.toString("hex") } });
+    } else {
+      logger.info("VISCA response", { context: { hex: packet.toString("hex"), length: packet.length } });
     }
 
     if (this.pendingResolve) {
@@ -293,5 +314,28 @@ export class ViscaCameraDriver {
       this.pendingResolve = null;
       resolve(packet);
     }
+
+    // Drain queue
+    this.drainQueue();
+  }
+
+  private drainQueue(): void {
+    if (this.pendingResolve || this.commandQueue.length === 0) return;
+    const next = this.commandQueue.shift()!;
+    this.pendingResolve = next.resolve;
+    this.socket?.write(next.cmd, (err) => {
+      if (err) {
+        this.pendingResolve = null;
+        next.reject(err);
+        this.drainQueue();
+      }
+    });
+    setTimeout(() => {
+      if (this.pendingResolve === next.resolve) {
+        this.pendingResolve = null;
+        next.reject(new Error("VISCA timeout"));
+        this.drainQueue();
+      }
+    }, 2000);
   }
 }

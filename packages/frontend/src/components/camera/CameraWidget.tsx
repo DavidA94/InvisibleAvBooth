@@ -1,17 +1,17 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import type { ReactNode } from "react";
 import Select from "react-select";
-import { IonToggle, IonRange } from "@ionic/react";
 import { WidgetContainer } from "../WidgetContainer";
 import type { ConnectionStatus } from "../WidgetContainer";
-import { PtzJoystick } from "./PtzJoystick";
+import { CameraControls } from "./CameraControls";
 import { usePreviewStream } from "../../hooks/usePreviewStream";
 import { usePtzMove } from "../../hooks/usePtzMove";
 import { useStore } from "../../store";
 import { useSocket } from "../../providers/SocketProvider";
 import { useResizeObserver } from "../../hooks/useResizeObserver";
-import { CTS_CAMERA_SET } from "@invisible-av-booth/shared";
-import type { CameraState, CameraFeature } from "@invisible-av-booth/shared";
+import { CTS_CAMERA_SET, CTS_CAMERA_PRESET_ACTIVATE } from "@invisible-av-booth/shared";
+import type { CameraState } from "@invisible-av-booth/shared";
+import { Modal } from "../Modal";
 
 const COMPACT_WIDTH_THRESHOLD = 480;
 
@@ -23,10 +23,6 @@ function deriveConnection(state: CameraState | null): ConnectionStatus {
   if (!state) return { label: "Camera", status: "inactive" };
   if (state.connected) return { label: "Camera", status: "healthy" };
   return { label: "Camera", status: "unhealthy" };
-}
-
-function hasFeature(features: CameraFeature[], f: CameraFeature): boolean {
-  return features.includes(f);
 }
 
 export function CameraWidget({ enabled = true }: CameraWidgetProps): ReactNode {
@@ -59,34 +55,34 @@ export function CameraWidget({ enabled = true }: CameraWidgetProps): ReactNode {
   const isCompact = width > 0 && width < COMPACT_WIDTH_THRESHOLD;
   const isAdmin = user?.role === "ADMIN" || user?.role === "AvPowerUser";
   const features = currentState?.features ?? [];
+  const aiConfigured = currentState?.features.includes("ai-tracking") ?? false;
 
   const [modalOpen, setModalOpen] = useState(false);
 
   const handleJoystickStart = useCallback(
-    (pan: number, tilt: number) => {
-      if (selectedId) startMove(selectedId, pan, tilt);
-    },
+    (pan: number, tilt: number) => { if (selectedId) startMove(selectedId, pan, tilt); },
     [selectedId, startMove],
   );
+  const handleJoystickMove = useCallback(
+    (pan: number, tilt: number) => { if (selectedId) updateMove(pan, tilt); },
+    [selectedId, updateMove],
+  );
+  const handleJoystickStop = useCallback(() => { stopMove(); }, [stopMove]);
 
   const handleZoomChange = useCallback(
-    (zoom: number) => {
-      if (socket && selectedId) socket.emit(CTS_CAMERA_SET, { cameraId: selectedId, zoom });
-    },
+    (zoom: number) => { if (socket && selectedId) socket.emit(CTS_CAMERA_SET, { cameraId: selectedId, zoom }); },
     [socket, selectedId],
   );
-
-  const handleToggle = useCallback(
-    (field: string, value: boolean) => {
-      if (socket && selectedId) socket.emit(CTS_CAMERA_SET, { cameraId: selectedId, [field]: value });
-    },
-    [socket, selectedId],
-  );
-
   const handleFocusChange = useCallback(
-    (focus: number) => {
-      if (socket && selectedId) socket.emit(CTS_CAMERA_SET, { cameraId: selectedId, focus });
-    },
+    (focus: number) => { if (socket && selectedId) socket.emit(CTS_CAMERA_SET, { cameraId: selectedId, focus }); },
+    [socket, selectedId],
+  );
+  const handleToggle = useCallback(
+    (field: string, value: boolean) => { if (socket && selectedId) socket.emit(CTS_CAMERA_SET, { cameraId: selectedId, [field]: value }); },
+    [socket, selectedId],
+  );
+  const handlePresetActivate = useCallback(
+    (presetId: string) => { if (socket && selectedId) socket.emit(CTS_CAMERA_PRESET_ACTIVATE, { cameraId: selectedId, presetId }); },
     [socket, selectedId],
   );
 
@@ -94,114 +90,65 @@ export function CameraWidget({ enabled = true }: CameraWidgetProps): ReactNode {
   const cameraOptions = cameras.map((c) => ({ value: c.cameraId, label: c.cameraId }));
   const selectedOption = cameraOptions.find((o) => o.value === selectedId) ?? null;
 
+  const controlProps = {
+    videoRef,
+    previewStatus: status,
+    connected: currentState?.connected ?? false,
+    features,
+    aiConfigured,
+    isAdmin,
+    zoom: currentState?.position?.zoom ?? 0,
+    focus: currentState?.position?.focus ?? 0.5,
+    autoFocus: currentState?.autoFocus ?? true,
+    aiTracking: currentState?.aiTracking ?? false,
+    aiTilt: currentState?.aiTilt ?? false,
+    aiZoom: currentState?.aiZoom ?? false,
+    presets: currentState?.presets ?? [],
+    activePresetId: currentState?.activePresetId ?? null,
+    onZoomChange: handleZoomChange,
+    onFocusChange: handleFocusChange,
+    onAutoFocusChange: (v: boolean) => handleToggle("autoFocus", v),
+    onAiTrackingChange: (v: boolean) => handleToggle("aiTracking", v),
+    onAiTiltChange: (v: boolean) => handleToggle("aiTilt", v),
+    onAiZoomChange: (v: boolean) => handleToggle("aiZoom", v),
+    onJoystickStart: handleJoystickStart,
+    onJoystickMove: handleJoystickMove,
+    onJoystickStop: handleJoystickStop,
+    onPresetActivate: handlePresetActivate,
+  };
+
   return (
-    <div data-testid="camera-widget" ref={containerRef}>
+    <div data-testid="camera-widget" ref={containerRef} className="full-height">
       <WidgetContainer title="Camera" connections={[connection]}>
-        {/* Camera selector */}
         {cameras.length > 1 && (
           <Select
             data-testid="camera-select"
             options={cameraOptions}
             value={selectedOption}
-            onChange={(opt) => opt && setSelectedId(opt.value)}
+            onChange={(opt) => opt && setSelectedId((opt as { value: string }).value)}
             isDisabled={cameras.length <= 1}
             placeholder="Select Camera"
           />
         )}
 
-        {/* Video preview */}
-        <div className="preview-video-container" data-testid="camera-preview" onClick={() => isCompact && setModalOpen(true)}>
-          <video ref={videoRef} className="preview-video" autoPlay playsInline muted />
-          {currentState && !currentState.connected && (
-            <div className="preview-overlay" data-testid="camera-offline-overlay">
-              Camera Offline
-            </div>
-          )}
-          {status === "connecting" && (
-            <div className="preview-overlay" data-testid="camera-connecting-overlay">
-              Connecting…
-            </div>
-          )}
-        </div>
-
-        {/* Controls — expanded mode only */}
-        {!isCompact && (
-          <div className="camera-controls" data-testid="camera-controls">
-            {/* Joystick */}
-            {(hasFeature(features, "pan") || hasFeature(features, "tilt")) && (
-              <PtzJoystick
-                onStart={handleJoystickStart}
-                onMove={updateMove}
-                onStop={stopMove}
-                disabled={{ pan: !hasFeature(features, "pan"), tilt: !hasFeature(features, "tilt") }}
-              />
+        {isCompact ? (
+          <div className="preview-video-container" data-testid="camera-preview" onClick={() => setModalOpen(true)}>
+            <video ref={videoRef} className="preview-video" autoPlay playsInline muted style={status !== "streaming" ? { display: "none" } : undefined} />
+            {currentState && !currentState.connected && (
+              <div className="preview-overlay" data-testid="camera-offline-overlay">Camera Offline</div>
             )}
-
-            {/* Zoom slider */}
-            {hasFeature(features, "zoom") && (
-              <div data-testid="camera-zoom-slider">
-                <IonRange
-                  min={0}
-                  max={1}
-                  step={0.01}
-                  value={currentState?.position?.zoom ?? 0}
-                  onIonChange={(e) => handleZoomChange(e.detail.value as number)}
-                />
-              </div>
-            )}
-
-            {/* AI Toggles — hidden for AvVolunteer */}
-            {isAdmin && hasFeature(features, "ai-tracking") && (
-              <div data-testid="camera-toggle-row">
-                <IonToggle checked={currentState?.aiTracking ?? false} onIonChange={(e) => handleToggle("aiTracking", e.detail.checked)}>
-                  AI Tracking
-                </IonToggle>
-                {currentState?.aiTracking && (
-                  <>
-                    <IonToggle checked={currentState?.aiTilt ?? false} onIonChange={(e) => handleToggle("aiTilt", e.detail.checked)}>
-                      AI Tilt
-                    </IonToggle>
-                    <IonToggle checked={currentState?.aiZoom ?? false} onIonChange={(e) => handleToggle("aiZoom", e.detail.checked)}>
-                      AI Zoom
-                    </IonToggle>
-                  </>
-                )}
-              </div>
-            )}
-
-            {/* Focus slider */}
-            {isAdmin && hasFeature(features, "focus") && (
-              <div data-testid="camera-focus-slider">
-                <IonToggle checked={currentState?.autoFocus ?? true} onIonChange={(e) => handleToggle("autoFocus", e.detail.checked)}>
-                  Auto Focus
-                </IonToggle>
-                <IonRange
-                  min={0}
-                  max={1}
-                  step={0.01}
-                  disabled={currentState?.autoFocus ?? true}
-                  value={currentState?.position?.focus ?? 0.5}
-                  onIonChange={(e) => handleFocusChange(e.detail.value as number)}
-                />
-              </div>
+            {status !== "streaming" && currentState?.connected && (
+              <div className="preview-overlay" data-testid="camera-connecting-overlay">Connecting…</div>
             )}
           </div>
+        ) : (
+          <CameraControls {...controlProps} />
         )}
       </WidgetContainer>
 
-      {/* Modal for compact mode */}
-      {modalOpen && (
-        <div data-testid="camera-control-modal" className="preview-modal-backdrop" onClick={() => setModalOpen(false)}>
-          <div className="preview-modal-content" onClick={(e) => e.stopPropagation()}>
-            <button onClick={() => setModalOpen(false)} type="button">
-              Close
-            </button>
-            <div className="preview-video-container">
-              <video ref={videoRef} className="preview-video" autoPlay playsInline muted />
-            </div>
-          </div>
-        </div>
-      )}
+      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} size="large" header="Camera Control">
+        <CameraControls {...controlProps} />
+      </Modal>
     </div>
   );
 }

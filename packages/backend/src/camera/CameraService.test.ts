@@ -8,6 +8,7 @@ import { BUS_CAMERA_STATE_CHANGED } from "../eventBus/types.js";
 // Mock dependencies
 vi.mock("./ndiLoader.js", () => ({
   isNdiAvailable: () => true,
+  loadNdi: vi.fn().mockResolvedValue(true),
 }));
 
 vi.mock("../logger.js", () => ({

@@ -13,6 +13,7 @@ export interface ObsFormState {
   password: string;
   enabled: boolean;
   ndiOutputName: string;
+  ndiExtraIPs: string;
 }
 
 export function buildInitialState(device: DeviceRecord | null): ObsFormState {
@@ -24,9 +25,10 @@ export function buildInitialState(device: DeviceRecord | null): ObsFormState {
       password: "",
       enabled: device.enabled,
       ndiOutputName: (device.metadata as { ndiOutputName?: string })?.ndiOutputName ?? "",
+      ndiExtraIPs: (device.metadata as { ndiExtraIPs?: string })?.ndiExtraIPs ?? "",
     };
   }
-  return { label: "", host: "", port: DEFAULT_PORT, password: "", enabled: true, ndiOutputName: "" };
+  return { label: "", host: "", port: DEFAULT_PORT, password: "", enabled: true, ndiOutputName: "", ndiExtraIPs: "" };
 }
 
 /**
@@ -39,6 +41,7 @@ export function isFormDirty(current: ObsFormState, initial: ObsFormState, isEdit
   if (current.port !== initial.port) return true;
   if (current.enabled !== initial.enabled) return true;
   if (current.ndiOutputName !== initial.ndiOutputName) return true;
+  if (current.ndiExtraIPs !== initial.ndiExtraIPs) return true;
   if (!isEdit && current.password !== initial.password) return true;
   if (isEdit && current.password !== "") return true;
   return false;

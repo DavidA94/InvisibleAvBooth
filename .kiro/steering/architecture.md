@@ -26,8 +26,8 @@ The system provides **modular control of livestream operations** for a church en
 
 - **OBS Control:** Start/stop recording, start/stop streaming (via RTMP relay).
 - **Multi-Platform Streaming:** Simultaneous streaming to YouTube and Facebook from a single OBS source, with per-platform lifecycle management, health monitoring, and auto-recovery.
-- **Camera Control:** Manual PTZ control via NDI (with optional VISCA position polling), presets for framing, tap-to-center behavior, AI tracking toggles for supported camera models, dead-man's switch safety.
-- **Video Preview:** Real-time fMP4 preview streams (OBS output and camera feeds) delivered over dedicated WebSocket endpoints via FFmpeg transcoding with hardware encoder auto-detection.
+- **Camera Control:** Manual PTZ control via VISCA over IP (required for all camera movement commands), live video preview via NDI (`grandi`), presets for framing, tap-to-center behavior, AI tracking toggles for supported camera models, dead-man's switch safety.
+- **Video Preview:** Real-time fMP4 preview streams (OBS output and camera feeds) delivered over dedicated WebSocket endpoints via FFmpeg transcoding at 720p 15fps with hardware encoder auto-detection (software fallback for piped NDI sources).
 
 ### Future Releases (out of scope for initial release)
 

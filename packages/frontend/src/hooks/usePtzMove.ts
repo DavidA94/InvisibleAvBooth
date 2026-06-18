@@ -1,6 +1,7 @@
 import { useRef, useCallback, useEffect } from "react";
 import { useSocket } from "../providers/SocketProvider";
 import { CTS_CAMERA_PTZ_MOVE_START, CTS_CAMERA_PTZ_MOVE_KEEPALIVE, CTS_CAMERA_PTZ_MOVE_STOP } from "@invisible-av-booth/shared";
+import { logger } from "../logger";
 
 const KEEPALIVE_INTERVAL_MS = 200;
 
@@ -27,12 +28,14 @@ export function usePtzMove(): UsePtzMoveResult {
 
   const startMove = useCallback(
     (cameraId: string, pan: number, tilt: number) => {
-      if (!socket) return;
+      if (!socket) { logger.warn("PTZ move:start — no socket"); return; }
+      if (!socket.connected) { logger.warn("PTZ move:start — socket disconnected"); return; }
       cleanup();
       cameraIdRef.current = cameraId;
       speedRef.current = { pan, tilt };
       activeRef.current = true;
       socket.emit(CTS_CAMERA_PTZ_MOVE_START, { cameraId, pan, tilt });
+      logger.debug("PTZ move:start", { context: { cameraId, pan, tilt } });
 
       intervalRef.current = setInterval(() => {
         if (!activeRef.current) return;
@@ -50,6 +53,7 @@ export function usePtzMove(): UsePtzMoveResult {
     if (!socket || !activeRef.current) return;
     cleanup();
     socket.emit(CTS_CAMERA_PTZ_MOVE_STOP, { cameraId: cameraIdRef.current });
+    logger.debug("PTZ move:stop", { context: { cameraId: cameraIdRef.current } });
   }, [socket, cleanup]);
 
   useEffect(() => cleanup, [cleanup]);

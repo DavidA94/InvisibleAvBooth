@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback, useState } from "react";
 import type { RefObject } from "react";
+import { logger } from "../logger";
 
 export type PreviewStreamStatus = "idle" | "connecting" | "streaming" | "error" | "reconnecting";
 
@@ -11,8 +12,8 @@ export interface UsePreviewStreamResult {
 
 const BACKOFF_DELAYS = [1000, 2000, 4000, 10000];
 const MAX_FAILURES = 3;
-const BUFFER_TRIM_THRESHOLD = 2;
-const SEEK_THRESHOLD = 3;
+const BUFFER_TRIM_THRESHOLD = 1;
+const SEEK_THRESHOLD = 1.5;
 
 export function usePreviewStream(endpoint: string, enabled: boolean): UsePreviewStreamResult {
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -68,13 +69,43 @@ export function usePreviewStream(endpoint: string, enabled: boolean): UsePreview
       videoRef.current.src = URL.createObjectURL(mediaSource);
     }
 
+    const queue: ArrayBuffer[] = [];
+    let staleTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const resetStaleTimer = (): void => {
+      if (staleTimer) clearTimeout(staleTimer);
+      staleTimer = setTimeout(() => {
+        setStatus("reconnecting");
+      }, 5000);
+    };
+
+    const drainQueue = (): void => {
+      const sb = sourceBufferRef.current;
+      if (!sb || sb.updating || queue.length === 0) return;
+      const next = queue.shift()!;
+      try {
+        sb.appendBuffer(next);
+      } catch {
+        // QuotaExceededError — drop oldest data
+        queue.length = 0;
+      }
+    };
+
+    ws.onmessage = (event) => {
+      setStatus("streaming");
+      resetStaleTimer();
+      queue.push(event.data as ArrayBuffer);
+      drainQueue();
+    };
+
     mediaSource.addEventListener("sourceopen", () => {
       if (mediaSource.readyState !== "open") return;
       try {
-        const sb = mediaSource.addSourceBuffer('video/mp4; codecs="avc1.42E01E,mp4a.40.2"');
+        const sb = mediaSource.addSourceBuffer('video/mp4; codecs="avc1.42E01E"');
         sourceBufferRef.current = sb;
 
         sb.addEventListener("updateend", () => {
+          drainQueue();
           trimBuffer(sb);
           seekToLive(videoRef.current);
         });
@@ -84,22 +115,13 @@ export function usePreviewStream(endpoint: string, enabled: boolean): UsePreview
     });
 
     ws.onopen = () => {
+      logger.info("Preview WS connected", { context: { endpoint } });
       retriesRef.current = 0;
       setStatus("connecting");
     };
 
-    ws.onmessage = (event) => {
-      setStatus("streaming");
-      const sb = sourceBufferRef.current;
-      if (!sb || sb.updating) return;
-      try {
-        sb.appendBuffer(event.data as ArrayBuffer);
-      } catch {
-        // QuotaExceededError or InvalidStateError
-      }
-    };
-
-    ws.onclose = () => {
+    ws.onclose = (ev) => {
+      logger.warn("Preview WS closed", { context: { endpoint, code: ev.code, reason: ev.reason } });
       if (!enabled) return;
       retriesRef.current++;
       if (retriesRef.current > MAX_FAILURES) {
@@ -112,7 +134,7 @@ export function usePreviewStream(endpoint: string, enabled: boolean): UsePreview
     };
 
     ws.onerror = () => {
-      // onclose will fire after this
+      logger.warn("Preview WS error", { context: { endpoint } });
     };
   }, [endpoint, enabled, cleanup]);
 

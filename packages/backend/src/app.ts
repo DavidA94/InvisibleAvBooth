@@ -128,13 +128,12 @@ export function buildApp(deps: AppDependencies): AppContext {
   const templateDao = new MetadataTemplateDao(database);
   const lowerThirdService = new LowerThirdService(templateDao, database, manifestService);
 
-  const cameraService = new CameraService(database);
-
   const onPlatformChanged = (): void => platformServiceRef?.reloadPlatforms();
   app.use("/api", mustBeAuthenticated, mustHaveChangedPassword, createPlatformRouter(database, authService, onPlatformChanged));
 
   const previewManager = new PreviewStreamManager(authService, previewSpawnFn);
   const obsNdiPreviewSource = new ObsNdiPreviewSource(database, previewManager);
+  const cameraService = new CameraService(database, previewManager);
 
   const gateway = new SocketGateway(httpServer, authService, [
     new ObsModule(obsService, () => !!obsNdiPreviewSource.getNdiOutputName()),
