@@ -9,6 +9,7 @@ import type { Database } from "better-sqlite3";
 import type { PreviewStreamManager } from "../services/previewStreamManager.js";
 import { NdiFramePipe, buildNdiInputArgs } from "./ndiFramePipe.js";
 import { getNdiModule, isNdiAvailable, loadNdi } from "./ndiLoader.js";
+import { findNdiSourceByName } from "./ndiFinder.js";
 import { eventBus } from "../eventBus/eventBus.js";
 import { BUS_DEVICE_CAPABILITIES_UPDATED } from "../eventBus/types.js";
 import { logger } from "../logger.js";
@@ -91,14 +92,7 @@ export class ObsNdiPreviewSource {
 
     try {
       const mod = ndi.default ?? ndi;
-      const findOpts: Record<string, unknown> = { showLocalSources: true };
-      if (this.ndiExtraIPs) findOpts["extraIPs"] = this.ndiExtraIPs;
-      const finder = await mod.find(findOpts);
-      // Allow time for NDI sources to be discovered on the network
-      if (finder.wait) finder.wait(3000);
-      const sources = finder.sources ? finder.sources() : finder;
-      const source = (Array.isArray(sources) ? sources : []).find((s: { name: string }) => s.name === this.ndiOutputName);
-      if (finder.destroy) finder.destroy();
+      const source = await findNdiSourceByName(this.ndiOutputName, this.ndiExtraIPs, 1);
       if (!source) {
         logger.warn(`OBS NDI source "${this.ndiOutputName}" not found — DistroAV may not be enabled`);
         this.previewManager.setSourceAvailable(OBS_PREVIEW_SOURCE_ID, false, "pipe:0");

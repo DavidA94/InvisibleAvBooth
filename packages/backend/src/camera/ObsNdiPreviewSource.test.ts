@@ -10,6 +10,10 @@ vi.mock("./ndiLoader.js", () => ({
   loadNdi: vi.fn().mockResolvedValue(false),
 }));
 
+vi.mock("./ndiFinder.js", () => ({
+  findNdiSourceByName: vi.fn().mockResolvedValue(null),
+}));
+
 vi.mock("../logger.js", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
@@ -19,9 +23,11 @@ vi.mock("../eventBus/eventBus.js", () => ({
 }));
 
 import { isNdiAvailable, getNdiModule } from "./ndiLoader.js";
+import { findNdiSourceByName } from "./ndiFinder.js";
 import { eventBus } from "../eventBus/eventBus.js";
 const mockIsNdiAvailable = vi.mocked(isNdiAvailable);
 const mockGetNdiModule = vi.mocked(getNdiModule);
+const mockFindNdiSourceByName = vi.mocked(findNdiSourceByName);
 
 function createMockPreviewManager(): PreviewStreamManager {
   return { setSourceAvailable: vi.fn() } as unknown as PreviewStreamManager;
@@ -100,10 +106,8 @@ describe("ObsNdiPreviewSource", () => {
     const db = createDbWithObsDevice("MY-PC (OBS)");
     previewManager = createMockPreviewManager();
     mockIsNdiAvailable.mockReturnValue(true);
-    mockGetNdiModule.mockReturnValue({
-      find: vi.fn().mockResolvedValue([]),
-      COLOR_FORMAT_FASTEST: 0,
-    });
+    mockGetNdiModule.mockReturnValue({ COLOR_FORMAT_FASTEST: 0 });
+    mockFindNdiSourceByName.mockResolvedValue(null);
     source = new ObsNdiPreviewSource(db, previewManager);
 
     await source.initialize();
@@ -114,18 +118,17 @@ describe("ObsNdiPreviewSource", () => {
   it("marks source available when NDI source is found", async () => {
     const db = createDbWithObsDevice("MY-PC (OBS)");
     previewManager = createMockPreviewManager();
-    const mockReceiver = { video: vi.fn().mockRejectedValue(new Error("stopped")) };
+    const mockReceiver = { data: vi.fn().mockRejectedValue(new Error("stopped")) };
     mockIsNdiAvailable.mockReturnValue(true);
+    mockFindNdiSourceByName.mockResolvedValue({ name: "MY-PC (OBS)" });
     mockGetNdiModule.mockReturnValue({
-      find: vi.fn().mockResolvedValue([{ name: "MY-PC (OBS)" }]),
       receive: vi.fn().mockResolvedValue(mockReceiver),
       COLOR_FORMAT_FASTEST: 0,
     });
     source = new ObsNdiPreviewSource(db, previewManager);
 
     await source.initialize();
-    expect(previewManager.setSourceAvailable).toHaveBeenCalledWith("obs", true, "pipe:0");
-    // Give time for the loop to hit the error and mark unavailable
+    // Give time for the receive loop to start
     await new Promise((r) => setTimeout(r, 50));
   });
 

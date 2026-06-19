@@ -9,10 +9,15 @@ import { BUS_CAMERA_STATE_CHANGED } from "../eventBus/types.js";
 vi.mock("./ndiLoader.js", () => ({
   isNdiAvailable: () => true,
   loadNdi: vi.fn().mockResolvedValue(true),
+  getNdiModule: () => null,
+}));
+
+vi.mock("./ndiFinder.js", () => ({
+  findNdiSourceByName: vi.fn().mockResolvedValue(null),
 }));
 
 vi.mock("../logger.js", () => ({
-  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
 
 import { logger } from "../logger.js";
@@ -20,17 +25,6 @@ import { logger } from "../logger.js";
 vi.mock("../crypto.js", () => ({
   decrypt: (val: string) => `decrypted-${val}`,
 }));
-
-const mockNdiDriver = {
-  connect: vi.fn().mockResolvedValue(true),
-  disconnect: vi.fn(),
-  panTiltSpeed: vi.fn(),
-  stop: vi.fn(),
-  zoomAbsolute: vi.fn().mockResolvedValue(undefined),
-  panTiltAbsolute: vi.fn().mockResolvedValue(undefined),
-  focusAuto: vi.fn().mockResolvedValue(undefined),
-  focusManual: vi.fn().mockResolvedValue(undefined),
-};
 
 const mockViscaDriver = {
   connect: vi.fn().mockResolvedValue(true),
@@ -48,14 +42,6 @@ const mockViscaDriver = {
 const mockAiDriver = {
   setAiState: vi.fn().mockResolvedValue(undefined),
 };
-
-vi.mock("./NdiCameraDriver.js", () => {
-  return {
-    NdiCameraDriver: function () {
-      return mockNdiDriver;
-    },
-  };
-});
 
 vi.mock("./ViscaCameraDriver.js", () => {
   return {
@@ -162,9 +148,9 @@ describe("CameraService", () => {
     expect(states[0]!.cameraId).toBe("cam1");
   });
 
-  it("sets connected=true after NdiDriver connects", async () => {
+  it("sets connected=false when no previewManager (preview loop not started)", async () => {
     await initService();
-    expect(service.getCameraState("cam1")?.connected).toBe(true);
+    expect(service.getCameraState("cam1")?.connected).toBe(false);
   });
 
   it("loads presets from database", async () => {
@@ -417,9 +403,9 @@ describe("CameraService", () => {
   describe("VISCA polling", () => {
     it("starts polling when VISCA connects", async () => {
       await initService({ viscaEnabled: true });
-      // pollPosition should be called periodically
+      // pollPosition should be called periodically (VISCA_POLL_INTERVAL_MS = 5000)
       mockViscaDriver.inquirePosition.mockClear();
-      vi.advanceTimersByTime(2000);
+      vi.advanceTimersByTime(5100);
       expect(mockViscaDriver.inquirePosition).toHaveBeenCalled();
     });
   });
@@ -428,7 +414,6 @@ describe("CameraService", () => {
     it("disconnects all drivers and clears state", async () => {
       await initService({ viscaEnabled: true });
       service.destroy();
-      expect(mockNdiDriver.disconnect).toHaveBeenCalled();
       expect(mockViscaDriver.disconnect).toHaveBeenCalled();
       expect(service.getAllCameraStates()).toHaveLength(0);
     });

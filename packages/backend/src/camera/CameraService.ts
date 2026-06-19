@@ -1,12 +1,12 @@
 import type { Database } from "better-sqlite3";
 import type { CameraState, CameraPreset, PositionInquiry, CameraMetadata } from "@invisible-av-booth/shared";
-import type { CameraControlInterface, AiTrackingDriver } from "./CameraControlInterface.js";
+import type { AiTrackingDriver } from "./CameraControlInterface.js";
 import type { Writable } from "stream";
-import { NdiCameraDriver } from "./NdiCameraDriver.js";
 import { ViscaCameraDriver } from "./ViscaCameraDriver.js";
 import { TongveoAiDriver } from "./TongveoAiDriver.js";
 import { NdiFramePipe, buildNdiInputArgs } from "./ndiFramePipe.js";
 import { getNdiModule, isNdiAvailable, loadNdi } from "./ndiLoader.js";
+import { findNdiSourceByName } from "./ndiFinder.js";
 import { eventBus } from "../eventBus/eventBus.js";
 import { BUS_CAMERA_STATE_CHANGED } from "../eventBus/types.js";
 import { logger } from "../logger.js";
@@ -30,7 +30,6 @@ interface MoveSession {
 
 interface CameraInstance {
   id: string;
-  ndiDriver: CameraControlInterface;
   viscaDriver: ViscaCameraDriver | null;
   aiDriver: AiTrackingDriver | null;
   state: CameraState;
@@ -78,7 +77,6 @@ export class CameraService {
       const features = meta.cameraFeatures ?? [];
 
       const ndiExtraIPs = meta.ndiExtraIPs ?? (meta.viscaEnabled ? row.host : null);
-      const ndiDriver = new NdiCameraDriver(meta.ndiSourceName, ndiExtraIPs ?? undefined);
       let viscaDriver: ViscaCameraDriver | null = null;
       let aiDriver: AiTrackingDriver | null = null;
 
@@ -112,19 +110,13 @@ export class CameraService {
         presets,
       };
 
-      const instance: CameraInstance = { id: row.id, ndiDriver, viscaDriver, aiDriver, state, pollTimer: null, framePipe: null, ndiSourceName: meta.ndiSourceName, ndiExtraIPs: ndiExtraIPs ?? null };
+      const instance: CameraInstance = { id: row.id, viscaDriver, aiDriver, state, pollTimer: null, framePipe: null, ndiSourceName: meta.ndiSourceName, ndiExtraIPs: ndiExtraIPs ?? null };
       this.cameras.set(row.id, instance);
 
-      // Connect asynchronously
-      if (isNdiAvailable()) {
-        logger.info(`Attempting NDI connect for camera "${row.label}" (${meta.ndiSourceName})`);
-        ndiDriver.connect().then((ok) => {
-          instance.state.connected = ok;
-          this.broadcastState(instance);
-          if (ok && this.previewManager) {
-            this.startCameraPreview(instance);
-          }
-        });
+      // Start NDI preview (which also determines connected state)
+      if (isNdiAvailable() && this.previewManager) {
+        logger.info(`Starting NDI preview for camera "${row.label}" (${meta.ndiSourceName})`);
+        this.startCameraPreview(instance);
       }
 
       // Start VISCA polling if available
@@ -341,7 +333,6 @@ export class CameraService {
     for (const instance of this.cameras.values()) {
       if (instance.pollTimer) clearInterval(instance.pollTimer);
       if (instance.framePipe) instance.framePipe.destroy();
-      instance.ndiDriver.disconnect();
       instance.viscaDriver?.disconnect();
     }
     this.cameras.clear();
@@ -362,26 +353,18 @@ export class CameraService {
 
     const poll = async (): Promise<void> => {
       try {
-        const findOpts: Record<string, unknown> = { showLocalSources: true };
-        if (instance.ndiExtraIPs) findOpts["extraIPs"] = instance.ndiExtraIPs;
-
-        // Retry finding the source (may not be discovered immediately)
-        let source = null;
-        for (let attempt = 0; attempt < 3 && !this.destroyed; attempt++) {
-          const finder = await mod.find(findOpts);
-          if (finder.wait) finder.wait(3000);
-          const sources = finder.sources ? finder.sources() : finder;
-          source = (Array.isArray(sources) ? sources : []).find((s: { name: string }) => s.name === instance.ndiSourceName);
-          if (finder.destroy) finder.destroy();
-          if (source) break;
-          logger.debug(`Camera preview [${instance.ndiSourceName}]: source not found, retry ${attempt + 1}/3`);
-          await new Promise((r) => setTimeout(r, 2000));
-        }
-        if (!source) {
+        const source = await findNdiSourceByName(instance.ndiSourceName, instance.ndiExtraIPs);
+        if (!source || this.destroyed) {
           logger.warn(`Camera preview [${instance.ndiSourceName}]: NDI source not found after retries`);
+          instance.state.connected = false;
+          this.broadcastState(instance);
           return;
         }
         const receiver = await mod.receive({ source, colorFormat: mod.COLOR_FORMAT_BEST ?? mod.COLOR_FORMAT_BGRX_BGRA ?? 101 });
+
+        // Mark connected once receiver is established
+        instance.state.connected = true;
+        this.broadcastState(instance);
 
         // Wait for first video frame to detect format
         let format = framePipe.getFormat();
@@ -428,19 +411,15 @@ export class CameraService {
             logger.warn(`Camera preview [${instance.ndiSourceName}]: receive error — exiting loop`, { context: { error: msg } });
             framePipe.detach();
             this.previewManager!.setSourceAvailable(sourceId, false, "pipe:0");
+            instance.state.connected = false;
+            this.broadcastState(instance);
             break;
           }
         }
-        // Log why loop exited
-        if (this.destroyed) {
-          logger.info(`Camera preview [${instance.ndiSourceName}]: loop exited — service destroyed`);
-        } else if (instance.framePipe !== framePipe) {
-          logger.info(`Camera preview [${instance.ndiSourceName}]: loop exited — framePipe replaced`);
-        } else {
-          logger.warn(`Camera preview [${instance.ndiSourceName}]: loop exited — unknown reason`);
-        }
       } catch (err) {
         logger.error(`Camera "${instance.ndiSourceName}" preview failed to start`, { context: { error: String(err) } });
+        instance.state.connected = false;
+        this.broadcastState(instance);
       }
     };
     poll();
