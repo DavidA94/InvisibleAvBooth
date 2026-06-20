@@ -113,7 +113,7 @@ describe("buildGstreamerArgs", () => {
   it("uses x264enc when no hardware encoder", () => {
     const args = buildGstreamerArgs("CAM1", null, false);
     expect(args).toContain("x264enc");
-    expect(args).toContain("ndi-name=CAM1");
+    expect(args).toContain('ndi-name="CAM1"');
     expect(args).toContain("fd=1");
     expect(args).toContain("decodebin");
     expect(args).toContain("videorate");

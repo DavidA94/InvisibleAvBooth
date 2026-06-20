@@ -12,22 +12,30 @@ export interface UsePreviewStreamResult {
 
 const BACKOFF_DELAYS = [1000, 2000, 4000, 10000];
 const MAX_FAILURES = 3;
-const BUFFER_TRIM_THRESHOLD = 1;
-const SEEK_THRESHOLD = 1.5;
+const BUFFER_TRIM_THRESHOLD = 3;
+const SEEK_THRESHOLD = 0.5;
+const MAX_QUEUE_SIZE = 10;
+const STALE_TIMEOUT_MS = 5000;
 
 export function usePreviewStream(endpoint: string, enabled: boolean): UsePreviewStreamResult {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const mediaSourceRef = useRef<MediaSource | null>(null);
   const sourceBufferRef = useRef<SourceBuffer | null>(null);
+  const objectUrlRef = useRef<string | null>(null);
   const retriesRef = useRef(0);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const staleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [status, setStatus] = useState<PreviewStreamStatus>("idle");
 
   const cleanup = useCallback(() => {
     if (reconnectTimerRef.current) {
       clearTimeout(reconnectTimerRef.current);
       reconnectTimerRef.current = null;
+    }
+    if (staleTimerRef.current) {
+      clearTimeout(staleTimerRef.current);
+      staleTimerRef.current = null;
     }
     if (wsRef.current) {
       wsRef.current.onopen = null;
@@ -43,6 +51,10 @@ export function usePreviewStream(endpoint: string, enabled: boolean): UsePreview
       } catch {
         // ignore
       }
+    }
+    if (objectUrlRef.current) {
+      URL.revokeObjectURL(objectUrlRef.current);
+      objectUrlRef.current = null;
     }
     mediaSourceRef.current = null;
     sourceBufferRef.current = null;
@@ -66,17 +78,19 @@ export function usePreviewStream(endpoint: string, enabled: boolean): UsePreview
     mediaSourceRef.current = mediaSource;
 
     if (videoRef.current) {
-      videoRef.current.src = URL.createObjectURL(mediaSource);
+      const url = URL.createObjectURL(mediaSource);
+      objectUrlRef.current = url;
+      videoRef.current.src = url;
     }
 
     const queue: ArrayBuffer[] = [];
-    let staleTimer: ReturnType<typeof setTimeout> | null = null;
 
     const resetStaleTimer = (): void => {
-      if (staleTimer) clearTimeout(staleTimer);
-      staleTimer = setTimeout(() => {
-        setStatus("reconnecting");
-      }, 5000);
+      if (staleTimerRef.current) clearTimeout(staleTimerRef.current);
+      staleTimerRef.current = setTimeout(() => {
+        logger.warn("Preview stale — reconnecting", { context: { endpoint } });
+        connect();
+      }, STALE_TIMEOUT_MS);
     };
 
     const drainQueue = (): void => {
@@ -86,7 +100,6 @@ export function usePreviewStream(endpoint: string, enabled: boolean): UsePreview
       try {
         sb.appendBuffer(next);
       } catch {
-        // QuotaExceededError — drop oldest data
         queue.length = 0;
       }
     };
@@ -94,6 +107,10 @@ export function usePreviewStream(endpoint: string, enabled: boolean): UsePreview
     ws.onmessage = (event) => {
       setStatus("streaming");
       resetStaleTimer();
+      // Cap queue to prevent unbounded growth
+      if (queue.length >= MAX_QUEUE_SIZE) {
+        queue.shift();
+      }
       queue.push(event.data as ArrayBuffer);
       drainQueue();
     };
@@ -112,6 +129,11 @@ export function usePreviewStream(endpoint: string, enabled: boolean): UsePreview
           trimBuffer(sb);
           seekToLive(videoRef.current);
         });
+
+        sb.addEventListener("error", () => {
+          logger.warn("Preview SourceBuffer error — reconnecting", { context: { endpoint } });
+          connect();
+        });
       } catch {
         // codec not supported
       }
@@ -124,7 +146,11 @@ export function usePreviewStream(endpoint: string, enabled: boolean): UsePreview
     };
 
     ws.onclose = (ev) => {
-      logger.warn("Preview WS closed", { context: { endpoint, code: ev.code, reason: ev.reason } });
+      logger.warn("Preview WS closed", { context: { endpoint, code: ev?.code, reason: ev?.reason } });
+      if (staleTimerRef.current) {
+        clearTimeout(staleTimerRef.current);
+        staleTimerRef.current = null;
+      }
       if (!enabled) return;
       retriesRef.current++;
       if (retriesRef.current > MAX_FAILURES) {

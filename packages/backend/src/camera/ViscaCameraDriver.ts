@@ -57,7 +57,7 @@ export class ViscaCameraDriver {
   private connected = false;
   private responseBuffer = Buffer.alloc(0);
   private pendingResolve: ((data: Buffer) => void) | null = null;
-  private commandQueue: Array<{ cmd: Buffer; resolve: (data: Buffer) => void; reject: (err: Error) => void }> = [];
+  private commandQueue: Array<{ cmd: Buffer; resolve: (data: Buffer) => void; reject: (err: Error) => void; tag?: string }> = [];
 
   constructor(host: string, port: number) {
     this.host = host;
@@ -172,9 +172,8 @@ export class ViscaCameraDriver {
     const panDir = panSpeed > 0 ? 0x02 : panSpeed < 0 ? 0x01 : 0x03;
     const tiltDir = tiltSpeed > 0 ? 0x01 : tiltSpeed < 0 ? 0x02 : 0x03;
     const cmd = Buffer.from([VISCA_HEADER, 0x01, 0x06, 0x01, ps, ts, panDir, tiltDir, VISCA_TERMINATOR]);
-    logger.info("VISCA sending panTiltSpeed", { context: { panSpeed, tiltSpeed, ps, ts, panDir, tiltDir, hex: cmd.toString("hex"), queueLen: this.commandQueue.length, hasPending: !!this.pendingResolve } });
     try {
-      await this.sendCommand(cmd);
+      await this.sendCommand(cmd, "panTiltSpeed");
     } catch {
       /* ignore NAK */
     }
@@ -262,7 +261,7 @@ export class ViscaCameraDriver {
     }
   }
 
-  private sendCommand(cmd: Buffer): Promise<Buffer> {
+  private sendCommand(cmd: Buffer, tag?: string): Promise<Buffer> {
     return new Promise((resolve, reject) => {
       if (!this.socket || !this.connected) {
         reject(new Error("Not connected"));
@@ -270,7 +269,16 @@ export class ViscaCameraDriver {
       }
       // Queue if another command is in-flight
       if (this.pendingResolve) {
-        this.commandQueue.push({ cmd, resolve, reject });
+        // Deduplicate: if a command with the same tag is already queued, replace it
+        if (tag) {
+          const idx = this.commandQueue.findIndex((e) => e.tag === tag);
+          if (idx >= 0) {
+            this.commandQueue[idx]!.reject(new Error("Superseded"));
+            this.commandQueue[idx] = { cmd, resolve, reject, tag };
+            return;
+          }
+        }
+        this.commandQueue.push({ cmd, resolve, reject, tag });
         return;
       }
       this.pendingResolve = resolve;
@@ -297,7 +305,6 @@ export class ViscaCameraDriver {
 
     // Skip ACK packets (y0 4x FF)
     if (packet.length === 3 && (packet[1]! & 0xf0) === 0x40) {
-      logger.info("VISCA ACK received", { context: { hex: packet.toString("hex") } });
       this.processBuffer();
       return;
     }
@@ -305,8 +312,6 @@ export class ViscaCameraDriver {
     // Check for error response (y0 6x FF)
     if (packet.length >= 3 && (packet[1]! & 0xf0) === 0x60) {
       logger.warn("VISCA error response", { context: { hex: packet.toString("hex") } });
-    } else {
-      logger.info("VISCA response", { context: { hex: packet.toString("hex"), length: packet.length } });
     }
 
     if (this.pendingResolve) {

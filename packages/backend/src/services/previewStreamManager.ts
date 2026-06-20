@@ -13,6 +13,9 @@ export const MAX_PREVIEW_STREAMS = 4;
 export const GRACE_PERIOD_MS = 3000;
 export const MAX_RESTART_ATTEMPTS = 3;
 export const RESTART_DELAY_MS = 2000;
+export const PING_INTERVAL_MS = 30000;
+export const PING_TIMEOUT_MS = 10000;
+export const RESTART_RESET_MS = 10000;
 
 export type GstEncoder = { element: string; options: string } | null;
 
@@ -26,6 +29,7 @@ export interface PreviewSource {
   initSegment: Buffer | null;
   graceTimeout: ReturnType<typeof setTimeout> | null;
   restartCount: number;
+  restartResetTimer: ReturnType<typeof setTimeout> | null;
   available: boolean;
   withAudio: boolean;
 }
@@ -45,6 +49,7 @@ export class PreviewStreamManager {
   private spawnFn: SpawnFn;
   private signalCleanupRegistered = false;
   private destroyed = false;
+  private pingInterval: ReturnType<typeof setInterval> | null = null;
 
   constructor(authService: AuthService, spawnFn?: SpawnFn) {
     this.authService = authService;
@@ -67,6 +72,7 @@ export class PreviewStreamManager {
       context: { encoder: this.encoder?.element ?? "x264enc" },
     });
     this.registerSignalHandlers();
+    this.startPingInterval();
   }
 
   registerEndpoints(server: HttpServer): void {
@@ -119,6 +125,7 @@ export class PreviewStreamManager {
         initSegment: null,
         graceTimeout: null,
         restartCount: 0,
+        restartResetTimer: null,
         available: false,
         withAudio: sourceId === "obs",
       };
@@ -157,8 +164,10 @@ export class PreviewStreamManager {
 
   destroy(): void {
     this.destroyed = true;
+    if (this.pingInterval) clearInterval(this.pingInterval);
     for (const source of this.sources.values()) {
       if (source.graceTimeout) clearTimeout(source.graceTimeout);
+      if (source.restartResetTimer) clearTimeout(source.restartResetTimer);
       this.killProcess(source);
       for (const ws of source.subscribers) {
         ws.close(1001, "Server shutting down");
@@ -189,6 +198,7 @@ export class PreviewStreamManager {
         initSegment: null,
         graceTimeout: null,
         restartCount: 0,
+        restartResetTimer: null,
         available: false,
         withAudio: sourceId === "obs",
       };
@@ -196,6 +206,8 @@ export class PreviewStreamManager {
     }
 
     source.subscribers.add(ws);
+    (ws as WebSocket & { isAlive?: boolean }).isAlive = true;
+    ws.on("pong", () => { (ws as WebSocket & { isAlive?: boolean }).isAlive = true; });
     logger.info(`Preview [${source.sourceId}]: subscriber connected (total: ${source.subscribers.size})`);
 
     if (source.graceTimeout) {
@@ -243,6 +255,14 @@ export class PreviewStreamManager {
     let initDone = false;
 
     proc.stdout?.on("data", (chunk: Buffer) => {
+      // Reset restart counter after sustained successful streaming
+      if (!source.restartResetTimer && source.restartCount > 0) {
+        source.restartResetTimer = setTimeout(() => {
+          source.restartCount = 0;
+          source.restartResetTimer = null;
+        }, RESTART_RESET_MS);
+      }
+
       if (!initDone) {
         initBuffer = Buffer.concat([initBuffer, chunk]);
         const moovIdx = findBox(initBuffer, "moov");
@@ -270,6 +290,10 @@ export class PreviewStreamManager {
     proc.on("close", (code) => {
       logger.info(`Preview pipeline exited for ${source.sourceId} with code ${code}`);
       source.process = null;
+      if (source.restartResetTimer) {
+        clearTimeout(source.restartResetTimer);
+        source.restartResetTimer = null;
+      }
       if (this.destroyed) return;
       if (source.subscribers.size === 0) return;
 
@@ -316,6 +340,22 @@ export class PreviewStreamManager {
       source.process.kill("SIGTERM");
       source.process = null;
     }
+  }
+
+  private startPingInterval(): void {
+    this.pingInterval = setInterval(() => {
+      for (const source of this.sources.values()) {
+        for (const ws of source.subscribers) {
+          if ((ws as WebSocket & { isAlive?: boolean }).isAlive === false) {
+            source.subscribers.delete(ws);
+            ws.terminate();
+            continue;
+          }
+          (ws as WebSocket & { isAlive?: boolean }).isAlive = false;
+          ws.ping();
+        }
+      }
+    }, PING_INTERVAL_MS);
   }
 
   private registerSignalHandlers(): void {

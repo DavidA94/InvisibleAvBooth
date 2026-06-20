@@ -349,6 +349,8 @@ export class CameraService {
 
   private async pollPosition(instance: CameraInstance): Promise<void> {
     if (this.destroyed || !instance.viscaDriver) return;
+    // Skip polling when no dashboard client is viewing this camera
+    if (this.previewManager && this.previewManager.getSubscriberCount(`camera-${instance.id}`) === 0) return;
     try {
       const pos = await instance.viscaDriver.inquirePosition();
       // Only update fields that have actual values (null = inquiry failed)

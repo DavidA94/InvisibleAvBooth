@@ -39,7 +39,7 @@ class MockMediaSource {
 
 vi.stubGlobal("WebSocket", MockWebSocket);
 vi.stubGlobal("MediaSource", MockMediaSource);
-vi.stubGlobal("URL", { createObjectURL: vi.fn(() => "blob:mock") });
+vi.stubGlobal("URL", { createObjectURL: vi.fn(() => "blob:mock"), revokeObjectURL: vi.fn() });
 
 beforeEach(() => {
   MockWebSocket.instances = [];
@@ -178,7 +178,7 @@ describe("usePreviewStream", () => {
     // Trigger updateend
     const updateEndCb = sb.addEventListener.mock.calls.find((c: unknown[]) => c[0] === "updateend")?.[1] as () => void;
     act(() => updateEndCb());
-    expect(sb.remove).toHaveBeenCalledWith(0, 3); // end(5) - threshold(2) = 3
+    expect(sb.remove).toHaveBeenCalledWith(0, 2); // end(5) - threshold(3) = 2
   });
 
   it("trimBuffer does not remove when buffer is small", () => {
@@ -237,12 +237,12 @@ describe("usePreviewStream", () => {
     const updateEndCb = sb.addEventListener.mock.calls.find((c: unknown[]) => c[0] === "updateend")?.[1] as () => void;
     act(() => updateEndCb());
     // seekToLive checks video.buffered, not sb.buffered
-    // With video.currentTime=3 and video.buffered.end=10, gap=7 > SEEK_THRESHOLD(3)
+    // With video.currentTime=3 and video.buffered.end=10, gap=7 > SEEK_THRESHOLD(0.5)
     expect(mockVideo.currentTime).toBe(10);
   });
 
   it("seekToLive does not seek when close to live edge", () => {
-    const mockVideo = { buffered: { length: 1, end: () => 5 }, currentTime: 4 } as unknown as HTMLVideoElement;
+    const mockVideo = { buffered: { length: 1, end: () => 5 }, currentTime: 4.8 } as unknown as HTMLVideoElement;
     const { result } = renderHook(() => usePreviewStream("/preview/cam1", true));
     Object.defineProperty(result.current.videoRef, "current", { value: mockVideo, writable: true });
 
@@ -254,8 +254,8 @@ describe("usePreviewStream", () => {
     sb.buffered = { length: 1, start: () => 0, end: () => 1 };
     const updateEndCb = sb.addEventListener.mock.calls.find((c: unknown[]) => c[0] === "updateend")?.[1] as () => void;
     act(() => updateEndCb());
-    // gap = 5 - 4 = 1 < SEEK_THRESHOLD(3), should not seek
-    expect(mockVideo.currentTime).toBe(4);
+    // gap = 5 - 4.8 = 0.2 < SEEK_THRESHOLD(0.5), should not seek
+    expect(mockVideo.currentTime).toBe(4.8);
   });
 
   it("seekToLive handles null video ref", () => {
