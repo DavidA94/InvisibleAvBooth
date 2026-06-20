@@ -147,16 +147,22 @@ export function createFakeNmsFactory(): NmsFactory {
 }
 
 export function createFakeSpawn(): SpawnFn {
-  return vi.fn().mockImplementation((_cmd: string, args: string[]) => {
-    const child = new EventEmitter() as EventEmitter & { stderr: EventEmitter | null; kill: ReturnType<typeof vi.fn>; pid: number };
+  return vi.fn().mockImplementation((cmd: string, args: string[]) => {
+    const child = new EventEmitter() as EventEmitter & { stdout: EventEmitter | null; stderr: EventEmitter | null; stdin: null; kill: ReturnType<typeof vi.fn>; pid: number };
+    child.stdout = null;
     child.stderr = new EventEmitter() as EventEmitter;
+    child.stdin = null;
     child.pid = Math.floor(Math.random() * 100000);
     child.kill = vi.fn().mockImplementation(() => {
       setTimeout(() => child.emit("close", 0), 0);
     });
-    // ffmpeg -version check should close immediately with success
-    if (args?.[0] === "-version") {
+    // gst-launch-1.0 --version check should close immediately with success
+    if (args?.[0] === "--version") {
       setTimeout(() => child.emit("close", 0), 0);
+    }
+    // gst-inspect-1.0 probes — all fail (no HW encoder in tests)
+    if (cmd === "gst-inspect-1.0") {
+      setTimeout(() => child.emit("close", 1), 0);
     }
     return child;
   });

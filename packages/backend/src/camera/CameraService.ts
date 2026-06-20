@@ -1,12 +1,8 @@
 import type { Database } from "better-sqlite3";
 import type { CameraState, CameraPreset, PositionInquiry, CameraMetadata } from "@invisible-av-booth/shared";
 import type { AiTrackingDriver } from "./CameraControlInterface.js";
-import type { Writable } from "stream";
 import { ViscaCameraDriver } from "./ViscaCameraDriver.js";
 import { TongveoAiDriver } from "./TongveoAiDriver.js";
-import { NdiFramePipe, buildNdiInputArgs } from "./ndiFramePipe.js";
-import { getNdiModule, isNdiAvailable, loadNdi } from "./ndiLoader.js";
-import { findNdiSourceByName } from "./ndiFinder.js";
 import { eventBus } from "../eventBus/eventBus.js";
 import { BUS_CAMERA_STATE_CHANGED } from "../eventBus/types.js";
 import { logger } from "../logger.js";
@@ -34,7 +30,6 @@ interface CameraInstance {
   aiDriver: AiTrackingDriver | null;
   state: CameraState;
   pollTimer: ReturnType<typeof setInterval> | null;
-  framePipe: NdiFramePipe | null;
   ndiSourceName: string;
   ndiExtraIPs: string | null;
 }
@@ -65,7 +60,6 @@ export class CameraService {
   }
 
   async initialize(): Promise<void> {
-    await loadNdi();
     const rows = this.database
       .prepare("SELECT id, label, host, port, metadata, features FROM device_connections WHERE deviceType = 'camera-ptz' AND enabled = 1")
       .all() as Array<{ id: string; label: string; host: string; port: number; metadata: string; features: string }>;
@@ -110,13 +104,16 @@ export class CameraService {
         presets,
       };
 
-      const instance: CameraInstance = { id: row.id, viscaDriver, aiDriver, state, pollTimer: null, framePipe: null, ndiSourceName: meta.ndiSourceName, ndiExtraIPs: ndiExtraIPs ?? null };
+      const instance: CameraInstance = { id: row.id, viscaDriver, aiDriver, state, pollTimer: null, ndiSourceName: meta.ndiSourceName, ndiExtraIPs: ndiExtraIPs ?? null };
       this.cameras.set(row.id, instance);
 
-      // Start NDI preview (which also determines connected state)
-      if (isNdiAvailable() && this.previewManager) {
-        logger.info(`Starting NDI preview for camera "${row.label}" (${meta.ndiSourceName})`);
-        this.startCameraPreview(instance);
+      // Register NDI source with preview manager (GStreamer handles receive)
+      if (this.previewManager) {
+        const sourceId = `camera-${instance.id}`;
+        this.previewManager.setSourceAvailable(sourceId, true, meta.ndiSourceName);
+        instance.state.connected = true;
+        this.broadcastState(instance);
+        logger.info(`Camera preview registered: "${row.label}" (${meta.ndiSourceName})`);
       }
 
       // Start VISCA polling if available
@@ -332,97 +329,9 @@ export class CameraService {
     this.moveSessions.clear();
     for (const instance of this.cameras.values()) {
       if (instance.pollTimer) clearInterval(instance.pollTimer);
-      if (instance.framePipe) instance.framePipe.destroy();
       instance.viscaDriver?.disconnect();
     }
     this.cameras.clear();
-  }
-
-  // ── Camera Preview ───────────────────────────────────────────────────────
-
-  private startCameraPreview(instance: CameraInstance): void {
-    if (!this.previewManager || this.destroyed) return;
-
-    const ndi = getNdiModule();
-    if (!ndi) return;
-
-    const mod = ndi.default ?? ndi;
-    const sourceId = `camera-${instance.id}`;
-    const framePipe = new NdiFramePipe(instance.ndiSourceName);
-    instance.framePipe = framePipe;
-
-    const poll = async (): Promise<void> => {
-      try {
-        const source = await findNdiSourceByName(instance.ndiSourceName, instance.ndiExtraIPs);
-        if (!source || this.destroyed) {
-          logger.warn(`Camera preview [${instance.ndiSourceName}]: NDI source not found after retries`);
-          instance.state.connected = false;
-          this.broadcastState(instance);
-          return;
-        }
-        const receiver = await mod.receive({ source, colorFormat: mod.COLOR_FORMAT_BEST ?? mod.COLOR_FORMAT_BGRX_BGRA ?? 101 });
-
-        // Mark connected once receiver is established
-        instance.state.connected = true;
-        this.broadcastState(instance);
-
-        // Wait for first video frame to detect format
-        let format = framePipe.getFormat();
-        if (!format) {
-          for (let i = 0; i < 300 && !this.destroyed; i++) {
-            try {
-              const frame = await receiver.data(1000);
-              if (frame?.type === "video" && frame.data) {
-                framePipe.pushFrame(frame);
-                format = framePipe.getFormat();
-                if (format) break;
-              }
-            } catch { /* timeout, retry */ }
-          }
-        }
-        if (!format || this.destroyed) {
-          logger.warn(`Camera preview [${instance.ndiSourceName}]: failed to detect frame format`);
-          return;
-        }
-
-        // Register source — onStdinReady attaches the pipe each time FFmpeg spawns
-        const inputArgs = buildNdiInputArgs(format);
-        this.previewManager!.setSourceAvailable(
-          sourceId,
-          true,
-          "pipe:0",
-          (stdin) => framePipe.attach(stdin as Writable),
-          inputArgs,
-        );
-        logger.info(`Camera preview [${instance.ndiSourceName}]: source registered, awaiting subscribers`);
-
-        // Main loop — just push frames when attached
-        while (!this.destroyed && instance.framePipe === framePipe) {
-          try {
-            const frame = await receiver.data(5000);
-            if (!frame) continue;
-            if (frame.type === "video" && frame.data) {
-              if (!framePipe.isAttached()) continue;
-              framePipe.pushFrame(frame);
-            }
-          } catch (err) {
-            const msg = err instanceof Error ? err.message : String(err);
-            if (msg.includes("timeout") || msg.includes("Timeout")) continue;
-            logger.warn(`Camera preview [${instance.ndiSourceName}]: receive error — exiting loop`, { context: { error: msg } });
-            framePipe.detach();
-            this.previewManager!.setSourceAvailable(sourceId, false, "pipe:0");
-            instance.state.connected = false;
-            this.broadcastState(instance);
-            break;
-          }
-        }
-      } catch (err) {
-        logger.error(`Camera "${instance.ndiSourceName}" preview failed to start`, { context: { error: String(err) } });
-        instance.state.connected = false;
-        this.broadcastState(instance);
-      }
-    };
-    poll();
   }
 
   // ── Private ──────────────────────────────────────────────────────────────

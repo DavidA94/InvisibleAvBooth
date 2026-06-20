@@ -62,14 +62,16 @@ export async function buildTestServer(opts?: { seedKjv?: boolean; seedPlatform?:
   const nmsFactory = createFakeNmsFactory();
   const fakeNms = (nmsFactory as unknown as { instance: FakeNmsInstance }).instance;
 
+  const fakeSpawn = createFakeSpawn();
+
   const ctx = buildApp({
     database,
     nmsFactory,
-    spawnFn: createFakeSpawn(),
+    spawnFn: fakeSpawn,
     obsClient: fakeObs,
-    // Key must match platformType in DB for loadPlatforms() to find it
     platformClients: new Map([["youtube", fakePlatformClient]]),
     relayPort: 0,
+    previewSpawnFn: fakeSpawn as unknown as import("../../src/services/previewStreamManager.js").SpawnFn,
   });
 
   await new Promise<void>((resolve) => ctx.httpServer.listen(0, resolve));

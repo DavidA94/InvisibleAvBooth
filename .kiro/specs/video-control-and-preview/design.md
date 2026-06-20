@@ -9,16 +9,15 @@ This is an extension document — it references and builds on the designs at `.k
 ### What This Release Adds
 
 - Preview WebSocket infrastructure (fMP4 over dedicated WebSocket, MSE playback, fan-out)
-- FFmpeg hardware encoder auto-detection (VA-API, QSV, NVENC) with software fallback
+- GStreamer NDI pipeline with hardware encoder auto-detection (QSV, VA-API, NVENC) and software fallback
 - OBS Preview widget (`obs-preview`) — 2×2, live stream/recording preview with audio toggle
-- `CameraControlInterface` — protocol-agnostic PTZ abstraction (NDI + VISCA implementations)
 - `CameraService` — manages camera connections, state polling, dead-man's switch
 - Camera widget (`camera`) — 6×4, live preview with virtual joystick PTZ controls
 - Camera preset system — database-stored with optional onboard camera mirroring
 - Admin camera device type with Camera Model selector, feature toggles, preset drag-to-reorder
 - Model-specific AI tracking driver (Tongveo NVS20A-4KN via HTTP API)
 - `CameraSocketModule` — Socket.io gateway for PTZ commands and state broadcast
-- NDI SDK dynamic loading with graceful degradation
+- VISCA over IP for all PTZ control
 
 ### Breaking Changes
 
@@ -44,9 +43,9 @@ graph TD
 
   subgraph Backend [packages/backend]
     PreviewManager[PreviewStreamManager]
+    ObsNdiSource[ObsNdiPreviewSource — config reader]
     CameraService[CameraService]
     CameraModule[CameraSocketModule]
-    NdiDriver[NdiCameraDriver]
     ViscaDriver[ViscaCameraDriver]
     ObsService[ObsService — existing]
     EventBus[EventBus]
@@ -58,19 +57,18 @@ graph TD
     NDICamera[NDI Camera on LAN]
   end
 
-  subgraph FFmpeg [FFmpeg Processes]
-    ObsFFmpeg[FFmpeg: NDI pipe → fMP4 — OBS preview]
-    CamFFmpeg[FFmpeg: NDI pipe → fMP4 — Camera preview]
+  subgraph GStreamer [GStreamer Processes]
+    ObsGst[gst-launch-1.0: NDI → fMP4 — OBS preview]
+    CamGst[gst-launch-1.0: NDI → fMP4 — Camera preview]
   end
 
-  OBS -->|NDI output| ObsFFmpeg
+  OBS -->|NDI output| ObsGst
   OBS -->|RTMP| RTMPRelay
-  NDICamera -->|NDI video| CamFFmpeg
-  NDICamera -->|NDI PTZ| NdiDriver
+  NDICamera -->|NDI video| CamGst
   NDICamera -->|VISCA/IP| ViscaDriver
 
-  ObsFFmpeg -->|fMP4 chunks| PreviewManager
-  CamFFmpeg -->|fMP4 chunks| PreviewManager
+  ObsGst -->|fMP4 stdout| PreviewManager
+  CamGst -->|fMP4 stdout| PreviewManager
 
   PreviewManager -->|WebSocket /preview/obs| ObsPreviewWidget
   PreviewManager -->|WebSocket /preview/camera/:id| CameraWidget
@@ -79,9 +77,11 @@ graph TD
   CameraWidget -->|Socket.io| CameraModule
   CameraModal -->|Socket.io| CameraModule
   CameraModule --> CameraService
-  CameraService --> NdiDriver
   CameraService --> ViscaDriver
   CameraService -->|stc:camera:state| CameraWidget
+
+  ObsNdiSource -->|setSourceAvailable| PreviewManager
+  CameraService -->|setSourceAvailable| PreviewManager
 
   EventBus -->|bus:camera:state:changed| CameraModule
 ```
@@ -94,9 +94,15 @@ graph TD
 
 **fMP4 + MSE over WebRTC**: WebRTC adds ICE/STUN complexity for a LAN-only system where NAT traversal is unnecessary. fMP4 over WebSocket achieves equivalent latency (<500ms) with simpler implementation, no STUN server, and easier debugging (binary frames over a single TCP connection).
 
-**Single FFmpeg per source with fan-out**: Avoids redundant transcoding when multiple clients view the same preview. The `PreviewStreamManager` buffers the latest keyframe + subsequent frames so new subscribers get immediate playback without waiting for the next keyframe.
+**Single GStreamer process per source with fan-out**: Each preview source runs a single `gst-launch-1.0` process that handles NDI receive, decode, scale, encode, and fMP4 muxing internally. No intermediate pipes or Node.js frame handling. The `PreviewStreamManager` reads fMP4 from the process's stdout and fans it out to all WebSocket subscribers. This eliminates the latency and complexity of the previous grandi → NdiFramePipe → FFmpeg stdin architecture.
 
-**NDI SDK as optional dynamic dependency**: The NDI library (`grandi`) provides prebuilt binaries for Linux/macOS/Windows — no C++ build tools needed. Making it a dynamic import (`import()` with try/catch) means `npm install` succeeds on any machine, and the system degrades gracefully — cameras are simply unavailable without the NDI runtime (requires `libavahi-client3` and `avahi-daemon` on Linux). NDI is used for video receive only. All PTZ control is handled via VISCA over IP (required when pan/tilt/zoom features are enabled). `grandi` uses `COLOR_FORMAT_BEST` to decode NDI|HX (H.264/H.265) streams from cameras that don't support full-bandwidth NDI.
+**GStreamer over FFmpeg for NDI**: FFmpeg's NDI support requires an out-of-tree patch (removed in FFmpeg 5.0) creating an ongoing maintenance burden. GStreamer's NDI plugin (`gst-plugin-ndi`) is part of the official `gst-plugins-rs` repository, independently versioned from GStreamer core, and builds as a single `.so` from source via Cargo. GStreamer core updates via `apt upgrade` without touching the NDI plugin, and vice versa. Installation is handled by `scripts/install-gstreamer-ndi.sh`.
+
+**GStreamer hardware encoder probing**: At startup, `PreviewStreamManager` probes for hardware encoder elements via `gst-inspect-1.0` (qsvh264enc → vaapih264enc → nvh264enc). Unlike FFmpeg's `-encoders` flag which lists codecs that may not have working hardware, GStreamer element probing is definitive — if `gst-inspect-1.0 qsvh264enc` exits 0, the element is usable. Falls back to `x264enc tune=zerolatency speed-preset=ultrafast`.
+
+**decodebin for NDI demuxing**: NDI sources output `application/x-ndi` caps that require `ndisrcdemux` to split into video/audio. Since `ndisrcdemux` creates pads dynamically, direct pad linking fails in `gst-launch-1.0`. `decodebin` handles dynamic pad negotiation automatically and works reliably with all NDI source types (OBS, hardware cameras, NDI|HX).
+
+**Frame dropping via GStreamer queues**: Each pipeline uses `queue max-size-buffers=1 max-size-time=0 max-size-bytes=0 leaky=downstream` to drop frames when the encoder can't keep up, preventing buffer accumulation and latency growth. Combined with `videorate` capping output at 15fps, this keeps end-to-end latency stable.
 
 **Virtual joystick over D-pad**: Touch devices benefit from proportional analog input. The joystick provides natural diagonal movement, proportional speed control (distance from center), and better ergonomics for sustained operation during a service.
 
@@ -104,7 +110,7 @@ graph TD
 
 **Hybrid preset storage**: Database-first with optional camera onboard mirroring. Database presets are camera-agnostic (survive camera replacement), store metadata cameras can't (toggle states), and have well-defined content. Onboard presets provide MotionSync smooth recall on cameras that support it.
 
-**NDI video via grandi receiver → FFmpeg stdin pipe**: Rather than requiring the FFmpeg NDI input plugin (which requires separate compilation against the NDI SDK), video frames are received by `grandi`'s receiver API in Node.js and piped to FFmpeg's stdin as raw frames. This keeps the FFmpeg dependency simple (standard package-manager install) and centralizes all NDI SDK interaction in one native module. The tradeoff is slightly higher CPU usage from the JS → pipe → FFmpeg path, but this is acceptable for 720p 15fps preview streams. `grandi` handles NDI|HX decode internally via `COLOR_FORMAT_BEST`.
+**VISCA over IP for all PTZ control**: All camera pan/tilt/zoom/focus commands are sent via VISCA over IP (TCP socket). GStreamer handles video receive; VISCA handles control. These are fully independent — the video pipeline and PTZ control operate on separate connections to the camera.
 
 **Cookie-based WebSocket authentication**: Preview WebSocket endpoints authenticate via the same HttpOnly JWT cookie used by Socket.io and REST. The browser sends cookies automatically on same-origin WebSocket upgrade requests routed through Caddy. This requires no frontend token handling and maintains consistency with the existing auth model — no token appears in URLs or logs.
 

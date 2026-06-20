@@ -14,22 +14,20 @@ export const GRACE_PERIOD_MS = 3000;
 export const MAX_RESTART_ATTEMPTS = 3;
 export const RESTART_DELAY_MS = 2000;
 
-export type HardwareEncoder = "h264_vaapi" | "h264_qsv" | "h264_nvenc" | null;
+export type GstEncoder = { element: string; options: string } | null;
 
 // ── Interfaces ───────────────────────────────────────────────────────────────
 
 export interface PreviewSource {
   sourceId: string;
-  inputUrl: string;
-  inputArgs?: string[];
-  ffmpegProcess: ChildProcess | null;
+  ndiName: string;
+  process: ChildProcess | null;
   subscribers: Set<WebSocket>;
   initSegment: Buffer | null;
   graceTimeout: ReturnType<typeof setTimeout> | null;
   restartCount: number;
   available: boolean;
   withAudio: boolean;
-  onStdinReady?: (stdin: NodeJS.WritableStream) => void;
 }
 
 export interface SpawnFn {
@@ -41,8 +39,8 @@ export interface SpawnFn {
 export class PreviewStreamManager {
   private wss: WebSocketServer;
   private sources = new Map<string, PreviewSource>();
-  private encoder: HardwareEncoder = null;
-  private ffmpegAvailable = false;
+  private encoder: GstEncoder = null;
+  private gstreamerAvailable = false;
   private authService: AuthService;
   private spawnFn: SpawnFn;
   private signalCleanupRegistered = false;
@@ -55,9 +53,9 @@ export class PreviewStreamManager {
   }
 
   async initialize(): Promise<void> {
-    this.ffmpegAvailable = checkFfmpegPath();
-    if (!this.ffmpegAvailable) {
-      logger.error("FFmpeg not found on PATH — preview streams unavailable");
+    this.gstreamerAvailable = checkGstreamerPath();
+    if (!this.gstreamerAvailable) {
+      logger.error("gst-launch-1.0 not found on PATH — preview streams unavailable");
       eventBus.emit(BUS_DEVICE_CAPABILITIES_UPDATED, {
         deviceId: "preview",
         capabilities: { deviceId: "preview", deviceType: "obs", features: { preview: false } },
@@ -65,8 +63,8 @@ export class PreviewStreamManager {
       return;
     }
     this.encoder = await probeEncoder(this.spawnFn);
-    logger.info(`Preview encoder selected: ${this.encoder ?? "libx264 ultrafast"}`, {
-      context: { encoder: this.encoder ?? "libx264" },
+    logger.info(`Preview encoder selected: ${this.encoder?.element ?? "x264enc ultrafast"}`, {
+      context: { encoder: this.encoder?.element ?? "x264enc" },
     });
     this.registerSignalHandlers();
   }
@@ -74,9 +72,8 @@ export class PreviewStreamManager {
   registerEndpoints(server: HttpServer): void {
     server.on("upgrade", (req, socket, head) => {
       const url = req.url ?? "";
-      if (!url.startsWith("/preview/")) return; // let Socket.io handle
+      if (!url.startsWith("/preview/")) return;
 
-      // Auth via cookie
       const cookies = parseCookieHeader(req.headers.cookie ?? "");
       const token = cookies["token"];
       if (!token) {
@@ -91,7 +88,6 @@ export class PreviewStreamManager {
         return;
       }
 
-      // Determine sourceId from URL
       const sourceId = this.parseSourceId(url);
       if (!sourceId) {
         socket.write("HTTP/1.1 404 Not Found\r\n\r\n");
@@ -99,7 +95,6 @@ export class PreviewStreamManager {
         return;
       }
 
-      // Check max streams
       if (this.getActiveStreams() >= MAX_PREVIEW_STREAMS && !this.sources.has(sourceId)) {
         this.wss.handleUpgrade(req, socket, head, (ws) => {
           ws.close(4503, "Max preview streams reached");
@@ -113,13 +108,13 @@ export class PreviewStreamManager {
     });
   }
 
-  setSourceAvailable(sourceId: string, available: boolean, inputUrl: string, onStdinReady?: (stdin: NodeJS.WritableStream) => void, inputArgs?: string[]): void {
+  setSourceAvailable(sourceId: string, available: boolean, ndiName: string): void {
     let source = this.sources.get(sourceId);
     if (!source) {
       source = {
         sourceId,
-        inputUrl,
-        ffmpegProcess: null,
+        ndiName,
+        process: null,
         subscribers: new Set(),
         initSegment: null,
         graceTimeout: null,
@@ -127,27 +122,23 @@ export class PreviewStreamManager {
         available: false,
         withAudio: sourceId === "obs",
       };
-      if (inputArgs) source.inputArgs = inputArgs;
-      if (onStdinReady) source.onStdinReady = onStdinReady;
       this.sources.set(sourceId, source);
     }
     source.available = available;
-    source.inputUrl = inputUrl;
-    if (onStdinReady) source.onStdinReady = onStdinReady;
-    if (inputArgs) source.inputArgs = inputArgs;
+    source.ndiName = ndiName;
 
-    if (available && source.subscribers.size > 0 && !source.ffmpegProcess) {
-      this.spawnFfmpeg(source);
+    if (available && source.subscribers.size > 0 && !source.process) {
+      this.spawnPipeline(source);
     }
-    if (!available && source.ffmpegProcess) {
-      this.killFfmpeg(source);
+    if (!available && source.process) {
+      this.killProcess(source);
     }
   }
 
   getActiveStreams(): number {
     let count = 0;
     for (const s of this.sources.values()) {
-      if (s.ffmpegProcess) count++;
+      if (s.process) count++;
     }
     return count;
   }
@@ -157,10 +148,10 @@ export class PreviewStreamManager {
   }
 
   isAvailable(): boolean {
-    return this.ffmpegAvailable;
+    return this.gstreamerAvailable;
   }
 
-  getEncoder(): HardwareEncoder {
+  getEncoder(): GstEncoder {
     return this.encoder;
   }
 
@@ -168,7 +159,7 @@ export class PreviewStreamManager {
     this.destroyed = true;
     for (const source of this.sources.values()) {
       if (source.graceTimeout) clearTimeout(source.graceTimeout);
-      this.killFfmpeg(source);
+      this.killProcess(source);
       for (const ws of source.subscribers) {
         ws.close(1001, "Server shutting down");
       }
@@ -181,8 +172,6 @@ export class PreviewStreamManager {
   // ── Private ──────────────────────────────────────────────────────────────
 
   private parseSourceId(url: string): string | null {
-    // /preview/obs → "obs"
-    // /preview/camera/:id → "camera-{id}"
     const match = url.match(/^\/preview\/(obs|camera\/([^/?]+))/);
     if (!match) return null;
     if (match[1] === "obs") return "obs";
@@ -194,8 +183,8 @@ export class PreviewStreamManager {
     if (!source) {
       source = {
         sourceId,
-        inputUrl: "",
-        ffmpegProcess: null,
+        ndiName: "",
+        process: null,
         subscribers: new Set(),
         initSegment: null,
         graceTimeout: null,
@@ -209,31 +198,27 @@ export class PreviewStreamManager {
     source.subscribers.add(ws);
     logger.info(`Preview [${source.sourceId}]: subscriber connected (total: ${source.subscribers.size})`);
 
-    // Cancel grace period if active
     if (source.graceTimeout) {
       clearTimeout(source.graceTimeout);
       source.graceTimeout = null;
     }
 
-    // Send cached init segment
     if (source.initSegment && ws.readyState === WebSocket.OPEN) {
       ws.send(source.initSegment);
     }
 
-    // Lazy spawn if source available and no process
-    if (source.available && !source.ffmpegProcess && this.ffmpegAvailable) {
-      this.spawnFfmpeg(source);
+    if (source.available && !source.process && this.gstreamerAvailable) {
+      this.spawnPipeline(source);
     }
 
     ws.on("close", () => {
       source!.subscribers.delete(ws);
-      if (source!.subscribers.size === 0 && source!.ffmpegProcess) {
+      if (source!.subscribers.size === 0 && source!.process) {
         logger.info(`Preview [${source!.sourceId}]: last subscriber left, starting ${GRACE_PERIOD_MS}ms grace period`);
-        // Start grace period
         source!.graceTimeout = setTimeout(() => {
           if (source!.subscribers.size === 0) {
-            logger.info(`Preview [${source!.sourceId}]: grace period expired, killing FFmpeg`);
-            this.killFfmpeg(source!);
+            logger.info(`Preview [${source!.sourceId}]: grace period expired, killing pipeline`);
+            this.killProcess(source!);
             source!.initSegment = null;
           }
         }, GRACE_PERIOD_MS);
@@ -246,20 +231,13 @@ export class PreviewStreamManager {
     });
   }
 
-  private spawnFfmpeg(source: PreviewSource): void {
-    if (this.destroyed || !this.ffmpegAvailable) return;
-    const args = source.inputArgs
-      ? buildFfmpegArgsWithInput(source.inputArgs, this.encoder, source.withAudio)
-      : buildFfmpegArgs(source.inputUrl, this.encoder, source.withAudio);
-    const proc = this.spawnFn("ffmpeg", args);
-    source.ffmpegProcess = proc;
+  private spawnPipeline(source: PreviewSource): void {
+    if (this.destroyed || !this.gstreamerAvailable) return;
+    const args = buildGstreamerArgs(source.ndiName, this.encoder, source.withAudio);
+    logger.info(`Preview spawning pipeline for ${source.sourceId}`, { context: { args: args.join(" ") } });
+    const proc = this.spawnFn("gst-launch-1.0", args);
+    source.process = proc;
     source.initSegment = null;
-
-    // Connect stdin pipe for NDI sources
-    if (source.onStdinReady && proc.stdin) {
-      logger.info(`Preview FFmpeg spawned for ${source.sourceId}, connecting stdin pipe`);
-      source.onStdinReady(proc.stdin);
-    }
 
     let initBuffer = Buffer.alloc(0);
     let initDone = false;
@@ -267,14 +245,12 @@ export class PreviewStreamManager {
     proc.stdout?.on("data", (chunk: Buffer) => {
       if (!initDone) {
         initBuffer = Buffer.concat([initBuffer, chunk]);
-        // Detect end of init segment (moov box)
         const moovIdx = findBox(initBuffer, "moov");
         if (moovIdx >= 0) {
           const moovEnd = moovIdx + readBoxSize(initBuffer, moovIdx);
           if (moovEnd <= initBuffer.length) {
             source.initSegment = initBuffer.subarray(0, moovEnd);
             initDone = true;
-            // Send init + remainder to all subscribers
             for (const ws of source.subscribers) {
               if (ws.readyState === WebSocket.OPEN) {
                 ws.send(source.initSegment);
@@ -292,15 +268,14 @@ export class PreviewStreamManager {
     });
 
     proc.on("close", (code) => {
-      logger.info(`Preview FFmpeg exited for ${source.sourceId} with code ${code}`);
-      source.ffmpegProcess = null;
+      logger.info(`Preview pipeline exited for ${source.sourceId} with code ${code}`);
+      source.process = null;
       if (this.destroyed) return;
       if (source.subscribers.size === 0) return;
 
-      // Failure handling
       source.restartCount++;
       if (source.restartCount >= MAX_RESTART_ATTEMPTS) {
-        logger.error(`Preview FFmpeg failed ${MAX_RESTART_ATTEMPTS} times for ${source.sourceId}, closing subscribers`);
+        logger.error(`Preview pipeline failed ${MAX_RESTART_ATTEMPTS} times for ${source.sourceId}, closing subscribers`);
         for (const ws of source.subscribers) {
           ws.close(1011, "Preview stream failed");
         }
@@ -310,22 +285,21 @@ export class PreviewStreamManager {
       }
 
       logger.warn(
-        `Preview FFmpeg exited (code ${code}) for ${source.sourceId}, restarting in ${RESTART_DELAY_MS}ms (attempt ${source.restartCount}/${MAX_RESTART_ATTEMPTS})`,
+        `Preview pipeline exited (code ${code}) for ${source.sourceId}, restarting in ${RESTART_DELAY_MS}ms (attempt ${source.restartCount}/${MAX_RESTART_ATTEMPTS})`,
       );
       setTimeout(() => {
         if (!this.destroyed && source.available && source.subscribers.size > 0) {
-          this.spawnFfmpeg(source);
+          this.spawnPipeline(source);
         }
       }, RESTART_DELAY_MS);
     });
 
     proc.stderr?.on("data", (chunk: Buffer) => {
-      logger.log?.("silly", `Preview FFmpeg stderr [${source.sourceId}]: ${chunk.toString().trim()}`) ??
-        logger.debug(`Preview FFmpeg stderr [${source.sourceId}]: ${chunk.toString().trim()}`);
+      logger.debug(`Preview pipeline stderr [${source.sourceId}]: ${chunk.toString().trim()}`);
     });
 
     proc.on("error", () => {
-      source.ffmpegProcess = null;
+      source.process = null;
     });
   }
 
@@ -337,10 +311,10 @@ export class PreviewStreamManager {
     }
   }
 
-  private killFfmpeg(source: PreviewSource): void {
-    if (source.ffmpegProcess) {
-      source.ffmpegProcess.kill("SIGTERM");
-      source.ffmpegProcess = null;
+  private killProcess(source: PreviewSource): void {
+    if (source.process) {
+      source.process.kill("SIGTERM");
+      source.process = null;
     }
   }
 
@@ -350,7 +324,7 @@ export class PreviewStreamManager {
 
     const cleanup = (): void => {
       for (const source of this.sources.values()) {
-        this.killFfmpeg(source);
+        this.killProcess(source);
       }
     };
 
@@ -361,46 +335,61 @@ export class PreviewStreamManager {
 
 // ── Exported utilities ───────────────────────────────────────────────────────
 
-export function buildFfmpegArgs(input: string, encoder: HardwareEncoder, withAudio: boolean): string[] {
-  const base = ["-i", input, "-vf", `scale=${PREVIEW_RESOLUTION.width}:${PREVIEW_RESOLUTION.height}`, "-r", "30", "-g", "30"];
-  const audioArgs = withAudio ? ["-c:a", "aac", "-b:a", "64k"] : ["-an"];
-  const codecArgs = encoder ? ["-c:v", encoder] : ["-c:v", "libx264", "-preset", "ultrafast", "-tune", "zerolatency"];
-  return [...base, ...audioArgs, ...codecArgs, "-f", "mp4", "-movflags", "frag_keyframe+empty_moov+default_base_moof", "-frag_duration", "100000", "pipe:1"];
+export function buildGstreamerArgs(ndiName: string, encoder: GstEncoder, withAudio: boolean): string[] {
+  const { width, height } = PREVIEW_RESOLUTION;
+  const enc = encoder ?? { element: "x264enc", options: "tune=zerolatency speed-preset=ultrafast key-int-max=15" };
+
+  const args = ["-q", "-e"];
+
+  // ndisrc → decodebin (handles dynamic pads from NDI)
+  args.push("ndisrc", `ndi-name="${ndiName}"`, "do-timestamp=true", "!");
+  args.push("decodebin", "name=dec");
+
+  // Video branch: decode → drop/scale/rate to 15fps 720p → encode → mux
+  args.push("dec.", "!");
+  args.push("queue", "max-size-buffers=1", "max-size-time=0", "max-size-bytes=0", "leaky=downstream", "!");
+  args.push("videoconvert", "!");
+  args.push("videoscale", "!", `video/x-raw,width=${width},height=${height}`, "!");
+  args.push("videorate", "!", "video/x-raw,framerate=15/1", "!");
+  args.push(...enc.element.split(" "), ...enc.options.split(" "), "!");
+  args.push("h264parse", "!", "mux.");
+
+  // Audio branch (if enabled)
+  if (withAudio) {
+    args.push("dec.", "!");
+    args.push("queue", "max-size-buffers=1", "max-size-time=0", "max-size-bytes=0", "leaky=downstream", "!");
+    args.push("audioconvert", "!");
+    args.push("avenc_aac", "bitrate=64000", "!", "mux.");
+  }
+
+  // Mux → stdout (fragment per keyframe for lowest latency)
+  args.push("mp4mux", "name=mux", "fragment-duration=66", "streamable=true", "!");
+  args.push("fdsink", "fd=1");
+
+  return args;
 }
 
-export function buildFfmpegArgsWithInput(inputArgs: string[], encoder: HardwareEncoder, withAudio: boolean): string[] {
-  const output = ["-vf", `scale=${PREVIEW_RESOLUTION.width}:${PREVIEW_RESOLUTION.height},format=yuv420p`, "-r", "15", "-g", "15"];
-  const audioArgs = withAudio ? ["-c:a", "aac", "-b:a", "64k"] : ["-an"];
-  // Force baseline profile for broad browser MSE compatibility
-  const codecArgs = ["-c:v", "libx264", "-preset", "ultrafast", "-tune", "zerolatency", "-profile:v", "baseline", "-level", "3.1"];
-  // -probesize and -analyzeduration reduce startup delay; small frag_duration for low latency
-  return ["-probesize", "32", "-analyzeduration", "0", ...inputArgs, ...output, ...audioArgs, ...codecArgs, "-f", "mp4", "-movflags", "frag_keyframe+empty_moov+default_base_moof", "-frag_duration", "33333", "pipe:1"];
-}
+export async function probeEncoder(spawnFn: SpawnFn): Promise<GstEncoder> {
+  const candidates: Array<{ probe: string; element: string; options: string }> = [
+    { probe: "qsvh264enc", element: "qsvh264enc", options: "target-usage=7 key-int-max=15" },
+    { probe: "vaapih264enc", element: "vaapih264enc", options: "rate-control=cqp key-int-max=15" },
+    { probe: "nvh264enc", element: "nvh264enc", options: "preset=low-latency gop-size=15" },
+  ];
 
-export async function probeEncoder(spawnFn: SpawnFn): Promise<HardwareEncoder> {
-  try {
-    const proc = spawnFn("ffmpeg", ["-encoders", "-hide_banner"]);
-    const output = await new Promise<string>((resolve) => {
-      let data = "";
-      proc.stdout?.on("data", (chunk: Buffer) => {
-        data += chunk.toString();
-      });
-      proc.on("close", () => resolve(data));
-      proc.on("error", () => resolve(""));
+  for (const c of candidates) {
+    const ok = await new Promise<boolean>((resolve) => {
+      const proc = spawnFn("gst-inspect-1.0", [c.probe]);
+      proc.on("close", (code) => resolve(code === 0));
+      proc.on("error", () => resolve(false));
     });
-    const priority: HardwareEncoder[] = ["h264_vaapi", "h264_qsv", "h264_nvenc"];
-    for (const enc of priority) {
-      if (output.includes(enc!)) return enc;
-    }
-  } catch {
-    // Fall through to software
+    if (ok) return { element: c.element, options: c.options };
   }
   return null;
 }
 
-export function checkFfmpegPath(): boolean {
+export function checkGstreamerPath(): boolean {
   try {
-    execSync("ffmpeg -version", { stdio: "ignore" });
+    execSync("gst-launch-1.0 --version", { stdio: "ignore" });
     return true;
   } catch {
     return false;

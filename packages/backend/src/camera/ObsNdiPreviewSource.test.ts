@@ -4,16 +4,6 @@ import { applySchema } from "../database/schema.js";
 import { ObsNdiPreviewSource } from "./ObsNdiPreviewSource.js";
 import type { PreviewStreamManager } from "../services/previewStreamManager.js";
 
-vi.mock("./ndiLoader.js", () => ({
-  getNdiModule: vi.fn(),
-  isNdiAvailable: vi.fn().mockReturnValue(false),
-  loadNdi: vi.fn().mockResolvedValue(false),
-}));
-
-vi.mock("./ndiFinder.js", () => ({
-  findNdiSourceByName: vi.fn().mockResolvedValue(null),
-}));
-
 vi.mock("../logger.js", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
@@ -22,12 +12,7 @@ vi.mock("../eventBus/eventBus.js", () => ({
   eventBus: { emit: vi.fn(), subscribe: vi.fn() },
 }));
 
-import { isNdiAvailable, getNdiModule } from "./ndiLoader.js";
-import { findNdiSourceByName } from "./ndiFinder.js";
 import { eventBus } from "../eventBus/eventBus.js";
-const mockIsNdiAvailable = vi.mocked(isNdiAvailable);
-const mockGetNdiModule = vi.mocked(getNdiModule);
-const mockFindNdiSourceByName = vi.mocked(findNdiSourceByName);
 
 function createMockPreviewManager(): PreviewStreamManager {
   return { setSourceAvailable: vi.fn() } as unknown as PreviewStreamManager;
@@ -65,7 +50,6 @@ describe("ObsNdiPreviewSource", () => {
     expect(eventBus.emit).toHaveBeenCalledWith(
       "bus:device:capabilities:updated",
       expect.objectContaining({
-        deviceId: "obs-preview",
         capabilities: expect.objectContaining({ features: { ndiConfigured: false } }),
       }),
     );
@@ -78,22 +62,17 @@ describe("ObsNdiPreviewSource", () => {
 
     await source.initialize();
     expect(source.getNdiOutputName()).toBeNull();
-    expect(eventBus.emit).toHaveBeenCalledWith(
-      "bus:device:capabilities:updated",
-      expect.objectContaining({
-        capabilities: expect.objectContaining({ features: { ndiConfigured: false } }),
-      }),
-    );
+    expect(previewManager.setSourceAvailable).not.toHaveBeenCalled();
   });
 
-  it("emits ndiConfigured=true when ndiOutputName is set", async () => {
+  it("registers source when ndiOutputName is configured", async () => {
     const db = createDbWithObsDevice("MY-PC (OBS)");
     previewManager = createMockPreviewManager();
-    mockIsNdiAvailable.mockReturnValue(false);
     source = new ObsNdiPreviewSource(db, previewManager);
 
     await source.initialize();
     expect(source.getNdiOutputName()).toBe("MY-PC (OBS)");
+    expect(previewManager.setSourceAvailable).toHaveBeenCalledWith("obs", true, "MY-PC (OBS)");
     expect(eventBus.emit).toHaveBeenCalledWith(
       "bus:device:capabilities:updated",
       expect.objectContaining({
@@ -102,44 +81,13 @@ describe("ObsNdiPreviewSource", () => {
     );
   });
 
-  it("attempts connect when NDI is available and ndiOutputName configured", async () => {
+  it("destroy marks source unavailable", async () => {
     const db = createDbWithObsDevice("MY-PC (OBS)");
     previewManager = createMockPreviewManager();
-    mockIsNdiAvailable.mockReturnValue(true);
-    mockGetNdiModule.mockReturnValue({ COLOR_FORMAT_FASTEST: 0 });
-    mockFindNdiSourceByName.mockResolvedValue(null);
-    source = new ObsNdiPreviewSource(db, previewManager);
-
-    await source.initialize();
-    // Source not found -> marks unavailable
-    expect(previewManager.setSourceAvailable).toHaveBeenCalledWith("obs", false, "pipe:0");
-  });
-
-  it("marks source available when NDI source is found", async () => {
-    const db = createDbWithObsDevice("MY-PC (OBS)");
-    previewManager = createMockPreviewManager();
-    const mockReceiver = { data: vi.fn().mockRejectedValue(new Error("stopped")) };
-    mockIsNdiAvailable.mockReturnValue(true);
-    mockFindNdiSourceByName.mockResolvedValue({ name: "MY-PC (OBS)" });
-    mockGetNdiModule.mockReturnValue({
-      receive: vi.fn().mockResolvedValue(mockReceiver),
-      COLOR_FORMAT_FASTEST: 0,
-    });
-    source = new ObsNdiPreviewSource(db, previewManager);
-
-    await source.initialize();
-    // Give time for the receive loop to start
-    await new Promise((r) => setTimeout(r, 50));
-  });
-
-  it("destroy stops receive loop and marks source unavailable", async () => {
-    const db = createDbWithObsDevice("MY-PC (OBS)");
-    previewManager = createMockPreviewManager();
-    mockIsNdiAvailable.mockReturnValue(false);
     source = new ObsNdiPreviewSource(db, previewManager);
     await source.initialize();
 
     source.destroy();
-    expect(previewManager.setSourceAvailable).toHaveBeenCalledWith("obs", false, "pipe:0");
+    expect(previewManager.setSourceAvailable).toHaveBeenCalledWith("obs", false, "");
   });
 });

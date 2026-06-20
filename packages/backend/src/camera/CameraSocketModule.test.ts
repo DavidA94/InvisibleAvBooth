@@ -4,12 +4,8 @@ import { eventBus } from "../eventBus/eventBus.js";
 import { BUS_CAMERA_STATE_CHANGED } from "../eventBus/types.js";
 import type { CameraState } from "@invisible-av-booth/shared";
 
-vi.mock("./ndiLoader.js", () => ({
-  isNdiAvailable: () => true,
-}));
-
 vi.mock("../logger.js", () => ({
-  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
 
 function makeMockCameraService() {

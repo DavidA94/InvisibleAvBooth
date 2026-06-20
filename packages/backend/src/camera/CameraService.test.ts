@@ -6,16 +6,6 @@ import { eventBus } from "../eventBus/eventBus.js";
 import { BUS_CAMERA_STATE_CHANGED } from "../eventBus/types.js";
 
 // Mock dependencies
-vi.mock("./ndiLoader.js", () => ({
-  isNdiAvailable: () => true,
-  loadNdi: vi.fn().mockResolvedValue(true),
-  getNdiModule: () => null,
-}));
-
-vi.mock("./ndiFinder.js", () => ({
-  findNdiSourceByName: vi.fn().mockResolvedValue(null),
-}));
-
 vi.mock("../logger.js", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
@@ -151,6 +141,16 @@ describe("CameraService", () => {
   it("sets connected=false when no previewManager (preview loop not started)", async () => {
     await initService();
     expect(service.getCameraState("cam1")?.connected).toBe(false);
+  });
+
+  it("sets connected=true when previewManager is provided", async () => {
+    seedCamera(db);
+    const mockPreviewManager = { setSourceAvailable: vi.fn() };
+    service = new CameraService(db, mockPreviewManager as unknown as ConstructorParameters<typeof CameraService>[1]);
+    await service.initialize();
+    await vi.advanceTimersByTimeAsync(10);
+    expect(service.getCameraState("cam1")?.connected).toBe(true);
+    expect(mockPreviewManager.setSourceAvailable).toHaveBeenCalledWith("camera-cam1", true, "CAM1");
   });
 
   it("loads presets from database", async () => {

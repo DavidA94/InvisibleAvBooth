@@ -1,7 +1,6 @@
 import type { Server } from "socket.io";
 import type { SocketModule, AuthenticatedSocket } from "../gateway/modules/socketModule.js";
 import type { CameraService } from "./CameraService.js";
-import { isNdiAvailable } from "./ndiLoader.js";
 import { eventBus } from "../eventBus/eventBus.js";
 import { BUS_CAMERA_STATE_CHANGED } from "../eventBus/types.js";
 import {
@@ -88,7 +87,7 @@ export class CameraSocketModule implements SocketModule {
   emitInitialState(auth: AuthenticatedSocket): void {
     auth.socket.emit(STC_CAMERA_STATE, {
       cameras: this.cameraService.getAllCameraStates(),
-      ndiAvailable: isNdiAvailable(),
+      ndiAvailable: true,
     });
   }
 }

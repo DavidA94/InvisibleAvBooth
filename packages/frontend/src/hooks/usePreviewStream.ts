@@ -101,7 +101,10 @@ export function usePreviewStream(endpoint: string, enabled: boolean): UsePreview
     mediaSource.addEventListener("sourceopen", () => {
       if (mediaSource.readyState !== "open") return;
       try {
-        const sb = mediaSource.addSourceBuffer('video/mp4; codecs="avc1.42E01E"');
+        const codecs = endpoint.includes("/preview/obs")
+          ? 'video/mp4; codecs="avc1.42E01E,mp4a.40.2"'
+          : 'video/mp4; codecs="avc1.42E01E"';
+        const sb = mediaSource.addSourceBuffer(codecs);
         sourceBufferRef.current = sb;
 
         sb.addEventListener("updateend", () => {

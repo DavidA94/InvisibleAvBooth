@@ -5,6 +5,7 @@
 - Node.js 20+
 - [Caddy](https://caddyserver.com/docs/install) — reverse proxy for HTTPS and unified routing
 - [FFmpeg](https://ffmpeg.org/download.html) — required for multi-platform streaming relay (minimum version 4.4 recommended; must be on PATH)
+- GStreamer + NDI plugin — required for video preview (run `bash scripts/install-gstreamer-ndi.sh`)
 - `bibledb_kjv.sql` in the repo root (not committed — obtain separately)
 - OBS Studio installed with **H.264 video codec and AAC audio codec** configured (required for `-c copy` compatibility with the RTMP relay)
 
@@ -349,9 +350,9 @@ If `DEVICE_SECRET_KEY` is changed, all stored device passwords become unreadable
 
 ### OBS Preview — DistroAV Plugin
 
-The OBS Preview widget displays a real-time feed of what OBS is outputting, regardless of streaming/recording state. This requires the DistroAV (NDI) plugin:
+The OBS Preview widget displays a real-time feed of what OBS is outputting, regardless of streaming/recording state. This requires the DistroAV (NDI) plugin in OBS and GStreamer with the NDI plugin on the server (installed via `scripts/install-gstreamer-ndi.sh`).
 
-1. **Install DistroAV:**
+1. **Install DistroAV in OBS:**
    - **Linux (apt):** `sudo apt install obs-ndi`
    - **Windows:** Download from [github.com/DistroAV/DistroAV/releases](https://github.com/DistroAV/DistroAV/releases) and run the installer
    - **macOS:** `brew install obs-ndi`
@@ -368,22 +369,30 @@ The OBS Preview widget displays a real-time feed of what OBS is outputting, rega
 
 The preview widget will display "OBS Preview Unavailable" if DistroAV is not enabled or OBS is not running. Once configured, the preview is always available when OBS is running — even without streaming or recording active.
 
-### Camera Features — NDI SDK
+### Camera & OBS Video Preview — GStreamer + NDI
 
-Camera video preview requires the `grandi` NDI module (prebuilt binaries, no compilation needed). PTZ control requires VISCA over IP.
+Video preview (OBS output and camera feeds) uses GStreamer with the NDI plugin. PTZ camera control uses VISCA over IP.
 
-1. **Install system dependencies (Linux):**
+**Install everything with the provided script:**
 
-   ```bash
-   sudo apt install libavahi-client3 avahi-daemon
-   sudo systemctl enable --now avahi-daemon
-   ```
+```bash
+bash scripts/install-gstreamer-ndi.sh
+```
 
-2. **Install grandi:** Already included in `package.json`. No separate NDI SDK download or C++ compilation is needed — `grandi` ships prebuilt binaries that include the NDI 6 runtime for Linux x64, macOS, and Windows.
+This installs GStreamer, the NDI runtime, Rust, and builds the NDI plugin. Run it once on the server machine. The script is idempotent — safe to re-run.
 
-3. **VISCA is required for PTZ control.** `grandi` provides video receive only (PTZ APIs are not yet exposed). All camera pan/tilt/zoom/focus commands are sent via VISCA over IP. Configure the camera's VISCA IP and port in the admin device panel.
+**Verify after installation:**
 
-4. If `grandi` cannot load (missing avahi libraries), the system logs an error at startup and camera/preview features are disabled. OBS streaming, lower thirds, and all other features continue to work normally.
+```bash
+gst-inspect-1.0 ndi
+gst-device-monitor-1.0 -f Source/Network:application/x-ndi
+```
+
+The second command should list your NDI sources (OBS output, cameras).
+
+**VISCA is required for PTZ control.** All camera pan/tilt/zoom/focus commands are sent via VISCA over IP. Configure the camera's VISCA IP and port in the admin device panel.
+
+If GStreamer or the NDI plugin is not installed, the system logs an error at startup and preview features are disabled. OBS streaming, lower thirds, and all other features continue to work normally.
 
 ### Camera AI Tracking Credentials (Tongveo NVS20A-4KN)
 
