@@ -34,6 +34,12 @@ interface CameraFormState {
   aiHttpCookie: string;
   aiCredentialId: string;
   enabled: boolean;
+  panMin: string;
+  panMax: string;
+  tiltMin: string;
+  tiltMax: string;
+  zoomMin: string;
+  zoomMax: string;
 }
 
 interface PresetRow {
@@ -75,6 +81,12 @@ function buildInitialState(device: DeviceRecord | null): CameraFormState {
       aiHttpCookie: "",
       aiCredentialId: "",
       enabled: device.enabled,
+      panMin: meta.panMin != null ? String(meta.panMin) : "",
+      panMax: meta.panMax != null ? String(meta.panMax) : "",
+      tiltMin: meta.tiltMin != null ? String(meta.tiltMin) : "",
+      tiltMax: meta.tiltMax != null ? String(meta.tiltMax) : "",
+      zoomMin: meta.zoomMin != null ? String(meta.zoomMin) : "",
+      zoomMax: meta.zoomMax != null ? String(meta.zoomMax) : "",
     };
   }
   return {
@@ -91,6 +103,12 @@ function buildInitialState(device: DeviceRecord | null): CameraFormState {
     aiHttpCookie: "",
     aiCredentialId: "",
     enabled: true,
+    panMin: "",
+    panMax: "",
+    tiltMin: "",
+    tiltMax: "",
+    zoomMin: "",
+    zoomMax: "",
   };
 }
 
@@ -131,6 +149,7 @@ export function CameraDeviceForm({ device, onSaved, onDeleted, registerDirtyChec
   const [presetModalOpen, setPresetModalOpen] = useState(false);
   const [editingPreset, setEditingPreset] = useState<PresetRow | null>(null);
   const [probeResult, setProbeResult] = useState<ProbeResult>(null);
+  const [discovering, setDiscovering] = useState<"pan" | "tilt" | "zoom" | null>(null);
 
   const formRef = useRef(form);
   formRef.current = form;
@@ -163,6 +182,33 @@ export function CameraDeviceForm({ device, onSaved, onDeleted, registerDirtyChec
     setForm((prev) => ({ ...prev, features: checked ? [...prev.features, f] : prev.features.filter((x) => x !== f) }));
   }, []);
 
+  const handleDiscover = useCallback(async (axis: "pan" | "tilt" | "zoom") => {
+    if (discovering) return;
+    if (!form.host || !form.port) {
+      setError("VISCA IP and port required for discovery");
+      return;
+    }
+    setDiscovering(axis);
+    try {
+      const r = await fetch(`/api/admin/cameras/discover/${axis}?ip=${encodeURIComponent(form.host)}&port=${encodeURIComponent(form.port)}`, { credentials: "include" });
+      if (r.ok) {
+        const data = (await r.json()) as { min: number; max: number };
+        setForm((prev) => ({
+          ...prev,
+          [`${axis}Min`]: String(data.min),
+          [`${axis}Max`]: String(data.max),
+        }));
+      } else {
+        const err = (await r.json()) as { error?: string };
+        setError(err.error ?? `Discovery failed for ${axis}`);
+      }
+    } catch {
+      setError(`Network error during ${axis} discovery`);
+    } finally {
+      setDiscovering(null);
+    }
+  }, [discovering, form.host, form.port]);
+
   const requiresVisca = viscaRequired(form.features);
   const viscaMissing = requiresVisca && !form.viscaEnabled;
   const canSave = form.label && form.ndiSourceName && !viscaMissing && (!form.viscaEnabled || form.host);
@@ -180,6 +226,12 @@ export function CameraDeviceForm({ device, onSaved, onDeleted, registerDirtyChec
         fovWideAngle: Number(form.fovWideAngle),
         opticalZoomRatio: Number(form.opticalZoomRatio),
         cameraFeatures: form.features,
+        ...(form.panMin ? { panMin: Number(form.panMin) } : {}),
+        ...(form.panMax ? { panMax: Number(form.panMax) } : {}),
+        ...(form.tiltMin ? { tiltMin: Number(form.tiltMin) } : {}),
+        ...(form.tiltMax ? { tiltMax: Number(form.tiltMax) } : {}),
+        ...(form.zoomMin ? { zoomMin: Number(form.zoomMin) } : {}),
+        ...(form.zoomMax ? { zoomMax: Number(form.zoomMax) } : {}),
       };
       if (form.cameraModel !== "generic") {
         if (form.aiHttpCookie) metadata["aiHttpCookie"] = form.aiHttpCookie;
@@ -448,12 +500,46 @@ export function CameraDeviceForm({ device, onSaved, onDeleted, registerDirtyChec
 
       {/* Features Section */}
       <h4 className="text-muted" style={{ margin: "0.75rem 0 0.25rem" }}>Features</h4>
-      {ALL_FEATURES.map((f) => (
-        <label key={f} className="layout-row gap-standard">
-          <IonToggle checked={form.features.includes(f)} onIonChange={(e) => toggleFeature(f, e.detail.checked)} />
-          {f}
-        </label>
-      ))}
+      {ALL_FEATURES.map((f) => {
+        const isPtz = (["pan", "tilt", "zoom"] as string[]).includes(f);
+        const enabled = form.features.includes(f);
+        const axisDiscovering = discovering === f;
+        return (
+          <div key={f} className="layout-row gap-standard" style={{ alignItems: "center", marginBottom: "0.4rem" }}>
+            <IonToggle checked={enabled} onIonChange={(e) => toggleFeature(f, e.detail.checked)} disabled={!!discovering} />
+            <span style={{ minWidth: "3rem" }}>{f}</span>
+            {isPtz && (
+              <>
+                <IonInput
+                  label="Min"
+                  labelPlacement="stacked"
+                  fill="outline"
+                  type="number"
+                  placeholder="0"
+                  value={form[`${f}Min` as keyof CameraFormState] as string}
+                  onIonInput={(e) => updateField(`${f}Min` as keyof CameraFormState, e.detail.value ?? "")}
+                  disabled={!enabled || axisDiscovering}
+                  style={{ width: "5rem" }}
+                />
+                <IonInput
+                  label="Max"
+                  labelPlacement="stacked"
+                  fill="outline"
+                  type="number"
+                  placeholder="1"
+                  value={form[`${f}Max` as keyof CameraFormState] as string}
+                  onIonInput={(e) => updateField(`${f}Max` as keyof CameraFormState, e.detail.value ?? "")}
+                  disabled={!enabled || axisDiscovering}
+                  style={{ width: "5rem" }}
+                />
+                <IonButton size="small" fill="outline" disabled={!enabled || !!discovering || !form.viscaEnabled} onClick={() => handleDiscover(f as "pan" | "tilt" | "zoom")}>
+                  {axisDiscovering ? <IonSpinner name="crescent" /> : "Discover"}
+                </IonButton>
+              </>
+            )}
+          </div>
+        );
+      })}
       {form.cameraModel !== "generic" &&
         AI_FEATURES.map((f) => (
           <label key={f} className="layout-row gap-standard">

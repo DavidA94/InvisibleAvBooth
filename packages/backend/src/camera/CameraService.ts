@@ -16,6 +16,8 @@ export const ADAPTIVE_SPEED_DAMPING = 0.7;
 export const MAX_EFFECTIVE_SPEED = 0.6;
 const VISCA_POLL_INTERVAL_MS = 5000;
 
+const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
+
 // ── Types ────────────────────────────────────────────────────────────────────
 
 interface MoveSession {
@@ -102,6 +104,8 @@ export class CameraService {
         features,
         capabilities: { tapToCenter: meta.viscaEnabled },
         presets,
+        ...(meta.zoomMin != null ? { zoomMin: meta.zoomMin } : {}),
+        ...(meta.zoomMax != null ? { zoomMax: meta.zoomMax } : {}),
       };
 
       const instance: CameraInstance = { id: row.id, viscaDriver, aiDriver, state, pollTimer: null, ndiSourceName: meta.ndiSourceName, ndiExtraIPs: ndiExtraIPs ?? null };
@@ -266,7 +270,18 @@ export class CameraService {
     const currentPan = instance.state.position?.pan ?? 0;
     const currentTilt = instance.state.position?.tilt ?? 0;
 
-    await instance.viscaDriver!.panTiltAbsolute(currentPan + panDelta, currentTilt + tiltDelta);
+    let targetPan = currentPan + panDelta;
+    let targetTilt = currentTilt + tiltDelta;
+
+    // Clamp to discovered ranges
+    if (meta.panMin != null && meta.panMax != null) {
+      targetPan = Math.max(meta.panMin, Math.min(meta.panMax, targetPan));
+    }
+    if (meta.tiltMin != null && meta.tiltMax != null) {
+      targetTilt = Math.max(meta.tiltMin, Math.min(meta.tiltMax, targetTilt));
+    }
+
+    await instance.viscaDriver!.panTiltAbsolute(targetPan, targetTilt);
     instance.state.activePresetId = null;
     this.broadcastState(instance);
     return { success: true };
@@ -319,6 +334,71 @@ export class CameraService {
     const instance = this.cameras.get(cameraId);
     if (!instance) return null;
     return instance.state.position;
+  }
+
+  // ── Range Discovery ──────────────────────────────────────────────────────
+
+  async discoverRange(ip: string, port: number, axis: "pan" | "tilt" | "zoom"): Promise<{ success: true; value: { min: number; max: number } } | { success: false; error: string; status?: number }> {
+    const driver = new ViscaCameraDriver(ip, port);
+    const connected = await driver.connect();
+    if (!connected) {
+      return { success: false, error: `Cannot connect to VISCA at ${ip}:${port}`, status: 503 };
+    }
+
+    const readAxis = async (): Promise<number | null> => {
+      const pos = await driver.inquirePosition();
+      if (axis === "pan") return pos.pan;
+      if (axis === "tilt") return pos.tilt;
+      return pos.zoom;
+    };
+
+    const moveToLimit = async (direction: "min" | "max"): Promise<number | null> => {
+      let prev: number | null = null;
+      for (let i = 0; i < 60; i++) {
+        if (axis === "pan") {
+          await driver.panTiltSpeed(direction === "min" ? -1 : 1, 0);
+        } else if (axis === "tilt") {
+          await driver.panTiltSpeed(0, direction === "min" ? -1 : 1);
+        } else {
+          await driver.zoomAbsolute(direction === "min" ? 0 : 1);
+        }
+
+        await sleep(1000);
+        await driver.stop();
+        await sleep(200);
+
+        const current = await readAxis();
+        if (current === null) return null;
+        if (prev !== null && Math.abs(current - prev) < 0.001) return current;
+        prev = current;
+      }
+      return prev;
+    };
+
+    try {
+      const min = await moveToLimit("min");
+      if (min === null) { driver.disconnect(); return { success: false, error: "Failed to read position during discovery" }; }
+
+      const max = await moveToLimit("max");
+      if (max === null) { driver.disconnect(); return { success: false, error: "Failed to read position during discovery" }; }
+
+      // Return to center (pan/tilt) or full wide (zoom)
+      if (axis === "pan") {
+        await driver.panTiltAbsolute((min + max) / 2, 0);
+      } else if (axis === "tilt") {
+        await driver.panTiltAbsolute(0, (min + max) / 2);
+      } else {
+        await driver.zoomAbsolute(min);
+      }
+      await sleep(500);
+
+      driver.disconnect();
+      return { success: true, value: { min, max } };
+    } catch (err) {
+      await driver.stop().catch(() => {});
+      driver.disconnect();
+      return { success: false, error: err instanceof Error ? err.message : String(err) };
+    }
   }
 
   destroy(): void {

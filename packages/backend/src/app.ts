@@ -135,6 +135,27 @@ export function buildApp(deps: AppDependencies): AppContext {
   const obsNdiPreviewSource = new ObsNdiPreviewSource(database, previewManager);
   const cameraService = new CameraService(database, previewManager);
 
+  // Discover endpoint — ad-hoc VISCA connection for range discovery
+  app.get("/api/admin/cameras/discover/:axis", mustBeAuthenticated, mustHaveChangedPassword, async (req, res) => {
+    const axis = req.params.axis as string;
+    const ip = req.query.ip as string | undefined;
+    const port = req.query.port as string | undefined;
+    if (!["pan", "tilt", "zoom"].includes(axis)) {
+      res.status(400).json({ error: "Invalid axis. Must be pan, tilt, or zoom." });
+      return;
+    }
+    if (!ip || !port) {
+      res.status(400).json({ error: "Query params ip and port are required." });
+      return;
+    }
+    const result = await cameraService.discoverRange(ip, Number(port), axis as "pan" | "tilt" | "zoom");
+    if (!result.success) {
+      res.status(result.status ?? 500).json({ error: result.error });
+      return;
+    }
+    res.json(result.value);
+  });
+
   const gateway = new SocketGateway(httpServer, authService, [
     new ObsModule(obsService, () => !!obsNdiPreviewSource.getNdiOutputName()),
     new SessionManifestModule(manifestService),

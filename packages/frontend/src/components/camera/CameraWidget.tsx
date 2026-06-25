@@ -98,6 +98,8 @@ export function CameraWidget({ enabled = true }: CameraWidgetProps): ReactNode {
     aiConfigured,
     isAdmin,
     zoom: currentState?.position?.zoom ?? 0,
+    zoomMin: currentState?.zoomMin ?? 0,
+    zoomMax: currentState?.zoomMax ?? 1,
     focus: currentState?.position?.focus ?? 0.5,
     autoFocus: currentState?.autoFocus ?? true,
     aiTracking: currentState?.aiTracking ?? false,

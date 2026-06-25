@@ -19,6 +19,8 @@ export interface CameraControlsProps {
   isAdmin: boolean;
   /** Current state values */
   zoom: number;
+  zoomMin: number;
+  zoomMax: number;
   focus: number;
   autoFocus: boolean;
   aiTracking: boolean;
@@ -52,6 +54,8 @@ export function CameraControls({
   aiConfigured,
   isAdmin,
   zoom,
+  zoomMin,
+  zoomMax,
   focus,
   autoFocus,
   aiTracking,
@@ -102,7 +106,7 @@ export function CameraControls({
         {hasZoom && (
           <div className="camera-controls-zoom" data-testid="camera-zoom-slider">
             <div className="camera-zoom-wrapper">
-              <IonRange min={0} max={1} step={0.01} value={zoom} onIonChange={(e) => onZoomChange(e.detail.value as number)}>
+              <IonRange min={zoomMin} max={zoomMax} step={0.01} value={zoom} onIonChange={(e) => onZoomChange(e.detail.value as number)}>
                 <IonIcon slot="end" icon={searchOutline} className="camera-zoom-icon" />
               </IonRange>
             </div>

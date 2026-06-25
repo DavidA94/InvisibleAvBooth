@@ -278,7 +278,7 @@ export class ViscaCameraDriver {
             return;
           }
         }
-        this.commandQueue.push({ cmd, resolve, reject, tag });
+        this.commandQueue.push({ cmd, resolve, reject, ...(tag ? { tag } : {}) });
         return;
       }
       this.pendingResolve = resolve;

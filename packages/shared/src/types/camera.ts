@@ -39,6 +39,8 @@ export interface CameraState {
   features: CameraFeature[];
   capabilities: { tapToCenter: boolean };
   presets: CameraPreset[];
+  zoomMin?: number;
+  zoomMax?: number;
 }
 
 export interface CameraMetadata {
@@ -51,6 +53,12 @@ export interface CameraMetadata {
   ndiExtraIPs?: string;
   aiHttpCookie?: string;
   aiCredentialId?: string;
+  panMin?: number;
+  panMax?: number;
+  tiltMin?: number;
+  tiltMax?: number;
+  zoomMin?: number;
+  zoomMax?: number;
 }
 
 export interface ObsMetadata {
