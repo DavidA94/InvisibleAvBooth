@@ -57,8 +57,8 @@ sudo systemctl enable --now avahi-daemon 2>/dev/null || true
 
 # ── Step 2: NDI runtime library ───────────────────────────────────────────────
 
-NDI_DEB_URL="https://sourceforge.net/projects/distroav.mirror/files/6.0.0/libndi6_6.0.0-1_amd64.deb/download"
-NDI_DEB="/tmp/libndi6_6.0.0-1_amd64.deb"
+NDI_DEB_URL="https://sourceforge.net/projects/distroav.mirror/files/6.2.1/distroav-6.2.1-x86_64-linux-gnu.deb/download"
+NDI_DEB="/tmp/distroav-6.2.1-x86_64-linux-gnu.deb"
 
 if ldconfig -p | grep -q libndi; then
   info "NDI runtime library already installed, skipping."
@@ -70,6 +70,65 @@ else
   rm -f "$NDI_DEB"
   sudo ldconfig
 fi
+echo "Done with NDI runtime"
+
+info "Installing the NDI Advanced SDK"
+
+NDI_SDK_TEMP_DIR="$(mktemp -d)"
+cd "$NDI_SDK_TEMP_DIR"
+
+wget https://downloads.ndi.tv/SDK/NDI_SDK_Linux/Install_NDI_Advanced_SDK_v6_Linux.tar.gz
+
+tar xf Install_NDI_Advanced_SDK_v6_Linux.tar.gz
+
+chmod +x Install_NDI_Advanced_SDK_v6_Linux.sh
+yes | ./Install_NDI_Advanced_SDK_v6_Linux.sh
+
+NDI_SRC="NDI Advanced SDK for Linux/lib/x86_64-linux-gnu"
+NDI_DST="/opt/ndi/lib"
+
+info "Installing NDI libraries to ${NDI_DST}"
+
+sudo mkdir -p "$NDI_DST"
+
+# Find actual library versions supplied by SDK
+NDI_LIB=$(find "$NDI_SRC" -maxdepth 1 -name 'libndi.so.*.*.*' -type f | head -n1)
+NDI_HX_LIB=$(find "$NDI_SRC" -maxdepth 1 -name 'libndi-hx.so.*.*.*' -type f | head -n1)
+
+if [[ -z "$NDI_LIB" ]]; then
+    echo "ERROR: Could not find libndi.so in SDK"
+    exit 1
+fi
+
+if [[ -z "$NDI_HX_LIB" ]]; then
+    echo "ERROR: Could not find libndi-hx.so in SDK"
+    exit 1
+fi
+
+# Install real files
+sudo install -m 755 "$NDI_LIB" "$NDI_DST/"
+sudo install -m 755 "$NDI_HX_LIB" "$NDI_DST/"
+
+# Extract filenames
+NDI_FILE=$(basename "$NDI_LIB")
+NDI_HX_FILE=$(basename "$NDI_HX_LIB")
+
+# Create SONAME symlinks
+sudo ln -sf "$NDI_FILE" "$NDI_DST/libndi.so.6"
+sudo ln -sf "libndi.so.6" "$NDI_DST/libndi.so"
+
+sudo ln -sf "$NDI_HX_FILE" "$NDI_DST/libndi-hx.so.6"
+sudo ln -sf "libndi-hx.so.6" "$NDI_DST/libndi-hx.so"
+
+# Register with loader
+echo "$NDI_DST" | sudo tee /etc/ld.so.conf.d/ndi.conf >/dev/null
+
+sudo ldconfig
+
+info "Installed NDI libraries:"
+ls -l "$NDI_DST"/libndi*
+ldconfig -p | grep ndi
+
 
 # ── Step 3: Rust toolchain ────────────────────────────────────────────────────
 
@@ -99,21 +158,30 @@ sudo apt-get install -y --no-install-recommends \
   pkg-config \
   git
 
-info "Cloning gst-plugins-rs (sparse, net/ndi only)..."
-cd "$BUILD_DIR"
-git clone --depth 1 --filter=blob:none --sparse \
-  https://github.com/GStreamer/gst-plugins-rs.git
-cd gst-plugins-rs
-git sparse-checkout set net/ndi
+# 1. Install cargo-c system-wide (Do this once, or add it to dependencies)
+cargo install cargo-c
 
-info "Building gst-plugin-ndi (this may take a few minutes on first run)..."
-cargo build --release -p gst-plugin-ndi
+# 2. Update your shell script to look like this:
+info "Cloning complete gst-plugins-rs repository..."
+cd "$BUILD_DIR"
+git clone --depth 1 https://github.com/GStreamer/gst-plugins-rs.git
+cd gst-plugins-rs
+
+info "Building gst-plugin-ndi using official cargo-c toolchain..."
+# Build the specific NDI package safely from the workspace root
+cargo cbuild --release -p gst-plugin-ndi
+
 
 info "Installing plugin to ${GST_PLUGIN_PATH}..."
+TARGET_TRIPLE=$(rustc -vV | grep host | awk '{print $2}')
 sudo install -o root -g root -m 644 \
-  target/release/libgstndi.so \
+  "target/${TARGET_TRIPLE}/release/libgstndi.so" \
   "$GST_PLUGIN_PATH/"
 sudo ldconfig
+
+# CRITICAL: Force GStreamer to clear its registry cache and scan the new plugin
+info "Clearing GStreamer plugin registry cache..."
+rm -rf ~/.cache/gstreamer-1.0/
 
 # Cleanup
 rm -rf "$BUILD_DIR"
