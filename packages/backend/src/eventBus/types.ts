@@ -37,3 +37,14 @@ export const BUS_LOWER_THIRD_STATE_CHANGED = "bus:lower-third:state:changed" as 
 // ── Camera events ────────────────────────────────────────────────────────────
 
 export const BUS_CAMERA_STATE_CHANGED = "bus:camera:state:changed" as const;
+
+// ── Hot-reload events (admin config changes that services need to pick up) ───
+
+/** Emitted when a camera device is created, updated, or deleted in admin. */
+export const BUS_CAMERA_DEVICE_CHANGED = "bus:camera:device:changed" as const;
+/** Emitted when camera presets are created, updated, deleted, or reordered. */
+export const BUS_CAMERA_PRESETS_CHANGED = "bus:camera:presets:changed" as const;
+/** Emitted when OBS device config is created, updated, or deleted in admin. */
+export const BUS_OBS_CONFIG_CHANGED = "bus:obs:config:changed" as const;
+/** Emitted when metadata templates (title, description, lower-third) are created, updated, or deleted. */
+export const BUS_TEMPLATES_CHANGED = "bus:templates:changed" as const;

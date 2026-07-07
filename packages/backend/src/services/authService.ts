@@ -62,14 +62,7 @@ export interface UpdateUserRequest {
 export type Result<T, E> = { success: true; value: T } | { success: false; error: E };
 
 export type AuthErrorCode =
-  | "INVALID_CREDENTIALS"
-  | "USER_NOT_FOUND"
-  | "USERNAME_TAKEN"
-  | "FORBIDDEN"
-  | "SELF_DELETE"
-  | "SELF_ROLE_CHANGE"
-  | "INVALID_TOKEN"
-  | "INSUFFICIENT_ROLE";
+  "INVALID_CREDENTIALS" | "USER_NOT_FOUND" | "USERNAME_TAKEN" | "FORBIDDEN" | "SELF_DELETE" | "SELF_ROLE_CHANGE" | "INVALID_TOKEN" | "INSUFFICIENT_ROLE";
 
 export class AuthError extends Error {
   constructor(

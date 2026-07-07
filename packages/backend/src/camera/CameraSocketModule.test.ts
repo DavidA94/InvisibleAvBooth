@@ -16,6 +16,14 @@ function makeMockCameraService() {
     applySet: vi.fn(),
     activatePreset: vi.fn().mockResolvedValue({ success: true }),
     tapToCenter: vi.fn().mockResolvedValue({ success: true }),
+    getCameraMetadata: vi.fn().mockReturnValue({
+      ndiSourceName: "CAM1",
+      fovWideAngle: 60,
+      opticalZoomRatio: 20,
+      cameraModel: "generic",
+      cameraFeatures: ["pan", "tilt", "zoom"],
+      viscaEnabled: true,
+    }),
     getAllCameraStates: vi.fn().mockReturnValue([]),
   };
 }
@@ -141,10 +149,18 @@ describe("CameraSocketModule", () => {
   });
 
   describe("registerSocket — tap to center", () => {
-    it("forwards tap-to-center to service", () => {
+    it("forwards tap-to-center to service with real metadata", () => {
       module.registerSocket(ADMIN_AUTH as unknown as Parameters<typeof module.registerSocket>[0]);
       ADMIN_AUTH.socket._trigger("cts:camera:ptz:tap-to-center", { cameraId: "cam1", offsetX: 0.2, offsetY: -0.1 });
-      expect(service.tapToCenter).toHaveBeenCalledWith("cam1", 0.2, -0.1, expect.objectContaining({ fovWideAngle: 60 }));
+      expect(service.getCameraMetadata).toHaveBeenCalledWith("cam1");
+      expect(service.tapToCenter).toHaveBeenCalledWith("cam1", 0.2, -0.1, expect.objectContaining({ fovWideAngle: 60, viscaEnabled: true }));
+    });
+
+    it("does not call tapToCenter when metadata is not found", () => {
+      service.getCameraMetadata.mockReturnValue(null);
+      module.registerSocket(ADMIN_AUTH as unknown as Parameters<typeof module.registerSocket>[0]);
+      ADMIN_AUTH.socket._trigger("cts:camera:ptz:tap-to-center", { cameraId: "unknown", offsetX: 0.2, offsetY: -0.1 });
+      expect(service.tapToCenter).not.toHaveBeenCalled();
     });
   });
 });

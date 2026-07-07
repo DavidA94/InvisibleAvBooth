@@ -4,8 +4,9 @@ import Select from "react-select";
 import { WidgetContainer } from "../WidgetContainer";
 import type { ConnectionStatus } from "../WidgetContainer";
 import { CameraControls } from "./CameraControls";
-import { usePreviewStream } from "../../hooks/usePreviewStream";
+import { useMjpegStream } from "../../hooks/useMjpegStream";
 import { usePtzMove } from "../../hooks/usePtzMove";
+import { useDoubleTapToCenter } from "../../hooks/useDoubleTapToCenter";
 import { useStore } from "../../store";
 import { useSocket } from "../../providers/SocketProvider";
 import { useResizeObserver } from "../../hooks/useResizeObserver";
@@ -17,6 +18,8 @@ const COMPACT_WIDTH_THRESHOLD = 480;
 
 interface CameraWidgetProps {
   enabled?: boolean;
+  /** Force selection of a specific camera (used in modal/preset context) */
+  forceSelectedId?: string;
 }
 
 function deriveConnection(state: CameraState | null): ConnectionStatus {
@@ -25,7 +28,7 @@ function deriveConnection(state: CameraState | null): ConnectionStatus {
   return { label: "Camera", status: "unhealthy" };
 }
 
-export function CameraWidget({ enabled = true }: CameraWidgetProps): ReactNode {
+export function CameraWidget({ enabled = true, forceSelectedId }: CameraWidgetProps): ReactNode {
   const cameraStates = useStore((s) => s.cameraStates);
   const user = useStore((s) => s.user);
   const socket = useSocket();
@@ -34,22 +37,25 @@ export function CameraWidget({ enabled = true }: CameraWidgetProps): ReactNode {
 
   const cameras = Object.values(cameraStates);
   const [selectedId, setSelectedId] = useState<string>(() => {
+    if (forceSelectedId) return forceSelectedId;
     const saved = typeof window !== "undefined" ? localStorage.getItem("camera-widget-selected") : null;
     return saved ?? "";
   });
 
   useEffect(() => {
-    if (!selectedId && cameras.length > 0) {
+    if (forceSelectedId) {
+      setSelectedId(forceSelectedId);
+    } else if (!selectedId && cameras.length > 0) {
       setSelectedId(cameras[0]!.cameraId);
     }
-  }, [cameras, selectedId]);
+  }, [cameras, selectedId, forceSelectedId]);
 
   useEffect(() => {
     if (selectedId) localStorage.setItem("camera-widget-selected", selectedId);
   }, [selectedId]);
 
   const currentState = selectedId ? (cameraStates[selectedId] ?? null) : null;
-  const { videoRef, status } = usePreviewStream(selectedId ? `/preview/camera/${selectedId}` : "", enabled && !!selectedId);
+  const { imgRef, status } = useMjpegStream(selectedId ? `/preview/camera/${selectedId}` : "", enabled && !!selectedId);
   const { startMove, updateMove, stopMove } = usePtzMove();
 
   const isCompact = width > 0 && width < COMPACT_WIDTH_THRESHOLD;
@@ -59,30 +65,49 @@ export function CameraWidget({ enabled = true }: CameraWidgetProps): ReactNode {
 
   const [modalOpen, setModalOpen] = useState(false);
 
+  const handleDoubleTap = useDoubleTapToCenter({
+    cameraId: selectedId,
+    cameraState: currentState,
+  });
+
   const handleJoystickStart = useCallback(
-    (pan: number, tilt: number) => { if (selectedId) startMove(selectedId, pan, tilt); },
+    (pan: number, tilt: number) => {
+      if (selectedId) startMove(selectedId, pan, tilt);
+    },
     [selectedId, startMove],
   );
   const handleJoystickMove = useCallback(
-    (pan: number, tilt: number) => { if (selectedId) updateMove(pan, tilt); },
+    (pan: number, tilt: number) => {
+      if (selectedId) updateMove(pan, tilt);
+    },
     [selectedId, updateMove],
   );
-  const handleJoystickStop = useCallback(() => { stopMove(); }, [stopMove]);
+  const handleJoystickStop = useCallback(() => {
+    stopMove();
+  }, [stopMove]);
 
   const handleZoomChange = useCallback(
-    (zoom: number) => { if (socket && selectedId) socket.emit(CTS_CAMERA_SET, { cameraId: selectedId, zoom }); },
+    (zoom: number) => {
+      if (socket && selectedId) socket.emit(CTS_CAMERA_SET, { cameraId: selectedId, zoom });
+    },
     [socket, selectedId],
   );
   const handleFocusChange = useCallback(
-    (focus: number) => { if (socket && selectedId) socket.emit(CTS_CAMERA_SET, { cameraId: selectedId, focus }); },
+    (focus: number) => {
+      if (socket && selectedId) socket.emit(CTS_CAMERA_SET, { cameraId: selectedId, focus });
+    },
     [socket, selectedId],
   );
   const handleToggle = useCallback(
-    (field: string, value: boolean) => { if (socket && selectedId) socket.emit(CTS_CAMERA_SET, { cameraId: selectedId, [field]: value }); },
+    (field: string, value: boolean) => {
+      if (socket && selectedId) socket.emit(CTS_CAMERA_SET, { cameraId: selectedId, [field]: value });
+    },
     [socket, selectedId],
   );
   const handlePresetActivate = useCallback(
-    (presetId: string) => { if (socket && selectedId) socket.emit(CTS_CAMERA_PRESET_ACTIVATE, { cameraId: selectedId, presetId }); },
+    (presetId: string) => {
+      if (socket && selectedId) socket.emit(CTS_CAMERA_PRESET_ACTIVATE, { cameraId: selectedId, presetId });
+    },
     [socket, selectedId],
   );
 
@@ -91,7 +116,7 @@ export function CameraWidget({ enabled = true }: CameraWidgetProps): ReactNode {
   const selectedOption = cameraOptions.find((o) => o.value === selectedId) ?? null;
 
   const controlProps = {
-    videoRef,
+    imgRef,
     previewStatus: status,
     connected: currentState?.connected ?? false,
     features,
@@ -99,8 +124,10 @@ export function CameraWidget({ enabled = true }: CameraWidgetProps): ReactNode {
     isAdmin,
     zoom: currentState?.position?.zoom ?? 0,
     zoomMin: currentState?.zoomMin ?? 0,
-    zoomMax: currentState?.zoomMax ?? 1,
-    focus: currentState?.position?.focus ?? 0.5,
+    zoomMax: currentState?.zoomMax ?? 16384,
+    focus: currentState?.position?.focus ?? 0,
+    focusMin: 0,
+    focusMax: 16384,
     autoFocus: currentState?.autoFocus ?? true,
     aiTracking: currentState?.aiTracking ?? false,
     aiTilt: currentState?.aiTilt ?? false,
@@ -117,6 +144,7 @@ export function CameraWidget({ enabled = true }: CameraWidgetProps): ReactNode {
     onJoystickMove: handleJoystickMove,
     onJoystickStop: handleJoystickStop,
     onPresetActivate: handlePresetActivate,
+    onVideoTap: handleDoubleTap,
   };
 
   return (
@@ -135,12 +163,16 @@ export function CameraWidget({ enabled = true }: CameraWidgetProps): ReactNode {
 
         {isCompact ? (
           <div className="preview-video-container" data-testid="camera-preview" onClick={() => setModalOpen(true)}>
-            <video ref={videoRef} className="preview-video" autoPlay playsInline muted style={status !== "streaming" ? { display: "none" } : undefined} />
+            <img ref={imgRef} className="preview-video" alt="Camera preview" style={status !== "streaming" ? { display: "none" } : undefined} />
             {currentState && !currentState.connected && (
-              <div className="preview-overlay" data-testid="camera-offline-overlay">Camera Offline</div>
+              <div className="preview-overlay" data-testid="camera-offline-overlay">
+                Camera Offline
+              </div>
             )}
             {status !== "streaming" && currentState?.connected && (
-              <div className="preview-overlay" data-testid="camera-connecting-overlay">Connecting…</div>
+              <div className="preview-overlay" data-testid="camera-connecting-overlay">
+                Connecting…
+              </div>
             )}
           </div>
         ) : (

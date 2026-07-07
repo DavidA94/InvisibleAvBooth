@@ -118,11 +118,7 @@ export function PtzJoystick({ onMove, onStart, onStop, disabled }: PtzJoystickPr
       style={{ touchAction: "none" }}
     >
       <div className="ptz-joystick-deadzone" />
-      <div
-        className="ptz-joystick-dot"
-        data-testid="ptz-joystick-dot"
-        style={{ left: `${50 + dotPos.x * 40}%`, top: `${50 + dotPos.y * 40}%` }}
-      />
+      <div className="ptz-joystick-dot" data-testid="ptz-joystick-dot" style={{ left: `${50 + dotPos.x * 40}%`, top: `${50 + dotPos.y * 40}%` }} />
     </div>
   );
 }

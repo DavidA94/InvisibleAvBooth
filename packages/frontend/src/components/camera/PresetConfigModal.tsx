@@ -3,8 +3,7 @@ import type { ReactNode } from "react";
 import { IonToggle, IonInput, IonButton, IonSpinner } from "@ionic/react";
 import type { PositionInquiry } from "@invisible-av-booth/shared";
 import { Modal } from "../Modal";
-import { CameraControls } from "./CameraControls";
-import { usePreviewStream } from "../../hooks/usePreviewStream";
+import { CameraWidget } from "./CameraWidget";
 
 interface PresetConfigModalProps {
   open: boolean;
@@ -49,27 +48,24 @@ export function PresetConfigModal({
     }
   }, [open, initialName, initialStoredOnCamera, initialSlot]);
 
-  const { videoRef, status } = usePreviewStream(cameraId ? `/preview/camera/${cameraId}` : "", open && !!cameraId);
-
-  const handleCapture = async (): Promise<void> => {
+  const handleCaptureAndSave = async (): Promise<void> => {
     setCapturing(true);
     const pos = await onCapturePosition();
     setPosition(pos);
     setCapturing(false);
-  };
-
-  const handleSave = (): void => {
-    onSave({ name, storedOnCamera, cameraPresetSlot: storedOnCamera ? slot : null, position });
+    onSave({ name, storedOnCamera, cameraPresetSlot: storedOnCamera ? slot : null, position: pos });
   };
 
   const title = initialName ? `Edit Preset: ${initialName}` : "Create Preset";
 
   const footer = (
     <div className="layout-row gap-standard">
-      <IonButton data-testid="preset-save-btn" disabled={!name || capturing} onClick={() => void handleCapture().then(handleSave)}>
+      <IonButton data-testid="preset-save-btn" disabled={!name || capturing} onClick={() => void handleCaptureAndSave()}>
         {capturing ? <IonSpinner name="crescent" /> : "Capture Position and Save"}
       </IonButton>
-      <IonButton data-testid="preset-cancel-btn" fill="outline" onClick={onClose}>Cancel</IonButton>
+      <IonButton data-testid="preset-cancel-btn" fill="outline" onClick={onClose}>
+        Cancel
+      </IonButton>
     </div>
   );
 
@@ -85,55 +81,32 @@ export function PresetConfigModal({
         clearInput
       />
 
-      <div style={{ marginTop: "0.75rem" }}>
-        <CameraControls
-          videoRef={videoRef}
-          previewStatus={status}
-          connected={true}
-          features={["pan", "tilt", "zoom", "focus"]}
-          aiConfigured={false}
-          isAdmin={true}
-          zoom={0.5}
-          focus={0.5}
-          autoFocus={true}
-          aiTracking={false}
-          aiTilt={false}
-          aiZoom={false}
-          presets={[]}
-          activePresetId={null}
-          onZoomChange={() => {}}
-          onFocusChange={() => {}}
-          onAutoFocusChange={() => {}}
-          onAiTrackingChange={() => {}}
-          onAiTiltChange={() => {}}
-          onAiZoomChange={() => {}}
-          onJoystickStart={() => {}}
-          onJoystickMove={() => {}}
-          onJoystickStop={() => {}}
-          onPresetActivate={() => {}}
-        />
+      {/* Full camera widget — preview, joystick, zoom, all connected via socket */}
+      <div style={{ marginTop: "0.75rem", height: "24rem" }}>
+        <CameraWidget enabled={open} {...(cameraId ? { forceSelectedId: cameraId } : {})} />
       </div>
 
-      <label className="layout-row gap-standard" style={{ margin: "0.75rem 0 0.5rem" }}>
-        <IonToggle data-testid="store-on-camera-toggle" checked={storedOnCamera} onIonChange={(e) => setStoredOnCamera(e.detail.checked)} />
-        Store on Camera
-      </label>
-      {storedOnCamera && (
+      <div className="layout-row gap-standard" style={{ margin: "1rem 0 0.5rem", alignItems: "center" }}>
+        <label className="layout-row gap-standard" style={{ alignItems: "center", cursor: "pointer" }} onClick={() => setStoredOnCamera(!storedOnCamera)}>
+          <IonToggle data-testid="store-on-camera-toggle" checked={storedOnCamera} onIonChange={(e) => setStoredOnCamera(e.detail.checked)} />
+          Store on Camera
+        </label>
         <IonInput
           data-testid="preset-slot-input"
-          label="Camera Slot Number"
+          label="Slot #"
           labelPlacement="stacked"
           fill="outline"
           type="number"
           value={slot !== null ? String(slot) : ""}
           onIonInput={(e) => setSlot(e.detail.value ? Number(e.detail.value) : null)}
+          disabled={!storedOnCamera}
+          style={{ width: "10rem" }}
         />
-      )}
+      </div>
 
       {position && (
         <div data-testid="position-summary" className="text-muted text-secondary" style={{ fontSize: "0.8rem", margin: "0.5rem 0" }}>
-          Pan: {position.pan?.toFixed(2) ?? "N/A"} &nbsp; Tilt: {position.tilt?.toFixed(2) ?? "N/A"} &nbsp;
-          Zoom: {position.zoom?.toFixed(2) ?? "N/A"} &nbsp; Focus: {position.focus?.toFixed(2) ?? "N/A"}
+          Pan: {position.pan ?? "N/A"} &nbsp; Tilt: {position.tilt ?? "N/A"} &nbsp; Zoom: {position.zoom ?? "N/A"} &nbsp; Focus: {position.focus ?? "N/A"}
         </div>
       )}
     </Modal>

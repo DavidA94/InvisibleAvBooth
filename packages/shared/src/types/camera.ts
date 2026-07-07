@@ -41,11 +41,21 @@ export interface CameraState {
   presets: CameraPreset[];
   zoomMin?: number;
   zoomMax?: number;
+  panMin?: number;
+  panMax?: number;
+  tiltMin?: number;
+  tiltMax?: number;
 }
 
 export interface CameraMetadata {
   ndiSourceName: string;
   fovWideAngle: number;
+  /** Vertical FOV at widest zoom in degrees. If not set, calculated from fovWideAngle * 9/16. */
+  verticalFovWideAngle?: number;
+  /** Horizontal FOV at maximum zoom (telephoto) in degrees. Used for accurate FOV interpolation. */
+  fovTeleAngle?: number;
+  /** Vertical FOV at maximum zoom (telephoto) in degrees. */
+  verticalFovTeleAngle?: number;
   opticalZoomRatio: number;
   cameraModel: CameraModel;
   cameraFeatures: CameraFeature[];
@@ -59,6 +69,12 @@ export interface CameraMetadata {
   tiltMax?: number;
   zoomMin?: number;
   zoomMax?: number;
+  focusMin?: number;
+  focusMax?: number;
+  /** Total mechanical pan range in degrees (e.g., 350 for most PTZ cameras). Used for tap-to-center. */
+  panTotalDegrees?: number;
+  /** Total mechanical tilt range in degrees (e.g., 180 for most PTZ cameras). Used for tap-to-center. */
+  tiltTotalDegrees?: number;
 }
 
 export interface ObsMetadata {

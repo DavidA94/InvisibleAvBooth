@@ -28,8 +28,14 @@ export function usePtzMove(): UsePtzMoveResult {
 
   const startMove = useCallback(
     (cameraId: string, pan: number, tilt: number) => {
-      if (!socket) { logger.warn("PTZ move:start — no socket"); return; }
-      if (!socket.connected) { logger.warn("PTZ move:start — socket disconnected"); return; }
+      if (!socket) {
+        logger.warn("PTZ move:start — no socket");
+        return;
+      }
+      if (!socket.connected) {
+        logger.warn("PTZ move:start — socket disconnected");
+        return;
+      }
       cleanup();
       cameraIdRef.current = cameraId;
       speedRef.current = { pan, tilt };

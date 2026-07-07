@@ -1,12 +1,13 @@
 import type { ReactNode, RefObject } from "react";
-import { IonRange, IonToggle, IonIcon } from "@ionic/react";
+import { IonToggle, IonIcon } from "@ionic/react";
 import { searchOutline } from "ionicons/icons";
 import { PtzJoystick } from "./PtzJoystick";
 import type { CameraFeature, CameraPreset } from "@invisible-av-booth/shared";
+import { Slider } from "@mui/material";
 
 export interface CameraControlsProps {
-  /** Ref to the video element for preview */
-  videoRef: RefObject<HTMLVideoElement | null>;
+  /** Ref to the img element for MJPEG preview */
+  imgRef: RefObject<HTMLImageElement | null>;
   /** Preview connection status */
   previewStatus: string;
   /** Whether the camera is connected */
@@ -22,6 +23,8 @@ export interface CameraControlsProps {
   zoomMin: number;
   zoomMax: number;
   focus: number;
+  focusMin: number;
+  focusMax: number;
   autoFocus: boolean;
   aiTracking: boolean;
   aiTilt: boolean;
@@ -40,6 +43,8 @@ export interface CameraControlsProps {
   onJoystickMove: (pan: number, tilt: number) => void;
   onJoystickStop: () => void;
   onPresetActivate: (presetId: string) => void;
+  /** Double-tap-to-center handler for the video preview */
+  onVideoTap?: (e: { clientX: number; clientY: number; currentTarget: Element }) => void;
 }
 
 function hasFeature(features: CameraFeature[], f: CameraFeature): boolean {
@@ -47,7 +52,7 @@ function hasFeature(features: CameraFeature[], f: CameraFeature): boolean {
 }
 
 export function CameraControls({
-  videoRef,
+  imgRef,
   previewStatus,
   connected,
   features,
@@ -57,6 +62,8 @@ export function CameraControls({
   zoomMin,
   zoomMax,
   focus,
+  focusMin,
+  focusMax,
   autoFocus,
   aiTracking,
   aiTilt,
@@ -73,6 +80,7 @@ export function CameraControls({
   onJoystickMove,
   onJoystickStop,
   onPresetActivate,
+  onVideoTap,
 }: CameraControlsProps): ReactNode {
   const hasPan = hasFeature(features, "pan");
   const hasTilt = hasFeature(features, "tilt");
@@ -88,7 +96,15 @@ export function CameraControls({
         {/* Video Preview */}
         <div className="camera-controls-video">
           <div className="preview-video-container" data-testid="camera-preview">
-            <video ref={videoRef} className="preview-video" autoPlay playsInline muted style={previewStatus !== "streaming" ? { display: "none" } : undefined} />
+            <picture className="cross-hairs">
+              <img
+                ref={imgRef}
+                className="preview-video"
+                alt="Camera preview"
+                onClick={onVideoTap ? (e) => onVideoTap(e) : undefined}
+                style={previewStatus !== "streaming" ? { display: "none" } : undefined}
+              />
+            </picture>
             {!connected && (
               <div className="preview-overlay" data-testid="camera-offline-overlay">
                 <p className="margin-none text-muted">Camera Offline</p>
@@ -102,33 +118,19 @@ export function CameraControls({
           </div>
         </div>
 
-        {/* Zoom slider (vertical) — between video and joystick */}
-        {hasZoom && (
-          <div className="camera-controls-zoom" data-testid="camera-zoom-slider">
-            <div className="camera-zoom-wrapper">
-              <IonRange min={zoomMin} max={zoomMax} step={0.01} value={zoom} onIonChange={(e) => onZoomChange(e.detail.value as number)}>
-                <IonIcon slot="end" icon={searchOutline} className="camera-zoom-icon" />
-              </IonRange>
-            </div>
-          </div>
-        )}
-
         {/* Joystick + Presets column */}
         {(showJoystick || presets.length > 0) && (
           <div className="camera-controls-right">
             {showJoystick && (
-              <PtzJoystick
-                onStart={onJoystickStart}
-                onMove={onJoystickMove}
-                onStop={onJoystickStop}
-                disabled={{ pan: !hasPan, tilt: !hasTilt }}
-              />
+              <PtzJoystick onStart={onJoystickStart} onMove={onJoystickMove} onStop={onJoystickStop} disabled={{ pan: !hasPan, tilt: !hasTilt }} />
             )}
 
             {/* Presets */}
             {presets.length > 0 && (
               <div className="camera-controls-presets">
-                <label className="text-muted text-secondary" style={{ fontSize: "0.75rem", marginBottom: "0.25rem" }}>Presets</label>
+                <label className="text-muted text-secondary" style={{ fontSize: "0.75rem", marginBottom: "0.25rem" }}>
+                  Presets
+                </label>
                 {presets.map((p) => (
                   <button
                     key={p.id}
@@ -143,20 +145,49 @@ export function CameraControls({
             )}
           </div>
         )}
+
+        {/* Zoom slider (vertical) — between video and joystick */}
+        {hasZoom && (
+          <div className="camera-controls-zoom" data-testid="camera-zoom-slider">
+            <IonIcon slot="end" icon={searchOutline} className="camera-zoom-icon" /> <br />
+            <Slider
+              orientation="vertical"
+              size="medium"
+              valueLabelDisplay="on"
+              min={0}
+              max={1}
+              step={0.01}
+              value={zoomMax > zoomMin ? (zoom - zoomMin) / (zoomMax - zoomMin) : 0}
+              valueLabelFormat={(v) => `${Math.round(v * 100)}%`}
+              onChange={(_, newValue) => {
+                // Map 0-1 user percentage to the camera's actual zoom range
+                const mapped = zoomMin + (newValue as number) * (zoomMax - zoomMin);
+                onZoomChange(mapped);
+              }}
+            />
+          </div>
+        )}
       </div>
 
       {/* Row 2: Focus bar (width of video) */}
       {isAdmin && hasFocus && (
         <div className="camera-controls-focus" data-testid="camera-focus-slider">
-          <label className="text-muted text-secondary" style={{ fontSize: "0.75rem" }}>Focus</label>
-          <IonRange
+          <label className="text-muted text-secondary" style={{ fontSize: "0.75rem" }}>
+            Focus
+          </label>
+          <Slider
+            size="small"
+            valueLabelDisplay="auto"
             min={0}
             max={1}
             step={0.01}
-            value={focus}
+            value={focusMax > focusMin ? (focus - focusMin) / (focusMax - focusMin) : 0}
+            valueLabelFormat={(v) => `${Math.round(v * 100)}%`}
             disabled={autoFocus}
-            onIonChange={(e) => onFocusChange(e.detail.value as number)}
-            className="camera-focus-range"
+            onChange={(_, newValue) => {
+              const mapped = focusMin + (newValue as number) * (focusMax - focusMin);
+              onFocusChange(mapped);
+            }}
           />
         </div>
       )}

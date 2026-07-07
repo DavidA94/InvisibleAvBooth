@@ -20,7 +20,15 @@ describe("buildInitialState", () => {
   });
 
   it("copies fields from device and clears password when editing", () => {
-    expect(buildInitialState(DEVICE)).toEqual({ label: "Main OBS", host: "10.0.0.1", port: "4455", password: "", enabled: true, ndiOutputName: "", ndiExtraIPs: "" });
+    expect(buildInitialState(DEVICE)).toEqual({
+      label: "Main OBS",
+      host: "10.0.0.1",
+      port: "4455",
+      password: "",
+      enabled: true,
+      ndiOutputName: "",
+      ndiExtraIPs: "",
+    });
   });
 
   it("reads ndiOutputName from metadata", () => {

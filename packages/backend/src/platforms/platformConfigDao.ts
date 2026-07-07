@@ -53,8 +53,7 @@ export class PlatformConfigDao {
 
   upsert(input: UpsertPlatformInput): PlatformConfig {
     const existing = this.database.prepare("SELECT id FROM streaming_platforms WHERE platformType = ? AND label = ?").get(input.platformType, input.label) as
-      | { id: string }
-      | undefined;
+      { id: string } | undefined;
 
     if (existing) {
       this.database

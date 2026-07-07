@@ -5,10 +5,25 @@ import type { AuthService } from "./authService.js";
 import { logger } from "../logger.js";
 import { eventBus } from "../eventBus/eventBus.js";
 import { BUS_DEVICE_CAPABILITIES_UPDATED } from "../eventBus/types.js";
+import {
+  PREVIEW_AUDIO_SAMPLE_RATE,
+  PREVIEW_AUDIO_CHANNELS,
+  PREVIEW_AUDIO_CHUNK_MS,
+  MJPEG_WIDTH,
+  MJPEG_HEIGHT,
+  MJPEG_FRAMERATE,
+  MJPEG_QUALITY,
+  FMP4_WIDTH,
+  FMP4_HEIGHT,
+  FMP4_FRAMERATE,
+  PREVIEW_MSG_VIDEO,
+  PREVIEW_MSG_AUDIO,
+} from "@invisible-av-booth/shared";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
-export const PREVIEW_RESOLUTION = { width: 1280, height: 720 };
+export const PREVIEW_RESOLUTION = { width: FMP4_WIDTH, height: FMP4_HEIGHT };
+export const MJPEG_RESOLUTION = { width: MJPEG_WIDTH, height: MJPEG_HEIGHT };
 export const MAX_PREVIEW_STREAMS = 4;
 export const GRACE_PERIOD_MS = 3000;
 export const MAX_RESTART_ATTEMPTS = 3;
@@ -21,10 +36,14 @@ export type GstEncoder = { element: string; options: string } | null;
 
 // ── Interfaces ───────────────────────────────────────────────────────────────
 
+export type PreviewMode = "fmp4" | "mjpeg";
+
 export interface PreviewSource {
   sourceId: string;
   ndiName: string;
+  mode: PreviewMode;
   process: ChildProcess | null;
+  audioProcess: ChildProcess | null;
   subscribers: Set<WebSocket>;
   initSegment: Buffer | null;
   graceTimeout: ReturnType<typeof setTimeout> | null;
@@ -45,6 +64,7 @@ export class PreviewStreamManager {
   private sources = new Map<string, PreviewSource>();
   private encoder: GstEncoder = null;
   private gstreamerAvailable = false;
+  private previewMode: PreviewMode = "mjpeg";
   private authService: AuthService;
   private spawnFn: SpawnFn;
   private signalCleanupRegistered = false;
@@ -117,10 +137,14 @@ export class PreviewStreamManager {
   setSourceAvailable(sourceId: string, available: boolean, ndiName: string): void {
     let source = this.sources.get(sourceId);
     if (!source) {
+      // All sources use MJPEG for low latency; OBS additionally gets a separate audio stream
+      const mode: PreviewMode = "mjpeg";
       source = {
         sourceId,
         ndiName,
+        mode,
         process: null,
+        audioProcess: null,
         subscribers: new Set(),
         initSegment: null,
         graceTimeout: null,
@@ -193,7 +217,9 @@ export class PreviewStreamManager {
       source = {
         sourceId,
         ndiName: "",
+        mode: "mjpeg" as PreviewMode,
         process: null,
+        audioProcess: null,
         subscribers: new Set(),
         initSegment: null,
         graceTimeout: null,
@@ -207,7 +233,9 @@ export class PreviewStreamManager {
 
     source.subscribers.add(ws);
     (ws as WebSocket & { isAlive?: boolean }).isAlive = true;
-    ws.on("pong", () => { (ws as WebSocket & { isAlive?: boolean }).isAlive = true; });
+    ws.on("pong", () => {
+      (ws as WebSocket & { isAlive?: boolean }).isAlive = true;
+    });
     logger.info(`Preview [${source.sourceId}]: subscriber connected (total: ${source.subscribers.size})`);
 
     if (source.graceTimeout) {
@@ -215,7 +243,7 @@ export class PreviewStreamManager {
       source.graceTimeout = null;
     }
 
-    if (source.initSegment && ws.readyState === WebSocket.OPEN) {
+    if (source.mode === "fmp4" && source.initSegment && ws.readyState === WebSocket.OPEN) {
       ws.send(source.initSegment);
     }
 
@@ -245,47 +273,100 @@ export class PreviewStreamManager {
 
   private spawnPipeline(source: PreviewSource): void {
     if (this.destroyed || !this.gstreamerAvailable) return;
-    const args = buildGstreamerArgs(source.ndiName, this.encoder, source.withAudio);
-    logger.info(`Preview spawning pipeline for ${source.sourceId}`, { context: { args: args.join(" ") } });
+
+    const args = source.mode === "mjpeg" ? buildMjpegArgs(source.ndiName) : buildGstreamerArgs(source.ndiName, this.encoder, source.withAudio);
+
+    logger.info(`Preview spawning ${source.mode} pipeline for ${source.sourceId}`, { context: { args: args.join(" ") } });
     const proc = this.spawnFn("gst-launch-1.0", args);
     source.process = proc;
     source.initSegment = null;
 
-    let initBuffer = Buffer.alloc(0);
-    let initDone = false;
+    if (source.mode === "mjpeg") {
+      // MJPEG: accumulate bytes until we find a complete JPEG (SOI→EOI), then send it
+      let frameBuffer = Buffer.alloc(0);
 
-    proc.stdout?.on("data", (chunk: Buffer) => {
-      // Reset restart counter after sustained successful streaming
-      if (!source.restartResetTimer && source.restartCount > 0) {
-        source.restartResetTimer = setTimeout(() => {
-          source.restartCount = 0;
-          source.restartResetTimer = null;
-        }, RESTART_RESET_MS);
-      }
+      proc.stdout?.on("data", (chunk: Buffer) => {
+        if (!source.restartResetTimer && source.restartCount > 0) {
+          source.restartResetTimer = setTimeout(() => {
+            source.restartCount = 0;
+            source.restartResetTimer = null;
+          }, RESTART_RESET_MS);
+        }
 
-      if (!initDone) {
-        initBuffer = Buffer.concat([initBuffer, chunk]);
-        const moovIdx = findBox(initBuffer, "moov");
-        if (moovIdx >= 0) {
-          const moovEnd = moovIdx + readBoxSize(initBuffer, moovIdx);
-          if (moovEnd <= initBuffer.length) {
-            source.initSegment = initBuffer.subarray(0, moovEnd);
-            initDone = true;
-            for (const ws of source.subscribers) {
-              if (ws.readyState === WebSocket.OPEN) {
-                ws.send(source.initSegment);
-              }
-            }
-            const remainder = initBuffer.subarray(moovEnd);
-            if (remainder.length > 0) {
-              this.fanOut(source, remainder);
-            }
+        frameBuffer = Buffer.concat([frameBuffer, chunk]);
+
+        // Extract all complete JPEG frames from buffer
+        while (frameBuffer.length > 4) {
+          // Find SOI marker (0xFFD8)
+          const soiIdx = frameBuffer.indexOf(Buffer.from([0xff, 0xd8]));
+          if (soiIdx < 0) {
+            frameBuffer = Buffer.alloc(0);
+            break;
+          }
+          if (soiIdx > 0) {
+            frameBuffer = frameBuffer.subarray(soiIdx);
+          }
+
+          // Find EOI marker (0xFFD9) after SOI
+          const eoiIdx = frameBuffer.indexOf(Buffer.from([0xff, 0xd9]), 2);
+          if (eoiIdx < 0) break; // incomplete frame, wait for more data
+
+          const frame = frameBuffer.subarray(0, eoiIdx + 2);
+          frameBuffer = frameBuffer.subarray(eoiIdx + 2);
+
+          // Prefix with type byte when source carries audio
+          if (source.withAudio) {
+            const prefixed = Buffer.allocUnsafe(1 + frame.length);
+            prefixed[0] = PREVIEW_MSG_VIDEO;
+            frame.copy(prefixed, 1);
+            this.fanOut(source, prefixed);
+          } else {
+            this.fanOut(source, frame);
           }
         }
-      } else {
-        this.fanOut(source, chunk);
+      });
+
+      // Spawn separate audio pipeline for sources that need it
+      if (source.withAudio) {
+        this.spawnAudioPipeline(source);
       }
-    });
+    } else {
+      // fMP4: existing init segment + fragment logic
+      let initBuffer = Buffer.alloc(0);
+      let initDone = false;
+
+      proc.stdout?.on("data", (chunk: Buffer) => {
+        if (!source.restartResetTimer && source.restartCount > 0) {
+          source.restartResetTimer = setTimeout(() => {
+            source.restartCount = 0;
+            source.restartResetTimer = null;
+          }, RESTART_RESET_MS);
+        }
+
+        if (!initDone) {
+          initBuffer = Buffer.concat([initBuffer, chunk]);
+          const moovIdx = findBox(initBuffer, "moov");
+          if (moovIdx >= 0) {
+            const moovEnd = moovIdx + readBoxSize(initBuffer, moovIdx);
+            if (moovEnd <= initBuffer.length) {
+              source.initSegment = initBuffer.subarray(0, moovEnd);
+              initDone = true;
+              for (const ws of source.subscribers) {
+                if (ws.readyState === WebSocket.OPEN) {
+                  ws.send(source.initSegment);
+                }
+              }
+              const remainder = initBuffer.subarray(moovEnd);
+              if (remainder.length > 0) {
+                this.fanOut(source, remainder);
+              }
+            }
+          }
+        } else {
+          this.fanOut(source, chunk);
+        }
+      });
+    }
 
     proc.on("close", (code) => {
       logger.info(`Preview pipeline exited for ${source.sourceId} with code ${code}`);
@@ -327,6 +408,47 @@ export class PreviewStreamManager {
     });
   }
 
+  private spawnAudioPipeline(source: PreviewSource): void {
+    if (this.destroyed || !this.gstreamerAvailable) return;
+    const args = buildAudioArgs(source.ndiName);
+    logger.info(`Preview spawning audio pipeline for ${source.sourceId}`, { context: { args: args.join(" ") } });
+    const audioProc = this.spawnFn("gst-launch-1.0", args);
+    source.audioProcess = audioProc;
+
+    // PCM audio comes as a continuous byte stream. Split into chunks based on configured duration.
+    const bytesPerChunk = (PREVIEW_AUDIO_SAMPLE_RATE * PREVIEW_AUDIO_CHANNELS * 2 * PREVIEW_AUDIO_CHUNK_MS) / 1000;
+    let audioBuffer = Buffer.alloc(0);
+
+    audioProc.stdout?.on("data", (chunk: Buffer) => {
+      audioBuffer = Buffer.concat([audioBuffer, chunk]);
+
+      while (audioBuffer.length >= bytesPerChunk) {
+        const audioChunk = audioBuffer.subarray(0, bytesPerChunk);
+        audioBuffer = audioBuffer.subarray(bytesPerChunk);
+
+        // Prefix with audio type byte
+        const prefixed = Buffer.allocUnsafe(1 + audioChunk.length);
+        prefixed[0] = PREVIEW_MSG_AUDIO;
+        audioChunk.copy(prefixed, 1);
+        this.fanOut(source, prefixed);
+      }
+    });
+
+    audioProc.on("close", (code) => {
+      logger.info(`Audio pipeline exited for ${source.sourceId} with code ${code}`);
+      source.audioProcess = null;
+      // Don't restart audio independently — it will restart with the video pipeline
+    });
+
+    audioProc.stderr?.on("data", (chunk: Buffer) => {
+      logger.debug(`Audio pipeline stderr [${source.sourceId}]: ${chunk.toString().trim()}`);
+    });
+
+    audioProc.on("error", () => {
+      source.audioProcess = null;
+    });
+  }
+
   private fanOut(source: PreviewSource, data: Buffer): void {
     for (const ws of source.subscribers) {
       if (ws.readyState === WebSocket.OPEN) {
@@ -339,6 +461,10 @@ export class PreviewStreamManager {
     if (source.process) {
       source.process.kill("SIGTERM");
       source.process = null;
+    }
+    if (source.audioProcess) {
+      source.audioProcess.kill("SIGTERM");
+      source.audioProcess = null;
     }
   }
 
@@ -385,12 +511,12 @@ export function buildGstreamerArgs(ndiName: string, encoder: GstEncoder, withAud
   args.push("ndisrc", `ndi-name="${ndiName}"`, "do-timestamp=true", "!");
   args.push("decodebin", "name=dec");
 
-  // Video branch: decode → drop/scale/rate to 15fps 720p → encode → mux
+  // Video branch: decode → drop/scale/rate → encode → mux
   args.push("dec.", "!");
   args.push("queue", "max-size-buffers=1", "max-size-time=0", "max-size-bytes=0", "leaky=downstream", "!");
   args.push("videoconvert", "!");
   args.push("videoscale", "!", `video/x-raw,width=${width},height=${height}`, "!");
-  args.push("videorate", "!", "video/x-raw,framerate=15/1", "!");
+  args.push("videorate", "!", `video/x-raw,framerate=${FMP4_FRAMERATE}/1`, "!");
   args.push(...enc.element.split(" "), ...enc.options.split(" "), "!");
   args.push("h264parse", "!", "mux.");
 
@@ -409,12 +535,52 @@ export function buildGstreamerArgs(ndiName: string, encoder: GstEncoder, withAud
   return args;
 }
 
+export function buildMjpegArgs(ndiName: string): string[] {
+  const { width, height } = MJPEG_RESOLUTION;
+
+  const args = ["-q", "-e"];
+
+  // ndisrc → decodebin → scale to 480p → rate limit → JPEG encode → stdout
+  args.push("ndisrc", `ndi-name="${ndiName}"`, "do-timestamp=true", "!");
+  args.push("decodebin", "!");
+  args.push("queue", "max-size-buffers=1", "max-size-time=0", "max-size-bytes=0", "leaky=downstream", "!");
+  args.push("videoconvert", "!");
+  args.push("videoscale", "!", `video/x-raw,width=${width},height=${height}`, "!");
+  args.push("videorate", "!", `video/x-raw,framerate=${MJPEG_FRAMERATE}/1`, "!");
+  args.push("jpegenc", `quality=${MJPEG_QUALITY}`, "!");
+  args.push("fdsink", "fd=1");
+
+  return args;
+}
+
+export function buildAudioArgs(ndiName: string): string[] {
+  const args = ["-q", "-e"];
+
+  // ndisrc → decodebin → audio only → resample → raw PCM s16le → stdout
+  args.push("ndisrc", `ndi-name="${ndiName}"`, "do-timestamp=true", "!");
+  args.push("decodebin", "!");
+  args.push("queue", "max-size-buffers=1", "max-size-time=0", "max-size-bytes=0", "leaky=downstream", "!");
+  args.push("audioconvert", "!");
+  args.push("audioresample", "!");
+  args.push(`audio/x-raw,format=S16LE,rate=${PREVIEW_AUDIO_SAMPLE_RATE},channels=${PREVIEW_AUDIO_CHANNELS}`, "!");
+  args.push("fdsink", "fd=1");
+
+  return args;
+}
+
 export async function probeEncoder(spawnFn: SpawnFn): Promise<GstEncoder> {
-  const candidates: Array<{ probe: string; element: string; options: string }> = [
-    { probe: "qsvh264enc", element: "qsvh264enc", options: "target-usage=7 key-int-max=15" },
-    { probe: "vaapih264enc", element: "vaapih264enc", options: "rate-control=cqp key-int-max=15" },
-    { probe: "nvh264enc", element: "nvh264enc", options: "preset=low-latency gop-size=15" },
+  const candidates: Array<{ probe: string; element: string; options: string; description: string }> = [
+    {
+      probe: "qsvh264enc",
+      element: "qsvh264enc",
+      options: "target-usage=7 gop-size=15 low-latency=true ref-frames=1",
+      description: "Intel QSV (Quick Sync Video)",
+    },
+    { probe: "vaapih264enc", element: "vaapih264enc", options: "rate-control=cqp keyframe-period=15", description: "VA-API (Intel/AMD)" },
+    { probe: "nvh264enc", element: "nvh264enc", options: "preset=low-latency gop-size=15", description: "NVIDIA NVENC" },
   ];
+
+  const probeResults: string[] = [];
 
   for (const c of candidates) {
     const ok = await new Promise<boolean>((resolve) => {
@@ -422,8 +588,20 @@ export async function probeEncoder(spawnFn: SpawnFn): Promise<GstEncoder> {
       proc.on("close", (code) => resolve(code === 0));
       proc.on("error", () => resolve(false));
     });
-    if (ok) return { element: c.element, options: c.options };
+    if (ok) {
+      probeResults.push(`${c.probe} (${c.description}): ✓ available`);
+      logger.info("Hardware encoder probe results", { context: { results: probeResults } });
+      return { element: c.element, options: c.options };
+    }
+    probeResults.push(`${c.probe} (${c.description}): ✗ not found`);
   }
+
+  logger.warn(
+    "No hardware encoder found — falling back to software x264enc. Install gstreamer1.0-plugins-bad with Intel QSV support for hardware acceleration.",
+    {
+      context: { probeResults },
+    },
+  );
   return null;
 }
 

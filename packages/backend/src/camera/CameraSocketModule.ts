@@ -49,7 +49,10 @@ export class CameraSocketModule implements SocketModule {
     socket.on(
       CTS_CAMERA_SET,
       (payload: { cameraId: string; zoom?: number; focus?: number; autoFocus?: boolean; aiTracking?: boolean; aiTilt?: boolean; aiZoom?: boolean }) => {
-        logger.debug("Camera set command", { userId: jwtPayload.sub, context: { cameraId: payload.cameraId, fields: Object.keys(payload).filter((k) => k !== "cameraId") } });
+        logger.debug("Camera set command", {
+          userId: jwtPayload.sub,
+          context: { cameraId: payload.cameraId, fields: Object.keys(payload).filter((k) => k !== "cameraId") },
+        });
         // Role enforcement: AvVolunteer can only set zoom
         if (role === "AvVolunteer") {
           if (payload.zoom !== undefined) {
@@ -73,14 +76,12 @@ export class CameraSocketModule implements SocketModule {
 
     socket.on(CTS_CAMERA_PTZ_TAP_TO_CENTER, (payload: { cameraId: string; offsetX: number; offsetY: number }) => {
       logger.info("Tap-to-center received", { userId: jwtPayload.sub, context: { cameraId: payload.cameraId } });
-      this.cameraService.tapToCenter(payload.cameraId, payload.offsetX, payload.offsetY, {
-        ndiSourceName: "",
-        fovWideAngle: 60,
-        opticalZoomRatio: 20,
-        cameraModel: "generic",
-        cameraFeatures: [],
-        viscaEnabled: false,
-      });
+      const meta = this.cameraService.getCameraMetadata(payload.cameraId);
+      if (!meta) {
+        logger.warn("Tap-to-center: camera metadata not found", { context: { cameraId: payload.cameraId } });
+        return;
+      }
+      this.cameraService.tapToCenter(payload.cameraId, payload.offsetX, payload.offsetY, meta);
     });
   }
 

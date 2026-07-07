@@ -148,7 +148,13 @@ export function createFakeNmsFactory(): NmsFactory {
 
 export function createFakeSpawn(): SpawnFn {
   return vi.fn().mockImplementation((cmd: string, args: string[]) => {
-    const child = new EventEmitter() as EventEmitter & { stdout: EventEmitter | null; stderr: EventEmitter | null; stdin: null; kill: ReturnType<typeof vi.fn>; pid: number };
+    const child = new EventEmitter() as EventEmitter & {
+      stdout: EventEmitter | null;
+      stderr: EventEmitter | null;
+      stdin: null;
+      kill: ReturnType<typeof vi.fn>;
+      pid: number;
+    };
     child.stdout = null;
     child.stderr = new EventEmitter() as EventEmitter;
     child.stdin = null;

@@ -6,6 +6,8 @@ import type { AuthService } from "../services/authService.js";
 import { requireRole } from "../middleware/auth.js";
 import { encrypt, decrypt } from "../crypto.js";
 import { logger } from "../logger.js";
+import { eventBus } from "../eventBus/eventBus.js";
+import { BUS_CAMERA_DEVICE_CHANGED, BUS_OBS_CONFIG_CHANGED } from "../eventBus/types.js";
 
 interface DeviceRow {
   id: string;
@@ -100,6 +102,8 @@ export function createAdminDeviceRouter(database: Database, authService: AuthSer
     logger.info("Device connection created", { userId: request.jwtPayload!.sub, context: { deviceId: id } });
 
     const row = database.prepare("SELECT * FROM device_connections WHERE id = ?").get(id) as DeviceRow;
+    if (deviceType === "camera-ptz") eventBus.emit(BUS_CAMERA_DEVICE_CHANGED, { action: "created", deviceId: id });
+    if (deviceType === "obs") eventBus.emit(BUS_OBS_CONFIG_CHANGED, { action: "created", deviceId: id });
     response.status(201).json(toPublic(row));
   });
 
@@ -152,18 +156,23 @@ export function createAdminDeviceRouter(database: Database, authService: AuthSer
     logger.info("Device connection updated", { userId: request.jwtPayload!.sub, context: { deviceId: row.id } });
 
     const updated = database.prepare("SELECT * FROM device_connections WHERE id = ?").get(row.id) as DeviceRow;
+    if (row.deviceType === "camera-ptz") eventBus.emit(BUS_CAMERA_DEVICE_CHANGED, { action: "updated", deviceId: row.id });
+    if (row.deviceType === "obs") eventBus.emit(BUS_OBS_CONFIG_CHANGED, { action: "updated", deviceId: row.id });
     response.json(toPublic(updated));
   });
 
   // DELETE /admin/devices/:id
   router.delete("/:id", adminOnly, (request: Request, response: Response): void => {
-    const row = database.prepare("SELECT id FROM device_connections WHERE id = ?").get(request.params["id"]);
+    const row = database.prepare("SELECT id, deviceType FROM device_connections WHERE id = ?").get(request.params["id"]) as
+      { id: string; deviceType: string } | undefined;
     if (!row) {
       response.status(404).json({ error: "Device not found" });
       return;
     }
     database.prepare("DELETE FROM device_connections WHERE id = ?").run(request.params["id"]);
     logger.info("Device connection deleted", { userId: request.jwtPayload!.sub, context: { deviceId: request.params["id"] } });
+    if (row.deviceType === "camera-ptz") eventBus.emit(BUS_CAMERA_DEVICE_CHANGED, { action: "deleted", deviceId: row.id });
+    if (row.deviceType === "obs") eventBus.emit(BUS_OBS_CONFIG_CHANGED, { action: "deleted", deviceId: row.id });
     response.status(204).send();
   });
 

@@ -1,4 +1,10 @@
-import type { BUS_OBS_STATE_CHANGED, BUS_OBS_ERROR, BUS_OBS_ERROR_RESOLVED, BUS_DEVICE_CAPABILITIES_UPDATED } from "../../../eventBus/types.js";
+import type {
+  BUS_OBS_STATE_CHANGED,
+  BUS_OBS_ERROR,
+  BUS_OBS_ERROR_RESOLVED,
+  BUS_DEVICE_CAPABILITIES_UPDATED,
+  BUS_OBS_CONFIG_CHANGED,
+} from "../../../eventBus/types.js";
 import type { CapabilitiesObject } from "../../../eventBus/types.js";
 import type { ObsState } from "@invisible-av-booth/shared";
 
@@ -44,4 +50,5 @@ export interface ObsEventMap {
   [BUS_OBS_ERROR]: ObsErrorEvent;
   [BUS_OBS_ERROR_RESOLVED]: { errorCode: string };
   [BUS_DEVICE_CAPABILITIES_UPDATED]: { deviceId: string; capabilities: CapabilitiesObject };
+  [BUS_OBS_CONFIG_CHANGED]: { action: string; deviceId: string };
 }

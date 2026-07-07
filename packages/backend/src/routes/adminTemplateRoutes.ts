@@ -7,6 +7,8 @@ import { MetadataTemplateDao } from "../dao/metadataTemplateDao.js";
 import { validateTemplate } from "../validation/templateValidation.js";
 import type { ValidationInput } from "../validation/templateValidation.js";
 import { logger } from "../logger.js";
+import { eventBus } from "../eventBus/eventBus.js";
+import { BUS_TEMPLATES_CHANGED } from "../eventBus/types.js";
 
 export function createAdminTemplateRouter(database: Database, authService: AuthService): Router {
   const router = Router();
@@ -63,6 +65,7 @@ export function createAdminTemplateRouter(database: Database, authService: AuthS
       ...(autoDismissMs !== undefined ? { autoDismissMs } : {}),
     } as Parameters<typeof dao.create>[0]);
     logger.info("Template created", { userId: request.jwtPayload!.sub, context: { templateId: template.id } });
+    eventBus.emit(BUS_TEMPLATES_CHANGED, { action: "created", templateId: template.id });
     response.status(201).json(template);
   });
 
@@ -102,6 +105,7 @@ export function createAdminTemplateRouter(database: Database, authService: AuthS
         ...(autoDismissMs !== undefined ? { autoDismissMs } : {}),
       } as Parameters<typeof dao.update>[1]);
       logger.info("Template updated", { userId: request.jwtPayload!.sub, context: { templateId: id } });
+      eventBus.emit(BUS_TEMPLATES_CHANGED, { action: "updated", templateId: id });
       response.json(updated);
     } catch (error) {
       response.status(400).json({ error: (error as Error).message });
@@ -118,6 +122,7 @@ export function createAdminTemplateRouter(database: Database, authService: AuthS
         return;
       }
       logger.info("Template deleted", { userId: request.jwtPayload!.sub, context: { templateId: id } });
+      eventBus.emit(BUS_TEMPLATES_CHANGED, { action: "deleted", templateId: id });
       response.status(204).send();
     } catch (error) {
       response.status(400).json({ error: (error as Error).message });

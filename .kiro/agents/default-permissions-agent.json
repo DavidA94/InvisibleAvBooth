@@ -5,7 +5,7 @@
   "allowedTools": ["read", "shell", "glob", "grep", "code", "web_search", "web_fetch", "knowledge", "subagent", "todo_list", "introspect"],
   "toolsSettings": {
     "write": {
-      "allowedPaths": ["/mnt/c/Users/David/Documents/Programming/HTML/InvisibleAvBooth/**/*"]
+      "allowedPaths": ["/mnt/c/Users/David/Documents/Programming/HTML/InvisibleAvBooth/**/*", "/home/bmbc/invisible-av/**/*"]
     },
     "shell": {
       "allowedCommands": ["^cd(\\s|$)", "^ls(\\s|$)", "^cat(\\s|$)", "^echo(\\s|$)", "^grep(\\s|$)", "^npm(\\s|$)", "^head(\\s|$)", "^tail(\\s|$)"]

@@ -30,13 +30,21 @@ cd "$SCRIPT_DIR/.." || exit 1
 info "Installing required libraries"
 sudo apt update
 sudo apt install \
-    nodejs npm \
-    ffmpeg \
     caddy \
     flatpak \
     avahi-daemon avahi-discover avahi-utils mdns-scan \
     curl \
     -y --no-install-recommends
+
+# Node / NPM
+wget -qO- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.5/install.sh | bash
+source ~/.bashrc
+nvm install --lts
+
+# ffmpeg v7
+sudo add-apt-repository ppa:ubuntuhandbook1/ffmpeg7 -y
+sudo apt update
+sudo apt install ffmpeg
 
 # Gstreamer
 sudo apt-get install -y --no-install-recommends \
@@ -49,7 +57,13 @@ sudo apt-get install -y --no-install-recommends \
   libgstreamer1.0-dev \
   libgstreamer-plugins-base1.0-dev \
   gstreamer1.0-vaapi \
-  libavahi-client3
+  libavahi-client3 \
+  intel-media-va-driver-non-free \
+  libmfx-gen1.2 \
+  libvpl2 \
+  vainfo
+
+sudo usermod -aG render,video $(whoami)
 
 info "Ensuring avahi-daemon is running..."
 sudo systemctl enable --now avahi-daemon 2>/dev/null || true
@@ -60,12 +74,11 @@ sudo systemctl disable caddy.service
 
 info "Generating and installing the cert"
 ./scripts/generate-cert.sh
-sudo cp certs/localhost.crt /usr/local/share/ca-certificates/invisible-av.crt
-sudo update-ca-certificates
 
-info "Opening ports 80 and 443 in the firewall"
+info "Opening ports 80, 443, and 3080 in the firewall"
 sudo ufw allow 443/tcp
 sudo ufw allow 80/tcp
+sudo ufw allow 3080/tcp
 
 ./scripts/create-secret-key.sh
 
@@ -101,7 +114,7 @@ wget https://downloads.ndi.tv/SDK/NDI_SDK_Linux/Install_NDI_Advanced_SDK_v6_Linu
 tar xf Install_NDI_Advanced_SDK_v6_Linux.tar.gz
 chmod +x Install_NDI_Advanced_SDK_v6_Linux.sh
 yes | ./Install_NDI_Advanced_SDK_v6_Linux.sh
-sudo cp -P ./${NDI_SOURCE_DIR}*.* /usr/local/lib
+sudo cp -P "./${NDI_SOURCE_DIR}"*.* /usr/local/lib
 sudo ldconfig
 cd "$SCRIPT_DIR/.."
 

@@ -114,7 +114,6 @@ export function buildApp(deps: AppDependencies): AppContext {
   app.use("/api/logs", mustBeAuthenticated, mustHaveChangedPassword, createLogRouter(authService));
   app.use("/api/kjv", mustBeAuthenticated, mustHaveChangedPassword, createKjvRouter(database, authService));
   app.use("/api/admin/templates", mustBeAuthenticated, mustHaveChangedPassword, createAdminTemplateRouter(database, authService));
-  app.use("/api/admin/cameras/:cameraId/presets", mustBeAuthenticated, mustHaveChangedPassword, createPresetRouter(database, authService));
   app.use("/api/templates", mustBeAuthenticated, mustHaveChangedPassword, createTemplateRouter(database, authService));
 
   const httpServer = createServer(app);
@@ -135,20 +134,23 @@ export function buildApp(deps: AppDependencies): AppContext {
   const obsNdiPreviewSource = new ObsNdiPreviewSource(database, previewManager);
   const cameraService = new CameraService(database, previewManager);
 
+  // Preset routes need cameraService for position capture
+  app.use("/api/admin/cameras/:cameraId/presets", mustBeAuthenticated, mustHaveChangedPassword, createPresetRouter(database, authService, cameraService));
+
   // Discover endpoint — ad-hoc VISCA connection for range discovery
   app.get("/api/admin/cameras/discover/:axis", mustBeAuthenticated, mustHaveChangedPassword, async (req, res) => {
     const axis = req.params.axis as string;
     const ip = req.query.ip as string | undefined;
     const port = req.query.port as string | undefined;
-    if (!["pan", "tilt", "zoom"].includes(axis)) {
-      res.status(400).json({ error: "Invalid axis. Must be pan, tilt, or zoom." });
+    if (!["pan", "tilt", "zoom", "focus"].includes(axis)) {
+      res.status(400).json({ error: "Invalid axis. Must be pan, tilt, zoom, or focus." });
       return;
     }
     if (!ip || !port) {
       res.status(400).json({ error: "Query params ip and port are required." });
       return;
     }
-    const result = await cameraService.discoverRange(ip, Number(port), axis as "pan" | "tilt" | "zoom");
+    const result = await cameraService.discoverRange(ip, Number(port), axis as "pan" | "tilt" | "zoom" | "focus");
     if (!result.success) {
       res.status(result.status ?? 500).json({ error: result.error });
       return;

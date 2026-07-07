@@ -29,7 +29,12 @@ interface CameraFormState {
   host: string;
   port: string;
   fovWideAngle: string;
+  verticalFovWideAngle: string;
+  fovTeleAngle: string;
+  verticalFovTeleAngle: string;
   opticalZoomRatio: string;
+  panTotalDegrees: string;
+  tiltTotalDegrees: string;
   features: CameraFeature[];
   aiHttpCookie: string;
   aiCredentialId: string;
@@ -40,12 +45,15 @@ interface CameraFormState {
   tiltMax: string;
   zoomMin: string;
   zoomMax: string;
+  focusMin: string;
+  focusMax: string;
 }
 
 interface PresetRow {
   id: string;
   name: string;
   storedOnCamera: boolean;
+  cameraPresetSlot: number | null;
   sortOrder: number;
 }
 
@@ -55,7 +63,7 @@ type ProbeResult = { status: "success" } | { status: "error"; message: string } 
 
 const ALL_FEATURES: CameraFeature[] = ["pan", "tilt", "zoom", "focus"];
 const AI_FEATURES: CameraFeature[] = ["ai-tracking", "ai-tracking-tilt", "ai-tracking-zoom"];
-const PTZ_FEATURES: CameraFeature[] = ["pan", "tilt", "zoom"];
+const PTZ_FEATURES: CameraFeature[] = ["pan", "tilt", "zoom", "focus"];
 
 const MODEL_OPTIONS: Array<{ value: CameraModel; label: string }> = [
   { value: "generic", label: "Generic" },
@@ -76,17 +84,24 @@ function buildInitialState(device: DeviceRecord | null): CameraFormState {
       host: device.host,
       port: String(device.port),
       fovWideAngle: String((meta.fovWideAngle as number) ?? 60),
+      verticalFovWideAngle: String((meta.verticalFovWideAngle as number) ?? ""),
+      fovTeleAngle: meta.fovTeleAngle !== undefined ? String(meta.fovTeleAngle) : "",
+      verticalFovTeleAngle: meta.verticalFovTeleAngle !== undefined ? String(meta.verticalFovTeleAngle) : "",
       opticalZoomRatio: String((meta.opticalZoomRatio as number) ?? 20),
       features: (meta.cameraFeatures as CameraFeature[]) ?? [...ALL_FEATURES],
       aiHttpCookie: "",
       aiCredentialId: "",
       enabled: device.enabled,
-      panMin: meta.panMin != null ? String(meta.panMin) : "",
-      panMax: meta.panMax != null ? String(meta.panMax) : "",
-      tiltMin: meta.tiltMin != null ? String(meta.tiltMin) : "",
-      tiltMax: meta.tiltMax != null ? String(meta.tiltMax) : "",
-      zoomMin: meta.zoomMin != null ? String(meta.zoomMin) : "",
-      zoomMax: meta.zoomMax != null ? String(meta.zoomMax) : "",
+      panMin: meta.panMin !== undefined ? String(meta.panMin) : "",
+      panMax: meta.panMax !== undefined ? String(meta.panMax) : "",
+      tiltMin: meta.tiltMin !== undefined ? String(meta.tiltMin) : "",
+      tiltMax: meta.tiltMax !== undefined ? String(meta.tiltMax) : "",
+      zoomMin: meta.zoomMin !== undefined ? String(meta.zoomMin) : "",
+      zoomMax: meta.zoomMax !== undefined ? String(meta.zoomMax) : "",
+      focusMin: meta.focusMin !== undefined ? String(meta.focusMin) : "",
+      focusMax: meta.focusMax !== undefined ? String(meta.focusMax) : "",
+      panTotalDegrees: meta.panTotalDegrees !== undefined ? String(meta.panTotalDegrees) : "350",
+      tiltTotalDegrees: meta.tiltTotalDegrees !== undefined ? String(meta.tiltTotalDegrees) : "180",
     };
   }
   return {
@@ -98,6 +113,9 @@ function buildInitialState(device: DeviceRecord | null): CameraFormState {
     host: "",
     port: "5500",
     fovWideAngle: "60",
+    verticalFovWideAngle: "",
+    fovTeleAngle: "",
+    verticalFovTeleAngle: "",
     opticalZoomRatio: "20",
     features: [...ALL_FEATURES],
     aiHttpCookie: "",
@@ -109,6 +127,10 @@ function buildInitialState(device: DeviceRecord | null): CameraFormState {
     tiltMax: "",
     zoomMin: "",
     zoomMax: "",
+    focusMin: "",
+    focusMax: "",
+    panTotalDegrees: "350",
+    tiltTotalDegrees: "180",
   };
 }
 
@@ -121,7 +143,12 @@ function isFormDirty(current: CameraFormState, initial: CameraFormState, isEdit:
   if (current.host !== initial.host) return true;
   if (current.port !== initial.port) return true;
   if (current.fovWideAngle !== initial.fovWideAngle) return true;
+  if (current.verticalFovWideAngle !== initial.verticalFovWideAngle) return true;
+  if (current.fovTeleAngle !== initial.fovTeleAngle) return true;
+  if (current.verticalFovTeleAngle !== initial.verticalFovTeleAngle) return true;
   if (current.opticalZoomRatio !== initial.opticalZoomRatio) return true;
+  if (current.panTotalDegrees !== initial.panTotalDegrees) return true;
+  if (current.tiltTotalDegrees !== initial.tiltTotalDegrees) return true;
   if (current.enabled !== initial.enabled) return true;
   if (JSON.stringify(current.features) !== JSON.stringify(initial.features)) return true;
   if (isEdit && (current.aiHttpCookie !== "" || current.aiCredentialId !== "")) return true;
@@ -149,7 +176,8 @@ export function CameraDeviceForm({ device, onSaved, onDeleted, registerDirtyChec
   const [presetModalOpen, setPresetModalOpen] = useState(false);
   const [editingPreset, setEditingPreset] = useState<PresetRow | null>(null);
   const [probeResult, setProbeResult] = useState<ProbeResult>(null);
-  const [discovering, setDiscovering] = useState<"pan" | "tilt" | "zoom" | null>(null);
+  const [discovering, setDiscovering] = useState<"pan" | "tilt" | "zoom" | "focus" | null>(null);
+  const [discoverError, setDiscoverError] = useState<string | null>(null);
 
   const formRef = useRef(form);
   formRef.current = form;
@@ -182,32 +210,42 @@ export function CameraDeviceForm({ device, onSaved, onDeleted, registerDirtyChec
     setForm((prev) => ({ ...prev, features: checked ? [...prev.features, f] : prev.features.filter((x) => x !== f) }));
   }, []);
 
-  const handleDiscover = useCallback(async (axis: "pan" | "tilt" | "zoom") => {
-    if (discovering) return;
-    if (!form.host || !form.port) {
-      setError("VISCA IP and port required for discovery");
-      return;
-    }
-    setDiscovering(axis);
-    try {
-      const r = await fetch(`/api/admin/cameras/discover/${axis}?ip=${encodeURIComponent(form.host)}&port=${encodeURIComponent(form.port)}`, { credentials: "include" });
-      if (r.ok) {
-        const data = (await r.json()) as { min: number; max: number };
-        setForm((prev) => ({
-          ...prev,
-          [`${axis}Min`]: String(data.min),
-          [`${axis}Max`]: String(data.max),
-        }));
-      } else {
-        const err = (await r.json()) as { error?: string };
-        setError(err.error ?? `Discovery failed for ${axis}`);
+  const handleDiscover = useCallback(
+    async (axis: "pan" | "tilt" | "zoom" | "focus") => {
+      if (discovering) return;
+      if (!form.host || !form.port) {
+        setError("VISCA IP and port required for discovery");
+        return;
       }
-    } catch {
-      setError(`Network error during ${axis} discovery`);
-    } finally {
-      setDiscovering(null);
-    }
-  }, [discovering, form.host, form.port]);
+      setDiscovering(axis);
+      try {
+        const r = await fetch(`/api/admin/cameras/discover/${axis}?ip=${encodeURIComponent(form.host)}&port=${encodeURIComponent(form.port)}`, {
+          credentials: "include",
+        });
+        if (r.ok) {
+          const data = (await r.json()) as { min: number; max: number };
+          setForm((prev) => ({
+            ...prev,
+            [`${axis}Min`]: String(data.min),
+            [`${axis}Max`]: String(data.max),
+          }));
+        } else {
+          const err = (await r.json()) as { error?: string };
+          const message = err.error ?? `Discovery failed for ${axis}`;
+          setDiscoverError(
+            `${axis.charAt(0).toUpperCase() + axis.slice(1)} discovery failed: ${message}\n\nWithout min/max values, features like tap-to-center, zoom control, and presets may not work correctly for this axis.`,
+          );
+        }
+      } catch {
+        setDiscoverError(
+          `Network error during ${axis} discovery.\n\nWithout min/max values, features like tap-to-center, zoom control, and presets may not work correctly for this axis.`,
+        );
+      } finally {
+        setDiscovering(null);
+      }
+    },
+    [discovering, form.host, form.port],
+  );
 
   const requiresVisca = viscaRequired(form.features);
   const viscaMissing = requiresVisca && !form.viscaEnabled;
@@ -224,6 +262,9 @@ export function CameraDeviceForm({ device, onSaved, onDeleted, registerDirtyChec
         cameraModel: form.cameraModel,
         viscaEnabled: form.viscaEnabled,
         fovWideAngle: Number(form.fovWideAngle),
+        ...(form.verticalFovWideAngle ? { verticalFovWideAngle: Number(form.verticalFovWideAngle) } : {}),
+        ...(form.fovTeleAngle ? { fovTeleAngle: Number(form.fovTeleAngle) } : {}),
+        ...(form.verticalFovTeleAngle ? { verticalFovTeleAngle: Number(form.verticalFovTeleAngle) } : {}),
         opticalZoomRatio: Number(form.opticalZoomRatio),
         cameraFeatures: form.features,
         ...(form.panMin ? { panMin: Number(form.panMin) } : {}),
@@ -232,6 +273,10 @@ export function CameraDeviceForm({ device, onSaved, onDeleted, registerDirtyChec
         ...(form.tiltMax ? { tiltMax: Number(form.tiltMax) } : {}),
         ...(form.zoomMin ? { zoomMin: Number(form.zoomMin) } : {}),
         ...(form.zoomMax ? { zoomMax: Number(form.zoomMax) } : {}),
+        ...(form.focusMin ? { focusMin: Number(form.focusMin) } : {}),
+        ...(form.focusMax ? { focusMax: Number(form.focusMax) } : {}),
+        ...(form.panTotalDegrees ? { panTotalDegrees: Number(form.panTotalDegrees) } : {}),
+        ...(form.tiltTotalDegrees ? { tiltTotalDegrees: Number(form.tiltTotalDegrees) } : {}),
       };
       if (form.cameraModel !== "generic") {
         if (form.aiHttpCookie) metadata["aiHttpCookie"] = form.aiHttpCookie;
@@ -316,9 +361,7 @@ export function CameraDeviceForm({ device, onSaved, onDeleted, registerDirtyChec
       aiTilt: false,
       aiZoom: false,
     };
-    const url = editingPreset
-      ? `/api/admin/cameras/${device.id}/presets/${editingPreset.id}`
-      : `/api/admin/cameras/${device.id}/presets`;
+    const url = editingPreset ? `/api/admin/cameras/${device.id}/presets/${editingPreset.id}` : `/api/admin/cameras/${device.id}/presets`;
     const method = editingPreset ? "PUT" : "POST";
     try {
       const r = await fetch(url, { method, headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify(body) });
@@ -336,7 +379,7 @@ export function CameraDeviceForm({ device, onSaved, onDeleted, registerDirtyChec
   const handleCapturePosition = async (): Promise<PositionInquiry> => {
     if (!device) return { pan: null, tilt: null, zoom: null, focus: null, autoFocus: null };
     try {
-      const r = await fetch(`/api/admin/cameras/${device.id}/capture-position`, { method: "POST", credentials: "include" });
+      const r = await fetch(`/api/admin/cameras/${device.id}/presets/capture-position`, { method: "POST", credentials: "include" });
       if (r.ok) return (await r.json()) as PositionInquiry;
     } catch {
       /* ignore */
@@ -380,7 +423,9 @@ export function CameraDeviceForm({ device, onSaved, onDeleted, registerDirtyChec
       />
 
       <div>
-        <label className="text-muted text-secondary" style={{ fontSize: "0.75rem", marginBottom: "0.125rem", display: "block" }}>Camera Model</label>
+        <label className="text-muted text-secondary" style={{ fontSize: "0.75rem", marginBottom: "0.125rem", display: "block" }}>
+          Camera Model
+        </label>
         <Select
           options={MODEL_OPTIONS}
           value={selectedModel}
@@ -452,7 +497,7 @@ export function CameraDeviceForm({ device, onSaved, onDeleted, registerDirtyChec
 
       <div className="manifest-scripture-row">
         <IonInput
-          label="FOV Wide Angle (°)"
+          label="H FOV Wide (°)"
           labelPlacement="stacked"
           fill="outline"
           type="number"
@@ -461,7 +506,39 @@ export function CameraDeviceForm({ device, onSaved, onDeleted, registerDirtyChec
           className="fill-remaining"
         />
         <IonInput
-          label="Optical Zoom Ratio (×)"
+          label="H FOV Tele (°)"
+          labelPlacement="stacked"
+          fill="outline"
+          type="number"
+          placeholder="optional"
+          value={form.fovTeleAngle}
+          onIonInput={(e) => updateField("fovTeleAngle", e.detail.value ?? "")}
+          className="fill-remaining"
+        />
+        <IonInput
+          label="V FOV Wide (°)"
+          labelPlacement="stacked"
+          fill="outline"
+          type="number"
+          placeholder="auto"
+          value={form.verticalFovWideAngle}
+          onIonInput={(e) => updateField("verticalFovWideAngle", e.detail.value ?? "")}
+          className="fill-remaining"
+        />
+        <IonInput
+          label="V FOV Tele (°)"
+          labelPlacement="stacked"
+          fill="outline"
+          type="number"
+          placeholder="optional"
+          value={form.verticalFovTeleAngle}
+          onIonInput={(e) => updateField("verticalFovTeleAngle", e.detail.value ?? "")}
+          className="fill-remaining"
+        />
+      </div>
+      <div className="manifest-scripture-row">
+        <IonInput
+          label="Optical Zoom (×)"
           labelPlacement="stacked"
           fill="outline"
           type="number"
@@ -469,12 +546,32 @@ export function CameraDeviceForm({ device, onSaved, onDeleted, registerDirtyChec
           onIonInput={(e) => updateField("opticalZoomRatio", e.detail.value ?? "20")}
           className="fill-remaining"
         />
+        <IonInput
+          label="Pan Total (°)"
+          labelPlacement="stacked"
+          fill="outline"
+          type="number"
+          value={form.panTotalDegrees}
+          onIonInput={(e) => updateField("panTotalDegrees", e.detail.value ?? "350")}
+          className="fill-remaining"
+        />
+        <IonInput
+          label="Tilt Total (°)"
+          labelPlacement="stacked"
+          fill="outline"
+          type="number"
+          value={form.tiltTotalDegrees}
+          onIonInput={(e) => updateField("tiltTotalDegrees", e.detail.value ?? "180")}
+          className="fill-remaining"
+        />
       </div>
 
       {/* AI Config (non-generic only) */}
       {form.cameraModel !== "generic" && (
         <>
-          <h4 className="text-muted" style={{ margin: "0.75rem 0 0.25rem" }}>AI Tracking Configuration</h4>
+          <h4 className="text-muted" style={{ margin: "0.75rem 0 0.25rem" }}>
+            AI Tracking Configuration
+          </h4>
           <IonInput
             label="HTTP Cookie"
             labelPlacement="stacked"
@@ -499,9 +596,11 @@ export function CameraDeviceForm({ device, onSaved, onDeleted, registerDirtyChec
       )}
 
       {/* Features Section */}
-      <h4 className="text-muted" style={{ margin: "0.75rem 0 0.25rem" }}>Features</h4>
+      <h4 className="text-muted" style={{ margin: "0.75rem 0 0.25rem" }}>
+        Features
+      </h4>
       {ALL_FEATURES.map((f) => {
-        const isPtz = (["pan", "tilt", "zoom"] as string[]).includes(f);
+        const isPtz = PTZ_FEATURES.includes(f);
         const enabled = form.features.includes(f);
         const axisDiscovering = discovering === f;
         return (
@@ -519,7 +618,7 @@ export function CameraDeviceForm({ device, onSaved, onDeleted, registerDirtyChec
                   value={form[`${f}Min` as keyof CameraFormState] as string}
                   onIonInput={(e) => updateField(`${f}Min` as keyof CameraFormState, e.detail.value ?? "")}
                   disabled={!enabled || axisDiscovering}
-                  style={{ width: "5rem" }}
+                  style={{ width: "6rem" }}
                 />
                 <IonInput
                   label="Max"
@@ -530,9 +629,14 @@ export function CameraDeviceForm({ device, onSaved, onDeleted, registerDirtyChec
                   value={form[`${f}Max` as keyof CameraFormState] as string}
                   onIonInput={(e) => updateField(`${f}Max` as keyof CameraFormState, e.detail.value ?? "")}
                   disabled={!enabled || axisDiscovering}
-                  style={{ width: "5rem" }}
+                  style={{ width: "6rem" }}
                 />
-                <IonButton size="small" fill="outline" disabled={!enabled || !!discovering || !form.viscaEnabled} onClick={() => handleDiscover(f as "pan" | "tilt" | "zoom")}>
+                <IonButton
+                  size="small"
+                  fill="outline"
+                  disabled={!enabled || !!discovering || !form.viscaEnabled}
+                  onClick={() => handleDiscover(f as "pan" | "tilt" | "zoom" | "focus")}
+                >
                   {axisDiscovering ? <IonSpinner name="crescent" /> : "Discover"}
                 </IonButton>
               </>
@@ -551,8 +655,14 @@ export function CameraDeviceForm({ device, onSaved, onDeleted, registerDirtyChec
       {/* Presets Section (edit mode only) */}
       {isEdit && (
         <>
-          <h4 className="text-muted" style={{ margin: "0.75rem 0 0.25rem" }}>Presets</h4>
-          {presets.length === 0 && <p className="text-muted text-secondary" style={{ fontSize: "0.8rem" }}>No presets configured.</p>}
+          <h4 className="text-muted" style={{ margin: "0.75rem 0 0.25rem" }}>
+            Presets
+          </h4>
+          {presets.length === 0 && (
+            <p className="text-muted text-secondary" style={{ fontSize: "0.8rem" }}>
+              No presets configured.
+            </p>
+          )}
           <IonReorderGroup
             disabled={false}
             onIonItemReorder={(e: CustomEvent<ItemReorderEventDetail>) => {
@@ -567,14 +677,34 @@ export function CameraDeviceForm({ device, onSaved, onDeleted, registerDirtyChec
                 <IonReorder slot="start" />
                 <IonLabel>{p.name}</IonLabel>
                 <span slot="end" className="text-muted text-secondary" style={{ fontSize: "0.75rem", marginRight: "0.5rem" }}>
-                  {p.storedOnCamera ? "On Camera" : "Software Only"}
+                  {p.storedOnCamera ? `On Camera${p.cameraPresetSlot !== null ? ` (${p.cameraPresetSlot})` : ""}` : "Software Only"}
                 </span>
-                <IonButton slot="end" size="small" fill="clear" onClick={() => { setEditingPreset(p); setPresetModalOpen(true); }}>Edit</IonButton>
-                <IonButton slot="end" size="small" fill="clear" color="danger" onClick={() => setPresetDeleteId(p.id)}>Delete</IonButton>
+                <IonButton
+                  slot="end"
+                  size="small"
+                  fill="clear"
+                  onClick={() => {
+                    setEditingPreset(p);
+                    setPresetModalOpen(true);
+                  }}
+                >
+                  Edit
+                </IonButton>
+                <IonButton slot="end" size="small" fill="clear" color="danger" onClick={() => setPresetDeleteId(p.id)}>
+                  Delete
+                </IonButton>
               </IonItem>
             ))}
           </IonReorderGroup>
-          <IonButton size="small" fill="outline" style={{ marginTop: "0.5rem" }} onClick={() => { setEditingPreset(null); setPresetModalOpen(true); }}>
+          <IonButton
+            size="small"
+            fill="outline"
+            style={{ marginTop: "0.5rem" }}
+            onClick={() => {
+              setEditingPreset(null);
+              setPresetModalOpen(true);
+            }}
+          >
             Add Preset
           </IonButton>
         </>
@@ -647,15 +777,29 @@ export function CameraDeviceForm({ device, onSaved, onDeleted, registerDirtyChec
       {isEdit && (
         <PresetConfigModal
           open={presetModalOpen}
-          onClose={() => { setPresetModalOpen(false); setEditingPreset(null); }}
+          onClose={() => {
+            setPresetModalOpen(false);
+            setEditingPreset(null);
+          }}
           onSave={(data) => void handlePresetSave(data)}
           onCapturePosition={handleCapturePosition}
           cameraId={device.id}
           initialName={editingPreset?.name ?? ""}
           initialStoredOnCamera={editingPreset?.storedOnCamera ?? false}
-          initialSlot={null}
+          initialSlot={editingPreset?.cameraPresetSlot ?? null}
         />
       )}
+
+      <ConfirmationModal
+        isOpen={!!discoverError}
+        title="Discovery Failed"
+        body={discoverError ?? ""}
+        confirmLabel="Acknowledge"
+        cancelLabel="Close"
+        confirmVariant="danger"
+        onConfirm={() => setDiscoverError(null)}
+        onCancel={() => setDiscoverError(null)}
+      />
     </div>
   );
 }

@@ -21,7 +21,7 @@ type Result<T, E> = { success: true; value: T } | { success: false; error: E };
 import type { MetadataTemplateDao, MetadataTemplateRow } from "../dao/metadataTemplateDao.js";
 import type { SessionManifestService } from "./sessionManifestService.js";
 import { eventBus } from "../eventBus/eventBus.js";
-import { BUS_LOWER_THIRD_STATE_CHANGED, BUS_SESSION_MANIFEST_UPDATED } from "../eventBus/types.js";
+import { BUS_LOWER_THIRD_STATE_CHANGED, BUS_SESSION_MANIFEST_UPDATED, BUS_TEMPLATES_CHANGED } from "../eventBus/types.js";
 import { logger } from "../logger.js";
 
 const TOKEN_PATTERN = /\{(\w+)\}/g;
@@ -52,6 +52,7 @@ export class LowerThirdService {
     private readonly manifestService: SessionManifestService,
   ) {
     eventBus.subscribe(BUS_SESSION_MANIFEST_UPDATED, () => this.recomputeTemplateItems());
+    eventBus.subscribe(BUS_TEMPLATES_CHANGED, () => this.recomputeTemplateItems());
   }
 
   // ── Overlay Communication ─────────────────────────────────────────────────

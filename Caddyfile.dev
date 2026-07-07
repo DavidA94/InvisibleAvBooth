@@ -16,3 +16,20 @@ invisible.av, localhost {
 		reverse_proxy localhost:5173
 	}
 }
+
+# HTTP-only overlay endpoint for OBS browser sources.
+# OBS's embedded Chromium (CEF) cannot easily trust self-signed certs,
+# so the overlay is served over plain HTTP. This is safe because:
+#   - The overlay namespace is unauthenticated
+#   - It only runs locally inside OBS on the same machine
+#   - No sensitive data is transmitted
+:3080 {
+	@backend path /api/* /socket.io/*
+	handle @backend {
+		reverse_proxy localhost:3001
+	}
+
+	handle {
+		reverse_proxy localhost:5173
+	}
+}

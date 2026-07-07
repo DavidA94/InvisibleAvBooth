@@ -12,37 +12,10 @@ const CAM_FOCUS_POS_INQ = Buffer.from([VISCA_HEADER, 0x09, 0x04, 0x48, VISCA_TER
 const CAM_FOCUS_AF_MODE_INQ = Buffer.from([VISCA_HEADER, 0x09, 0x04, 0x38, VISCA_TERMINATOR]);
 const CAM_POWER_INQ = Buffer.from([VISCA_HEADER, 0x09, 0x04, 0x00, VISCA_TERMINATOR]);
 
-// Normalization constants
-const ZOOM_MAX_RAW = 0x4000;
-const FOCUS_MAX_RAW = 0x4000;
-const PAN_MAX_RAW = 0xffff;
-
-export function normalizeZoom(raw: number): number {
-  return raw / ZOOM_MAX_RAW;
-}
-
-export function denormalizeZoom(normalized: number): number {
-  return Math.round(normalized * ZOOM_MAX_RAW);
-}
-
-export function normalizeFocus(raw: number): number {
-  return raw / FOCUS_MAX_RAW;
-}
-
-export function denormalizeFocus(normalized: number): number {
-  return Math.round(normalized * FOCUS_MAX_RAW);
-}
-
-export function normalizePan(raw: number): number {
-  // Signed 16-bit: center = 0, range -1 to 1
-  const signed = raw > 0x7fff ? raw - 0x10000 : raw;
-  return signed / (PAN_MAX_RAW / 2);
-}
-
-export function denormalizePan(normalized: number): number {
-  const raw = Math.round(normalized * (PAN_MAX_RAW / 2));
-  return raw < 0 ? raw + 0x10000 : raw;
-}
+// Normalization constants — REMOVED. All positions are now raw VISCA integers.
+// Pan/tilt: unsigned 16-bit (0–65535)
+// Zoom: unsigned 14-bit (0–16384)
+// Focus: unsigned 14-bit (0–16384)
 
 export function buildViscaPositionFromResponse(data: Buffer): number {
   // VISCA position response: y0 50 0p 0q 0r 0s FF → value = pqrs
@@ -126,8 +99,8 @@ export class ViscaCameraDriver {
       if (ptResp.length >= 11) {
         const panRaw = ((ptResp[2]! & 0x0f) << 12) | ((ptResp[3]! & 0x0f) << 8) | ((ptResp[4]! & 0x0f) << 4) | (ptResp[5]! & 0x0f);
         const tiltRaw = ((ptResp[6]! & 0x0f) << 12) | ((ptResp[7]! & 0x0f) << 8) | ((ptResp[8]! & 0x0f) << 4) | (ptResp[9]! & 0x0f);
-        result.pan = normalizePan(panRaw);
-        result.tilt = normalizePan(tiltRaw);
+        result.pan = panRaw;
+        result.tilt = tiltRaw;
       }
     } catch {
       // axis unknown
@@ -136,7 +109,7 @@ export class ViscaCameraDriver {
     try {
       const zResp = await this.sendCommand(CAM_ZOOM_POS_INQ);
       if (zResp.length >= 7) {
-        result.zoom = normalizeZoom(buildViscaPositionFromResponse(zResp));
+        result.zoom = buildViscaPositionFromResponse(zResp);
       }
     } catch {
       // axis unknown
@@ -145,7 +118,7 @@ export class ViscaCameraDriver {
     try {
       const fResp = await this.sendCommand(CAM_FOCUS_POS_INQ);
       if (fResp.length >= 7) {
-        result.focus = normalizeFocus(buildViscaPositionFromResponse(fResp));
+        result.focus = buildViscaPositionFromResponse(fResp);
       }
     } catch {
       // axis unknown
@@ -181,8 +154,11 @@ export class ViscaCameraDriver {
 
   async panTiltAbsolute(pan: number, tilt: number): Promise<void> {
     if (!this.connected) await this.connect();
-    const panRaw = denormalizePan(pan);
-    const tiltRaw = denormalizePan(tilt);
+    const panRaw = Math.round(pan) & 0xffff;
+    const tiltRaw = Math.round(tilt) & 0xffff;
+    logger.debug("VISCA panTiltAbsolute", {
+      context: { inputPan: pan, inputTilt: tilt, panRaw, tiltRaw, panHex: `0x${panRaw.toString(16)}`, tiltHex: `0x${tiltRaw.toString(16)}` },
+    });
     // 81 01 06 02 VV WW 0p 0q 0r 0s 0t 0u 0v 0w FF
     const cmd = Buffer.from([
       VISCA_HEADER,
@@ -210,9 +186,33 @@ export class ViscaCameraDriver {
 
   async zoomAbsolute(zoom: number): Promise<void> {
     if (!this.connected) await this.connect();
-    const raw = denormalizeZoom(zoom);
+    const raw = Math.round(zoom) & 0xffff;
+    logger.debug("VISCA zoomAbsolute", { context: { inputZoom: zoom, raw, hex: `0x${raw.toString(16)}` } });
     // 81 01 04 47 0p 0q 0r 0s FF
     const cmd = Buffer.from([VISCA_HEADER, 0x01, 0x04, 0x47, (raw >> 12) & 0x0f, (raw >> 8) & 0x0f, (raw >> 4) & 0x0f, raw & 0x0f, VISCA_TERMINATOR]);
+    try {
+      await this.sendCommand(cmd);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  /** Zoom at a given speed. speed > 0 = tele (zoom in), speed < 0 = wide (zoom out), 0 = stop. */
+  async zoomSpeed(speed: number): Promise<void> {
+    if (!this.connected) await this.connect();
+    let cmd: Buffer;
+    if (speed === 0) {
+      // Stop: 81 01 04 07 00 FF
+      cmd = Buffer.from([VISCA_HEADER, 0x01, 0x04, 0x07, 0x00, VISCA_TERMINATOR]);
+    } else if (speed > 0) {
+      // Tele (zoom in): 81 01 04 07 2p FF (p = speed 0-7)
+      const p = Math.min(7, Math.max(0, Math.round(Math.abs(speed) * 7)));
+      cmd = Buffer.from([VISCA_HEADER, 0x01, 0x04, 0x07, 0x20 | p, VISCA_TERMINATOR]);
+    } else {
+      // Wide (zoom out): 81 01 04 07 3p FF (p = speed 0-7)
+      const p = Math.min(7, Math.max(0, Math.round(Math.abs(speed) * 7)));
+      cmd = Buffer.from([VISCA_HEADER, 0x01, 0x04, 0x07, 0x30 | p, VISCA_TERMINATOR]);
+    }
     try {
       await this.sendCommand(cmd);
     } catch {
@@ -241,12 +241,67 @@ export class ViscaCameraDriver {
       /* ignore */
     }
     // Set position: 81 01 04 48 0p 0q 0r 0s FF
-    const raw = denormalizeFocus(position);
+    const raw = Math.round(position) & 0x3fff;
     const cmd = Buffer.from([VISCA_HEADER, 0x01, 0x04, 0x48, (raw >> 12) & 0x0f, (raw >> 8) & 0x0f, (raw >> 4) & 0x0f, raw & 0x0f, VISCA_TERMINATOR]);
     try {
       await this.sendCommand(cmd);
     } catch {
       /* ignore */
+    }
+  }
+
+  /** Focus at a given speed. speed > 0 = far, speed < 0 = near, 0 = stop. */
+  async focusSpeed(speed: number): Promise<void> {
+    if (!this.connected) await this.connect();
+    let cmd: Buffer;
+    if (speed === 0) {
+      // Stop: 81 01 04 08 00 FF
+      cmd = Buffer.from([VISCA_HEADER, 0x01, 0x04, 0x08, 0x00, VISCA_TERMINATOR]);
+    } else if (speed > 0) {
+      // Far: 81 01 04 08 2p FF (p = speed 0-7)
+      const p = Math.min(7, Math.max(0, Math.round(Math.abs(speed) * 7)));
+      cmd = Buffer.from([VISCA_HEADER, 0x01, 0x04, 0x08, 0x20 | p, VISCA_TERMINATOR]);
+    } else {
+      // Near: 81 01 04 08 3p FF (p = speed 0-7)
+      const p = Math.min(7, Math.max(0, Math.round(Math.abs(speed) * 7)));
+      cmd = Buffer.from([VISCA_HEADER, 0x01, 0x04, 0x08, 0x30 | p, VISCA_TERMINATOR]);
+    }
+    try {
+      await this.sendCommand(cmd);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  /** Recall an on-camera preset by slot number (0-255). */
+  async presetRecall(slot: number): Promise<void> {
+    if (!this.connected) await this.connect();
+    // VISCA preset recall: 81 01 04 3F 02 pp FF (pp = preset number 0x00–0xFF)
+    const pp = Math.max(0, Math.min(255, slot)) & 0xff;
+    logger.debug("VISCA presetRecall", {
+      context: { slot, pp, cmdHex: Buffer.from([VISCA_HEADER, 0x01, 0x04, 0x3f, 0x02, pp, VISCA_TERMINATOR]).toString("hex") },
+    });
+    const cmd = Buffer.from([VISCA_HEADER, 0x01, 0x04, 0x3f, 0x02, pp, VISCA_TERMINATOR]);
+    try {
+      const resp = await this.sendCommand(cmd);
+      logger.debug("VISCA presetRecall response", { context: { responseHex: resp.toString("hex"), responseLength: resp.length } });
+    } catch (err) {
+      logger.warn("VISCA presetRecall failed", { context: { error: err instanceof Error ? err.message : String(err) } });
+    }
+  }
+
+  /** Store the current camera position to an on-camera preset slot (0-255). */
+  async presetStore(slot: number): Promise<void> {
+    if (!this.connected) await this.connect();
+    // VISCA preset set/store: 81 01 04 3F 01 pp FF (pp = preset number 0x00–0xFF)
+    const pp = Math.max(0, Math.min(255, slot)) & 0xff;
+    logger.debug("VISCA presetStore", { context: { slot, pp } });
+    const cmd = Buffer.from([VISCA_HEADER, 0x01, 0x04, 0x3f, 0x01, pp, VISCA_TERMINATOR]);
+    try {
+      const resp = await this.sendCommand(cmd);
+      logger.debug("VISCA presetStore response", { context: { responseHex: resp.toString("hex") } });
+    } catch (err) {
+      logger.warn("VISCA presetStore failed", { context: { error: err instanceof Error ? err.message : String(err) } });
     }
   }
 

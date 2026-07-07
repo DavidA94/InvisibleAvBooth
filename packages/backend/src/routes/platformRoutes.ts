@@ -167,8 +167,7 @@ function handleOAuthCallback(
   }
 
   const row = database.prepare("SELECT * FROM oauth_states WHERE state = ? AND platformType = ?").get(state, platformType) as
-    | { state: string; createdAt: string }
-    | undefined;
+    { state: string; createdAt: string } | undefined;
 
   // Cleanup stale states
   const cutoff = new Date(Date.now() - OAUTH_STATE_TTL_MS).toISOString();

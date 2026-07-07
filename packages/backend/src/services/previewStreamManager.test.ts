@@ -193,7 +193,9 @@ describe("checkGstreamerPath", () => {
 
   it("returns false when execSync throws", async () => {
     const { execSync } = vi.mocked(await import("child_process"));
-    execSync.mockImplementation(() => { throw new Error("not found"); });
+    execSync.mockImplementation(() => {
+      throw new Error("not found");
+    });
     expect(checkGstreamerPath()).toBe(false);
   });
 });
@@ -234,7 +236,9 @@ describe("PreviewStreamManager", () => {
   describe("initialize", () => {
     it("sets gstreamerAvailable to false when gst-launch-1.0 not found", async () => {
       const { execSync } = vi.mocked(await import("child_process"));
-      execSync.mockImplementation(() => { throw new Error("not found"); });
+      execSync.mockImplementation(() => {
+        throw new Error("not found");
+      });
       await manager.initialize();
       expect(manager.isAvailable()).toBe(false);
     });

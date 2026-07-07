@@ -1,10 +1,9 @@
-import { useState, useCallback, useEffect } from "react";
+import { useCallback, useEffect } from "react";
 import type { ReactNode } from "react";
 import { WidgetContainer } from "../WidgetContainer";
 import type { ConnectionStatus } from "../WidgetContainer";
 import { MuteButton } from "./MuteButton";
-import { StreamPreviewModal } from "./StreamPreviewModal";
-import { usePreviewStream } from "../../hooks/usePreviewStream";
+import { useObsPreviewStream } from "../../hooks/useObsPreviewStream";
 import { useStore } from "../../store";
 import { TEST_ID_OBS_PREVIEW_WIDGET, TEST_ID_OBS_PREVIEW_VIDEO, TEST_ID_OBS_PREVIEW_INACTIVE, TEST_ID_OBS_PREVIEW_RECONNECTING } from "../../constants/testIds";
 
@@ -20,9 +19,7 @@ function deriveConnectionStatus(status: string, ndiConfigured: boolean): Connect
 }
 
 export function ObsPreviewWidget({ enabled = true, ndiConfigured = false }: ObsPreviewWidgetProps): ReactNode {
-  const { status, videoRef, reconnect } = usePreviewStream("/preview/obs", enabled && ndiConfigured);
-  const [muted, setMuted] = useState(true);
-  const [modalOpen, setModalOpen] = useState(false);
+  const { status, imgRef, reconnect, muted, setMuted } = useObsPreviewStream("/preview/obs", enabled && ndiConfigured);
   const setObsPreviewStatus = useStore((s) => s.setObsPreviewStatus);
 
   useEffect(() => {
@@ -32,26 +29,20 @@ export function ObsPreviewWidget({ enabled = true, ndiConfigured = false }: ObsP
   }, [status, setObsPreviewStatus]);
 
   const toggleMute = useCallback(() => {
-    setMuted((m) => {
-      const next = !m;
-      if (videoRef.current) videoRef.current.muted = next;
-      return next;
-    });
-  }, [videoRef]);
+    setMuted(!muted);
+  }, [muted, setMuted]);
 
   const connection = deriveConnectionStatus(status, ndiConfigured);
 
   return (
     <div data-testid={TEST_ID_OBS_PREVIEW_WIDGET} className="full-height">
       <WidgetContainer title="OBS Preview" connections={[connection]}>
-        <div className="preview-video-container" onClick={() => status === "streaming" && setModalOpen(true)}>
-          <video
+        <div className="preview-video-container">
+          <img
             data-testid={TEST_ID_OBS_PREVIEW_VIDEO}
-            ref={videoRef}
+            ref={imgRef}
             className="preview-video"
-            autoPlay
-            playsInline
-            muted={muted}
+            alt="OBS preview"
             style={status !== "streaming" ? { display: "none" } : undefined}
           />
 
@@ -83,8 +74,6 @@ export function ObsPreviewWidget({ enabled = true, ndiConfigured = false }: ObsP
           {status === "streaming" && <MuteButton muted={muted} onToggle={toggleMute} />}
         </div>
       </WidgetContainer>
-
-      <StreamPreviewModal open={modalOpen} onDismiss={() => setModalOpen(false)} videoRef={videoRef} muted={muted} onToggleMute={toggleMute} />
     </div>
   );
 }

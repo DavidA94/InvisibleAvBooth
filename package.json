@@ -5,6 +5,11 @@
   "workspaces": [
     "packages/*"
   ],
+  "allowScripts": {
+    "esbuild": true,
+    "bcrypt": true,
+    "better-sqlite3": true
+  },
   "scripts": {
     "ci": "npm run lint && npm run format:check && npm run build && npm run test:coverage && npm run test:e2e --workspaces --if-present",
     "build": "npm run build --workspaces --if-present",
