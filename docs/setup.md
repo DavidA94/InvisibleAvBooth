@@ -1,43 +1,29 @@
 # Setup Guide
 
-## Prerequisites
-
-- Node.js 20+
-- [Caddy](https://caddyserver.com/docs/install) — reverse proxy for HTTPS and unified routing
-- [FFmpeg](https://ffmpeg.org/download.html) — required for multi-platform streaming relay (minimum version 4.4 recommended; must be on PATH)
-- GStreamer + NDI plugin — required for video preview (run `bash scripts/install-gstreamer-ndi.sh`)
-- `bibledb_kjv.sql` in the repo root (not committed — obtain separately)
-- OBS Studio installed with **H.264 video codec and AAC audio codec** configured (required for `-c copy` compatibility with the RTMP relay)
+This guide walks through a complete installation of Invisible A/V Booth from a fresh machine to a working system. Follow the steps in order — each depends on the ones before it.
 
 ---
 
-## 1. Install Caddy
+## 1. Run the Environment Setup Script
 
-Follow the [official install guide](https://caddyserver.com/docs/install) for your platform. Caddy is a single binary with no dependencies.
-
-After installing, generate the TLS certificate:
+The setup script installs all system-level dependencies: Node.js (via nvm), Caddy, FFmpeg, GStreamer, the NDI SDK, OBS Studio (via Flatpak with DistroAV plugin), generates TLS certificates, opens firewall ports, generates the device encryption key, installs npm packages, and optionally seeds the dashboard.
 
 ```bash
-bash scripts/generate-cert.sh
+bash scripts/setup-dev-environment.sh
 ```
 
-This creates a self-signed certificate in `certs/` valid for `invisible.av` and `localhost` (CN=invisible.av, O=Invisible AV Booth, OU=Development, 10-year expiry).
+The script is interactive — it will prompt for sudo and ask whether to seed the dashboard (say **Yes** on first install).
 
-### Trusting the certificate
+> **Requirements:** x86_64 architecture, Debian/Ubuntu-based system with `apt`. If you're on a different platform, install the equivalent packages manually and skip to step 2.
 
-**Linux (server machine):**
+After the script completes, verify:
 
 ```bash
-sudo cp certs/localhost.crt /usr/local/share/ca-certificates/invisible-av.crt
-sudo update-ca-certificates
+node --version      # Should be 20+
+caddy version       # Should be installed
+ffmpeg -version     # Should be v7+
+gst-inspect-1.0 ndi  # Should show NDI plugin info
 ```
-
-**Windows (if running via WSL):**
-
-1. Copy `certs/localhost.crt` to the Windows filesystem
-2. Double-click the `.crt` file → Install Certificate → Local Machine → Place in "Trusted Root Certification Authorities"
-
-**Tablets / client devices:** Import `certs/localhost.crt` as a trusted CA certificate via the device's security settings.
 
 ---
 
@@ -45,7 +31,7 @@ sudo update-ca-certificates
 
 To access the app at `https://invisible.av`, configure DNS resolution on your network:
 
-**Option A — Router DNS:** Add a DNS entry on your router pointing `invisible.av` to the server's LAN IP address. All devices on the network will resolve it automatically.
+**Option A — Router DNS (recommended):** Add a DNS entry on your router pointing `invisible.av` to the server's LAN IP address. All devices on the network will resolve it automatically.
 
 **Option B — Hosts file (per device):** Add an entry to each device's hosts file:
 
@@ -58,42 +44,353 @@ To access the app at `https://invisible.av`, configure DNS resolution on your ne
 
 Replace `192.168.x.x` with the server's LAN IP.
 
-`https://localhost` always works on the server machine itself without any DNS setup.
+> `https://localhost` always works on the server machine itself without any DNS setup.
 
 ---
 
-## 3. Firewall Setup
+## 3. Trust the TLS Certificate on Client Devices
 
-Caddy listens on ports 443 (HTTPS) and 80 (HTTP → HTTPS redirect). If other devices on the LAN need to access the app, allow inbound traffic on these ports.
+The setup script generated a self-signed certificate in `certs/`. The server machine already trusts it, but tablets and other devices on the network need to trust it too.
 
-**Windows (if running via WSL):** Open an elevated PowerShell and run:
+**Tablets / phones:** Transfer `certs/localhost.crt` to the device and import it as a trusted CA certificate via the device's security settings (Settings → Security → Install certificate → CA certificate).
 
-```powershell
-New-NetFirewallRule -DisplayName "Invisible AV Booth (HTTPS)" -Direction Inbound -Protocol TCP -LocalPort 443 -Action Allow
-New-NetFirewallRule -DisplayName "Invisible AV Booth (HTTP)" -Direction Inbound -Protocol TCP -LocalPort 80 -Action Allow
-```
+**Windows PCs:**
 
-**Linux (ufw):**
+1. Copy `certs/localhost.crt` to the Windows filesystem
+2. Double-click the `.crt` file → Install Certificate → Local Machine → Place in "Trusted Root Certification Authorities"
 
-```bash
-sudo ufw allow 443/tcp
-sudo ufw allow 80/tcp
-```
+**macOS:** Double-click the `.crt` file → it opens in Keychain Access → set trust to "Always Trust"
 
-**Linux (iptables):**
-
-```bash
-sudo iptables -A INPUT -p tcp --dport 443 -j ACCEPT
-sudo iptables -A INPUT -p tcp --dport 80 -j ACCEPT
-```
-
-Port 80 is needed because Caddy auto-redirects HTTP → HTTPS. Without it, devices hitting `http://invisible.av` would time out instead of redirecting.
+> If a device hasn't trusted the certificate, it will show a browser security warning when accessing `https://invisible.av`. The system still works — just accept the warning — but OAuth callbacks may fail if the redirect hits an untrusted cert (see step 6).
 
 ---
 
-## 4. WSL Mirrored Networking (Windows only)
+## 4. Configure the .env File
 
-If running on WSL2, enable mirrored networking so that external devices can reach WSL services. Add to `C:\Users\<username>\.wslconfig`:
+The setup script created `packages/backend/.env` from the template and generated a `DEVICE_SECRET_KEY`. Now add the remaining required values.
+
+Open `packages/backend/.env` and fill in the streaming platform credentials (steps 5 and 6 explain how to obtain them):
+
+```env
+# Already generated by setup script:
+DEVICE_SECRET_KEY=<already set>
+
+# You'll fill these in during steps 5 and 6:
+YOUTUBE_CLIENT_ID=
+YOUTUBE_CLIENT_SECRET=
+FACEBOOK_APP_ID=
+FACEBOOK_APP_SECRET=
+
+# If using an OAuth relay (see step 7), set this:
+# APP_URL=https://your-public-domain.com/api/auth/callback
+```
+
+---
+
+## 5. Create a YouTube OAuth App
+
+Each installation needs its own Google Cloud project and OAuth credentials.
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Create a new project (e.g., "Church Livestream")
+3. In the left sidebar, go to **APIs & Services** → **Library**
+4. Search for **YouTube Data API v3** and click **Enable**
+5. Go to **APIs & Services** → **OAuth consent screen**
+   - Choose **External** user type → **Create**
+   - Fill in app name, support email, and developer email
+   - On the **Scopes** screen, add `https://www.googleapis.com/auth/youtube`
+   - On the **Test users** screen, add the Google account that owns the YouTube channel
+   - Click **Save and Continue** through to the end
+6. Go to **APIs & Services** → **Credentials** → **Create Credentials** → **OAuth client ID**
+   - Application type: **Web application**
+   - Name: anything (e.g., "Invisible AV Booth")
+   - **Authorized JavaScript origins:** Leave blank
+   - **Authorized redirect URI:** `https://localhost/api/auth/callback/youtube`
+     (or your relay domain — see step 7)
+   - Click **Create**
+7. Copy the **Client ID** and **Client Secret** into your `.env` file:
+   ```
+   YOUTUBE_CLIENT_ID=<your client id>
+   YOUTUBE_CLIENT_SECRET=<your client secret>
+   ```
+
+> **Testing mode limitation:** While the app is in "Testing" mode (unpublished), Google revokes refresh tokens after 7 days. This means you'll need to re-connect YouTube weekly. To eliminate this, publish the app (requires a privacy policy URL and Google's review — see step 7 for the OAuth relay approach that makes this possible).
+
+---
+
+## 6. Create a Facebook OAuth App
+
+Each installation needs its own Meta app.
+
+### Create the app
+
+1. Go to [Meta for Developers](https://developers.facebook.com/) and log in
+2. Navigate to [**My Apps**](https://developers.facebook.com/apps/) → **Create App**
+3. Enter an app name (e.g., "Church Livestream") and contact email → **Next**
+4. Under **Use cases**, select **Other** → **Next**
+5. Select app type **Business** → **Next**
+6. Connect a business portfolio (or select "I don't want to connect a business portfolio yet") → **Next**
+7. Review and click **Go to dashboard**
+
+### Configure permissions
+
+1. In the left sidebar, click **App Review** → **Permissions and Features**
+2. Find and request **Standard Access** for:
+   - `publish_video` — required for live streaming
+   - `pages_manage_posts` — required if streaming to a Page
+   - `pages_read_engagement` — required for reading Page info
+3. In development mode, these permissions work immediately for app admins and test users
+
+### Add Facebook Login product
+
+1. In the left sidebar, click **Add Product**
+2. Find **Facebook Login for Business** and click **Set Up**
+3. Under **Facebook Login for Business** → **Settings**:
+   - Set **Valid OAuth Redirect URIs** to: `https://localhost/api/auth/callback/facebook`
+     (or your relay domain — see step 7)
+   - Save changes
+
+### Get credentials
+
+1. In the left sidebar, click **App Settings** → **Basic**
+2. Copy the **App ID** and **App Secret** into your `.env` file:
+   ```
+   FACEBOOK_APP_ID=<your app id>
+   FACEBOOK_APP_SECRET=<your app secret>
+   ```
+
+> **Development mode:** Only app admins and test users (added under **App Roles** in the dashboard) can use the app's permissions. For production use with other Facebook accounts, submit permissions for App Review and switch the app to "Live" mode.
+
+---
+
+## 7. OAuth Relay Setup (Recommended)
+
+By default, OAuth callbacks redirect to `https://localhost`, which means the admin must connect platforms from a browser on the server machine. An OAuth relay eliminates this constraint and also allows you to publish both apps (fixing the YouTube 7-day token expiry).
+
+A relay is a public domain that receives the OAuth callback and immediately 302-redirects to your local system. It never sees or stores tokens — only the short-lived, single-use authorization code passes through.
+
+### How it works
+
+1. Admin clicks "Connect YouTube" (or Facebook) in the app
+2. Google/Facebook redirects to your public domain with a `code` and `state` parameter
+3. Your public domain issues a `302` redirect to `https://invisible.av/api/auth/callback/youtube?code=...&state=...`
+4. The browser follows the redirect to your local Caddy, which exchanges the code for tokens
+
+### Set up the relay
+
+Place this `.htaccess` file in the public domain's root directory (e.g., `public_html/.htaccess`):
+
+```apache
+RewriteEngine On
+
+# OAuth relay — redirect callbacks to local system
+# Passes all query parameters (?code=...&state=...) through to the local system
+RewriteRule ^api/auth/callback/youtube$ https://invisible.av/api/auth/callback/youtube [R=302,L,QSA]
+RewriteRule ^api/auth/callback/facebook$ https://invisible.av/api/auth/callback/facebook [R=302,L,QSA]
+```
+
+The `QSA` flag preserves query parameters. `R=302` issues a temporary redirect (not cached). `L` stops further rule processing.
+
+Replace `invisible.av` with your local hostname if different.
+
+### Update platform settings
+
+After setting up the relay, update the redirect URIs in both platforms:
+
+- **Google Cloud Console:** Credentials → your OAuth client → change the redirect URI to `https://your-public-domain.com/api/auth/callback/youtube`
+- **Facebook Developer Portal:** Facebook Login for Business → Settings → change the Valid OAuth Redirect URI to `https://your-public-domain.com/api/auth/callback/facebook`
+
+Then set `APP_URL` in your `.env`:
+
+```
+APP_URL=https://your-public-domain.com/api/auth/callback
+```
+
+### Publish your apps
+
+With a relay in place, you can publish both apps to eliminate testing-mode limitations:
+
+- **YouTube:** Google Cloud Console → OAuth consent screen → **Publish App**. For the `youtube` scope, Google's verification is relatively lightweight — a brief review of your app's purpose and privacy policy.
+- **Facebook:** Meta Developer Dashboard → App Review → switch the app from "Development" to "Live" mode. Ensure your permissions have been approved first.
+
+Once published, YouTube refresh tokens persist indefinitely (no more 7-day expiry) and Facebook OAuth works for any authorized user.
+
+---
+
+## 8. First Startup
+
+Start all services:
+
+```bash
+npm run dev:full
+```
+
+This starts Caddy (prompts for sudo once for port 443), the backend, and the Vite dev server. Access the app at **https://invisible.av** (or **https://localhost**).
+
+On first startup with no users in the database, the backend:
+
+1. Creates a default `admin` account with a randomly generated password
+2. Prints the credentials to stdout
+3. Writes them to `data/bootstrap.txt`
+
+**Save the password immediately.** `data/bootstrap.txt` is deleted automatically after you change the password.
+
+---
+
+## 9. First Login and Password Change
+
+1. Open **https://invisible.av** in a browser
+2. Log in with username `admin` and the bootstrap password
+3. You will be redirected to `/change-password` — set a new password before accessing the dashboard
+
+---
+
+## 10. Connect Streaming Platforms
+
+With the server running and logged in as admin:
+
+### YouTube
+
+1. Navigate to `/admin/platforms/youtube`
+2. Click **Connect YouTube**
+3. Authorize the app in the Google consent screen
+4. After redirect, you'll see a "Connected" confirmation with the channel name
+
+### Facebook
+
+1. Navigate to `/admin/platforms/facebook`
+2. Click **Connect Facebook**
+3. Authorize the app in the Facebook dialog
+4. Choose your streaming target:
+   - **A Page** — if your account manages Pages (streams are always public)
+   - **My Profile** — streams to your personal profile (requires account 60+ days old with 100+ followers)
+5. If only one Page exists and no other options, it's auto-selected
+
+> **Privacy:** Profile connections default to "Only Me" for safe testing. Change the default in the platform settings. ADMIN and AvPowerUser can override per-stream in the Manage Streams modal.
+
+---
+
+## 11. Configure OBS
+
+### OBS Video Settings
+
+OBS must use **H.264 video codec** and **AAC audio codec** for compatibility with the RTMP relay (`-c copy` — no re-encoding).
+
+### OBS WebSocket Connection
+
+1. In OBS, go to **Tools** → **WebSocket Server Settings**
+2. Enable the WebSocket server (default port 4455)
+3. Note the password (or set one)
+4. In the app, navigate to `/admin/devices` and add an OBS device with the IP, port, and password
+
+### NDI Preview Output (DistroAV)
+
+The setup script installed OBS with the DistroAV plugin. To enable the live preview widget:
+
+1. In OBS, go to **Tools** → **NDI Output Settings**
+2. Check **Main Output**
+3. Note the output name (defaults to `MACHINE-NAME (OBS)`)
+4. In the app, go to `/admin/devices`, select your OBS connection
+5. Enter the NDI output name in the "NDI Output Name" field
+6. Save
+
+The preview is available whenever OBS is running — even without streaming or recording active.
+
+### Lower-Third Browser Source
+
+1. In OBS, add a **Browser** source to your scene
+2. Check **Local file** and point it to:
+   ```
+   file:///path/to/invisible-av/packages/overlay/lower-thirds.html
+   ```
+3. Set **Width** to `1920` and **Height** to `1080`
+4. Ensure these are **unchecked**:
+   - ☐ Shutdown source when not visible
+   - ☐ Refresh browser when scene becomes active
+5. Leave "Custom CSS" empty
+6. Edit `packages/overlay/lower-thirds.html` and set the overlay URL:
+   ```html
+   <body data-overlay-url="https://invisible.av/overlay/lower-thirds"></body>
+   ```
+
+> If the browser source resolution isn't 1920×1080, a warning banner will appear on the volunteer dashboard.
+
+---
+
+## 12. Configure Cameras (Optional)
+
+### PTZ Control via VISCA
+
+All camera pan/tilt/zoom/focus commands use VISCA over IP.
+
+1. Navigate to `/admin/devices`
+2. Add a camera-ptz device with the camera's IP address and VISCA port
+3. Save
+
+### AI Tracking (Tongveo NVS20A-4KN)
+
+For supported camera models with AI tracking:
+
+1. Open the camera's web interface (e.g., `http://192.168.1.x`) in a browser
+2. Log in and enable AI tracking manually once
+3. Open browser Developer Tools → Network tab
+4. Toggle AI tracking on/off and find the request to `/api/aiControl`
+5. Copy the `Cookie` header value
+6. Find the request to `/api/setPTZCmd` and copy the `ID` field from the JSON body
+7. Enter both values in the camera's admin configuration under "AI Tracking Configuration"
+
+> **Warning:** These credentials may expire on camera reboot or session timeout. If AI tracking commands start failing, re-obtain the cookie from the camera's web interface.
+
+---
+
+## 13. Verify the Installation
+
+With everything configured, verify the full system:
+
+1. **Dashboard loads:** Open `https://invisible.av` on a tablet — you should see the dashboard with widgets
+2. **OBS connected:** The OBS widget shows a green connection indicator
+3. **Preview works:** The OBS preview widget shows a live feed (requires NDI output enabled in OBS)
+4. **Streaming platforms connected:** Navigate to the Manage Streams modal — both YouTube and Facebook should show as connected
+5. **Camera control:** If cameras are configured, PTZ controls respond
+
+---
+
+## Running in Development
+
+### Full stack (recommended)
+
+```bash
+npm run dev:full
+```
+
+Starts Caddy + backend + Vite dev server. Caddy routes `/api/*` and `/socket.io/*` to the backend (port 3001), everything else to Vite (port 5173). Press Ctrl+C to stop all services.
+
+### Individual servers
+
+```bash
+npm run dev:backend   # Express on :3001
+npm run dev:frontend  # Vite on :5173
+```
+
+Each command ensures Caddy is running first (prompts for sudo once if needed). Access the app at **https://invisible.av** regardless of which command you use.
+
+---
+
+## Running in Production
+
+```bash
+npm run build
+sudo caddy start --config Caddyfile
+cd packages/backend && node dist/index.js   # or use a process manager like PM2
+```
+
+Caddy serves the built static files from `packages/frontend/dist` and proxies API/Socket.io requests to the backend.
+
+---
+
+## Appendix A: WSL2 Setup (Windows)
+
+If running the server on WSL2, enable mirrored networking so that external devices can reach WSL services. Add to `C:\Users\<username>\.wslconfig`:
 
 ```ini
 [wsl2]
@@ -106,121 +403,49 @@ Then restart WSL:
 wsl --shutdown
 ```
 
-Without mirrored networking, WSL2 uses a virtual network adapter and external devices cannot reach services running inside WSL.
+Also open firewall ports on the Windows side:
 
----
-
-## 5. Generate DEVICE_SECRET_KEY
-
-The backend encrypts device passwords at rest using AES-256-GCM. A 32-byte key is required.
-
-```bash
-node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-```
-
-Copy `.env.example` to `.env` in `packages/backend/` and set the value:
-
-```
-DEVICE_SECRET_KEY=<64-character hex string>
-```
-
-Optional environment variables:
-
-```
-RELAY_PORT=1935          # RTMP relay port (default: 1935)
-YOUTUBE_CLIENT_ID=       # Google Cloud Console OAuth client ID
-YOUTUBE_CLIENT_SECRET=   # Google Cloud Console OAuth client secret
-FACEBOOK_APP_ID=         # Facebook Developer portal app ID
-FACEBOOK_APP_SECRET=     # Facebook Developer portal app secret
-```
-
-The `.env` file must be in `packages/backend/` — that is the working directory when the server runs. It is gitignored and loaded automatically on startup. Never commit it.
-
----
-
-## 6. Install dependencies
-
-```bash
-npm install
+```powershell
+New-NetFirewallRule -DisplayName "Invisible AV Booth (HTTPS)" -Direction Inbound -Protocol TCP -LocalPort 443 -Action Allow
+New-NetFirewallRule -DisplayName "Invisible AV Booth (HTTP)" -Direction Inbound -Protocol TCP -LocalPort 80 -Action Allow
 ```
 
 ---
 
-## 7. First startup
+## Appendix B: Key Rotation
 
-Start all services:
+If `DEVICE_SECRET_KEY` is changed, all stored device passwords and OAuth tokens become unreadable. User login is **not affected** — passwords are hashed with bcrypt and sessions are signed with `JWT_SECRET`, both independent of the device key. You can log in normally after rotating.
 
-```bash
-npm run dev:full
-```
+After rotating the key:
 
-This starts Caddy (with sudo for port 443), the backend, and the Vite dev server. Access the app at **https://invisible.av** (or **https://localhost**).
-
-On first startup with no users in the database, the backend:
-
-1. Creates a default `admin` account with a randomly generated password
-2. Prints the credentials to stdout
-3. Writes them to `data/bootstrap.txt`
-
-**Save the password immediately.** `data/bootstrap.txt` is deleted automatically after you change the password.
+1. Update `DEVICE_SECRET_KEY` in `.env` and restart the server
+2. Re-enter all device passwords via `/admin/devices`
+3. Re-connect YouTube and Facebook via their respective admin pages
 
 ---
 
-## 8. Run the seed script
+## Appendix C: Environment Variables Reference
 
-The seed script creates the default dashboard and OBS widget configuration. Run it once before first use:
+All variables are set in `packages/backend/.env`. The file is gitignored and loaded automatically on startup.
 
-```bash
-cd packages/backend
-npx tsx scripts/seed-dashboard.ts
-```
-
-The script is idempotent — safe to run multiple times.
-
----
-
-## 9. First login and password change
-
-1. Open **https://invisible.av** in a browser
-2. Log in with username `admin` and the bootstrap password
-3. You will be redirected to `/change-password` — change the password before accessing the dashboard
-
----
-
-## Development
-
-### Full stack (recommended)
-
-```bash
-npm run dev:full
-```
-
-Starts Caddy + backend + Vite dev server. Access at **https://invisible.av**. Caddy routes `/api/*` and `/socket.io/*` to the backend (port 3001), everything else to Vite (port 5173). Press Ctrl+C to stop all services.
-
-### Individual servers
-
-```bash
-npm run dev:backend   # Express on :3001
-npm run dev:frontend  # Vite on :5173
-```
-
-Each command ensures Caddy is running first (prompts for sudo once if needed). The second command detects Caddy is already running and skips — no second password prompt. Access the app at **https://invisible.av** regardless of which command you use.
+| Variable                | Required | Default                               | Description                                           |
+| ----------------------- | -------- | ------------------------------------- | ----------------------------------------------------- |
+| `DEVICE_SECRET_KEY`     | Yes      | —                                     | 64-character hex string for AES-256-GCM encryption    |
+| `YOUTUBE_CLIENT_ID`     | Yes      | —                                     | Google Cloud OAuth client ID                          |
+| `YOUTUBE_CLIENT_SECRET` | Yes      | —                                     | Google Cloud OAuth client secret                      |
+| `FACEBOOK_APP_ID`       | Yes      | —                                     | Meta app ID                                           |
+| `FACEBOOK_APP_SECRET`   | Yes      | —                                     | Meta app secret                                       |
+| `APP_URL`               | No       | `https://localhost/api/auth/callback` | OAuth redirect base URL (set when using a relay)      |
+| `PORT`                  | No       | `3001`                                | Backend server port                                   |
+| `NODE_ENV`              | No       | `development`                         | `production` enables optimizations                    |
+| `LOG_LEVEL`             | No       | `info`                                | `debug`, `info`, `warn`, or `error`                   |
+| `JWT_SECRET`            | No       | Auto-generated                        | Secret for signing JWT tokens                         |
+| `BCRYPT_ROUNDS`         | No       | `12`                                  | Password hashing rounds (lower = faster, less secure) |
+| `RELAY_PORT`            | No       | `1935`                                | Local RTMP relay port                                 |
 
 ---
 
-## Production
-
-```bash
-npm run build
-sudo caddy start --config Caddyfile
-cd packages/backend && node dist/index.js   # or use a process manager like PM2
-```
-
-Caddy serves the built static files from `packages/frontend/dist` and proxies API/Socket.io requests to the backend. Access at **https://invisible.av**.
-
----
-
-## Admin Routes
+## Appendix D: Admin Routes
 
 All admin routes require an authenticated ADMIN JWT cookie. Navigate via the **Admin Pages** link in the title bar (visible to ADMIN users only).
 
@@ -233,7 +458,7 @@ All admin routes require an authenticated ADMIN JWT cookie. Navigate via the **A
 | `/admin/platforms/youtube`  | YouTube streaming platform configuration and OAuth connection                     |
 | `/admin/platforms/facebook` | Facebook streaming platform configuration and OAuth connection                    |
 
-Full REST API:
+### REST API
 
 | Route                                    | Method | Description                  |
 | ---------------------------------------- | ------ | ---------------------------- |
@@ -261,192 +486,7 @@ Full REST API:
 
 ---
 
-## YouTube OAuth Setup (optional)
-
-1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a project (or select an existing one)
-3. Enable the **YouTube Data API v3**
-4. Go to **Credentials** → **Create Credentials** → **OAuth client ID**
-5. Application type: **Web application**
-6. **Authorized JavaScript origins:** Leave blank. The OAuth flow is server-side — no browser-based JS client is used.
-7. **Authorized redirect URI:** `https://localhost/api/auth/callback/youtube`
-8. Copy the Client ID and Client Secret to your `.env` file
-9. In the app, go to `/admin/platforms/youtube` and click **Connect**
-
-> **Why `localhost`?** Google's OAuth console rejects non-public domains like `invisible.av`. Since the OAuth callback is handled by the backend (which runs behind Caddy), `localhost` works when the admin performs the one-time connection from a browser on the server machine. This is a setup-time action only — after tokens are stored, all streaming operations work from any device on the network (tablets, etc.) via `invisible.av`.
->
-> **Using a real domain:** If you have a public domain (e.g., `av.yourchurch.org`), you can use that instead of `localhost`. Add it to the Caddyfile, update the redirect URI in Google Cloud Console, and set `APP_URL` in your `.env`. Caddy will auto-obtain a Let's Encrypt certificate for public domains.
-
----
-
-## Facebook OAuth Setup (optional)
-
-### Create the Meta App
-
-1. Go to [Meta for Developers](https://developers.facebook.com/) and log in
-2. Navigate to [**My Apps**](https://developers.facebook.com/apps/) → **Create App**
-3. Enter an app name (e.g., "Church Livestream") and contact email → **Next**
-4. Under **Use cases**, select **Other** → **Next**
-5. Select app type **Business** → **Next**
-6. Connect a business portfolio (or select "I don't want to connect a business portfolio yet") → **Next**
-7. Review and click **Go to dashboard**
-
-### Configure permissions
-
-1. In the left sidebar, click **App Review** → **Permissions and Features**
-2. Find and request **Standard Access** for:
-   - `publish_video` — required for live streaming
-   - `pages_manage_posts` — required if streaming to a Page
-   - `pages_read_engagement` — required for reading Page info
-3. In development mode, these permissions work immediately for app admins and test users. For production use with other accounts, submit for App Review.
-
-### Add Facebook Login product
-
-1. In the left sidebar, click **Add Product**
-2. Find **Facebook Login for Business** and click **Set Up**
-3. Under **Facebook Login for Business** → **Settings**:
-   - Set **Valid OAuth Redirect URIs** to: `https://localhost/api/auth/callback/facebook`
-   - Save changes
-
-### Get credentials
-
-1. In the left sidebar, click **App Settings** → **Basic**
-2. Copy the **App ID** and **App Secret** to your `.env` file:
-   ```
-   FACEBOOK_APP_ID=<your app id>
-   FACEBOOK_APP_SECRET=<your app secret>
-   ```
-
-### Connect in the app
-
-1. Go to `/admin/platforms/facebook` and click **Connect Facebook**
-2. Authorize the app in the Facebook dialog
-3. After redirect, choose your streaming target:
-   - **A Page** — if your account manages Pages. Page streams are always public.
-   - **My Profile** — streams to your personal profile. Supports privacy settings (Public, Friends, Only Me). Requires the account to be 60+ days old with 100+ followers.
-4. If only one Page exists and no other options, it's auto-selected.
-
-> **Why `localhost`?** Meta rejects non-public domains like `invisible.av` as redirect URIs. The admin must perform the one-time OAuth connection from a browser on the server machine. After tokens are stored, streaming works from any device via `invisible.av`.
->
-> **Privacy:** User profile connections default to "Only Me" for safe testing. Change the default in `/admin/platforms/facebook`. ADMIN and AvPowerUser can override per-stream in the Manage Streams modal.
->
-> **Development mode:** Only app admins and test users (added under **App Roles** in the dashboard) can use the app's permissions. For production use with other Facebook accounts, submit permissions for App Review.
->
-> **Using a real domain:** If you have a public domain, update the Valid OAuth Redirect URI in Facebook Login settings and set `APP_URL` in your `.env`.
-
----
-
-## Key rotation
-
-If `DEVICE_SECRET_KEY` is changed, all stored device passwords become unreadable. Re-enter all device passwords via `/admin/devices` after rotating the key.
-
----
-
-## Lower-Third Overlay (OBS Browser Source)
-
----
-
-## NDI Setup (Video Preview & Camera Control)
-
-### OBS Preview — DistroAV Plugin
-
-The OBS Preview widget displays a real-time feed of what OBS is outputting, regardless of streaming/recording state. This requires the DistroAV (NDI) plugin in OBS and GStreamer with the NDI plugin on the server (installed via `scripts/install-gstreamer-ndi.sh`).
-
-1. **Install DistroAV in OBS:**
-   - **Linux (apt):** `sudo apt install obs-ndi`
-   - **Windows:** Download from [github.com/DistroAV/DistroAV/releases](https://github.com/DistroAV/DistroAV/releases) and run the installer
-   - **macOS:** `brew install obs-ndi`
-
-2. **Enable NDI output in OBS:**
-   - Open OBS → Tools → NDI Output Settings
-   - Check "Main Output"
-   - The output name defaults to `MACHINE-NAME (OBS)` — note this value
-
-3. **Configure in Invisible A/V Booth:**
-   - Go to `/admin/devices`, select your OBS connection
-   - Enter the NDI output name in the "NDI Output Name" field (e.g., `MY-PC (OBS)`)
-   - Save
-
-The preview widget will display "OBS Preview Unavailable" if DistroAV is not enabled or OBS is not running. Once configured, the preview is always available when OBS is running — even without streaming or recording active.
-
-### Camera & OBS Video Preview — GStreamer + NDI
-
-Video preview (OBS output and camera feeds) uses GStreamer with the NDI plugin. PTZ camera control uses VISCA over IP.
-
-**Install everything with the provided script:**
-
-```bash
-bash scripts/install-gstreamer-ndi.sh
-```
-
-This installs GStreamer, the NDI runtime, Rust, and builds the NDI plugin. Run it once on the server machine. The script is idempotent — safe to re-run.
-
-**Verify after installation:**
-
-```bash
-gst-inspect-1.0 ndi
-gst-device-monitor-1.0 -f Source/Network:application/x-ndi
-```
-
-The second command should list your NDI sources (OBS output, cameras).
-
-**VISCA is required for PTZ control.** All camera pan/tilt/zoom/focus commands are sent via VISCA over IP. Configure the camera's VISCA IP and port in the admin device panel.
-
-If GStreamer or the NDI plugin is not installed, the system logs an error at startup and preview features are disabled. OBS streaming, lower thirds, and all other features continue to work normally.
-
-### Camera AI Tracking Credentials (Tongveo NVS20A-4KN)
-
-To configure AI tracking for supported camera models, you need the camera's HTTP cookie and credential ID. These are obtained from the camera's web interface:
-
-1. Open the camera's web interface (e.g., `http://192.168.1.x`) in a browser
-2. Log in and enable AI tracking manually once
-3. Open browser Developer Tools → Network tab
-4. Toggle AI tracking on/off and find the request to `/api/aiControl`
-5. Copy the `Cookie` header value from the request headers
-6. Find the request to `/api/setPTZCmd` and copy the `ID` field from the JSON body
-
-Enter these values in the camera's admin configuration under "AI Tracking Configuration."
-
-> **Warning:** These credentials may expire on camera reboot or session timeout. If AI tracking commands start failing, re-obtain the cookie from the camera's web interface.
-
----
-
-## Lower-Third Overlay (OBS Browser Source)
-
-The lower-third system uses a static HTML file loaded in OBS as a browser source. This file wraps an iFrame that connects to the frontend overlay page.
-
-### OBS Browser Source Configuration
-
-1. In OBS, add a **Browser** source to your scene
-2. Set the **Local file** checkbox and point it to:
-   ```
-   file:///path/to/InvisibleAvBooth/packages/overlay/lower-thirds.html
-   ```
-3. Set **Width** to `1920` and **Height** to `1080`
-4. Ensure these checkboxes are **unchecked** (OBS defaults):
-   - ☐ Shutdown source when not visible
-   - ☐ Refresh browser when scene becomes active
-5. Leave "Custom CSS" empty
-
-### Configuring the Overlay URL
-
-The static wrapper needs to know where the frontend is hosted. Edit `packages/overlay/lower-thirds.html` and set the `data-overlay-url` attribute on the `<body>` tag:
-
-```html
-<body data-overlay-url="https://invisible.av/overlay/lower-thirds"></body>
-```
-
-If your deployment uses a different hostname (e.g., `https://localhost`), update this value accordingly.
-
-### Resolution Mismatch Detection
-
-If the OBS browser source is not configured at 1920×1080, the system will display a persistent warning banner on the volunteer dashboard:
-
-> "OBS browser source is misconfigured ({width}×{height}). Expected 1920×1080 at 16:9."
-
-Fix by adjusting the browser source Width/Height in OBS properties.
-
-### Environment Variables
+## Appendix E: Overlay Environment Variables
 
 | Variable                             | Default | Description                                                                                                               |
 | ------------------------------------ | ------- | ------------------------------------------------------------------------------------------------------------------------- |

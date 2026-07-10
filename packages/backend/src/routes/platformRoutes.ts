@@ -144,14 +144,20 @@ export function createPlatformRouter(database: Database, authService: AuthServic
     const state = randomBytes(32).toString("hex");
     database.prepare("INSERT INTO oauth_states (state, platformType, createdAt) VALUES (?, ?, ?)").run(state, platformType, new Date().toISOString());
 
+    // APP_URL configures where OAuth providers redirect after authorization.
+    // Defaults to https://localhost (direct to local Caddy). When using an OAuth relay
+    // (public domain that 302-redirects to the local system), set APP_URL to the relay
+    // base URL (e.g., https://your-domain.com/oauth). The backend appends /youtube or /facebook.
+    const appUrl = process.env["APP_URL"] ?? "https://localhost/api/auth/callback";
+
     let authUrl: string;
     if (platformType === "youtube") {
       const clientId = process.env["YOUTUBE_CLIENT_ID"] ?? "";
-      const redirectUri = encodeURIComponent("https://localhost/api/auth/callback/youtube");
+      const redirectUri = encodeURIComponent(`${appUrl}/youtube`);
       authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=https://www.googleapis.com/auth/youtube&state=${state}&access_type=offline&prompt=consent`;
     } else {
       const appId = process.env["FACEBOOK_APP_ID"] ?? "";
-      const redirectUri = encodeURIComponent("https://localhost/api/auth/callback/facebook");
+      const redirectUri = encodeURIComponent(`${appUrl}/facebook`);
       const target = (request.body as { target?: string } | undefined)?.target;
       const scopes = target === "profile" ? "publish_video" : "publish_video,pages_manage_posts,pages_read_engagement";
       authUrl = `https://www.facebook.com/v25.0/dialog/oauth?client_id=${appId}&redirect_uri=${redirectUri}&state=${state}&scope=${scopes}`;
@@ -216,6 +222,7 @@ function handleOAuthCallback(
 async function exchangeCodeForTokens(database: Database, platformType: string, code: string, onPlatformChanged?: () => void): Promise<boolean> {
   try {
     const dao = new PlatformConfigDao(database);
+    const appUrl = process.env["APP_URL"] ?? "https://localhost/api/auth/callback";
     let accessToken: string;
     let refreshToken: string | undefined;
     let tokenExpiresAt: string | undefined;
@@ -225,7 +232,7 @@ async function exchangeCodeForTokens(database: Database, platformType: string, c
     if (platformType === "youtube") {
       const clientId = process.env["YOUTUBE_CLIENT_ID"] ?? "";
       const clientSecret = process.env["YOUTUBE_CLIENT_SECRET"] ?? "";
-      const redirectUri = "https://localhost/api/auth/callback/youtube";
+      const redirectUri = `${appUrl}/youtube`;
 
       const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
         method: "POST",
@@ -262,7 +269,7 @@ async function exchangeCodeForTokens(database: Database, platformType: string, c
     } else {
       const appId = process.env["FACEBOOK_APP_ID"] ?? "";
       const appSecret = process.env["FACEBOOK_APP_SECRET"] ?? "";
-      const redirectUri = "https://localhost/api/auth/callback/facebook";
+      const redirectUri = `${appUrl}/facebook`;
 
       const tokenRes = await fetch(
         `https://graph.facebook.com/v25.0/oauth/access_token?client_id=${appId}&client_secret=${appSecret}&redirect_uri=${encodeURIComponent(redirectUri)}&code=${code}`,
