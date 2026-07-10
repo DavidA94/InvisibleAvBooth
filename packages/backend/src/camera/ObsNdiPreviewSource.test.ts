@@ -35,6 +35,7 @@ describe("ObsNdiPreviewSource", () => {
 
   afterEach(() => {
     source?.destroy();
+    vi.clearAllMocks();
   });
 
   it("does nothing when no OBS device exists", async () => {
@@ -89,5 +90,58 @@ describe("ObsNdiPreviewSource", () => {
 
     source.destroy();
     expect(previewManager.setSourceAvailable).toHaveBeenCalledWith("obs", false, "");
+  });
+
+  it("reload updates source when ndiOutputName changes", async () => {
+    const db = createDbWithObsDevice("OLD-NAME");
+    previewManager = createMockPreviewManager();
+    source = new ObsNdiPreviewSource(db, previewManager);
+    await source.initialize();
+
+    // Capture the subscriber callback for BUS_OBS_CONFIG_CHANGED
+    const subscribeMock = vi.mocked(eventBus.subscribe);
+    const reloadCb = subscribeMock.mock.calls.find((call) => call[0] === "bus:obs:config:changed")?.[1] as (() => void) | undefined;
+    expect(reloadCb).toBeDefined();
+
+    // Update DB with new name
+    db.prepare("UPDATE device_connections SET metadata = ? WHERE id = 'obs-1'").run(JSON.stringify({ ndiOutputName: "NEW-NAME" }));
+    reloadCb!();
+
+    expect(source.getNdiOutputName()).toBe("NEW-NAME");
+    expect(previewManager.setSourceAvailable).toHaveBeenCalledWith("obs", false, "");
+    expect(previewManager.setSourceAvailable).toHaveBeenCalledWith("obs", true, "NEW-NAME");
+  });
+
+  it("reload removes source when ndiOutputName cleared", async () => {
+    const db = createDbWithObsDevice("MY-PC");
+    previewManager = createMockPreviewManager();
+    source = new ObsNdiPreviewSource(db, previewManager);
+    await source.initialize();
+
+    const subscribeMock = vi.mocked(eventBus.subscribe);
+    const reloadCb = subscribeMock.mock.calls.find((call) => call[0] === "bus:obs:config:changed")?.[1] as (() => void) | undefined;
+
+    // Clear ndiOutputName
+    db.prepare("UPDATE device_connections SET metadata = '{}' WHERE id = 'obs-1'").run();
+    reloadCb!();
+
+    expect(source.getNdiOutputName()).toBeNull();
+    expect(previewManager.setSourceAvailable).toHaveBeenCalledWith("obs", false, "");
+  });
+
+  it("reload does nothing when name unchanged", async () => {
+    const db = createDbWithObsDevice("MY-PC");
+    previewManager = createMockPreviewManager();
+    source = new ObsNdiPreviewSource(db, previewManager);
+    await source.initialize();
+
+    vi.mocked(previewManager.setSourceAvailable).mockClear();
+    const subscribeCalls = vi.mocked(eventBus.subscribe).mock.calls;
+    const reloadCb = subscribeCalls.find(([event]) => event === "bus:obs:config:changed")?.[1] as () => void;
+
+    // Don't change the DB — just trigger reload
+    reloadCb();
+    // setSourceAvailable should not be called again since name is the same
+    expect(previewManager.setSourceAvailable).not.toHaveBeenCalled();
   });
 });

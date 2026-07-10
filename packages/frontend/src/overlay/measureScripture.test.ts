@@ -23,7 +23,7 @@ function buildJail(): HTMLElement {
  */
 function mockMeasurements(lineHeightPx = 20, verseHeightPx = 20): void {
   vi.spyOn(window, "getComputedStyle").mockImplementation(
-    (element) =>
+    (_element) =>
       ({
         lineHeight: `${lineHeightPx}px`,
         // Return computed style for the element

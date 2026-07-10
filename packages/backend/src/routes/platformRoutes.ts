@@ -15,82 +15,96 @@ export function createPlatformRouter(database: Database, authService: AuthServic
 
   // ── OAuth callbacks (no auth required — redirected from provider) ──────────
 
-  router.get("/callback/youtube", (req, res) => {
-    handleOAuthCallback(database, "youtube", req.query["state"] as string | undefined, req.query["code"] as string | undefined, res, onPlatformChanged);
+  router.get("/callback/youtube", (request, response) => {
+    handleOAuthCallback(
+      database,
+      "youtube",
+      request.query["state"] as string | undefined,
+      request.query["code"] as string | undefined,
+      response,
+      onPlatformChanged,
+    );
   });
 
-  router.get("/callback/facebook", (req, res) => {
-    handleOAuthCallback(database, "facebook", req.query["state"] as string | undefined, req.query["code"] as string | undefined, res, onPlatformChanged);
+  router.get("/callback/facebook", (request, response) => {
+    handleOAuthCallback(
+      database,
+      "facebook",
+      request.query["state"] as string | undefined,
+      request.query["code"] as string | undefined,
+      response,
+      onPlatformChanged,
+    );
   });
 
   // ── Admin platform CRUD (ADMIN only) ──────────────────────────────────────
 
-  router.get("/admin/platforms", requireRole(authService, "ADMIN"), (_req, res) => {
-    res.json(dao.getAll().map(sanitize));
+  router.get("/admin/platforms", requireRole(authService, "ADMIN"), (_request, response) => {
+    response.json(dao.getAll().map(sanitize));
   });
 
-  router.get("/admin/platforms/:platformType", requireRole(authService, "ADMIN"), (req, res) => {
-    const configs = dao.getByType(req.params["platformType"] as "youtube" | "facebook");
+  router.get("/admin/platforms/:platformType", requireRole(authService, "ADMIN"), (request, response) => {
+    const configs = dao.getByType(request.params["platformType"] as "youtube" | "facebook");
     if (configs.length === 0) {
-      res.status(404).json({ error: "Not found" });
+      response.status(404).json({ error: "Not found" });
       return;
     }
-    res.json(sanitize(configs[0]!));
+    response.json(sanitize(configs[0]!));
   });
 
-  router.put("/admin/platforms/:platformType", requireRole(authService, "ADMIN"), (req, res) => {
+  router.put("/admin/platforms/:platformType", requireRole(authService, "ADMIN"), (request, response) => {
     try {
-      const result = dao.upsert({ ...req.body, platformType: req.params["platformType"] });
+      const result = dao.upsert({ ...request.body, platformType: request.params["platformType"] });
       onPlatformChanged?.();
-      res.json(sanitize(result));
-    } catch (err) {
-      res.status(400).json({ error: err instanceof Error ? err.message : String(err) });
+      response.json(sanitize(result));
+    } catch (error) {
+      response.status(400).json({ error: error instanceof Error ? error.message : String(error) });
     }
   });
 
-  router.delete("/admin/platforms/:platformType", requireRole(authService, "ADMIN"), (req, res) => {
-    const configs = dao.getByType(req.params["platformType"] as "youtube" | "facebook");
+  router.delete("/admin/platforms/:platformType", requireRole(authService, "ADMIN"), (request, response) => {
+    const configs = dao.getByType(request.params["platformType"] as "youtube" | "facebook");
     for (const c of configs) dao.delete(c.id);
     onPlatformChanged?.();
-    res.status(204).end();
+    response.status(204).end();
   });
 
   // ── Platform settings (ADMIN + AvPowerUser can update privacy) ────────────
 
-  router.patch("/platforms/:platformType/settings", requireRole(authService, "AvPowerUser"), (req, res) => {
-    const platformType = req.params["platformType"] as "youtube" | "facebook";
+  router.patch("/platforms/:platformType/settings", requireRole(authService, "AvPowerUser"), (request, response) => {
+    const platformType = request.params["platformType"] as "youtube" | "facebook";
     const configs = dao.getByType(platformType);
     if (configs.length === 0) {
-      res.status(404).json({ error: "Platform not configured" });
+      response.status(404).json({ error: "Platform not configured" });
       return;
     }
     const existing = configs[0]!;
-    const { privacy } = req.body as { privacy?: string };
+    const { privacy } = request.body as { privacy?: string };
     if (privacy && !["public", "unlisted", "private", "EVERYONE", "ALL_FRIENDS", "SELF"].includes(privacy)) {
-      res.status(400).json({ error: "Invalid privacy value" });
+      response.status(400).json({ error: "Invalid privacy value" });
       return;
     }
     const metadata = { ...existing.metadata, ...(privacy !== undefined ? { privacy } : {}) };
     const updated = dao.updateMetadata(platformType, metadata);
     if (!updated) {
-      res.status(404).json({ error: "Platform not configured" });
+      response.status(404).json({ error: "Platform not configured" });
       return;
     }
-    res.json(sanitize(updated));
+    response.json(sanitize(updated));
   });
 
   // ── Facebook Page selection (ADMIN only) ──────────────────────────────────
 
-  router.post("/admin/platforms/facebook/select-page", requireRole(authService, "ADMIN"), (req, res) => {
+  router.post("/admin/platforms/facebook/select-page", requireRole(authService, "ADMIN"), (request, response) => {
     const configs = dao.getByType("facebook");
     if (configs.length === 0) {
-      res.status(404).json({ error: "Facebook not configured" });
+      response.status(404).json({ error: "Facebook not configured" });
       return;
     }
     const existing = configs[0]!;
-    const { pageId } = req.body as { pageId?: string };
+    const { pageId } = request.body as { pageId?: string };
     if (!pageId) {
-      res.status(400).json({ error: "pageId required" });
+      response.status(400).json({ error: "pageId required" });
       return;
     }
 
@@ -100,33 +114,33 @@ export function createPlatformRouter(database: Database, authService: AuthServic
       const userName = existing.metadata["userName"] as string | undefined;
       dao.updateMetadata("facebook", { targetType: "user", userId, userName, privacy: "SELF" });
       onPlatformChanged?.();
-      res.json(sanitize(dao.getByType("facebook")[0]!));
+      response.json(sanitize(dao.getByType("facebook")[0]!));
       return;
     }
 
     const pages = (existing.metadata["pages"] as Array<{ id: string; name: string; access_token: string }>) ?? [];
     const selected = pages.find((p) => p.id === pageId);
     if (!selected) {
-      res.status(400).json({ error: "Invalid page selection" });
+      response.status(400).json({ error: "Invalid page selection" });
       return;
     }
     dao.updateMetadata("facebook", { targetType: "page", pageId: selected.id, pageName: selected.name });
     dao.updateTokens(existing.id, selected.access_token);
     onPlatformChanged?.();
-    res.json(sanitize(dao.getByType("facebook")[0]!));
+    response.json(sanitize(dao.getByType("facebook")[0]!));
   });
 
   // ── Platform health (any authenticated role) ──────────────────────────────
 
-  router.get("/platforms/health", (_req, res) => {
+  router.get("/platforms/health", (_request, response) => {
     const platforms = dao.getAll();
-    res.json(platforms.map((p) => ({ platformType: p.platformType, enabled: p.enabled, healthy: !!p.accessToken })));
+    response.json(platforms.map((p) => ({ platformType: p.platformType, enabled: p.enabled, healthy: !!p.accessToken })));
   });
 
   // ── OAuth state management helpers ────────────────────────────────────────
 
-  router.post("/admin/platforms/:platformType/oauth-start", requireRole(authService, "ADMIN"), (req, res) => {
-    const platformType = req.params["platformType"]!;
+  router.post("/admin/platforms/:platformType/oauth-start", requireRole(authService, "ADMIN"), (request, response) => {
+    const platformType = request.params["platformType"]!;
     const state = randomBytes(32).toString("hex");
     database.prepare("INSERT INTO oauth_states (state, platformType, createdAt) VALUES (?, ?, ?)").run(state, platformType, new Date().toISOString());
 
@@ -138,15 +152,15 @@ export function createPlatformRouter(database: Database, authService: AuthServic
     } else {
       const appId = process.env["FACEBOOK_APP_ID"] ?? "";
       const redirectUri = encodeURIComponent("https://localhost/api/auth/callback/facebook");
-      const target = (req.body as { target?: string } | undefined)?.target;
+      const target = (request.body as { target?: string } | undefined)?.target;
       const scopes = target === "profile" ? "publish_video" : "publish_video,pages_manage_posts,pages_read_engagement";
       authUrl = `https://www.facebook.com/v25.0/dialog/oauth?client_id=${appId}&redirect_uri=${redirectUri}&state=${state}&scope=${scopes}`;
     }
 
     if (!authUrl.includes("client_id=&") && authUrl.includes("client_id=")) {
-      res.json({ state, authUrl });
+      response.json({ state, authUrl });
     } else {
-      res.status(400).json({ error: `${platformType === "youtube" ? "YOUTUBE_CLIENT_ID" : "FACEBOOK_APP_ID"} not configured in .env` });
+      response.status(400).json({ error: `${platformType === "youtube" ? "YOUTUBE_CLIENT_ID" : "FACEBOOK_APP_ID"} not configured in .env` });
     }
   });
 
@@ -158,11 +172,11 @@ function handleOAuthCallback(
   platformType: string,
   state: string | undefined,
   code: string | undefined,
-  res: { status: (n: number) => { json: (o: object) => void; end: () => void }; redirect: (url: string) => void },
+  response: { status: (n: number) => { json: (o: object) => void; end: () => void }; redirect: (url: string) => void },
   onPlatformChanged?: () => void,
 ): void {
   if (!state || !code) {
-    res.redirect(`/admin/platforms/${platformType}?error=missing_params`);
+    response.redirect(`/admin/platforms/${platformType}?error=missing_params`);
     return;
   }
 
@@ -174,13 +188,13 @@ function handleOAuthCallback(
   database.prepare("DELETE FROM oauth_states WHERE createdAt < ?").run(cutoff);
 
   if (!row) {
-    res.redirect(`/admin/platforms/${platformType}?error=invalid_state`);
+    response.redirect(`/admin/platforms/${platformType}?error=invalid_state`);
     return;
   }
 
   if (new Date(row.createdAt).getTime() < Date.now() - OAUTH_STATE_TTL_MS) {
     database.prepare("DELETE FROM oauth_states WHERE state = ?").run(state);
-    res.redirect(`/admin/platforms/${platformType}?error=expired`);
+    response.redirect(`/admin/platforms/${platformType}?error=expired`);
     return;
   }
 
@@ -192,9 +206,9 @@ function handleOAuthCallback(
   // Exchange code for tokens
   void exchangeCodeForTokens(database, platformType, code, onPlatformChanged).then((success) => {
     if (success) {
-      res.redirect(`/admin/platforms/${platformType}?connected=true`);
+      response.redirect(`/admin/platforms/${platformType}?connected=true`);
     } else {
-      res.redirect(`/admin/platforms/${platformType}?error=token_exchange_failed`);
+      response.redirect(`/admin/platforms/${platformType}?error=token_exchange_failed`);
     }
   });
 }
@@ -316,8 +330,8 @@ async function exchangeCodeForTokens(database: Database, platformType: string, c
     logger.info(`${platformType} OAuth tokens saved successfully`);
     onPlatformChanged?.();
     return true;
-  } catch (err) {
-    logger.error(`${platformType} token exchange error`, { context: { error: String(err) } });
+  } catch (error) {
+    logger.error(`${platformType} token exchange error`, { context: { error: String(error) } });
     return false;
   }
 }

@@ -90,8 +90,15 @@ export class ViscaCameraDriver {
     }
   }
 
-  async inquirePosition(): Promise<PositionInquiry> {
+  /** Ensures the VISCA connection is active, reconnecting if necessary. */
+  private async ensureConnected(): Promise<void> {
     if (!this.connected) await this.connect();
+  }
+
+  async inquirePosition(): Promise<PositionInquiry> {
+    if (!this.connected) {
+      return { pan: null, tilt: null, zoom: null, focus: null, autoFocus: null };
+    }
     const result: PositionInquiry = { pan: null, tilt: null, zoom: null, focus: null, autoFocus: null };
 
     try {
@@ -139,7 +146,7 @@ export class ViscaCameraDriver {
   // ── PTZ Commands ─────────────────────────────────────────────────────────
 
   async panTiltSpeed(panSpeed: number, tiltSpeed: number): Promise<void> {
-    if (!this.connected) await this.connect();
+    await this.ensureConnected();
     const ps = Math.max(1, Math.min(0x18, Math.round(Math.abs(panSpeed) * 0x18)));
     const ts = Math.max(1, Math.min(0x14, Math.round(Math.abs(tiltSpeed) * 0x14)));
     const panDir = panSpeed > 0 ? 0x02 : panSpeed < 0 ? 0x01 : 0x03;
@@ -153,7 +160,7 @@ export class ViscaCameraDriver {
   }
 
   async panTiltAbsolute(pan: number, tilt: number): Promise<void> {
-    if (!this.connected) await this.connect();
+    await this.ensureConnected();
     const panRaw = Math.round(pan) & 0xffff;
     const tiltRaw = Math.round(tilt) & 0xffff;
     logger.debug("VISCA panTiltAbsolute", {
@@ -185,7 +192,7 @@ export class ViscaCameraDriver {
   }
 
   async zoomAbsolute(zoom: number): Promise<void> {
-    if (!this.connected) await this.connect();
+    await this.ensureConnected();
     const raw = Math.round(zoom) & 0xffff;
     logger.debug("VISCA zoomAbsolute", { context: { inputZoom: zoom, raw, hex: `0x${raw.toString(16)}` } });
     // 81 01 04 47 0p 0q 0r 0s FF
@@ -199,7 +206,7 @@ export class ViscaCameraDriver {
 
   /** Zoom at a given speed. speed > 0 = tele (zoom in), speed < 0 = wide (zoom out), 0 = stop. */
   async zoomSpeed(speed: number): Promise<void> {
-    if (!this.connected) await this.connect();
+    await this.ensureConnected();
     let cmd: Buffer;
     if (speed === 0) {
       // Stop: 81 01 04 07 00 FF
@@ -221,7 +228,7 @@ export class ViscaCameraDriver {
   }
 
   async focusAuto(): Promise<void> {
-    if (!this.connected) await this.connect();
+    await this.ensureConnected();
     // 81 01 04 38 02 FF (auto focus on)
     const cmd = Buffer.from([VISCA_HEADER, 0x01, 0x04, 0x38, 0x02, VISCA_TERMINATOR]);
     try {
@@ -232,7 +239,7 @@ export class ViscaCameraDriver {
   }
 
   async focusManual(position: number): Promise<void> {
-    if (!this.connected) await this.connect();
+    await this.ensureConnected();
     // Switch to manual: 81 01 04 38 03 FF
     const manual = Buffer.from([VISCA_HEADER, 0x01, 0x04, 0x38, 0x03, VISCA_TERMINATOR]);
     try {
@@ -252,7 +259,7 @@ export class ViscaCameraDriver {
 
   /** Focus at a given speed. speed > 0 = far, speed < 0 = near, 0 = stop. */
   async focusSpeed(speed: number): Promise<void> {
-    if (!this.connected) await this.connect();
+    await this.ensureConnected();
     let cmd: Buffer;
     if (speed === 0) {
       // Stop: 81 01 04 08 00 FF
@@ -275,7 +282,7 @@ export class ViscaCameraDriver {
 
   /** Recall an on-camera preset by slot number (0-255). */
   async presetRecall(slot: number): Promise<void> {
-    if (!this.connected) await this.connect();
+    await this.ensureConnected();
     // VISCA preset recall: 81 01 04 3F 02 pp FF (pp = preset number 0x00–0xFF)
     const pp = Math.max(0, Math.min(255, slot)) & 0xff;
     logger.debug("VISCA presetRecall", {
@@ -285,14 +292,14 @@ export class ViscaCameraDriver {
     try {
       const resp = await this.sendCommand(cmd);
       logger.debug("VISCA presetRecall response", { context: { responseHex: resp.toString("hex"), responseLength: resp.length } });
-    } catch (err) {
-      logger.warn("VISCA presetRecall failed", { context: { error: err instanceof Error ? err.message : String(err) } });
+    } catch (error) {
+      logger.warn("VISCA presetRecall failed", { context: { error: error instanceof Error ? error.message : String(error) } });
     }
   }
 
   /** Store the current camera position to an on-camera preset slot (0-255). */
   async presetStore(slot: number): Promise<void> {
-    if (!this.connected) await this.connect();
+    await this.ensureConnected();
     // VISCA preset set/store: 81 01 04 3F 01 pp FF (pp = preset number 0x00–0xFF)
     const pp = Math.max(0, Math.min(255, slot)) & 0xff;
     logger.debug("VISCA presetStore", { context: { slot, pp } });
@@ -300,13 +307,13 @@ export class ViscaCameraDriver {
     try {
       const resp = await this.sendCommand(cmd);
       logger.debug("VISCA presetStore response", { context: { responseHex: resp.toString("hex") } });
-    } catch (err) {
-      logger.warn("VISCA presetStore failed", { context: { error: err instanceof Error ? err.message : String(err) } });
+    } catch (error) {
+      logger.warn("VISCA presetStore failed", { context: { error: error instanceof Error ? error.message : String(error) } });
     }
   }
 
   async stop(): Promise<void> {
-    if (!this.connected) await this.connect();
+    await this.ensureConnected();
     // PanTiltDrive Stop: 81 01 06 01 01 01 03 03 FF
     const cmd = Buffer.from([VISCA_HEADER, 0x01, 0x06, 0x01, 0x01, 0x01, 0x03, 0x03, VISCA_TERMINATOR]);
     try {
@@ -337,10 +344,10 @@ export class ViscaCameraDriver {
         return;
       }
       this.pendingResolve = resolve;
-      this.socket.write(cmd, (err) => {
-        if (err) {
+      this.socket.write(cmd, (error) => {
+        if (error) {
           this.pendingResolve = null;
-          reject(err);
+          reject(error);
         }
       });
       setTimeout(() => {
@@ -383,10 +390,10 @@ export class ViscaCameraDriver {
     if (this.pendingResolve || this.commandQueue.length === 0) return;
     const next = this.commandQueue.shift()!;
     this.pendingResolve = next.resolve;
-    this.socket?.write(next.cmd, (err) => {
-      if (err) {
+    this.socket?.write(next.cmd, (error) => {
+      if (error) {
         this.pendingResolve = null;
-        next.reject(err);
+        next.reject(error);
         this.drainQueue();
       }
     });

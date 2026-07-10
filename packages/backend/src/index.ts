@@ -57,8 +57,8 @@ if (dashboardCount === 0) {
 httpServer.listen(PORT, () => {
   logger.info(`Backend started on port ${PORT}`);
   void obsService.connect();
-  void relayService.start().catch((err) => logger.warn("Relay start failed (FFmpeg may not be installed)", { error: String(err) }));
-  void platformService.validateTokensOnStartup().catch((err) => logger.warn("Token validation failed", { error: String(err) }));
+  void relayService.start().catch((error) => logger.warn("Relay start failed (FFmpeg may not be installed)", { error: String(error) }));
+  void platformService.validateTokensOnStartup().catch((error) => logger.warn("Token validation failed", { error: String(error) }));
   void previewManager.initialize().then(() => {
     void obsNdiPreviewSource.initialize();
     void cameraService.initialize();

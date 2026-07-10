@@ -55,8 +55,8 @@ export class StreamingPlatformModule implements SocketModule {
             throw new Error(`Unknown command type: ${(command as { type: string }).type}`);
         }
         ack({ success: true });
-      } catch (err: unknown) {
-        ack({ success: false, error: err instanceof Error ? err.message : String(err) });
+      } catch (error: unknown) {
+        ack({ success: false, error: error instanceof Error ? error.message : String(error) });
       }
     });
   }

@@ -71,9 +71,9 @@ export class ObsModule implements SocketModule {
         }
         logger.info("OBS Command finished", { ...baseLogPayload, result });
         ack(result.success ? { success: true, state: result.value } : { success: false, error: result.error.message });
-      } catch (err: unknown) {
-        logger.info("OBS Command Failed", { ...baseLogPayload, err });
-        ack({ success: false, error: err instanceof Error ? err.message : String(err) });
+      } catch (error: unknown) {
+        logger.info("OBS Command Failed", { ...baseLogPayload, error });
+        ack({ success: false, error: error instanceof Error ? error.message : String(error) });
       }
     });
 

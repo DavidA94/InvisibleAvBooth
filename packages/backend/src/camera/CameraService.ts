@@ -558,10 +558,10 @@ export class CameraService {
 
       driver.disconnect();
       return { success: true, value: { min, max } };
-    } catch (err) {
+    } catch (error) {
       await driver.stop().catch(() => {});
       driver.disconnect();
-      return { success: false, error: err instanceof Error ? err.message : String(err) };
+      return { success: false, error: error instanceof Error ? error.message : String(error) };
     }
   }
 

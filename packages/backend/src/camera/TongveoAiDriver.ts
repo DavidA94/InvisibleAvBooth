@@ -25,9 +25,9 @@ export class TongveoAiDriver implements AiTrackingDriver {
           ai_auto_tilt: aiTilt ? "1" : "0",
         }),
       });
-    } catch (err) {
-      logger.error("TongveoAiDriver aiControl failed", { context: { error: String(err) } });
-      throw err;
+    } catch (error) {
+      logger.error("TongveoAiDriver aiControl failed", { context: { error: String(error) } });
+      throw error;
     }
 
     if (enabled) {
@@ -37,9 +37,9 @@ export class TongveoAiDriver implements AiTrackingDriver {
           headers: { "Content-Type": "application/json", Cookie: this.cookie },
           body: JSON.stringify({ Channel: 0, PtzCmd: 15, param1: 7, param2: 0, ID: this.credentialId }),
         });
-      } catch (err) {
-        logger.error("TongveoAiDriver setPTZCmd failed", { context: { error: String(err) } });
-        throw err;
+      } catch (error) {
+        logger.error("TongveoAiDriver setPTZCmd failed", { context: { error: String(error) } });
+        throw error;
       }
     }
   }

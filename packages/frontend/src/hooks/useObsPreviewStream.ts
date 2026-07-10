@@ -138,21 +138,21 @@ export function useObsPreviewStream(endpoint: string, enabled: boolean): UseObsP
         if (!audioCtxRef.current) {
           audioCtxRef.current = new AudioContext({ sampleRate: PREVIEW_AUDIO_SAMPLE_RATE });
         }
-        const ctx = audioCtxRef.current;
-        if (ctx.state === "suspended") {
-          ctx.resume().catch(() => {});
+        const audioContext = audioCtxRef.current;
+        if (audioContext.state === "suspended") {
+          audioContext.resume().catch(() => {});
         }
 
-        // Decode S16LE PCM to float32
-        const audioBytes = new Uint8Array(data, 1); // skip type byte
-        const pcmView = new Int16Array(audioBytes.buffer, audioBytes.byteOffset, audioBytes.byteLength / 2);
+        // Decode S16LE PCM to float32 — slice to ensure 2-byte alignment for Int16Array
+        const audioBytes = new Uint8Array(data.slice(1));
+        const pcmView = new Int16Array(audioBytes.buffer, 0, audioBytes.byteLength / 2);
         const floatData = new Float32Array(pcmView.length);
         for (let i = 0; i < pcmView.length; i++) {
           floatData[i] = pcmView[i]! / 32768;
         }
 
         // Create audio buffer
-        const audioBuffer = ctx.createBuffer(PREVIEW_AUDIO_CHANNELS, SAMPLES_PER_CHUNK, PREVIEW_AUDIO_SAMPLE_RATE);
+        const audioBuffer = audioContext.createBuffer(PREVIEW_AUDIO_CHANNELS, SAMPLES_PER_CHUNK, PREVIEW_AUDIO_SAMPLE_RATE);
         if (PREVIEW_AUDIO_CHANNELS === 1) {
           audioBuffer.getChannelData(0).set(floatData.subarray(0, SAMPLES_PER_CHUNK));
         } else {
@@ -165,7 +165,7 @@ export function useObsPreviewStream(endpoint: string, enabled: boolean): UseObsP
           }
         }
 
-        const now = ctx.currentTime;
+        const now = audioContext.currentTime;
         const chunkDuration = PREVIEW_AUDIO_CHUNK_MS / 1000;
 
         // Skip-to-live: if we're too far behind, reset playback to now
@@ -173,9 +173,9 @@ export function useObsPreviewStream(endpoint: string, enabled: boolean): UseObsP
           nextPlayTimeRef.current = now;
         }
 
-        const source = ctx.createBufferSource();
+        const source = audioContext.createBufferSource();
         source.buffer = audioBuffer;
-        source.connect(ctx.destination);
+        source.connect(audioContext.destination);
         source.start(nextPlayTimeRef.current);
 
         nextPlayTimeRef.current += chunkDuration;

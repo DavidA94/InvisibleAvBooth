@@ -27,7 +27,7 @@ const templateItem = {
   templateName: "Speaker Name",
 };
 
-function lowerThirdState(overrides = {}) {
+function lowerThirdState(overrides = {}): Record<string, unknown> {
   return {
     active: null,
     library: [titleItem, templateItem],
@@ -41,7 +41,7 @@ function lowerThirdState(overrides = {}) {
   };
 }
 
-function lowerThirdStateWithActive() {
+function lowerThirdStateWithActive(): Record<string, unknown> {
   return lowerThirdState({
     active: titleItem,
     phase: "visible",

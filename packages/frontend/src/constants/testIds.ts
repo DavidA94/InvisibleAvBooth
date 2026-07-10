@@ -248,5 +248,3 @@ export const TEST_ID_OBS_PREVIEW_VIDEO = "obs-preview-video";
 export const TEST_ID_OBS_PREVIEW_MUTE_BTN = "obs-preview-mute-btn";
 export const TEST_ID_OBS_PREVIEW_INACTIVE = "obs-preview-inactive";
 export const TEST_ID_OBS_PREVIEW_RECONNECTING = "obs-preview-reconnecting";
-export const TEST_ID_STREAM_PREVIEW_MODAL = "stream-preview-modal";
-export const TEST_ID_STREAM_PREVIEW_DISMISS = "stream-preview-dismiss";

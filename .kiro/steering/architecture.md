@@ -162,12 +162,12 @@ All event name constants are defined in `packages/shared/src/constants/socketEve
 
 Admin configuration changes must take effect immediately without a server restart. Each domain that holds startup-loaded state subscribes to a bus event emitted by the admin route handler that modified the data. On receiving the event, the service reloads the affected data from the database and re-broadcasts state to connected clients.
 
-| Event | Emitted by | Subscribers | Effect |
-|-------|-----------|-------------|--------|
-| `BUS_CAMERA_DEVICE_CHANGED` | `adminDeviceRoutes` (POST/PUT/DELETE camera-ptz) | `CameraService` | Adds, updates, or removes camera instance (VISCA connection, NDI preview, polling) |
-| `BUS_CAMERA_PRESETS_CHANGED` | `adminPresetRoutes` (POST/PUT/DELETE/reorder) | `CameraService` | Updates `instance.state.presets` so `activatePreset` uses current data |
-| `BUS_OBS_CONFIG_CHANGED` | `adminDeviceRoutes` (POST/PUT/DELETE obs) | `ObsNdiPreviewSource` | Re-reads `ndiOutputName`, re-registers/unregisters preview source |
-| `BUS_TEMPLATES_CHANGED` | `adminTemplateRoutes` (POST/PUT/DELETE) | `LowerThirdService` | Calls `recomputeTemplateItems()` to add/remove template-based lower-thirds |
+| Event                        | Emitted by                                       | Subscribers           | Effect                                                                             |
+| ---------------------------- | ------------------------------------------------ | --------------------- | ---------------------------------------------------------------------------------- |
+| `BUS_CAMERA_DEVICE_CHANGED`  | `adminDeviceRoutes` (POST/PUT/DELETE camera-ptz) | `CameraService`       | Adds, updates, or removes camera instance (VISCA connection, NDI preview, polling) |
+| `BUS_CAMERA_PRESETS_CHANGED` | `adminPresetRoutes` (POST/PUT/DELETE/reorder)    | `CameraService`       | Updates `instance.state.presets` so `activatePreset` uses current data             |
+| `BUS_OBS_CONFIG_CHANGED`     | `adminDeviceRoutes` (POST/PUT/DELETE obs)        | `ObsNdiPreviewSource` | Re-reads `ndiOutputName`, re-registers/unregisters preview source                  |
+| `BUS_TEMPLATES_CHANGED`      | `adminTemplateRoutes` (POST/PUT/DELETE)          | `LowerThirdService`   | Calls `recomputeTemplateItems()` to add/remove template-based lower-thirds         |
 
 **Pattern:** The emitting route includes an `action` field (`"created"`, `"updated"`, or `"deleted"`) and the relevant ID. Subscribers use this to decide whether to add, refresh, or remove internal state. After reloading, subscribers broadcast updated state to frontends via the normal `BUS_*_STATE_CHANGED` → `STC_*` pipeline.
 

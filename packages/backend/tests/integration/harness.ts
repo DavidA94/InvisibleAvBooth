@@ -71,6 +71,7 @@ export async function buildTestServer(opts?: { seedKjv?: boolean; seedPlatform?:
     obsClient: fakeObs,
     platformClients: new Map([["youtube", fakePlatformClient]]),
     relayPort: 0,
+    // eslint-disable-next-line @typescript-eslint/consistent-type-imports
     previewSpawnFn: fakeSpawn as unknown as import("../../src/services/previewStreamManager.js").SpawnFn,
   });
 

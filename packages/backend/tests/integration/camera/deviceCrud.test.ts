@@ -102,3 +102,51 @@ describe("Camera Device CRUD", () => {
     expect(res.body.deviceType).toBe("camera-ptz");
   });
 });
+
+describe("Discover Range Endpoint", () => {
+  let server: TestServer;
+  let adminCookie: string;
+
+  beforeAll(async () => {
+    server = await buildTestServer();
+  });
+
+  beforeEach(async () => {
+    resetServer(server);
+    adminCookie = await loginAsAdmin(server.agent, server.ctx.authService);
+  });
+
+  afterAll(() => {
+    destroyServer(server);
+  });
+
+  it("returns 400 for invalid axis", async () => {
+    const res = await server.agent.get("/api/admin/cameras/discover/invalid?ip=10.0.0.1&port=5500").set("Cookie", adminCookie);
+    expect(res.status).toBe(400);
+    expect(res.body.error).toContain("Invalid axis");
+  });
+
+  it("returns 400 when ip is missing", async () => {
+    const res = await server.agent.get("/api/admin/cameras/discover/pan?port=5500").set("Cookie", adminCookie);
+    expect(res.status).toBe(400);
+    expect(res.body.error).toContain("ip and port are required");
+  });
+
+  it("returns 400 when port is missing", async () => {
+    const res = await server.agent.get("/api/admin/cameras/discover/pan?ip=10.0.0.1").set("Cookie", adminCookie);
+    expect(res.status).toBe(400);
+    expect(res.body.error).toContain("ip and port are required");
+  });
+
+  it("returns 401 without auth", async () => {
+    const res = await server.agent.get("/api/admin/cameras/discover/pan?ip=10.0.0.1&port=5500");
+    expect(res.status).toBe(401);
+  });
+
+  it("returns 503 when camera cannot connect", async () => {
+    // discoverRange tries to connect to the given IP:port — nothing is listening, so it fails
+    const res = await server.agent.get("/api/admin/cameras/discover/pan?ip=127.0.0.1&port=59999").set("Cookie", adminCookie);
+    expect(res.status).toBe(503);
+    expect(res.body.error).toContain("Cannot connect");
+  });
+});

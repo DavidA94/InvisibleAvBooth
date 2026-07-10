@@ -63,7 +63,7 @@ describe("Preset REST Endpoints", () => {
 
     // Reverse order
     const reversed = [...ids].reverse();
-    await server.agent.put("/api/admin/cameras/cam1/presets/order").set("Cookie", adminCookie).send({ order: reversed });
+    await server.agent.put("/api/admin/cameras/cam1/presets/order").set("Cookie", adminCookie).send({ presetIds: reversed });
 
     const reordered = await server.agent.get("/api/admin/cameras/cam1/presets").set("Cookie", adminCookie);
     expect(reordered.body[0].id).toBe(reversed[0]);
@@ -92,5 +92,50 @@ describe("Preset REST Endpoints", () => {
     expect(res.status).toBe(200);
     expect(res.body).toHaveProperty("pan");
     expect(res.body).toHaveProperty("zoom");
+  });
+
+  it("POST returns 400 when name is missing", async () => {
+    const res = await server.agent.post("/api/admin/cameras/cam1/presets").set("Cookie", adminCookie).send({});
+    expect(res.status).toBe(400);
+    expect(res.body.error).toContain("name is required");
+  });
+
+  it("PUT returns 404 for nonexistent preset", async () => {
+    const res = await server.agent.put("/api/admin/cameras/cam1/presets/nonexistent").set("Cookie", adminCookie).send({ name: "Updated" });
+    expect(res.status).toBe(404);
+  });
+
+  it("PUT updates preset fields", async () => {
+    const created = await server.agent.post("/api/admin/cameras/cam1/presets").set("Cookie", adminCookie).send({ name: "Original" });
+    const presetId = created.body.id;
+
+    const res = await server.agent.put(`/api/admin/cameras/cam1/presets/${presetId}`).set("Cookie", adminCookie).send({
+      name: "Renamed",
+      storedOnCamera: true,
+      cameraPresetSlot: 2,
+      pan: 100,
+      tilt: 200,
+      zoom: 300,
+      focus: 400,
+      autoFocus: false,
+      aiTracking: true,
+      aiTilt: true,
+      aiZoom: true,
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.name).toBe("Renamed");
+    expect(res.body.storedOnCamera).toBe(true);
+    expect(res.body.cameraPresetSlot).toBe(2);
+  });
+
+  it("DELETE returns 404 for nonexistent preset", async () => {
+    const res = await server.agent.delete("/api/admin/cameras/cam1/presets/nonexistent").set("Cookie", adminCookie);
+    expect(res.status).toBe(404);
+  });
+
+  it("PUT /order returns 400 when presetIds is not an array", async () => {
+    const res = await server.agent.put("/api/admin/cameras/cam1/presets/order").set("Cookie", adminCookie).send({ presetIds: "not-an-array" });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toContain("presetIds array is required");
   });
 });

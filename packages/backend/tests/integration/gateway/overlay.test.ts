@@ -123,6 +123,17 @@ describe("/overlay namespace", () => {
     socket.disconnect();
   });
 
+  it("skips log entries with invalid level", async () => {
+    const socket = connectOverlay();
+    await new Promise<void>((resolve) => socket.on("connect", resolve));
+
+    socket.emit("ots:lower-third:log", [{ level: "invalid-level", message: "should be skipped" }, { message: "no level defaults to info" }]);
+
+    await new Promise((r) => setTimeout(r, 50));
+    expect(socket.connected).toBe(true);
+    socket.disconnect();
+  });
+
   it("accepts page breakdown reports via OTS_LOWER_THIRD_PAGES", async () => {
     // Add a Scripture item to the library so reportPages has something to update
     const service = s.ctx.lowerThirdService;

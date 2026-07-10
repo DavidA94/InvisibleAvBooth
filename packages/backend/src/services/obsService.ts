@@ -97,8 +97,8 @@ export class ObsService {
       // relay infrastructure rather than directly to a single platform.
       try {
         await this.configureRelayTarget();
-      } catch (err) {
-        logger.warn("Failed to configure relay target — OBS connection still active", { error: String(err) });
+      } catch (error) {
+        logger.warn("Failed to configure relay target — OBS connection still active", { error: String(error) });
       }
 
       // Remove any existing listeners before adding new ones to prevent
@@ -119,8 +119,8 @@ export class ObsService {
 
       logger.info("OBS connected", { context: { host: config.host, port: config.port } });
       return { success: true, value: undefined };
-    } catch (err) {
-      const obsErr = new ObsError("OBS_UNREACHABLE", err instanceof Error ? err.message : String(err));
+    } catch (error) {
+      const obsErr = new ObsError("OBS_UNREACHABLE", error instanceof Error ? error.message : String(error));
       this.scheduleReconnect();
       return { success: false, error: obsErr };
     }
@@ -135,8 +135,8 @@ export class ObsService {
       await this.obs.disconnect();
       this.updateState({ connected: false });
       return { success: true, value: undefined };
-    } catch (err) {
-      return { success: false, error: new ObsError("OBS_UNREACHABLE", String(err)) };
+    } catch (error) {
+      return { success: false, error: new ObsError("OBS_UNREACHABLE", String(error)) };
     }
   }
 
@@ -160,7 +160,7 @@ export class ObsService {
       this.state.streaming = true;
       eventBus.emit(BUS_OBS_STATE_CHANGED, { state: this.getState() });
       return { success: true, value: this.getState() };
-    } catch (err) {
+    } catch (error) {
       // If OBS reports already streaming (e.g., started externally), treat as success
       try {
         const status = (await this.obs.call("GetStreamStatus")) as { outputActive?: boolean };
@@ -172,9 +172,9 @@ export class ObsService {
         /* fall through to error */
       }
       eventBus.emit(BUS_OBS_ERROR, {
-        error: new ObsError("STREAM_START_FAILED", String(err)) as ObsError & { code: "STREAM_START_FAILED" },
+        error: new ObsError("STREAM_START_FAILED", String(error)) as ObsError & { code: "STREAM_START_FAILED" },
       });
-      return { success: false, error: new ObsError("STREAM_START_FAILED", String(err)) };
+      return { success: false, error: new ObsError("STREAM_START_FAILED", String(error)) };
     }
   }
 
@@ -187,11 +187,11 @@ export class ObsService {
       this.state.commandedState.streaming = false;
       eventBus.emit(BUS_OBS_STATE_CHANGED, { state: this.getState() });
       return { success: true, value: this.getState() };
-    } catch (err) {
+    } catch (error) {
       eventBus.emit(BUS_OBS_ERROR, {
-        error: new ObsError("STREAM_STOP_FAILED", String(err)) as ObsError & { code: "STREAM_STOP_FAILED" },
+        error: new ObsError("STREAM_STOP_FAILED", String(error)) as ObsError & { code: "STREAM_STOP_FAILED" },
       });
-      return { success: false, error: new ObsError("STREAM_STOP_FAILED", String(err)) };
+      return { success: false, error: new ObsError("STREAM_STOP_FAILED", String(error)) };
     }
   }
 
@@ -217,11 +217,11 @@ export class ObsService {
       this.state.recording = true;
       eventBus.emit(BUS_OBS_STATE_CHANGED, { state: this.getState() });
       return { success: true, value: this.getState() };
-    } catch (err) {
+    } catch (error) {
       eventBus.emit(BUS_OBS_ERROR, {
-        error: new ObsError("RECORDING_START_FAILED", String(err)) as ObsError & { code: "RECORDING_START_FAILED" },
+        error: new ObsError("RECORDING_START_FAILED", String(error)) as ObsError & { code: "RECORDING_START_FAILED" },
       });
-      return { success: false, error: new ObsError("RECORDING_START_FAILED", String(err)) };
+      return { success: false, error: new ObsError("RECORDING_START_FAILED", String(error)) };
     }
   }
 
@@ -234,11 +234,11 @@ export class ObsService {
       this.state.commandedState.recording = false;
       eventBus.emit(BUS_OBS_STATE_CHANGED, { state: this.getState() });
       return { success: true, value: this.getState() };
-    } catch (err) {
+    } catch (error) {
       eventBus.emit(BUS_OBS_ERROR, {
-        error: new ObsError("RECORDING_STOP_FAILED", String(err)) as ObsError & { code: "RECORDING_STOP_FAILED" },
+        error: new ObsError("RECORDING_STOP_FAILED", String(error)) as ObsError & { code: "RECORDING_STOP_FAILED" },
       });
-      return { success: false, error: new ObsError("RECORDING_STOP_FAILED", String(err)) };
+      return { success: false, error: new ObsError("RECORDING_STOP_FAILED", String(error)) };
     }
   }
 
@@ -250,11 +250,11 @@ export class ObsService {
         streamServiceSettings: { stream_title: title },
       });
       return { success: true, value: undefined };
-    } catch (err) {
+    } catch (error) {
       eventBus.emit(BUS_OBS_ERROR, {
-        error: new ObsError("METADATA_UPDATE_FAILED", String(err)) as ObsError & { code: "METADATA_UPDATE_FAILED" },
+        error: new ObsError("METADATA_UPDATE_FAILED", String(error)) as ObsError & { code: "METADATA_UPDATE_FAILED" },
       });
-      return { success: false, error: new ObsError("METADATA_UPDATE_FAILED", String(err)) };
+      return { success: false, error: new ObsError("METADATA_UPDATE_FAILED", String(error)) };
     }
   }
 

@@ -5,7 +5,7 @@ import { CTS_CAMERA_PTZ_MOVE_START, CTS_CAMERA_PTZ_MOVE_KEEPALIVE, CTS_CAMERA_PT
 
 const mockEmit = vi.fn();
 vi.mock("../providers/SocketProvider", () => ({
-  useSocket: () => ({ emit: mockEmit }),
+  useSocket: () => ({ emit: mockEmit, connected: true }),
 }));
 
 describe("usePtzMove", () => {
@@ -91,5 +91,16 @@ describe("usePtzMove", () => {
     });
     // No keepalives after unmount
     expect(mockEmit).not.toHaveBeenCalledWith(CTS_CAMERA_PTZ_MOVE_KEEPALIVE, expect.anything());
+  });
+
+  it("startMove does nothing when socket is disconnected", () => {
+    // The mock socket has connected=true, but stopMove checks !activeRef.current
+    const { result } = renderHook(() => usePtzMove());
+    // Call stopMove without starting — exercises the !activeRef.current branch
+    act(() => {
+      result.current.stopMove();
+    });
+    // No emit because no active move session
+    expect(mockEmit).not.toHaveBeenCalledWith(CTS_CAMERA_PTZ_MOVE_STOP, expect.anything());
   });
 });

@@ -55,6 +55,23 @@ describe("FacebookClient", () => {
       await expect(makeClient().createBroadcast("T", "D")).rejects.toMatchObject({ code: "BROADCAST_CREATE_FAILED" });
     });
 
+    it("includes privacy param for user targetType", async () => {
+      mockFetch.mockResolvedValue(mockResponse({ id: "v-1", stream_url: "rtmp://fb.example.com/rtmp/key" }));
+
+      await makeClient({ metadata: { targetType: "user", userId: "me" } }).createBroadcast("T", "D", "EVERYONE");
+      const body = mockFetch.mock.calls[0]![1]!.body as string;
+      expect(body).toContain("privacy");
+      expect(body).toContain("EVERYONE");
+    });
+
+    it("uses SELF as default privacy for user targetType", async () => {
+      mockFetch.mockResolvedValue(mockResponse({ id: "v-1", stream_url: "rtmp://fb.example.com/rtmp/key" }));
+
+      await makeClient({ metadata: { targetType: "user", userId: "me" } }).createBroadcast("T", "D");
+      const body = mockFetch.mock.calls[0]![1]!.body as string;
+      expect(body).toContain("SELF");
+    });
+
     it("throws TOKEN_EXPIRED on error code 190", async () => {
       mockFetch.mockResolvedValue(mockResponse({ error: { message: "token expired", code: 190 } }, false, 401));
 

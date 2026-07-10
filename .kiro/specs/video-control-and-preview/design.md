@@ -282,8 +282,23 @@ function buildFfmpegArgsWithInput(inputArgs: string[], encoder: HardwareEncoder,
   const audioArgs = withAudio ? ["-c:a", "aac", "-b:a", "64k"] : ["-an"];
   // Hardware encoders can't accept raw piped input through software scale filter — use libx264
   const codecArgs = ["-c:v", "libx264", "-preset", "ultrafast", "-tune", "zerolatency", "-profile:v", "baseline", "-level", "3.1"];
-  return ["-probesize", "32", "-analyzeduration", "0", ...inputArgs, ...output, ...audioArgs, ...codecArgs,
-    "-f", "mp4", "-movflags", "frag_keyframe+empty_moov+default_base_moof", "-frag_duration", "33333", "pipe:1"];
+  return [
+    "-probesize",
+    "32",
+    "-analyzeduration",
+    "0",
+    ...inputArgs,
+    ...output,
+    ...audioArgs,
+    ...codecArgs,
+    "-f",
+    "mp4",
+    "-movflags",
+    "frag_keyframe+empty_moov+default_base_moof",
+    "-frag_duration",
+    "33333",
+    "pipe:1",
+  ];
 }
 ```
 

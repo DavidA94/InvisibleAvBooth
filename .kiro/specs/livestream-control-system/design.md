@@ -1002,13 +1002,7 @@ class AuthError extends Error {
 }
 
 type AuthErrorCode =
-  | "INVALID_CREDENTIALS"
-  | "USER_NOT_FOUND"
-  | "INSUFFICIENT_ROLE"
-  | "TOKEN_EXPIRED"
-  | "TOKEN_INVALID"
-  | "SELF_DELETE_FORBIDDEN"
-  | "USERNAME_TAKEN";
+  "INVALID_CREDENTIALS" | "USER_NOT_FOUND" | "INSUFFICIENT_ROLE" | "TOKEN_EXPIRED" | "TOKEN_INVALID" | "SELF_DELETE_FORBIDDEN" | "USERNAME_TAKEN";
 
 // Typed error for validation failures (SessionManifestService, etc.)
 class ValidationError extends Error {

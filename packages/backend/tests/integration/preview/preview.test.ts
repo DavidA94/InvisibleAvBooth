@@ -225,3 +225,217 @@ describe("OBS Preview with ndiOutputName", () => {
     await new Promise((r) => setTimeout(r, 50));
   });
 });
+
+describe("Preview data fan-out and lifecycle", () => {
+  let server: TestServer;
+  // Track all spawned processes from the fakeSpawn mock
+  const spawnedProcesses: Array<{
+    cmd: string;
+    args: string[];
+    process: { stdout: { emit: (e: string, d: Buffer) => void } | null; emit: (e: string, ...a: unknown[]) => void };
+  }> = [];
+
+  beforeAll(async () => {
+    server = await buildTestServer();
+    // Initialize the preview manager so gstreamerAvailable = true and pipelines can spawn.
+    (server.ctx.previewManager as unknown as { gstreamerAvailable: boolean }).gstreamerAvailable = true;
+
+    // Wrap the fakeSpawn to track all spawned processes
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const originalSpawn = (server.ctx.previewManager as any).spawnFn;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (server.ctx.previewManager as any).spawnFn = (cmd: string, args: string[]) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const proc = originalSpawn(cmd, args) as any;
+      spawnedProcesses.push({ cmd, args, process: proc });
+      return proc;
+    };
+  });
+
+  beforeEach(() => {
+    resetServer(server);
+    // Don't clear spawnedProcesses — sources persist across tests in same server
+  });
+
+  afterAll(() => {
+    destroyServer(server);
+  });
+
+  function connectWs(path: string, cookie: string): WebSocket {
+    return new WebSocket(`ws://localhost:${server.port}${path}`, {
+      headers: { Cookie: cookie },
+    });
+  }
+
+  async function waitForOpen(ws: WebSocket): Promise<void> {
+    if (ws.readyState === WebSocket.OPEN) return;
+    await new Promise<void>((resolve, reject) => {
+      ws.on("open", resolve);
+      ws.on("error", reject);
+      setTimeout(() => reject(new Error("WebSocket open timeout")), 2000);
+    });
+  }
+  it("fans out MJPEG frames to connected subscribers", async () => {
+    const cookie = await loginAsAdmin(server.agent, server.ctx.authService);
+
+    const ws = connectWs("/preview/obs", cookie);
+    await waitForOpen(ws);
+
+    // Mark source available — triggers pipeline spawn since subscriber already connected
+    server.ctx.previewManager.setSourceAvailable("obs", true, "OBS-NDI");
+    await new Promise((r) => setTimeout(r, 100));
+
+    // Verify pipeline was spawned and tracked
+    const gstProcs = spawnedProcesses.filter((e) => e.cmd === "gst-launch-1.0" && e.args[0] !== "--version");
+    expect(gstProcs.length).toBeGreaterThanOrEqual(1);
+
+    // Get the video pipeline process (first one spawned)
+    const videoProc = gstProcs[0]!.process;
+    expect(videoProc.stdout).not.toBeNull();
+
+    // Emit a fake JPEG frame on stdout (SOI + data + EOI)
+    const frame = Buffer.concat([Buffer.from([0xff, 0xd8]), Buffer.from("fake-jpeg"), Buffer.from([0xff, 0xd9])]);
+
+    const received = new Promise<Buffer>((resolve, reject) => {
+      const timeout = setTimeout(() => reject(new Error("No message received")), 2000);
+      ws.on("message", (data) => {
+        clearTimeout(timeout);
+        resolve(data as Buffer);
+      });
+    });
+
+    videoProc.stdout!.emit("data", frame);
+
+    // OBS source has withAudio=true, so frame is prefixed with type byte 0x01
+    const msg = await received;
+    expect(msg[0]).toBe(0x01); // PREVIEW_MSG_VIDEO
+    // The rest is the original JPEG frame
+    expect(Buffer.from(msg).subarray(1).equals(frame)).toBe(true);
+
+    ws.close();
+    await new Promise((r) => setTimeout(r, 50));
+  }, 10000);
+
+  it("fans out audio PCM chunks to subscribers", async () => {
+    const cookie = await loginAsAdmin(server.agent, server.ctx.authService);
+
+    const ws = connectWs("/preview/obs", cookie);
+    await waitForOpen(ws);
+
+    server.ctx.previewManager.setSourceAvailable("obs", true, "OBS-NDI");
+    await new Promise((r) => setTimeout(r, 100));
+
+    // OBS spawns 2 processes: video + audio
+    const gstProcs = spawnedProcesses.filter((e) => e.cmd === "gst-launch-1.0" && e.args[0] !== "--version" && e.process.stdout);
+    expect(gstProcs.length).toBeGreaterThanOrEqual(2);
+    const audioProc = gstProcs[gstProcs.length - 1]!.process;
+
+    // Emit enough PCM data for one chunk (44100 Hz * 1 channel * 2 bytes * 20ms / 1000 = 1764 bytes)
+    const bytesPerChunk = (44100 * 1 * 2 * 20) / 1000;
+    const pcmChunk = Buffer.alloc(bytesPerChunk, 0x42);
+
+    const received = new Promise<Buffer>((resolve, reject) => {
+      const timeout = setTimeout(() => reject(new Error("No audio message")), 2000);
+      ws.on("message", (data) => {
+        const buf = data as Buffer;
+        if (buf[0] === 0x02) {
+          clearTimeout(timeout);
+          resolve(buf);
+        }
+      });
+    });
+
+    audioProc.stdout!.emit("data", pcmChunk);
+
+    const msg = await received;
+    expect(msg[0]).toBe(0x02); // PREVIEW_MSG_AUDIO
+    expect(msg.length).toBe(1 + bytesPerChunk);
+
+    ws.close();
+    await new Promise((r) => setTimeout(r, 50));
+  }, 10000);
+
+  it("camera preview fans out frames without audio prefix", async () => {
+    const cookie = await loginAsAdmin(server.agent, server.ctx.authService);
+
+    const ws = connectWs("/preview/camera/cam1", cookie);
+    await waitForOpen(ws);
+
+    server.ctx.previewManager.setSourceAvailable("camera-cam1", true, "CAM1-NDI");
+    await new Promise((r) => setTimeout(r, 100));
+
+    const gstProcs = spawnedProcesses.filter((e) => e.cmd === "gst-launch-1.0" && e.args[0] !== "--version" && e.process.stdout);
+    expect(gstProcs.length).toBeGreaterThanOrEqual(1);
+    const proc = gstProcs[gstProcs.length - 1]!.process;
+
+    const frame = Buffer.concat([Buffer.from([0xff, 0xd8]), Buffer.from("cam-data"), Buffer.from([0xff, 0xd9])]);
+
+    const received = new Promise<Buffer>((resolve, reject) => {
+      const timeout = setTimeout(() => reject(new Error("No message")), 2000);
+      ws.on("message", (data) => {
+        clearTimeout(timeout);
+        resolve(data as Buffer);
+      });
+    });
+
+    proc.stdout!.emit("data", frame);
+
+    // Camera sources don't have audio, so no type byte prefix — raw JPEG
+    const msg = await received;
+    expect(msg[0]).toBe(0xff); // JPEG SOI first byte
+    expect(msg[1]).toBe(0xd8); // JPEG SOI second byte
+
+    ws.close();
+    await new Promise((r) => setTimeout(r, 50));
+  }, 10000);
+
+  it("pipeline restart on unexpected close (while subscribers exist)", async () => {
+    const cookie = await loginAsAdmin(server.agent, server.ctx.authService);
+
+    const ws = connectWs("/preview/camera/cam1", cookie);
+    await waitForOpen(ws);
+
+    server.ctx.previewManager.setSourceAvailable("camera-cam1", true, "CAM1-NDI");
+    await new Promise((r) => setTimeout(r, 100));
+
+    const gstProcs = spawnedProcesses.filter((e) => e.cmd === "gst-launch-1.0" && e.args[0] !== "--version");
+    expect(gstProcs.length).toBeGreaterThanOrEqual(1);
+    const proc = gstProcs[gstProcs.length - 1]!.process;
+
+    // Simulate pipeline crash
+    proc.emit("close", 1);
+
+    // After RESTART_DELAY_MS (2000ms), it should restart
+    await new Promise((r) => setTimeout(r, 2200));
+
+    // Should have spawned a new process
+    const newGstCalls = spawnedProcesses.filter((e) => e.cmd === "gst-launch-1.0" && e.args[0] !== "--version");
+    expect(newGstCalls.length).toBeGreaterThanOrEqual(2);
+
+    ws.close();
+    await new Promise((r) => setTimeout(r, 50));
+  }, 10000);
+
+  it("grace period keeps pipeline alive briefly after last subscriber disconnects", async () => {
+    const cookie = await loginAsAdmin(server.agent, server.ctx.authService);
+
+    const ws = connectWs("/preview/camera/cam1", cookie);
+    await waitForOpen(ws);
+
+    server.ctx.previewManager.setSourceAvailable("camera-cam1", true, "CAM1-NDI");
+    await new Promise((r) => setTimeout(r, 100));
+
+    const gstProcs = spawnedProcesses.filter((e) => e.cmd === "gst-launch-1.0" && e.args[0] !== "--version");
+    expect(gstProcs.length).toBeGreaterThanOrEqual(1);
+
+    // Disconnect last subscriber
+    ws.close();
+    await new Promise((r) => setTimeout(r, 100));
+
+    expect(server.ctx.previewManager.getSubscriberCount("camera-cam1")).toBe(0);
+
+    // After grace period (GRACE_PERIOD_MS = 3000), pipeline is killed
+    await new Promise((r) => setTimeout(r, 3100));
+    expect(server.ctx.previewManager.getActiveStreams()).toBe(0);
+  }, 10000);
+});

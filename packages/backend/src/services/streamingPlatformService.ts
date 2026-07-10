@@ -327,9 +327,9 @@ export class StreamingPlatformService {
       this.platformConfigDao.updateTokens(config.id, tokenInfo.accessToken, tokenInfo.refreshToken, tokenInfo.expiresAt);
       logger.info(`Token refreshed for ${config.label}`);
       return true;
-    } catch (err) {
+    } catch (error) {
       logger.warn(`Token refresh failed for ${config.label}`, {
-        context: { error: err instanceof Error ? err.message : String(err) },
+        context: { error: error instanceof Error ? error.message : String(error) },
       });
       return false;
     }
@@ -620,8 +620,8 @@ export class StreamingPlatformService {
         default:
           return null;
       }
-    } catch (err) {
-      logger.warn(`Failed to create client for ${config.label}`, { context: { error: err instanceof Error ? err.message : String(err) } });
+    } catch (error) {
+      logger.warn(`Failed to create client for ${config.label}`, { context: { error: error instanceof Error ? error.message : String(error) } });
       return null;
     }
   }

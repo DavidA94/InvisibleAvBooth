@@ -1,4 +1,4 @@
-import type { Request, Response, NextFunction } from "express";
+import type { Request, Response, NextFunction, RequestHandler } from "express";
 import type { AuthService, JwtPayload, Role } from "../services/authService.js";
 
 // Extend Express Request to carry the verified JWT payload.
@@ -8,7 +8,7 @@ declare module "express-serve-static-core" {
   }
 }
 
-export function authenticate(authService: AuthService) {
+export function authenticate(authService: AuthService): RequestHandler {
   return (request: Request, response: Response, next: NextFunction): void => {
     const token = request.cookies?.["token"] as string | undefined;
     if (!token) {
@@ -27,7 +27,7 @@ export function authenticate(authService: AuthService) {
 
 // Rejects requests from users who must change their password first.
 // Apply after authenticate(). The change-password endpoint itself is exempt.
-export function requirePasswordChanged() {
+export function requirePasswordChanged(): RequestHandler {
   return (request: Request, response: Response, next: NextFunction): void => {
     if (request.jwtPayload?.requiresPasswordChange) {
       response.status(403).json({ error: "Password change required before accessing this resource" });
@@ -37,7 +37,7 @@ export function requirePasswordChanged() {
   };
 }
 
-export function requireRole(authService: AuthService, minimum: Role) {
+export function requireRole(authService: AuthService, minimum: Role): RequestHandler {
   return (request: Request, response: Response, next: NextFunction): void => {
     const result = authService.requireRole(request.jwtPayload!, minimum);
     if (!result.success) {

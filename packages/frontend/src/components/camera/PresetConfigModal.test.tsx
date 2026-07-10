@@ -4,6 +4,10 @@ import "../../test/ionicMocks";
 import { PresetConfigModal } from "./PresetConfigModal";
 import { TEST_ID_MODAL_CONTAINER } from "../../constants/testIds";
 
+vi.mock("../../hooks/useResizeObserver", () => ({
+  useResizeObserver: () => 300,
+}));
+
 describe("PresetConfigModal", () => {
   const onClose = vi.fn();
   const onSave = vi.fn();
@@ -33,15 +37,16 @@ describe("PresetConfigModal", () => {
 
   it("store-on-camera toggle reveals slot input", () => {
     render(<PresetConfigModal open={true} onClose={onClose} onSave={onSave} onCapturePosition={onCapturePosition} />);
-    expect(screen.queryByTestId("preset-slot-input")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByLabelText("Store on Camera"));
-    expect(screen.getByTestId("preset-slot-input")).toBeInTheDocument();
+    // Slot input exists but is disabled by default
+    expect(screen.getByTestId("preset-slot-input")).toBeDisabled();
+    fireEvent.click(screen.getByTestId("store-on-camera-toggle"));
+    expect(screen.getByTestId("preset-slot-input")).not.toBeDisabled();
   });
 
   it("capture position and save calls both handlers", async () => {
     render(<PresetConfigModal open={true} onClose={onClose} onSave={onSave} onCapturePosition={onCapturePosition} />);
-    // Set the name via the input
-    const nameInput = screen.getByTestId("preset-name-input").querySelector("input")!;
+    // Set the name via the IonInput mock (renders as plain input with data-testid)
+    const nameInput = screen.getByTestId("preset-name-input");
     fireEvent.change(nameInput, { target: { value: "My Preset" } });
     await act(async () => {
       fireEvent.click(screen.getByTestId("preset-save-btn"));

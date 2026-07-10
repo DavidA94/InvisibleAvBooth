@@ -113,7 +113,8 @@ describe("PtzJoystick", () => {
     fireEvent.pointerDown(joystick, { clientX: 180, clientY: 100, pointerId: 1 });
     fireEvent.pointerUp(joystick, { pointerId: 1 });
     const dot = screen.getByTestId("ptz-joystick-dot");
-    expect(dot.style.transform).toBe("translate(0%, 0%)");
+    expect(dot.style.left).toBe("50%");
+    expect(dot.style.top).toBe("50%");
   });
 
   it("starts on pointerMove when entering active zone without pointerDown", () => {

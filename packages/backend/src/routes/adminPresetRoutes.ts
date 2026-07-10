@@ -28,7 +28,24 @@ interface PresetRow {
   createdAt: string;
 }
 
-function toPublic(row: PresetRow) {
+interface PublicPreset {
+  id: string;
+  cameraId: string;
+  name: string;
+  sortOrder: number;
+  storedOnCamera: boolean;
+  cameraPresetSlot: number | null;
+  pan: number | null;
+  tilt: number | null;
+  zoom: number | null;
+  focus: number | null;
+  autoFocus: boolean;
+  aiTracking: boolean;
+  aiTilt: boolean;
+  aiZoom: boolean;
+}
+
+function toPublic(row: PresetRow): PublicPreset {
   return {
     id: row.id,
     cameraId: row.cameraId,
@@ -52,19 +69,19 @@ export function createPresetRouter(database: Database, authService: AuthService,
   const adminOnly = requireRole(authService, "ADMIN");
 
   // GET /api/admin/cameras/:cameraId/presets
-  router.get("/", adminOnly, (req: Request, res: Response): void => {
-    const { cameraId } = req.params;
+  router.get("/", adminOnly, (request: Request, response: Response): void => {
+    const { cameraId } = request.params;
     const rows = database.prepare("SELECT * FROM camera_presets WHERE cameraId = ? ORDER BY sortOrder").all(cameraId as string) as PresetRow[];
-    res.json(rows.map(toPublic));
+    response.json(rows.map(toPublic));
   });
 
   // POST /api/admin/cameras/:cameraId/presets
-  router.post("/", adminOnly, async (req: Request, res: Response): Promise<void> => {
-    const { cameraId } = req.params;
-    const { name, storedOnCamera, cameraPresetSlot, pan, tilt, zoom, focus, autoFocus, aiTracking, aiTilt, aiZoom } = req.body as Record<string, unknown>;
+  router.post("/", adminOnly, async (request: Request, response: Response): Promise<void> => {
+    const { cameraId } = request.params;
+    const { name, storedOnCamera, cameraPresetSlot, pan, tilt, zoom, focus, autoFocus, aiTracking, aiTilt, aiZoom } = request.body as Record<string, unknown>;
 
     if (!name || typeof name !== "string") {
-      res.status(400).json({ error: "name is required" });
+      response.status(400).json({ error: "name is required" });
       return;
     }
 
@@ -94,7 +111,7 @@ export function createPresetRouter(database: Database, authService: AuthService,
         new Date().toISOString(),
       );
 
-    logger.info("Preset created", { userId: req.jwtPayload!.sub, context: { cameraId, presetId: id } });
+    logger.info("Preset created", { userId: request.jwtPayload!.sub, context: { cameraId, presetId: id } });
 
     // Store on camera hardware if requested
     if (storedOnCamera && cameraPresetSlot !== undefined && cameraPresetSlot !== null && cameraService) {
@@ -103,47 +120,47 @@ export function createPresetRouter(database: Database, authService: AuthService,
 
     broadcastPresets(database, cameraId as string);
     const row = database.prepare("SELECT * FROM camera_presets WHERE id = ?").get(id) as PresetRow;
-    res.status(201).json(toPublic(row));
+    response.status(201).json(toPublic(row));
   });
 
   // PUT /api/admin/cameras/:cameraId/presets/order
-  router.put("/order", adminOnly, (req: Request, res: Response): void => {
-    const { presetIds } = req.body as { presetIds?: string[] };
+  router.put("/order", adminOnly, (request: Request, response: Response): void => {
+    const { presetIds } = request.body as { presetIds?: string[] };
     if (!Array.isArray(presetIds)) {
-      res.status(400).json({ error: "presetIds array is required" });
+      response.status(400).json({ error: "presetIds array is required" });
       return;
     }
     const stmt = database.prepare("UPDATE camera_presets SET sortOrder = ? WHERE id = ?");
     for (let i = 0; i < presetIds.length; i++) {
       stmt.run(i, presetIds[i]);
     }
-    broadcastPresets(database, req.params["cameraId"] as string);
-    res.json({ success: true });
+    broadcastPresets(database, request.params["cameraId"] as string);
+    response.json({ success: true });
   });
 
   // POST /api/admin/cameras/:cameraId/capture-position
-  router.post("/capture-position", adminOnly, async (req: Request, res: Response): Promise<void> => {
-    const { cameraId } = req.params;
+  router.post("/capture-position", adminOnly, async (request: Request, response: Response): Promise<void> => {
+    const { cameraId } = request.params;
     if (!cameraService) {
       logger.warn("capture-position: no cameraService available");
-      res.json({ pan: null, tilt: null, zoom: null, focus: null, autoFocus: null });
+      response.json({ pan: null, tilt: null, zoom: null, focus: null, autoFocus: null });
       return;
     }
     const position = await cameraService.capturePosition(cameraId as string);
     logger.info("capture-position result", { context: { cameraId, position } });
-    res.json(position ?? { pan: null, tilt: null, zoom: null, focus: null, autoFocus: null });
+    response.json(position ?? { pan: null, tilt: null, zoom: null, focus: null, autoFocus: null });
   });
 
   // PUT /api/admin/cameras/:cameraId/presets/:presetId
-  router.put("/:presetId", adminOnly, async (req: Request, res: Response): Promise<void> => {
-    const { cameraId, presetId } = req.params;
+  router.put("/:presetId", adminOnly, async (request: Request, response: Response): Promise<void> => {
+    const { cameraId, presetId } = request.params;
     const existing = database.prepare("SELECT * FROM camera_presets WHERE id = ?").get(presetId as string) as PresetRow | undefined;
     if (!existing) {
-      res.status(404).json({ error: "Preset not found" });
+      response.status(404).json({ error: "Preset not found" });
       return;
     }
 
-    const { name, storedOnCamera, cameraPresetSlot, pan, tilt, zoom, focus, autoFocus, aiTracking, aiTilt, aiZoom } = req.body as Record<string, unknown>;
+    const { name, storedOnCamera, cameraPresetSlot, pan, tilt, zoom, focus, autoFocus, aiTracking, aiTilt, aiZoom } = request.body as Record<string, unknown>;
 
     database
       .prepare(
@@ -171,24 +188,24 @@ export function createPresetRouter(database: Database, authService: AuthService,
       await cameraService.storePresetOnCamera(cameraId as string, Number(finalSlot));
     }
 
-    logger.info("Preset updated", { userId: req.jwtPayload!.sub, context: { presetId } });
+    logger.info("Preset updated", { userId: request.jwtPayload!.sub, context: { presetId } });
     broadcastPresets(database, existing.cameraId);
     const updated = database.prepare("SELECT * FROM camera_presets WHERE id = ?").get(presetId as string) as PresetRow;
-    res.json(toPublic(updated));
+    response.json(toPublic(updated));
   });
 
   // DELETE /api/admin/cameras/:cameraId/presets/:presetId
-  router.delete("/:presetId", adminOnly, (req: Request, res: Response): void => {
-    const { presetId, cameraId } = req.params;
+  router.delete("/:presetId", adminOnly, (request: Request, response: Response): void => {
+    const { presetId, cameraId } = request.params;
     const existing = database.prepare("SELECT id FROM camera_presets WHERE id = ?").get(presetId as string);
     if (!existing) {
-      res.status(404).json({ error: "Preset not found" });
+      response.status(404).json({ error: "Preset not found" });
       return;
     }
     database.prepare("DELETE FROM camera_presets WHERE id = ?").run(presetId as string);
-    logger.info("Preset deleted", { userId: req.jwtPayload!.sub, context: { presetId } });
+    logger.info("Preset deleted", { userId: request.jwtPayload!.sub, context: { presetId } });
     broadcastPresets(database, cameraId as string);
-    res.status(204).send();
+    response.status(204).send();
   });
 
   return router;

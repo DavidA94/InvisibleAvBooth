@@ -78,5 +78,6 @@ vi.mock("@ionic/react", async () => {
         onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
           (onIonChange as ((e: { detail: { value: number } }) => void) | undefined)?.({ detail: { value: Number(e.target.value) } }),
       }),
+    IonPopover: ({ children, ...props }: Record<string, unknown>) => React.createElement("ion-popover", props, children as React.ReactNode),
   };
 });

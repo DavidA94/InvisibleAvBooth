@@ -24,8 +24,12 @@ const mockViscaDriver = {
   panTiltSpeed: vi.fn().mockResolvedValue(undefined),
   panTiltAbsolute: vi.fn().mockResolvedValue(undefined),
   zoomAbsolute: vi.fn().mockResolvedValue(undefined),
+  zoomSpeed: vi.fn().mockResolvedValue(undefined),
   focusAuto: vi.fn().mockResolvedValue(undefined),
   focusManual: vi.fn().mockResolvedValue(undefined),
+  focusSpeed: vi.fn().mockResolvedValue(undefined),
+  presetRecall: vi.fn().mockResolvedValue(undefined),
+  presetStore: vi.fn().mockResolvedValue(undefined),
   stop: vi.fn().mockResolvedValue(undefined),
 };
 
@@ -384,6 +388,78 @@ describe("CameraService", () => {
       expect(result.success).toBe(true);
       expect(mockViscaDriver.panTiltAbsolute).toHaveBeenCalled();
     });
+
+    it("uses metadata defaults for pan/tilt/zoom ranges", async () => {
+      await initService({ viscaEnabled: true });
+      // Provide explicit ranges to test the meta.panMin/panMax/etc paths
+      const result = await service.tapToCenter("cam1", 0.2, -0.2, {
+        ndiSourceName: "CAM1",
+        fovWideAngle: 60,
+        opticalZoomRatio: 20,
+        cameraModel: "generic",
+        cameraFeatures: [],
+        viscaEnabled: true,
+        panMin: 1000,
+        panMax: 60000,
+        tiltMin: 500,
+        tiltMax: 40000,
+        panTotalDegrees: 340,
+        tiltTotalDegrees: 170,
+        zoomMin: 0,
+        zoomMax: 16384,
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it("uses verticalFovWideAngle when provided", async () => {
+      await initService({ viscaEnabled: true });
+      const result = await service.tapToCenter("cam1", 0, -0.5, {
+        ndiSourceName: "CAM1",
+        fovWideAngle: 60,
+        opticalZoomRatio: 20,
+        cameraModel: "generic",
+        cameraFeatures: [],
+        viscaEnabled: true,
+        verticalFovWideAngle: 35,
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it("suppresses tilt when aiTilt is active", async () => {
+      await initService({ viscaEnabled: true });
+      // Enable AI tilt on the camera state
+      await service.applySet("cam1", { aiTilt: true });
+      mockViscaDriver.panTiltAbsolute.mockClear();
+
+      const result = await service.tapToCenter("cam1", 0.3, -0.4, {
+        ndiSourceName: "CAM1",
+        fovWideAngle: 60,
+        opticalZoomRatio: 20,
+        cameraModel: "generic",
+        cameraFeatures: [],
+        viscaEnabled: true,
+      });
+      expect(result.success).toBe(true);
+      // Tilt delta should be 0 when aiTilt is active
+      const [, tiltArg] = mockViscaDriver.panTiltAbsolute.mock.calls[0]!;
+      // currentTilt is 0 and tiltDelta is 0, so tilt should be 0
+      expect(tiltArg).toBe(0);
+    });
+
+    it("handles inquirePosition failure gracefully (uses last known position)", async () => {
+      await initService({ viscaEnabled: true });
+      mockViscaDriver.inquirePosition.mockRejectedValueOnce(new Error("timeout"));
+
+      const result = await service.tapToCenter("cam1", 0.1, 0.1, {
+        ndiSourceName: "CAM1",
+        fovWideAngle: 60,
+        opticalZoomRatio: 20,
+        cameraModel: "generic",
+        cameraFeatures: [],
+        viscaEnabled: true,
+      });
+      expect(result.success).toBe(true);
+    });
   });
 
   describe("capturePosition", () => {
@@ -396,7 +472,7 @@ describe("CameraService", () => {
 
     it("returns null for unknown camera", async () => {
       await initService();
-      expect(service.capturePosition("unknown")).toBeNull();
+      expect(await service.capturePosition("unknown")).toBeNull();
     });
   });
 
@@ -407,6 +483,342 @@ describe("CameraService", () => {
       mockViscaDriver.inquirePosition.mockClear();
       vi.advanceTimersByTime(5100);
       expect(mockViscaDriver.inquirePosition).toHaveBeenCalled();
+    });
+
+    it("updates state from poll results", async () => {
+      await initService({ viscaEnabled: true });
+      mockViscaDriver.inquirePosition.mockResolvedValue({ pan: 100, tilt: 200, zoom: 300, focus: 400, autoFocus: false });
+      vi.advanceTimersByTime(5100);
+      await vi.advanceTimersByTimeAsync(10);
+      const state = service.getCameraState("cam1");
+      expect(state?.position?.pan).toBe(100);
+    });
+
+    it("handles poll errors gracefully", async () => {
+      await initService({ viscaEnabled: true });
+      mockViscaDriver.inquirePosition.mockRejectedValue(new Error("timeout"));
+      vi.advanceTimersByTime(5100);
+      // Should not throw, camera stays connected
+      expect(service.getCameraState("cam1")).toBeDefined();
+    });
+  });
+
+  describe("storePresetOnCamera", () => {
+    it("stores preset via VISCA driver", async () => {
+      await initService({ viscaEnabled: true });
+      mockViscaDriver.presetStore = vi.fn().mockResolvedValue(undefined);
+      const result = await service.storePresetOnCamera("cam1", 5);
+      expect(result.success).toBe(true);
+      expect(mockViscaDriver.presetStore).toHaveBeenCalledWith(5);
+    });
+
+    it("returns error for unknown camera", async () => {
+      await initService();
+      const result = await service.storePresetOnCamera("unknown", 1);
+      expect(result).toEqual({ success: false, error: "Camera not found" });
+    });
+
+    it("returns error when VISCA not connected", async () => {
+      await initService({ viscaEnabled: false });
+      const result = await service.storePresetOnCamera("cam1", 1);
+      expect(result.success).toBe(false);
+      expect(result.error).toContain("VISCA");
+    });
+  });
+
+  describe("reloadCamera (via bus events)", () => {
+    it("adds a new camera on 'created' event", async () => {
+      await initService({ viscaEnabled: true });
+      // Insert a second camera
+      const meta = JSON.stringify({
+        ndiSourceName: "CAM2",
+        fovWideAngle: 60,
+        opticalZoomRatio: 20,
+        cameraModel: "generic",
+        cameraFeatures: [],
+        viscaEnabled: true,
+      });
+      db.prepare("INSERT INTO device_connections (id, deviceType, label, host, port, metadata, features, enabled, createdAt) VALUES (?,?,?,?,?,?,?,?,?)").run(
+        "cam2",
+        "camera-ptz",
+        "Second Camera",
+        "192.168.1.101",
+        5500,
+        meta,
+        "{}",
+        1,
+        new Date().toISOString(),
+      );
+      eventBus.emit("bus:camera:device:changed", { deviceId: "cam2", action: "created" });
+      await vi.advanceTimersByTimeAsync(100);
+      expect(service.getCameraState("cam2")).not.toBeNull();
+    });
+
+    it("removes camera on 'deleted' event", async () => {
+      await initService({ viscaEnabled: true });
+      eventBus.emit("bus:camera:device:changed", { deviceId: "cam1", action: "deleted" });
+      await vi.advanceTimersByTimeAsync(10);
+      expect(service.getCameraState("cam1")).toBeNull();
+    });
+
+    it("updates camera on 'updated' event", async () => {
+      await initService({ viscaEnabled: true });
+      // Update the camera metadata in DB
+      const meta = JSON.stringify({
+        ndiSourceName: "CAM1-UPDATED",
+        fovWideAngle: 90,
+        opticalZoomRatio: 10,
+        cameraModel: "generic",
+        cameraFeatures: ["pan", "tilt"],
+        viscaEnabled: true,
+      });
+      db.prepare("UPDATE device_connections SET metadata = ? WHERE id = ?").run(meta, "cam1");
+      eventBus.emit("bus:camera:device:changed", { deviceId: "cam1", action: "updated" });
+      await vi.advanceTimersByTimeAsync(100);
+      const state = service.getCameraState("cam1");
+      expect(state).not.toBeNull();
+      expect(state?.features).toContain("pan");
+    });
+
+    it("removes camera when device is disabled on update", async () => {
+      await initService({ viscaEnabled: true });
+      // Disable the device in DB
+      db.prepare("UPDATE device_connections SET enabled = 0 WHERE id = ?").run("cam1");
+      eventBus.emit("bus:camera:device:changed", { deviceId: "cam1", action: "updated" });
+      await vi.advanceTimersByTimeAsync(100);
+      expect(service.getCameraState("cam1")).toBeNull();
+    });
+
+    it("creates camera with AI driver for supported model", async () => {
+      db = makeDatabase();
+      const meta = JSON.stringify({
+        ndiSourceName: "CAM-AI",
+        fovWideAngle: 60,
+        opticalZoomRatio: 20,
+        cameraModel: "tongveo-nvs20a-4kn",
+        cameraFeatures: ["pan", "tilt", "zoom"],
+        viscaEnabled: true,
+        aiHttpCookie: "test-cookie",
+        aiCredentialId: "test-cred",
+      });
+      db.prepare("INSERT INTO device_connections (id, deviceType, label, host, port, metadata, features, enabled, createdAt) VALUES (?,?,?,?,?,?,?,?,?)").run(
+        "cam-ai",
+        "camera-ptz",
+        "AI Camera",
+        "192.168.1.200",
+        5500,
+        meta,
+        "{}",
+        1,
+        new Date().toISOString(),
+      );
+
+      service = new CameraService(db);
+      await service.initialize();
+      await vi.advanceTimersByTimeAsync(10);
+
+      // Reload via bus event to exercise the reloadCamera path
+      eventBus.emit("bus:camera:device:changed", { deviceId: "cam-ai", action: "updated" });
+      await vi.advanceTimersByTimeAsync(100);
+      const state = service.getCameraState("cam-ai");
+      expect(state).not.toBeNull();
+      expect(state?.capabilities.tapToCenter).toBe(true);
+    });
+  });
+
+  describe("activatePreset with on-camera preset", () => {
+    it("uses presetRecall for stored-on-camera presets", async () => {
+      seedCamera(db, { viscaEnabled: true });
+      db.prepare(
+        "INSERT INTO camera_presets (id, cameraId, name, sortOrder, storedOnCamera, cameraPresetSlot, pan, tilt, zoom, focus, autoFocus, aiTracking, aiTilt, aiZoom, createdAt) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+      ).run("p-hw", "cam1", "HW Preset", 0, 1, 3, null, null, null, null, 1, 0, 0, 0, new Date().toISOString());
+      service = new CameraService(db);
+      await service.initialize();
+      await vi.advanceTimersByTimeAsync(10);
+
+      mockViscaDriver.presetRecall = vi.fn().mockResolvedValue(undefined);
+      await service.activatePreset("cam1", "p-hw");
+      expect(mockViscaDriver.presetRecall).toHaveBeenCalledWith(3);
+    });
+  });
+
+  describe("discoverRange", () => {
+    it("discovers pan range by moving to limits", async () => {
+      await initService({ viscaEnabled: true });
+      // Simulate position changing then stabilizing:
+      // moveToLimit("min"): positions decrease then stabilize at 100
+      // moveToLimit("max"): positions increase then stabilize at 60000
+      let callCount = 0;
+      mockViscaDriver.inquirePosition.mockImplementation(() => {
+        callCount++;
+        // First moveToLimit("min"): calls 1-3 change, call 3-4 stabilize at 100
+        if (callCount <= 2) return Promise.resolve({ pan: 500 - callCount * 200, tilt: 0, zoom: 0, focus: 0, autoFocus: true });
+        if (callCount <= 4) return Promise.resolve({ pan: 100, tilt: 0, zoom: 0, focus: 0, autoFocus: true });
+        // moveToLimit("max"): calls 5-6 change, calls 7-8 stabilize at 60000
+        if (callCount <= 6) return Promise.resolve({ pan: 30000 + (callCount - 4) * 15000, tilt: 0, zoom: 0, focus: 0, autoFocus: true });
+        return Promise.resolve({ pan: 60000, tilt: 0, zoom: 0, focus: 0, autoFocus: true });
+      });
+
+      const resultPromise = service.discoverRange("192.168.1.100", 5500, "pan");
+      // Advance through all the sleep(1000) and sleep(200) calls
+      await vi.advanceTimersByTimeAsync(60 * 1200 * 2 + 500);
+      const result = await resultPromise;
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.value.min).toBe(100);
+        expect(result.value.max).toBe(60000);
+      }
+      expect(mockViscaDriver.panTiltAbsolute).toHaveBeenCalled();
+      expect(mockViscaDriver.disconnect).toHaveBeenCalled();
+    });
+
+    it("discovers zoom range", async () => {
+      await initService({ viscaEnabled: true });
+      let callCount = 0;
+      mockViscaDriver.inquirePosition.mockImplementation(() => {
+        callCount++;
+        if (callCount <= 2) return Promise.resolve({ pan: 0, tilt: 0, zoom: 1000 - callCount * 400, focus: 0, autoFocus: true });
+        if (callCount <= 4) return Promise.resolve({ pan: 0, tilt: 0, zoom: 0, focus: 0, autoFocus: true });
+        if (callCount <= 6) return Promise.resolve({ pan: 0, tilt: 0, zoom: 8000 + (callCount - 4) * 4000, focus: 0, autoFocus: true });
+        return Promise.resolve({ pan: 0, tilt: 0, zoom: 16384, focus: 0, autoFocus: true });
+      });
+
+      const resultPromise = service.discoverRange("192.168.1.100", 5500, "zoom");
+      await vi.advanceTimersByTimeAsync(60 * 1200 * 2 + 500);
+      const result = await resultPromise;
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.value.min).toBe(0);
+        expect(result.value.max).toBe(16384);
+      }
+      expect(mockViscaDriver.zoomSpeed).toHaveBeenCalled();
+      expect(mockViscaDriver.zoomAbsolute).toHaveBeenCalledWith(0); // return to wide
+    });
+
+    it("discovers tilt range", async () => {
+      await initService({ viscaEnabled: true });
+      let callCount = 0;
+      mockViscaDriver.inquirePosition.mockImplementation(() => {
+        callCount++;
+        if (callCount <= 2) return Promise.resolve({ pan: 0, tilt: 30000 - callCount * 10000, zoom: 0, focus: 0, autoFocus: true });
+        if (callCount <= 4) return Promise.resolve({ pan: 0, tilt: 500, zoom: 0, focus: 0, autoFocus: true });
+        if (callCount <= 6) return Promise.resolve({ pan: 0, tilt: 20000 + (callCount - 4) * 10000, zoom: 0, focus: 0, autoFocus: true });
+        return Promise.resolve({ pan: 0, tilt: 40000, zoom: 0, focus: 0, autoFocus: true });
+      });
+
+      const resultPromise = service.discoverRange("192.168.1.100", 5500, "tilt");
+      await vi.advanceTimersByTimeAsync(60 * 1200 * 2 + 500);
+      const result = await resultPromise;
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.value.min).toBe(500);
+        expect(result.value.max).toBe(40000);
+      }
+      expect(mockViscaDriver.panTiltAbsolute).toHaveBeenCalled();
+    });
+
+    it("discovers focus range", async () => {
+      await initService({ viscaEnabled: true });
+      let callCount = 0;
+      mockViscaDriver.inquirePosition.mockImplementation(() => {
+        callCount++;
+        if (callCount <= 2) return Promise.resolve({ pan: 0, tilt: 0, zoom: 0, focus: 500 - callCount * 200, autoFocus: true });
+        if (callCount <= 4) return Promise.resolve({ pan: 0, tilt: 0, zoom: 0, focus: 100, autoFocus: true });
+        if (callCount <= 6) return Promise.resolve({ pan: 0, tilt: 0, zoom: 0, focus: 5000 + (callCount - 4) * 3000, autoFocus: true });
+        return Promise.resolve({ pan: 0, tilt: 0, zoom: 0, focus: 11000, autoFocus: true });
+      });
+
+      const resultPromise = service.discoverRange("192.168.1.100", 5500, "focus");
+      await vi.advanceTimersByTimeAsync(60 * 1200 * 2 + 500);
+      const result = await resultPromise;
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.value.min).toBe(100);
+        expect(result.value.max).toBe(11000);
+      }
+      expect(mockViscaDriver.focusSpeed).toHaveBeenCalled();
+      expect(mockViscaDriver.focusManual).toHaveBeenCalled(); // return to midpoint
+    });
+
+    it("returns error when VISCA cannot connect", async () => {
+      await initService({ viscaEnabled: true });
+      mockViscaDriver.connect.mockResolvedValueOnce(false);
+
+      const resultPromise = service.discoverRange("192.168.1.100", 5500, "pan");
+      await vi.advanceTimersByTimeAsync(100);
+      const result = await resultPromise;
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toContain("Cannot connect");
+        expect(result.status).toBe(503);
+      }
+    });
+
+    it("returns error when position read returns null", async () => {
+      await initService({ viscaEnabled: true });
+      mockViscaDriver.inquirePosition.mockResolvedValue({ pan: null, tilt: null, zoom: null, focus: null, autoFocus: null });
+
+      const resultPromise = service.discoverRange("192.168.1.100", 5500, "pan");
+      await vi.advanceTimersByTimeAsync(60 * 1200 + 500);
+      const result = await resultPromise;
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toContain("Failed to read position");
+      }
+    });
+
+    it("returns error when position never stabilizes (60 iterations)", async () => {
+      await initService({ viscaEnabled: true });
+      let callCount = 0;
+      mockViscaDriver.inquirePosition.mockImplementation(() => {
+        callCount++;
+        // Always return different values — never stabilizes
+        return Promise.resolve({ pan: callCount * 100, tilt: 0, zoom: 0, focus: 0, autoFocus: true });
+      });
+
+      const resultPromise = service.discoverRange("192.168.1.100", 5500, "pan");
+      await vi.advanceTimersByTimeAsync(60 * 1200 * 2 + 500);
+      const result = await resultPromise;
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toContain("Failed to read position");
+      }
+    });
+
+    it("handles exception during discovery gracefully", async () => {
+      await initService({ viscaEnabled: true });
+      mockViscaDriver.inquirePosition.mockRejectedValue(new Error("VISCA timeout"));
+
+      const resultPromise = service.discoverRange("192.168.1.100", 5500, "zoom");
+      await vi.advanceTimersByTimeAsync(60 * 1200 + 500);
+      const result = await resultPromise;
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toContain("VISCA timeout");
+      }
+      expect(mockViscaDriver.disconnect).toHaveBeenCalled();
+    });
+  });
+
+  describe("getCameraMetadata", () => {
+    it("returns metadata for existing camera", async () => {
+      await initService({ viscaEnabled: true });
+      const meta = service.getCameraMetadata("cam1");
+      expect(meta).toBeDefined();
+      expect(meta?.ndiSourceName).toBe("CAM1");
+    });
+
+    it("returns null for unknown camera", async () => {
+      await initService();
+      expect(service.getCameraMetadata("unknown")).toBeNull();
     });
   });
 

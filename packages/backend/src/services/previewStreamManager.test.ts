@@ -1,15 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { EventEmitter } from "events";
-import {
-  PreviewStreamManager,
-  buildGstreamerArgs,
-  probeEncoder,
-  checkGstreamerPath,
-  PREVIEW_RESOLUTION,
-  GRACE_PERIOD_MS,
-  MAX_RESTART_ATTEMPTS,
-  RESTART_DELAY_MS,
-} from "./previewStreamManager.js";
+import { PreviewStreamManager, buildMjpegArgs, buildAudioArgs, probeEncoder, checkGstreamerPath } from "./previewStreamManager.js";
 import type { SpawnFn } from "./previewStreamManager.js";
 
 vi.mock("../logger.js", () => ({
@@ -100,47 +90,6 @@ function makeMockAuthService(valid = true) {
     verifyToken: vi.fn(() => (valid ? { success: true, payload: { sub: "u1" } } : { success: false })),
   };
 }
-
-function buildMp4Box(type: string, contentLength: number): Buffer {
-  const size = 8 + contentLength;
-  const buf = Buffer.alloc(size);
-  buf.writeUInt32BE(size, 0);
-  buf.write(type, 4, 4, "ascii");
-  return buf;
-}
-
-describe("buildGstreamerArgs", () => {
-  it("uses x264enc when no hardware encoder", () => {
-    const args = buildGstreamerArgs("CAM1", null, false);
-    expect(args).toContain("x264enc");
-    expect(args).toContain('ndi-name="CAM1"');
-    expect(args).toContain("fd=1");
-    expect(args).toContain("decodebin");
-    expect(args).toContain("videorate");
-  });
-
-  it("uses hardware encoder when specified", () => {
-    const args = buildGstreamerArgs("CAM1", { element: "qsvh264enc", options: "target-usage=7" }, false);
-    expect(args).toContain("qsvh264enc");
-    expect(args).not.toContain("x264enc");
-  });
-
-  it("includes audio pipeline when withAudio is true", () => {
-    const args = buildGstreamerArgs("OBS", null, true);
-    expect(args).toContain("audioconvert");
-    expect(args).toContain("avenc_aac");
-  });
-
-  it("excludes audio when withAudio is false", () => {
-    const args = buildGstreamerArgs("CAM1", null, false);
-    expect(args).not.toContain("audioconvert");
-  });
-
-  it("includes videoscale with correct resolution", () => {
-    const args = buildGstreamerArgs("CAM1", null, false);
-    expect(args).toContain(`video/x-raw,width=${PREVIEW_RESOLUTION.width},height=${PREVIEW_RESOLUTION.height}`);
-  });
-});
 
 describe("probeEncoder", () => {
   it("returns qsvh264enc when available", async () => {
@@ -291,5 +240,82 @@ describe("PreviewStreamManager", () => {
       manager.destroy();
       expect(mockWssClose).toHaveBeenCalled();
     });
+  });
+
+  describe("handleConnection flow", () => {
+    beforeEach(async () => {
+      const { execSync } = vi.mocked(await import("child_process"));
+      execSync.mockReturnValue(Buffer.from("ok"));
+      spawnFn.mockImplementation(() => {
+        const proc = makeMockProcess();
+        process.nextTick(() => proc._emit("close", 1));
+        return proc;
+      });
+      await manager.initialize();
+
+      // Reset spawn for pipeline use
+      spawnFn.mockImplementation(() => {
+        lastProcess = makeMockProcess();
+        return lastProcess;
+      });
+    });
+
+    it("spawns pipeline when first subscriber connects to available source", () => {
+      manager.setSourceAvailable("cam1", true, "Camera1");
+      // No pipeline spawned yet since no subscribers
+      expect(manager.getActiveStreams()).toBe(0);
+      expect(manager.getSubscriberCount("cam1")).toBe(0);
+    });
+
+    it("getSubscriberCount returns correct count after setSourceAvailable", () => {
+      manager.setSourceAvailable("obs", true, "OBS");
+      expect(manager.getSubscriberCount("obs")).toBe(0);
+    });
+
+    it("getActiveStreams counts running processes", () => {
+      expect(manager.getActiveStreams()).toBe(0);
+    });
+  });
+
+  describe("pipeline lifecycle with subscribers", () => {
+    beforeEach(async () => {
+      const { execSync } = vi.mocked(await import("child_process"));
+      execSync.mockReturnValue(Buffer.from("ok"));
+      spawnFn.mockImplementation(() => {
+        const proc = makeMockProcess();
+        process.nextTick(() => proc._emit("close", 1));
+        return proc;
+      });
+      await manager.initialize();
+    });
+
+    it("destroy cleans up all sources and intervals", () => {
+      spawnFn.mockImplementation(() => {
+        lastProcess = makeMockProcess();
+        return lastProcess;
+      });
+      manager.setSourceAvailable("cam1", true, "Camera1");
+      manager.setSourceAvailable("obs", true, "OBS");
+      manager.destroy();
+      expect(mockWssClose).toHaveBeenCalled();
+    });
+  });
+});
+
+describe("buildMjpegArgs", () => {
+  it("produces gstreamer MJPEG pipeline args", () => {
+    const args = buildMjpegArgs("CAM1");
+    expect(args).toContain('ndi-name="CAM1"');
+    expect(args).toContain("jpegenc");
+    expect(args).toContain("fd=1");
+  });
+});
+
+describe("buildAudioArgs", () => {
+  it("produces gstreamer audio pipeline args", () => {
+    const args = buildAudioArgs("OBS");
+    expect(args).toContain('ndi-name="OBS"');
+    expect(args).toContain("audioconvert");
+    expect(args).toContain("fd=1");
   });
 });

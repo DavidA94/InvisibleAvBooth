@@ -103,4 +103,15 @@ describe("PresetList", () => {
     const rows = screen.getAllByTestId("preset-row");
     expect(rows).toHaveLength(4);
   });
+
+  it("calls onToast with error message on failed activation", () => {
+    mockEmit.mockImplementation((_event: string, _payload: unknown, ack?: (result: { success: boolean; error?: string }) => void) => {
+      ack?.({ success: false, error: "Camera offline" });
+    });
+    const onToast = vi.fn();
+    render(<PresetList presets={presets} activePresetId={null} cameraId="cam1" onToast={onToast} />);
+    const activateButtons = screen.getAllByTestId("preset-activate-btn");
+    fireEvent.click(activateButtons[0]!);
+    expect(onToast).toHaveBeenCalledWith("Camera offline");
+  });
 });

@@ -1073,7 +1073,7 @@
   justify-content: center;
   width: 3rem;
   position: relative;
-  margin-bottom: var(--space-screen-edge)
+  margin-bottom: var(--space-screen-edge);
 }
 
 .camera-zoom-wrapper {

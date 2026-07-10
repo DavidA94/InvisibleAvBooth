@@ -287,9 +287,9 @@ export class AuthService {
     if (existsSync(BOOTSTRAP_FILE)) {
       try {
         unlinkSync(BOOTSTRAP_FILE);
-      } catch (err) {
+      } catch (error) {
         /* c8 ignore next -- deletion failure is logged but not fatal */
-        logger.warn("Failed to delete bootstrap.txt", { userId: id, context: { error: String(err) } });
+        logger.warn("Failed to delete bootstrap.txt", { userId: id, context: { error: String(error) } });
       }
     }
 

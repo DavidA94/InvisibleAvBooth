@@ -13,16 +13,11 @@ import {
   MJPEG_HEIGHT,
   MJPEG_FRAMERATE,
   MJPEG_QUALITY,
-  FMP4_WIDTH,
-  FMP4_HEIGHT,
-  FMP4_FRAMERATE,
   PREVIEW_MSG_VIDEO,
   PREVIEW_MSG_AUDIO,
 } from "@invisible-av-booth/shared";
 
 // ── Constants ────────────────────────────────────────────────────────────────
-
-export const PREVIEW_RESOLUTION = { width: FMP4_WIDTH, height: FMP4_HEIGHT };
 export const MJPEG_RESOLUTION = { width: MJPEG_WIDTH, height: MJPEG_HEIGHT };
 export const MAX_PREVIEW_STREAMS = 4;
 export const GRACE_PERIOD_MS = 3000;
@@ -36,16 +31,12 @@ export type GstEncoder = { element: string; options: string } | null;
 
 // ── Interfaces ───────────────────────────────────────────────────────────────
 
-export type PreviewMode = "fmp4" | "mjpeg";
-
 export interface PreviewSource {
   sourceId: string;
   ndiName: string;
-  mode: PreviewMode;
   process: ChildProcess | null;
   audioProcess: ChildProcess | null;
   subscribers: Set<WebSocket>;
-  initSegment: Buffer | null;
   graceTimeout: ReturnType<typeof setTimeout> | null;
   restartCount: number;
   restartResetTimer: ReturnType<typeof setTimeout> | null;
@@ -64,7 +55,6 @@ export class PreviewStreamManager {
   private sources = new Map<string, PreviewSource>();
   private encoder: GstEncoder = null;
   private gstreamerAvailable = false;
-  private previewMode: PreviewMode = "mjpeg";
   private authService: AuthService;
   private spawnFn: SpawnFn;
   private signalCleanupRegistered = false;
@@ -96,11 +86,11 @@ export class PreviewStreamManager {
   }
 
   registerEndpoints(server: HttpServer): void {
-    server.on("upgrade", (req, socket, head) => {
-      const url = req.url ?? "";
+    server.on("upgrade", (request, socket, head) => {
+      const url = request.url ?? "";
       if (!url.startsWith("/preview/")) return;
 
-      const cookies = parseCookieHeader(req.headers.cookie ?? "");
+      const cookies = parseCookieHeader(request.headers.cookie ?? "");
       const token = cookies["token"];
       if (!token) {
         socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n");
@@ -122,13 +112,13 @@ export class PreviewStreamManager {
       }
 
       if (this.getActiveStreams() >= MAX_PREVIEW_STREAMS && !this.sources.has(sourceId)) {
-        this.wss.handleUpgrade(req, socket, head, (ws) => {
+        this.wss.handleUpgrade(request, socket, head, (ws) => {
           ws.close(4503, "Max preview streams reached");
         });
         return;
       }
 
-      this.wss.handleUpgrade(req, socket, head, (ws) => {
+      this.wss.handleUpgrade(request, socket, head, (ws) => {
         this.handleConnection(ws, sourceId);
       });
     });
@@ -137,16 +127,12 @@ export class PreviewStreamManager {
   setSourceAvailable(sourceId: string, available: boolean, ndiName: string): void {
     let source = this.sources.get(sourceId);
     if (!source) {
-      // All sources use MJPEG for low latency; OBS additionally gets a separate audio stream
-      const mode: PreviewMode = "mjpeg";
       source = {
         sourceId,
         ndiName,
-        mode,
         process: null,
         audioProcess: null,
         subscribers: new Set(),
-        initSegment: null,
         graceTimeout: null,
         restartCount: 0,
         restartResetTimer: null,
@@ -217,11 +203,9 @@ export class PreviewStreamManager {
       source = {
         sourceId,
         ndiName: "",
-        mode: "mjpeg" as PreviewMode,
         process: null,
         audioProcess: null,
         subscribers: new Set(),
-        initSegment: null,
         graceTimeout: null,
         restartCount: 0,
         restartResetTimer: null,
@@ -243,10 +227,6 @@ export class PreviewStreamManager {
       source.graceTimeout = null;
     }
 
-    if (source.mode === "fmp4" && source.initSegment && ws.readyState === WebSocket.OPEN) {
-      ws.send(source.initSegment);
-    }
-
     if (source.available && !source.process && this.gstreamerAvailable) {
       this.spawnPipeline(source);
     }
@@ -259,7 +239,6 @@ export class PreviewStreamManager {
           if (source!.subscribers.size === 0) {
             logger.info(`Preview [${source!.sourceId}]: grace period expired, killing pipeline`);
             this.killProcess(source!);
-            source!.initSegment = null;
           }
         }, GRACE_PERIOD_MS);
       }
@@ -274,98 +253,59 @@ export class PreviewStreamManager {
   private spawnPipeline(source: PreviewSource): void {
     if (this.destroyed || !this.gstreamerAvailable) return;
 
-    const args = source.mode === "mjpeg" ? buildMjpegArgs(source.ndiName) : buildGstreamerArgs(source.ndiName, this.encoder, source.withAudio);
+    const args = buildMjpegArgs(source.ndiName);
 
-    logger.info(`Preview spawning ${source.mode} pipeline for ${source.sourceId}`, { context: { args: args.join(" ") } });
+    logger.info(`Preview spawning MJPEG pipeline for ${source.sourceId}`, { context: { args: args.join(" ") } });
     const proc = this.spawnFn("gst-launch-1.0", args);
     source.process = proc;
-    source.initSegment = null;
 
-    if (source.mode === "mjpeg") {
-      // MJPEG: accumulate bytes until we find a complete JPEG (SOI→EOI), then send it
-      let frameBuffer = Buffer.alloc(0);
+    // MJPEG: accumulate bytes until we find a complete JPEG (SOI→EOI), then send it
+    let frameBuffer = Buffer.alloc(0);
 
-      proc.stdout?.on("data", (chunk: Buffer) => {
-        if (!source.restartResetTimer && source.restartCount > 0) {
-          source.restartResetTimer = setTimeout(() => {
-            source.restartCount = 0;
-            source.restartResetTimer = null;
-          }, RESTART_RESET_MS);
-        }
-
-        frameBuffer = Buffer.concat([frameBuffer, chunk]);
-
-        // Extract all complete JPEG frames from buffer
-        while (frameBuffer.length > 4) {
-          // Find SOI marker (0xFFD8)
-          const soiIdx = frameBuffer.indexOf(Buffer.from([0xff, 0xd8]));
-          if (soiIdx < 0) {
-            frameBuffer = Buffer.alloc(0);
-            break;
-          }
-          if (soiIdx > 0) {
-            frameBuffer = frameBuffer.subarray(soiIdx);
-          }
-
-          // Find EOI marker (0xFFD9) after SOI
-          const eoiIdx = frameBuffer.indexOf(Buffer.from([0xff, 0xd9]), 2);
-          if (eoiIdx < 0) break; // incomplete frame, wait for more data
-
-          const frame = frameBuffer.subarray(0, eoiIdx + 2);
-          frameBuffer = frameBuffer.subarray(eoiIdx + 2);
-
-          // Prefix with type byte when source carries audio
-          if (source.withAudio) {
-            const prefixed = Buffer.allocUnsafe(1 + frame.length);
-            prefixed[0] = PREVIEW_MSG_VIDEO;
-            frame.copy(prefixed, 1);
-            this.fanOut(source, prefixed);
-          } else {
-            this.fanOut(source, frame);
-          }
-        }
-      });
-
-      // Spawn separate audio pipeline for sources that need it
-      if (source.withAudio) {
-        this.spawnAudioPipeline(source);
+    proc.stdout?.on("data", (chunk: Buffer) => {
+      if (!source.restartResetTimer && source.restartCount > 0) {
+        source.restartResetTimer = setTimeout(() => {
+          source.restartCount = 0;
+          source.restartResetTimer = null;
+        }, RESTART_RESET_MS);
       }
-    } else {
-      // fMP4: existing init segment + fragment logic
-      let initBuffer = Buffer.alloc(0);
-      let initDone = false;
 
-      proc.stdout?.on("data", (chunk: Buffer) => {
-        if (!source.restartResetTimer && source.restartCount > 0) {
-          source.restartResetTimer = setTimeout(() => {
-            source.restartCount = 0;
-            source.restartResetTimer = null;
-          }, RESTART_RESET_MS);
+      frameBuffer = Buffer.concat([frameBuffer, chunk]);
+
+      // Extract all complete JPEG frames from buffer
+      while (frameBuffer.length > 4) {
+        // Find SOI marker (0xFFD8)
+        const soiIdx = frameBuffer.indexOf(Buffer.from([0xff, 0xd8]));
+        if (soiIdx < 0) {
+          frameBuffer = Buffer.alloc(0);
+          break;
+        }
+        if (soiIdx > 0) {
+          frameBuffer = frameBuffer.subarray(soiIdx);
         }
 
-        if (!initDone) {
-          initBuffer = Buffer.concat([initBuffer, chunk]);
-          const moovIdx = findBox(initBuffer, "moov");
-          if (moovIdx >= 0) {
-            const moovEnd = moovIdx + readBoxSize(initBuffer, moovIdx);
-            if (moovEnd <= initBuffer.length) {
-              source.initSegment = initBuffer.subarray(0, moovEnd);
-              initDone = true;
-              for (const ws of source.subscribers) {
-                if (ws.readyState === WebSocket.OPEN) {
-                  ws.send(source.initSegment);
-                }
-              }
-              const remainder = initBuffer.subarray(moovEnd);
-              if (remainder.length > 0) {
-                this.fanOut(source, remainder);
-              }
-            }
-          }
+        // Find EOI marker (0xFFD9) after SOI
+        const eoiIdx = frameBuffer.indexOf(Buffer.from([0xff, 0xd9]), 2);
+        if (eoiIdx < 0) break; // incomplete frame, wait for more data
+
+        const frame = frameBuffer.subarray(0, eoiIdx + 2);
+        frameBuffer = frameBuffer.subarray(eoiIdx + 2);
+
+        // Prefix with type byte when source carries audio
+        if (source.withAudio) {
+          const prefixed = Buffer.allocUnsafe(1 + frame.length);
+          prefixed[0] = PREVIEW_MSG_VIDEO;
+          frame.copy(prefixed, 1);
+          this.fanOut(source, prefixed);
         } else {
-          this.fanOut(source, chunk);
+          this.fanOut(source, frame);
         }
-      });
+      }
+    });
+
+    // Spawn separate audio pipeline for sources that need it
+    if (source.withAudio) {
+      this.spawnAudioPipeline(source);
     }
 
     proc.on("close", (code) => {
@@ -501,40 +441,6 @@ export class PreviewStreamManager {
 
 // ── Exported utilities ───────────────────────────────────────────────────────
 
-export function buildGstreamerArgs(ndiName: string, encoder: GstEncoder, withAudio: boolean): string[] {
-  const { width, height } = PREVIEW_RESOLUTION;
-  const enc = encoder ?? { element: "x264enc", options: "tune=zerolatency speed-preset=ultrafast key-int-max=15" };
-
-  const args = ["-q", "-e"];
-
-  // ndisrc → decodebin (handles dynamic pads from NDI)
-  args.push("ndisrc", `ndi-name="${ndiName}"`, "do-timestamp=true", "!");
-  args.push("decodebin", "name=dec");
-
-  // Video branch: decode → drop/scale/rate → encode → mux
-  args.push("dec.", "!");
-  args.push("queue", "max-size-buffers=1", "max-size-time=0", "max-size-bytes=0", "leaky=downstream", "!");
-  args.push("videoconvert", "!");
-  args.push("videoscale", "!", `video/x-raw,width=${width},height=${height}`, "!");
-  args.push("videorate", "!", `video/x-raw,framerate=${FMP4_FRAMERATE}/1`, "!");
-  args.push(...enc.element.split(" "), ...enc.options.split(" "), "!");
-  args.push("h264parse", "!", "mux.");
-
-  // Audio branch (if enabled)
-  if (withAudio) {
-    args.push("dec.", "!");
-    args.push("queue", "max-size-buffers=1", "max-size-time=0", "max-size-bytes=0", "leaky=downstream", "!");
-    args.push("audioconvert", "!");
-    args.push("avenc_aac", "bitrate=64000", "!", "mux.");
-  }
-
-  // Mux → stdout (fragment per keyframe for lowest latency)
-  args.push("mp4mux", "name=mux", "fragment-duration=66", "streamable=true", "!");
-  args.push("fdsink", "fd=1");
-
-  return args;
-}
-
 export function buildMjpegArgs(ndiName: string): string[] {
   const { width, height } = MJPEG_RESOLUTION;
 
@@ -614,21 +520,7 @@ export function checkGstreamerPath(): boolean {
   }
 }
 
-// ── MP4 box helpers ──────────────────────────────────────────────────────────
-
-function findBox(buf: Buffer, type: string): number {
-  const typeBytes = Buffer.from(type, "ascii");
-  for (let i = 0; i <= buf.length - 8; i++) {
-    if (buf[i + 4] === typeBytes[0] && buf[i + 5] === typeBytes[1] && buf[i + 6] === typeBytes[2] && buf[i + 7] === typeBytes[3]) {
-      return i;
-    }
-  }
-  return -1;
-}
-
-function readBoxSize(buf: Buffer, offset: number): number {
-  return buf.readUInt32BE(offset);
-}
+// ── Cookie parsing ──────────────────────────────────────────────────────────
 
 function parseCookieHeader(header: string): Record<string, string> {
   const result: Record<string, string> = {};

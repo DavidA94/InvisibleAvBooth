@@ -169,6 +169,25 @@ describe("OAuth start", () => {
     expect(res.body.state).toBeDefined();
     delete process.env["FACEBOOK_APP_ID"];
   });
+
+  it("facebook oauth-start includes profile scopes when target is profile", async () => {
+    process.env["FACEBOOK_APP_ID"] = "test-app-id";
+    const cookie = await loginAsAdmin(s.agent, s.ctx.authService);
+    const res = await s.agent.post("/api/admin/platforms/facebook/oauth-start").set("Cookie", cookie).send({ target: "profile" });
+    expect(res.status).toBe(200);
+    expect(res.body.authUrl).toContain("publish_video");
+    expect(res.body.authUrl).not.toContain("pages_manage_posts");
+    delete process.env["FACEBOOK_APP_ID"];
+  });
+
+  it("facebook oauth-start includes pages scopes by default", async () => {
+    process.env["FACEBOOK_APP_ID"] = "test-app-id";
+    const cookie = await loginAsAdmin(s.agent, s.ctx.authService);
+    const res = await s.agent.post("/api/admin/platforms/facebook/oauth-start").set("Cookie", cookie);
+    expect(res.status).toBe(200);
+    expect(res.body.authUrl).toContain("pages_manage_posts");
+    delete process.env["FACEBOOK_APP_ID"];
+  });
 });
 
 describe("GET /api/admin/platforms/:platformType", () => {

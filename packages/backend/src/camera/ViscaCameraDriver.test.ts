@@ -1,14 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import {
-  normalizeZoom,
-  denormalizeZoom,
-  normalizeFocus,
-  denormalizeFocus,
-  normalizePan,
-  denormalizePan,
-  buildViscaPositionFromResponse,
-  ViscaCameraDriver,
-} from "./ViscaCameraDriver.js";
+import { buildViscaPositionFromResponse, ViscaCameraDriver } from "./ViscaCameraDriver.js";
 
 // Mock the net.Socket
 interface MockSocketInstance {
@@ -67,48 +58,6 @@ vi.mock("net", () => {
 });
 
 describe("ViscaCameraDriver — normalization utilities", () => {
-  it("normalizeZoom maps 0 to 0 and max to 1", () => {
-    expect(normalizeZoom(0)).toBe(0);
-    expect(normalizeZoom(0x4000)).toBe(1);
-    expect(normalizeZoom(0x2000)).toBe(0.5);
-  });
-
-  it("denormalizeZoom is inverse of normalizeZoom", () => {
-    expect(denormalizeZoom(0)).toBe(0);
-    expect(denormalizeZoom(1)).toBe(0x4000);
-    expect(denormalizeZoom(0.5)).toBe(0x2000);
-  });
-
-  it("normalizeFocus maps 0 to 0 and max to 1", () => {
-    expect(normalizeFocus(0)).toBe(0);
-    expect(normalizeFocus(0x4000)).toBe(1);
-  });
-
-  it("denormalizeFocus is inverse of normalizeFocus", () => {
-    expect(denormalizeFocus(0)).toBe(0);
-    expect(denormalizeFocus(1)).toBe(0x4000);
-  });
-
-  it("normalizePan handles positive values (right of center)", () => {
-    expect(normalizePan(0)).toBe(0);
-    expect(normalizePan(0x7fff)).toBeCloseTo(1, 2);
-  });
-
-  it("normalizePan handles negative values (left of center)", () => {
-    expect(normalizePan(0xffff)).toBeCloseTo(-1 / (0xffff / 2), 2);
-  });
-
-  it("denormalizePan handles positive values", () => {
-    expect(denormalizePan(0)).toBe(0);
-    const result = denormalizePan(0.5);
-    expect(result).toBeGreaterThan(0);
-  });
-
-  it("denormalizePan handles negative values (wraps to unsigned)", () => {
-    const result = denormalizePan(-0.5);
-    expect(result).toBeGreaterThan(0x7fff);
-  });
-
   it("buildViscaPositionFromResponse extracts nibbles correctly", () => {
     const buf = Buffer.from([0x90, 0x50, 0x01, 0x02, 0x03, 0x04, 0xff]);
     expect(buildViscaPositionFromResponse(buf)).toBe(0x1234);
@@ -497,5 +446,387 @@ describe("ViscaCameraDriver — inquirePosition", () => {
 
     const pos = await driver.inquirePosition();
     expect(pos.autoFocus).toBeNull();
+  });
+});
+
+describe("ViscaCameraDriver — PTZ commands", () => {
+  let driver: ViscaCameraDriver;
+  let writtenBuffers: Buffer[];
+
+  beforeEach(async () => {
+    driver = new ViscaCameraDriver("192.168.1.100", 5678);
+    const connectPromise = driver.connect();
+    mockSocketInstance.emit("connect");
+    await connectPromise;
+    writtenBuffers = [];
+
+    // Default mock: ACK then completion for every command
+    mockSocketInstance.write = (data: Buffer, cb?: (err?: Error) => void) => {
+      writtenBuffers.push(Buffer.from(data));
+      cb?.();
+      setTimeout(() => {
+        // ACK
+        mockSocketInstance.emit("data", Buffer.from([0x90, 0x41, 0xff]));
+        // Completion
+        mockSocketInstance.emit("data", Buffer.from([0x90, 0x51, 0xff]));
+      }, 0);
+      return true;
+    };
+  });
+
+  describe("panTiltSpeed", () => {
+    it("sends correct VISCA command for positive pan and tilt", async () => {
+      await driver.panTiltSpeed(0.5, 0.5);
+      const cmd = writtenBuffers[0]!;
+      expect(cmd[0]).toBe(0x81);
+      expect(cmd[1]).toBe(0x01);
+      expect(cmd[2]).toBe(0x06);
+      expect(cmd[3]).toBe(0x01);
+      // panDir = 0x02 (right), tiltDir = 0x01 (up? positive = down per VISCA)
+      expect(cmd[6]).toBe(0x02); // pan right
+      expect(cmd[7]).toBe(0x01); // tilt positive
+    });
+
+    it("sends correct direction for negative pan and tilt", async () => {
+      await driver.panTiltSpeed(-0.5, -0.5);
+      const cmd = writtenBuffers[0]!;
+      expect(cmd[6]).toBe(0x01); // pan left
+      expect(cmd[7]).toBe(0x02); // tilt negative
+    });
+
+    it("sends stop direction (0x03) for zero speed", async () => {
+      await driver.panTiltSpeed(0, 0);
+      const cmd = writtenBuffers[0]!;
+      expect(cmd[6]).toBe(0x03); // pan stop
+      expect(cmd[7]).toBe(0x03); // tilt stop
+    });
+
+    it("clamps pan speed to max 0x18", async () => {
+      await driver.panTiltSpeed(5.0, 0);
+      const cmd = writtenBuffers[0]!;
+      expect(cmd[4]).toBe(0x18); // max pan speed
+    });
+
+    it("clamps tilt speed to max 0x14", async () => {
+      await driver.panTiltSpeed(0, 5.0);
+      const cmd = writtenBuffers[0]!;
+      expect(cmd[5]).toBe(0x14); // max tilt speed
+    });
+
+    it("ensures minimum speed of 1", async () => {
+      await driver.panTiltSpeed(0.001, 0.001);
+      const cmd = writtenBuffers[0]!;
+      expect(cmd[4]).toBeGreaterThanOrEqual(1);
+      expect(cmd[5]).toBeGreaterThanOrEqual(1);
+    });
+  });
+
+  describe("panTiltAbsolute", () => {
+    it("sends correct VISCA pan/tilt absolute command", async () => {
+      await driver.panTiltAbsolute(0x1234, 0x5678);
+      const cmd = writtenBuffers[0]!;
+      expect(cmd[0]).toBe(0x81);
+      expect(cmd[1]).toBe(0x01);
+      expect(cmd[2]).toBe(0x06);
+      expect(cmd[3]).toBe(0x02);
+      // Pan nibbles: 1, 2, 3, 4
+      expect(cmd[6]).toBe(0x01);
+      expect(cmd[7]).toBe(0x02);
+      expect(cmd[8]).toBe(0x03);
+      expect(cmd[9]).toBe(0x04);
+      // Tilt nibbles: 5, 6, 7, 8
+      expect(cmd[10]).toBe(0x05);
+      expect(cmd[11]).toBe(0x06);
+      expect(cmd[12]).toBe(0x07);
+      expect(cmd[13]).toBe(0x08);
+    });
+
+    it("masks values to 16-bit", async () => {
+      await driver.panTiltAbsolute(0x1ffff, 0x1ffff);
+      const cmd = writtenBuffers[0]!;
+      // 0x1ffff & 0xffff = 0xffff → nibbles: f, f, f, f
+      expect(cmd[6]).toBe(0x0f);
+      expect(cmd[7]).toBe(0x0f);
+      expect(cmd[8]).toBe(0x0f);
+      expect(cmd[9]).toBe(0x0f);
+    });
+  });
+
+  describe("zoomAbsolute", () => {
+    it("sends correct VISCA zoom absolute command", async () => {
+      await driver.zoomAbsolute(0x2000);
+      const cmd = writtenBuffers[0]!;
+      expect(cmd[0]).toBe(0x81);
+      expect(cmd[1]).toBe(0x01);
+      expect(cmd[2]).toBe(0x04);
+      expect(cmd[3]).toBe(0x47);
+      // 0x2000 nibbles: 2, 0, 0, 0
+      expect(cmd[4]).toBe(0x02);
+      expect(cmd[5]).toBe(0x00);
+      expect(cmd[6]).toBe(0x00);
+      expect(cmd[7]).toBe(0x00);
+    });
+  });
+
+  describe("zoomSpeed", () => {
+    it("sends tele command for positive speed", async () => {
+      await driver.zoomSpeed(0.5);
+      const cmd = writtenBuffers[0]!;
+      expect(cmd[2]).toBe(0x04);
+      expect(cmd[3]).toBe(0x07);
+      // 0x20 | (0.5*7 ≈ 4) = 0x24
+      expect(cmd[4]! & 0xf0).toBe(0x20);
+    });
+
+    it("sends wide command for negative speed", async () => {
+      await driver.zoomSpeed(-0.5);
+      const cmd = writtenBuffers[0]!;
+      expect(cmd[4]! & 0xf0).toBe(0x30);
+    });
+
+    it("sends stop command for zero speed", async () => {
+      await driver.zoomSpeed(0);
+      const cmd = writtenBuffers[0]!;
+      expect(cmd[4]).toBe(0x00);
+    });
+
+    it("clamps speed to 0-7 range", async () => {
+      await driver.zoomSpeed(5.0);
+      const cmd = writtenBuffers[0]!;
+      expect(cmd[4]! & 0x0f).toBe(7);
+    });
+  });
+
+  describe("focusAuto", () => {
+    it("sends auto focus command", async () => {
+      await driver.focusAuto();
+      const cmd = writtenBuffers[0]!;
+      expect(cmd[0]).toBe(0x81);
+      expect(cmd[1]).toBe(0x01);
+      expect(cmd[2]).toBe(0x04);
+      expect(cmd[3]).toBe(0x38);
+      expect(cmd[4]).toBe(0x02);
+    });
+  });
+
+  describe("focusManual", () => {
+    it("sends manual focus mode then position command", async () => {
+      await driver.focusManual(0x1000);
+      // Should have sent 2 commands
+      expect(writtenBuffers.length).toBe(2);
+      // First: switch to manual (81 01 04 38 03 FF)
+      expect(writtenBuffers[0]![3]).toBe(0x38);
+      expect(writtenBuffers[0]![4]).toBe(0x03);
+      // Second: set position (81 01 04 48 ...)
+      expect(writtenBuffers[1]![3]).toBe(0x48);
+      // 0x1000 nibbles: 1, 0, 0, 0
+      expect(writtenBuffers[1]![4]).toBe(0x01);
+      expect(writtenBuffers[1]![5]).toBe(0x00);
+    });
+
+    it("masks position to 14-bit (0x3fff)", async () => {
+      await driver.focusManual(0x7fff);
+      const cmd = writtenBuffers[1]!;
+      // 0x7fff & 0x3fff = 0x3fff → nibbles: 3, f, f, f
+      expect(cmd[4]).toBe(0x03);
+      expect(cmd[5]).toBe(0x0f);
+      expect(cmd[6]).toBe(0x0f);
+      expect(cmd[7]).toBe(0x0f);
+    });
+  });
+
+  describe("focusSpeed", () => {
+    it("sends far command for positive speed", async () => {
+      await driver.focusSpeed(0.5);
+      const cmd = writtenBuffers[0]!;
+      expect(cmd[3]).toBe(0x08);
+      expect(cmd[4]! & 0xf0).toBe(0x20);
+    });
+
+    it("sends near command for negative speed", async () => {
+      await driver.focusSpeed(-0.5);
+      const cmd = writtenBuffers[0]!;
+      expect(cmd[4]! & 0xf0).toBe(0x30);
+    });
+
+    it("sends stop for zero", async () => {
+      await driver.focusSpeed(0);
+      const cmd = writtenBuffers[0]!;
+      expect(cmd[4]).toBe(0x00);
+    });
+  });
+
+  describe("stop", () => {
+    it("sends pan/tilt stop command", async () => {
+      await driver.stop();
+      const cmd = writtenBuffers[0]!;
+      expect(cmd[0]).toBe(0x81);
+      expect(cmd[1]).toBe(0x01);
+      expect(cmd[2]).toBe(0x06);
+      expect(cmd[3]).toBe(0x01);
+      expect(cmd[6]).toBe(0x03); // pan stop
+      expect(cmd[7]).toBe(0x03); // tilt stop
+    });
+  });
+
+  describe("presetRecall", () => {
+    it("sends preset recall command", async () => {
+      await driver.presetRecall(5);
+      const cmd = writtenBuffers[0]!;
+      expect(cmd[0]).toBe(0x81);
+      expect(cmd[3]).toBe(0x3f);
+      expect(cmd[4]).toBe(0x02); // recall
+      expect(cmd[5]).toBe(5);
+    });
+
+    it("clamps slot to 0-255", async () => {
+      await driver.presetRecall(300);
+      const cmd = writtenBuffers[0]!;
+      expect(cmd[5]).toBe(255);
+    });
+  });
+
+  describe("presetStore", () => {
+    it("sends preset store command", async () => {
+      await driver.presetStore(3);
+      const cmd = writtenBuffers[0]!;
+      expect(cmd[3]).toBe(0x3f);
+      expect(cmd[4]).toBe(0x01); // store
+      expect(cmd[5]).toBe(3);
+    });
+  });
+});
+
+describe("ViscaCameraDriver — command queue", () => {
+  let driver: ViscaCameraDriver;
+  let writtenBuffers: Buffer[];
+  let pendingCallbacks: Array<() => void>;
+
+  beforeEach(async () => {
+    driver = new ViscaCameraDriver("192.168.1.100", 5678);
+    const connectPromise = driver.connect();
+    mockSocketInstance.emit("connect");
+    await connectPromise;
+    writtenBuffers = [];
+    pendingCallbacks = [];
+
+    // Mock that captures writes but doesn't auto-respond
+    mockSocketInstance.write = (data: Buffer, cb?: (err?: Error) => void) => {
+      writtenBuffers.push(Buffer.from(data));
+      cb?.();
+      pendingCallbacks.push(() => {
+        mockSocketInstance.emit("data", Buffer.from([0x90, 0x41, 0xff]));
+        mockSocketInstance.emit("data", Buffer.from([0x90, 0x51, 0xff]));
+      });
+      return true;
+    };
+  });
+
+  it("queues commands when one is in-flight", async () => {
+    // Start first command (will pend)
+    const p1 = driver.stop();
+    await Promise.resolve(); // let ensureConnected resolve
+    // Start second command (will be queued)
+    const p2 = driver.focusAuto();
+    await Promise.resolve(); // let ensureConnected resolve
+
+    // Only first written so far
+    expect(writtenBuffers.length).toBe(1);
+
+    // Complete first command
+    pendingCallbacks[0]!();
+    await p1;
+
+    // Now second should be sent
+    expect(writtenBuffers.length).toBe(2);
+    pendingCallbacks[1]!();
+    await p2;
+  });
+
+  it("timeout rejects pending sendCommand", async () => {
+    vi.useFakeTimers();
+    // Don't auto-respond — let it timeout
+    mockSocketInstance.write = (data: Buffer, cb?: (err?: Error) => void) => {
+      writtenBuffers.push(Buffer.from(data));
+      cb?.();
+      return true;
+    };
+
+    // Use stop() which catches errors internally — it won't reject but will complete
+    const p = driver.stop();
+    await vi.advanceTimersByTimeAsync(2000);
+    // stop() catches the timeout error, so it resolves
+    await p;
+    vi.useRealTimers();
+  });
+
+  it("handles write error gracefully in stop()", async () => {
+    mockSocketInstance.write = (_data: Buffer, cb?: (err?: Error) => void) => {
+      cb?.(new Error("write failed"));
+      return true;
+    };
+
+    // stop() catches errors internally
+    await driver.stop();
+  });
+
+  it("handles write error in drainQueue", async () => {
+    let callCount = 0;
+    mockSocketInstance.write = (data: Buffer, cb?: (err?: Error) => void) => {
+      writtenBuffers.push(Buffer.from(data));
+      callCount++;
+      if (callCount === 1) {
+        // First write succeeds
+        cb?.();
+        pendingCallbacks.push(() => {
+          mockSocketInstance.emit("data", Buffer.from([0x90, 0x41, 0xff]));
+          mockSocketInstance.emit("data", Buffer.from([0x90, 0x51, 0xff]));
+        });
+      } else {
+        // Subsequent writes fail
+        cb?.(new Error("write failed in drain"));
+      }
+      return true;
+    };
+
+    const p1 = driver.stop();
+    await Promise.resolve();
+    const p2 = driver.focusAuto(); // will be queued, then fail when draining
+    await Promise.resolve();
+
+    pendingCallbacks[0]!();
+    await p1;
+    // p2 swallows the error (focusAuto catches internally)
+    await p2;
+  });
+
+  it("handles timeout in drainQueue", async () => {
+    vi.useFakeTimers();
+    let callCount = 0;
+    mockSocketInstance.write = (data: Buffer, cb?: (err?: Error) => void) => {
+      writtenBuffers.push(Buffer.from(data));
+      cb?.();
+      callCount++;
+      if (callCount === 1) {
+        pendingCallbacks.push(() => {
+          mockSocketInstance.emit("data", Buffer.from([0x90, 0x41, 0xff]));
+          mockSocketInstance.emit("data", Buffer.from([0x90, 0x51, 0xff]));
+        });
+      }
+      // Second write: no response — will timeout
+      return true;
+    };
+
+    const p1 = driver.stop();
+    await Promise.resolve();
+    const p2 = driver.focusAuto(); // queued, will timeout when drained
+
+    pendingCallbacks[0]!();
+    await p1;
+
+    // Advance past the timeout for the second command
+    vi.advanceTimersByTime(2000);
+    await p2; // focusAuto catches the error
+    vi.useRealTimers();
   });
 });

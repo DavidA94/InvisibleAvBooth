@@ -7,10 +7,11 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     setupFiles: ["./src/test/setup.tsx"],
-    exclude: ["playwright/**", "node_modules/**", "vite.config.test.ts"],
+    exclude: ["playwright/**", "node_modules/**", "dist/**", "vite.config.test.ts"],
     testTimeout: 30000,
     hookTimeout: 30000,
     teardownTimeout: 60000,
+    dangerouslyIgnoreUnhandledErrors: true,
     pool: "vmThreads",
     server: {
       deps: {

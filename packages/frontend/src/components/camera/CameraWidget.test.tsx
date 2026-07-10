@@ -39,9 +39,9 @@ vi.mock("../../hooks/usePtzMove", () => ({
   usePtzMove: () => ({ startMove: mockStartMove, updateMove: mockUpdateMove, stopMove: mockStopMove }),
 }));
 
-vi.mock("../../hooks/usePreviewStream", () => ({
-  usePreviewStream: (endpoint: string, enabled: boolean) => ({
-    videoRef: { current: null },
+vi.mock("../../hooks/useMjpegStream", () => ({
+  useMjpegStream: (endpoint: string, enabled: boolean) => ({
+    imgRef: { current: null },
     status: enabled && endpoint ? "streaming" : "idle",
     reconnect: vi.fn(),
   }),
@@ -137,7 +137,8 @@ describe("CameraWidget", () => {
     render(<CameraWidget />);
     const slider = screen.getByTestId("camera-zoom-slider").querySelector("input")!;
     fireEvent.change(slider, { target: { value: "0.7" } });
-    expect(mockEmit).toHaveBeenCalledWith("cts:camera:set", { cameraId: "cam1", zoom: 0.7 });
+    // Slider 0-1 maps to zoomMin..zoomMax (0..16384): 0.7 * 16384 = 11468.8
+    expect(mockEmit).toHaveBeenCalledWith("cts:camera:set", { cameraId: "cam1", zoom: 11468.8 });
   });
 
   it("shows AI toggle row for admin with ai-tracking feature", () => {
@@ -255,7 +256,7 @@ describe("CameraWidget", () => {
     render(<CameraWidget />);
     const slider = screen.getByTestId("camera-focus-slider").querySelectorAll("input[type=range]")[0]!;
     fireEvent.change(slider, { target: { value: "0.3" } });
-    expect(mockEmit).toHaveBeenCalledWith("cts:camera:set", { cameraId: "cam1", focus: 0.3 });
+    expect(mockEmit).toHaveBeenCalledWith("cts:camera:set", { cameraId: "cam1", focus: 4915.2 });
   });
 
   it("shows offline overlay when camera disconnected", () => {
@@ -352,9 +353,9 @@ describe("CameraWidget", () => {
   });
 
   it("connecting overlay shown during stream connection", () => {
-    vi.mock("../../hooks/usePreviewStream", () => ({
-      usePreviewStream: () => ({
-        videoRef: { current: null },
+    vi.mock("../../hooks/useMjpegStream", () => ({
+      useMjpegStream: () => ({
+        imgRef: { current: null },
         status: "connecting",
         reconnect: vi.fn(),
       }),

@@ -21,7 +21,8 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "clean": "rm -rf node_modules packages/*/node_modules packages/*/dist packages/*/coverage packages/*/*.tsbuildinfo packages/frontend/playwright-report packages/frontend/test-results"
   },
   "overrides": {
     "react": "19.2.5",

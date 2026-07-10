@@ -75,6 +75,7 @@ export class FakePlatformClient implements StreamingPlatformClient {
 
 type EventHandler = (...args: unknown[]) => void;
 
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function createFakeObs() {
   const handlers: Record<string, EventHandler[]> = {};
   let recording = false;
@@ -155,15 +156,27 @@ export function createFakeSpawn(): SpawnFn {
       kill: ReturnType<typeof vi.fn>;
       pid: number;
     };
-    child.stdout = null;
     child.stderr = new EventEmitter() as EventEmitter;
     child.stdin = null;
     child.pid = Math.floor(Math.random() * 100000);
     child.kill = vi.fn().mockImplementation(() => {
       setTimeout(() => child.emit("close", 0), 0);
     });
-    // gst-launch-1.0 --version check should close immediately with success
-    if (args?.[0] === "--version") {
+
+    // gst-launch-1.0 pipeline spawns get a real stdout emitter so data can flow
+    if (cmd === "gst-launch-1.0" && args?.[0] !== "--version") {
+      child.stdout = new EventEmitter() as EventEmitter;
+      // Don't auto-close — pipeline stays alive until killed
+    } else {
+      child.stdout = null;
+      // gst-launch-1.0 --version check should close immediately with success
+      if (args?.[0] === "--version") {
+        setTimeout(() => child.emit("close", 0), 0);
+      }
+    }
+
+    // ffmpeg -version check should close immediately with success
+    if (cmd === "ffmpeg" && args?.[0] === "-version") {
       setTimeout(() => child.emit("close", 0), 0);
     }
     // gst-inspect-1.0 probes — all fail (no HW encoder in tests)
