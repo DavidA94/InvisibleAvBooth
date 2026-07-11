@@ -82,7 +82,7 @@ FACEBOOK_APP_ID=
 FACEBOOK_APP_SECRET=
 
 # If using an OAuth relay (see step 7), set this:
-# APP_URL=https://your-public-domain.com/api/auth/callback
+# APP_URL=https://your-public-domain.com/oauth
 ```
 
 ---
@@ -185,25 +185,33 @@ RewriteEngine On
 
 # OAuth relay — redirect callbacks to local system
 # Passes all query parameters (?code=...&state=...) through to the local system
-RewriteRule ^api/auth/callback/youtube$ https://invisible.av/api/auth/callback/youtube [R=302,L,QSA]
-RewriteRule ^api/auth/callback/facebook$ https://invisible.av/api/auth/callback/facebook [R=302,L,QSA]
+RewriteRule ^oauth/youtube$ https://invisible.av/api/auth/callback/youtube [R=302,L,QSA]
+RewriteRule ^oauth/facebook$ https://invisible.av/api/auth/callback/facebook [R=302,L,QSA]
 ```
 
 The `QSA` flag preserves query parameters. `R=302` issues a temporary redirect (not cached). `L` stops further rule processing.
 
 Replace `invisible.av` with your local hostname if different.
 
+> **⚠️ ModSecurity warning:** Some shared hosting providers run ModSecurity (a web application firewall) that may block OAuth callbacks with a 406 "Not Acceptable" error. This happens because the query parameters Google/Facebook send (particularly `iss=https://accounts.google.com`) can trigger WAF rules designed to detect injection attacks. ModSecurity inspects the incoming request before your rewrite rules or PHP scripts execute, so `.htaccess`-level workarounds are ineffective.
+>
+> If you encounter this, your options are:
+>
+> 1. Contact your hosting provider and ask them to whitelist the `/oauth/` path from ModSecurity inspection
+> 2. Use a host without aggressive WAF rules for just the relay (a free [Cloudflare Worker](https://workers.cloudflare.com/) works well for this)
+> 3. Check your hosting control panel (e.g., cPanel → Security → ModSecurity) for a per-path disable option
+
 ### Update platform settings
 
 After setting up the relay, update the redirect URIs in both platforms:
 
-- **Google Cloud Console:** Credentials → your OAuth client → change the redirect URI to `https://your-public-domain.com/api/auth/callback/youtube`
-- **Facebook Developer Portal:** Facebook Login for Business → Settings → change the Valid OAuth Redirect URI to `https://your-public-domain.com/api/auth/callback/facebook`
+- **Google Cloud Console:** Credentials → your OAuth client → change the redirect URI to `https://your-public-domain.com/oauth/youtube`
+- **Facebook Developer Portal:** Facebook Login for Business → Settings → change the Valid OAuth Redirect URI to `https://your-public-domain.com/oauth/facebook`
 
 Then set `APP_URL` in your `.env`:
 
 ```
-APP_URL=https://your-public-domain.com/api/auth/callback
+APP_URL=https://your-public-domain.com/oauth
 ```
 
 ### Publish your apps

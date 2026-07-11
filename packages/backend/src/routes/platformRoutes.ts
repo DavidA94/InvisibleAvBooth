@@ -145,9 +145,10 @@ export function createPlatformRouter(database: Database, authService: AuthServic
     database.prepare("INSERT INTO oauth_states (state, platformType, createdAt) VALUES (?, ?, ?)").run(state, platformType, new Date().toISOString());
 
     // APP_URL configures where OAuth providers redirect after authorization.
-    // Defaults to https://localhost (direct to local Caddy). When using an OAuth relay
-    // (public domain that 302-redirects to the local system), set APP_URL to the relay
-    // base URL (e.g., https://your-domain.com/oauth). The backend appends /youtube or /facebook.
+    // Defaults to https://localhost/api/auth/callback (direct to local Caddy).
+    // When using an OAuth relay (public domain that 302-redirects to the local
+    // system), set APP_URL to the relay path (e.g., https://your-domain.com/oauth).
+    // The backend appends /youtube or /facebook automatically.
     const appUrl = process.env["APP_URL"] ?? "https://localhost/api/auth/callback";
 
     let authUrl: string;
