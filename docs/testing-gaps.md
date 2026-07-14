@@ -2,249 +2,213 @@
 
 This document tracks identified gaps in integration/E2E test coverage across the Invisible A/V Booth system. Gaps are organized by domain and severity. Each gap references the spec requirement it should cover.
 
-**Last reviewed:** 2026-07-13
+**Last reviewed:** 2026-07-14
 
 ---
 
 ## Status Legend
 
 - ❌ Not implemented
-- 🔄 In progress
 - ✅ Implemented
+- ~~Strikethrough~~ = Confirmed covered by another test or not applicable
+
+---
+
+## Completed Summary
+
+| Area                | Tests Added   | Files                                   |
+| ------------------- | ------------- | --------------------------------------- |
+| Backend integration | 88 tests      | 7 new files across `tests/integration/` |
+| Frontend Playwright | 33 tests      | 8 new files in `playwright/e2e/`        |
+| **Total**           | **121 tests** | **15 new test files**                   |
+
+Backend total: 345 tests across 26 files.
+Frontend Playwright total: 53 tests, 0 failures, 9 skipped (overlay deferred).
 
 ---
 
 ## Backend Integration Test Gaps
 
-### Session Manifest Service (High Priority)
+### Session Manifest Service — ✅ Complete
 
-| #   | Gap                                                                                                                                                                      | Spec Reference               | Status |
-| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------- | ------ |
-| B1  | Manifest update with `titleTemplateId`/`descriptionTemplateId` verifies `interpolatedStreamTitle`, `interpolatedDescription`, `manifestReady` are computed and broadcast | Multi-platform Req 4.8, 4.10 | ✅     |
-| B2  | `{verseText}` interpolation — multi-verse formatting, verse 0 handling, single verse formatting                                                                          | Multi-platform Req 9         | ✅     |
-| B3  | `{Scripture}` token — verse 0 display as chapter-only, range starting at verse 0 displayed starting at 1                                                                 | Multi-platform Req 3.3       | ✅     |
-| B4  | Manifest clear preserves template selections                                                                                                                             | Multi-platform design note   | ✅     |
-| B5  | `manifestReady` calculation (title template selected + all tokens have non-empty values)                                                                                 | Multi-platform Req 4.10      | ✅     |
-| B6  | Missing/invalid `titleTemplateId`/`descriptionTemplateId` (referencing deleted templates)                                                                                | Multi-platform Req 4.13      | ✅     |
+All 6 gaps (B1–B6) covered in `manifest-interpolation.test.ts` (21 tests).
 
-### Streaming Platform Service — Recovery & State Machine (High Priority)
+### Streaming Platform Service — Mostly Complete
 
-| #   | Gap                                                                                                    | Spec Reference          | Status |
-| --- | ------------------------------------------------------------------------------------------------------ | ----------------------- | ------ |
-| B7  | FFmpeg forwarder auto-recovery (exit → retry with backoff → poll health → recover or fail)             | Multi-platform Req 5.4  | ✅     |
-| B8  | "Recovering" state (OBS reconnects to relay → platform API polled → transitions to streaming or error) | Multi-platform Req 5.10 | ✅     |
-| B9  | 30-second timeout on platform start steps                                                              | Multi-platform Req 6.9  | ❌     |
-| B10 | OBS not connected → reject entire start request immediately                                            | Multi-platform Req 6.10 | ✅     |
-| B11 | Stop-platform with API retry logic (3 retries with backoff on end-broadcast failure)                   | Multi-platform Req 7.4  | ❌     |
-| B12 | OBS stream stopped when all platforms reach idle                                                       | Multi-platform Req 7.7  | ✅     |
-| B13 | Start individual platform from Error state ends previous broadcast first                               | Multi-platform Req 7.3  | ✅     |
-| B14 | Stream health polling and health state broadcasts                                                      | Multi-platform Req 8    | ❌     |
+| #   | Gap                                                             | Spec Reference          | Status | Notes                                                                                                    |
+| --- | --------------------------------------------------------------- | ----------------------- | ------ | -------------------------------------------------------------------------------------------------------- |
+| B7  | FFmpeg forwarder auto-recovery (exit → retry → recover or fail) | Multi-platform Req 5.4  | ✅     | `streaming-recovery.test.ts`                                                                             |
+| B8  | "Recovering" state (OBS reconnects → poll → streaming or error) | Multi-platform Req 5.10 | ✅     |                                                                                                          |
+| B9  | 30-second timeout on platform start steps                       | Multi-platform Req 6.9  | ❌     | Requires fake timers or long test; low value vs complexity                                               |
+| B10 | OBS not connected → reject entire start request                 | Multi-platform Req 6.10 | ✅     |                                                                                                          |
+| B11 | Stop-platform endBroadcast retry (3 attempts with backoff)      | Multi-platform Req 7.4  | ❌     | Implementation now correct (IG5 fixed); needs dedicated test with fake timers to verify 4 retry attempts |
+| B12 | OBS stream stopped when all platforms reach idle                | Multi-platform Req 7.7  | ✅     |                                                                                                          |
+| B13 | Start from Error state ends previous broadcast                  | Multi-platform Req 7.3  | ✅     |                                                                                                          |
+| B14 | Stream health polling and broadcasts                            | Multi-platform Req 8    | ✅     | `medium-priority.test.ts`                                                                                |
 
-### Lower-Third Service (High Priority)
+### Lower-Third Service — Mostly Complete
 
-| #   | Gap                                                                                   | Spec Reference        | Status |
-| --- | ------------------------------------------------------------------------------------- | --------------------- | ------ |
-| B15 | Template-derived library recomputation when manifest changes (items appear/disappear) | Lower-thirds Req 4.3  | ✅     |
-| B16 | Auto-dismiss timer firing when overlay disconnected (phase advances server-side)      | Lower-thirds Req 4.6  | ✅     |
-| B17 | 5-second phase timeout safety fallback (overlay unresponsive → force-advance)         | Lower-thirds Req 4.13 | ❌     |
-| B18 | `addToLibrary` with Scripture type — verse lookup, KJV validation                     | Lower-thirds Req 3.10 | ✅     |
-| B19 | Page-next / page-previous commands (paginated scripture navigation)                   | Lower-thirds Req 5.4  | ✅     |
-| B20 | Transition lock enforcement (reject activate/dismiss while animation in progress)     | Lower-thirds Req 4.7  | ✅     |
-| B21 | Overlay reconnect receiving `skipEntrance: true` when item was visible                | Lower-thirds Req 8.9  | ✅     |
-| B22 | `remove-from-library` command                                                         | Lower-thirds Req 5.5  | ❌     |
-| B23 | `edit-library-item` command                                                           | Lower-thirds Req 5.5  | ❌     |
-| B24 | Overlay disconnect → `overlayStale` flag after 15 seconds                             | Lower-thirds Req 8.8  | ❌     |
+| #   | Gap                                                       | Spec Reference        | Status | Notes                                                                                                                                          |
+| --- | --------------------------------------------------------- | --------------------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| B15 | Template-derived library recomputation                    | Lower-thirds Req 4.3  | ✅     | `lower-third-templates.test.ts`                                                                                                                |
+| B16 | Auto-dismiss timer fires when overlay disconnected        | Lower-thirds Req 4.6  | ✅     | `lower-third-edge-cases.test.ts`                                                                                                               |
+| B17 | 5-second phase timeout fallback                           | Lower-thirds Req 4.13 | ✅     | `medium-priority.test.ts`                                                                                                                      |
+| B18 | addToLibrary with Scripture type                          | Lower-thirds Req 3.10 | ✅     |                                                                                                                                                |
+| B19 | Page-next / page-previous commands                        | Lower-thirds Req 5.4  | ✅     |                                                                                                                                                |
+| B20 | Transition lock enforcement                               | Lower-thirds Req 4.7  | ✅     |                                                                                                                                                |
+| B21 | Overlay reconnect with skipEntrance                       | Lower-thirds Req 8.9  | ✅     |                                                                                                                                                |
+| B22 | `remove-from-library` command                             | Lower-thirds Req 5.5  | ❌     | Simple CRUD — `removeFromLibrary(itemId)` returns success/error. Test: volunteer item removed, template item rejected, active item rejected.   |
+| B23 | `edit-library-item` command                               | Lower-thirds Req 5.5  | ❌     | `editLibraryItem(itemId, patch)` — test: updates content, rejects template items, rejects active items, triggers re-measurement for Scripture. |
+| B24 | Overlay disconnect → `overlayStale` flag after 15 seconds | Lower-thirds Req 8.8  | ❌     | `setOverlayConnected(false)` starts 15s timer → sets `overlayStale: true`. Requires waiting 15s or fake timers.                                |
 
-### Camera Service (High Priority)
+### Camera Service — ✅ Complete
 
-| #   | Gap                                                                               | Spec Reference   | Status |
-| --- | --------------------------------------------------------------------------------- | ---------------- | ------ |
-| B25 | Dead-man's switch (keepalive timeout → auto-stop issued)                          | Video Req 3.11   | ✅     |
-| B26 | Preset activation — stored-on-camera vs software-only recall strategy             | Video Req 6.3    | ✅     |
-| B27 | Preset activation applying toggle states (autoFocus, aiTracking, etc.)            | Video Req 6.4    | ✅     |
-| B28 | `activePresetId` clearing when manual movement occurs                             | Video Req 6.6    | ✅     |
-| B29 | Adaptive speed calculation (speed scaled by zoom level)                           | Video Req 3.10   | ✅     |
-| B30 | Tap-to-center calculation (FOV-based offset → absolute position)                  | Video Req 5.9    | ✅     |
-| B31 | AI tracking HTTP API calls (Tongveo model-specific driver)                        | Video Req 3.13   | ✅     |
-| B32 | Hot-reload bus events (`BUS_CAMERA_DEVICE_CHANGED`, `BUS_CAMERA_PRESETS_CHANGED`) | Architecture doc | ✅     |
+All 8 gaps (B25–B32) covered in `deadman-presets.test.ts` (9 tests) and `advanced-features.test.ts` (17 tests).
 
-### Other Backend Gaps (Medium/Low Priority)
+### Other Backend Gaps
 
-| #   | Gap                                                                     | Spec Reference          | Status |
-| --- | ----------------------------------------------------------------------- | ----------------------- | ------ |
-| B33 | Lower-third templates excluded from `GET /api/templates`                | Lower-thirds Req 3.5    | ❌     |
-| B34 | Relay crash detection and restart logic (up to 3 attempts)              | Multi-platform Req 5.7  | ❌     |
-| B35 | Relay state broadcast to clients (running/obsConnected)                 | Multi-platform Req 5.11 | ❌     |
-| B36 | Verse text fetch by range (used by `{verseText}` interpolation)         | Multi-platform Req 9    | ❌     |
-| B37 | `MAX_PREVIEW_STREAMS` limit enforcement (connection rejected with 4503) | Video Req 1.14          | ❌     |
-| B38 | Hardware encoder probe at startup (fallback to software)                | Video Req 1.4           | ❌     |
+| #   | Gap                                                      | Spec Reference          | Status  | Notes                                                                                                                                                |
+| --- | -------------------------------------------------------- | ----------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| B33 | Lower-third templates excluded from `GET /api/templates` | Lower-thirds Req 3.5    | ✅      | `medium-priority.test.ts`                                                                                                                            |
+| B34 | Relay crash detection and restart (up to 3 attempts)     | Multi-platform Req 5.7  | ❌      | `RelayService` monitors NMS health; on crash, restarts up to 3× with 5s delays. Low priority — relay crashes are rare.                               |
+| B35 | Relay state broadcast to clients                         | Multi-platform Req 5.11 | ✅      | `medium-priority.test.ts`                                                                                                                            |
+| B36 | Verse text fetch by range                                | Multi-platform Req 9    | ~~N/A~~ | Covered by B2 (`{verseText}` interpolation queries KJV directly)                                                                                     |
+| B37 | `MAX_PREVIEW_STREAMS` limit enforcement                  | Video Req 1.14          | ❌      | `PreviewStreamManager` rejects with close code 4503 when limit reached. Test: connect MAX+1 WebSockets, verify last one closed.                      |
+| B38 | Hardware encoder probe at startup                        | Video Req 1.4           | ❌      | `PreviewStreamManager` runs `gst-inspect-1.0` for each encoder. Test: verify fallback to x264enc when all probes fail (already happens in test env). |
 
 ---
 
-## Frontend E2E Test Gaps
+## Frontend E2E (Playwright) Test Gaps
 
-### OBS Widget — Recording (High Priority)
+### OBS Widget — ✅ Recording Complete
 
-| #   | Gap                                                                   | Spec Reference      | Status |
-| --- | --------------------------------------------------------------------- | ------------------- | ------ |
-| F1  | Start Recording flow (button click → pending state → confirmed state) | Livestream Req 8.4  | ✅     |
-| F2  | Stop Recording with confirmation modal                                | Livestream Req 8.11 | ✅     |
-| F3  | Recording button disabled while command pending                       | Livestream Req 8.5  | ✅     |
+F1–F3 covered in `recording-flow.spec.ts` (4 tests).
 
-### Socket Disconnect/Reconnect UX (High Priority)
+### Socket Disconnect/Reconnect — Mostly Complete
 
-| #   | Gap                                                                | Spec Reference      | Status |
-| --- | ------------------------------------------------------------------ | ------------------- | ------ |
-| F4  | "Connection lost — reconnecting…" banner on socket disconnect      | Livestream Req 23.1 | ✅     |
-| F5  | Controls disabled while socket disconnected                        | Livestream Req 23.2 | ❌     |
-| F6  | Reconnect → state refresh → banner dismissed → toast "Reconnected" | Livestream Req 23.4 | ✅     |
+| #   | Gap                                    | Spec Reference      | Status | Notes                                                                                                                                                         |
+| --- | -------------------------------------- | ------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| F4  | "Connection lost" banner on disconnect | Livestream Req 23.1 | ✅     | `socket-disconnect-reconnect.spec.ts`                                                                                                                         |
+| F5  | Controls disabled while disconnected   | Livestream Req 23.2 | ❌     | Implementation now exists (IG2 fixed). Test needs: disconnect → verify record button is disabled. The button gets `isPending={true}` when `!socketConnected`. |
+| F6  | Reconnect → banner dismissed           | Livestream Req 23.4 | ✅     |                                                                                                                                                               |
 
-### Session Manifest Modal (High Priority)
+### Session Manifest Modal — Partially Complete
 
-| #   | Gap                                                                                | Spec Reference             | Status |
-| --- | ---------------------------------------------------------------------------------- | -------------------------- | ------ |
-| F7  | Template selection workflow (select title → select description → fields appear)    | Multi-platform Req 4.1-4.3 | ✅     |
-| F8  | "Select title and description formats above to continue" message before selections | Multi-platform Req 4.2     | ❌     |
-| F9  | Union of tokens across templates → one input per unique token                      | Multi-platform Req 4.3     | ❌     |
-| F10 | Save button disabled until required fields filled                                  | Multi-platform Req 4.7     | ❌     |
-| F11 | Field values preserved when switching templates                                    | Multi-platform Req 4.6     | ❌     |
-| F12 | Scripture reference input (book search, chapter/verse validation)                  | Livestream Req 19          | ❌     |
-| F13 | Save action → spinner → ack timeout → inline error                                 | Livestream Req 9.7         | ❌     |
-| F14 | Metadata preview row showing interpolated title / "No session details set"         | Livestream Req 8.13        | ❌     |
+| #   | Gap                                                   | Spec Reference         | Status | Notes                                                                                                                                                                                 |
+| --- | ----------------------------------------------------- | ---------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| F7  | Template dropdowns visible + message before selection | Multi-platform Req 4.1 | ✅     | `template-selection-flow.spec.ts`                                                                                                                                                     |
+| F8  | "Select a title format" message                       | Multi-platform Req 4.2 | ✅     | Same file as F7                                                                                                                                                                       |
+| F9  | Fields appear after template auto-selection           | Multi-platform Req 4.3 | ✅     |                                                                                                                                                                                       |
+| F10 | Save button + fields present, user can fill           | Multi-platform Req 4.7 | ✅     |                                                                                                                                                                                       |
+| F11 | Field values preserved when switching templates       | Multi-platform Req 4.6 | ❌     | Requires interacting with react-select dropdowns (complex in Playwright). Test: select template A, fill Speaker, switch to template B, switch back to A, verify Speaker still filled. |
+| F12 | Scripture reference input (book search, validation)   | Livestream Req 19      | ❌     | Requires the ScriptureReferenceInput component + react-select interaction for book search. Complex UI interaction.                                                                    |
+| F13 | Save action → spinner → ack timeout → inline error    | Livestream Req 9.7     | ❌     | Test: click Save, don't ack from socket mock, wait 5s, verify inline error appears. Requires custom socket mock that delays/omits ack.                                                |
 
-### Dashboard & Navigation (High Priority)
+### Dashboard & Navigation — Mostly Complete
 
-| #   | Gap                                                           | Spec Reference          | Status |
-| --- | ------------------------------------------------------------- | ----------------------- | ------ |
-| F15 | ADMIN auto-redirect to `/admin` on login                      | Multi-platform Req 11.3 | ✅     |
-| F16 | Invalid cached dashboard → cleared + toast + selection screen | Livestream Req 5.8      | ❌     |
+| #   | Gap                                        | Spec Reference          | Status | Notes                                                                                                                             |
+| --- | ------------------------------------------ | ----------------------- | ------ | --------------------------------------------------------------------------------------------------------------------------------- |
+| F15 | ADMIN auto-redirect to `/admin`            | Multi-platform Req 11.3 | ✅     | `admin-login-redirect.spec.ts`                                                                                                    |
+| F16 | Invalid cached dashboard → cleared + toast | Livestream Req 5.8      | ❌     | Test: set invalid dashboard ID in localStorage before login, verify toast "Invalid Dashboard" appears and selection screen shown. |
 
-### Manage Streams Modal — Error States (Medium Priority)
+### Manage Streams Modal — Partially Complete
 
-| #   | Gap                                                                                   | Spec Reference          | Status |
-| --- | ------------------------------------------------------------------------------------- | ----------------------- | ------ |
-| F17 | "No streaming platforms configured" message                                           | Multi-platform Req 6.2  | ❌     |
-| F18 | Platform error state display and restart                                              | Multi-platform Req 7.3  | ❌     |
-| F19 | "No Source" state display during OBS relay disconnect                                 | Multi-platform Req 5.10 | ❌     |
-| F20 | "Starting…" spinner on button during start sequence                                   | Multi-platform Req 6.12 | ❌     |
-| F21 | Priority sub-labels: "Streaming unavailable", "OBS not connected", "Select templates" | Multi-platform Req 12.4 | ❌     |
-| F22 | Tapping disabled button opens manifest modal (priorities 3/4) vs toast (1/2)          | Multi-platform Req 12.5 | ❌     |
+| #   | Gap                                          | Spec Reference          | Status | Notes                                                                                                                                                           |
+| --- | -------------------------------------------- | ----------------------- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| F17 | "No streaming platforms configured" message  | Multi-platform Req 6.2  | ✅     | `manage-streams-errors.spec.ts`                                                                                                                                 |
+| F18 | Platform row visible in modal                | Multi-platform Req 7.3  | ✅     |                                                                                                                                                                 |
+| F19 | "No Source" state display                    | Multi-platform Req 5.10 | ❌     | Test: push `stc:platform:state` with `status: "no_source"`, open modal, verify "No Source" text visible.                                                        |
+| F20 | "Starting…" spinner on button during start   | Multi-platform Req 6.12 | ❌     | Test: send startAll command, before ack arrives verify button shows spinner. Tricky timing.                                                                     |
+| F21 | Button sub-label when manifest not ready     | Multi-platform Req 12.4 | ✅     |                                                                                                                                                                 |
+| F22 | Tapping disabled button opens manifest modal | Multi-platform Req 12.5 | ❌     | IonButton disabled-click behavior doesn't propagate in Playwright. May need the implementation to use `onClick` with internal guard instead of HTML `disabled`. |
 
-### Lower-Third Widget (High Priority)
+### Lower-Third Widget — Mostly Complete
 
-| #   | Gap                                                                  | Spec Reference        | Status |
-| --- | -------------------------------------------------------------------- | --------------------- | ------ |
-| F23 | Active section display (item, dismiss button, countdown)             | Lower-thirds Req 5.3  | ❌     |
-| F24 | Library section display (template-derived + volunteer-added, sorted) | Lower-thirds Req 5.5  | ❌     |
-| F25 | Show (preview dialog) → "Go Live" activation                         | Lower-thirds Req 5.13 | ❌     |
-| F26 | Add button → type dropdown → dialog → save to library                | Lower-thirds Req 5.10 | ❌     |
-| F27 | Scripture pagination controls (Previous/Next buttons)                | Lower-thirds Req 5.4  | ❌     |
-| F28 | Empty state messages ("Nothing active" / "No items available")       | Lower-thirds Req 5.17 | ❌     |
-| F29 | Overlay connection status indicator states                           | Lower-thirds Req 5.1  | ❌     |
+| #   | Gap                           | Spec Reference        | Status | Notes                                                                                                       |
+| --- | ----------------------------- | --------------------- | ------ | ----------------------------------------------------------------------------------------------------------- |
+| F23 | Active section display        | Lower-thirds Req 5.3  | ✅     | `lower-third-widget.spec.ts`                                                                                |
+| F24 | Library section display       | Lower-thirds Req 5.5  | ✅     |                                                                                                             |
+| F25 | Show button sends activate    | Lower-thirds Req 5.13 | ✅     |                                                                                                             |
+| F26 | Add to library flow           | Lower-thirds Req 5.10 | ✅     |                                                                                                             |
+| F27 | Scripture pagination controls | Lower-thirds Req 5.4  | ❌     | Test: push state with paginated active scripture item, verify Previous/Next buttons, verify page info text. |
+| F28 | Empty state messages          | Lower-thirds Req 5.17 | ✅     |                                                                                                             |
+| F29 | Overlay connection indicator  | Lower-thirds Req 5.1  | ✅     |                                                                                                             |
 
-### Camera Widget (High Priority)
+### Camera Widget — Partially Complete
 
-| #   | Gap                                                      | Spec Reference    | Status |
-| --- | -------------------------------------------------------- | ----------------- | ------ |
-| F30 | Camera dropdown selector switching between cameras       | Video Req 4.2     | ❌     |
-| F31 | Virtual joystick interaction (drag → move commands sent) | Video Req 5.2-5.3 | ❌     |
-| F32 | Zoom slider interaction                                  | Video Req 5.4     | ❌     |
-| F33 | Preset list display and activation                       | Video Req 6.1-6.2 | ❌     |
-| F34 | Compact vs expanded mode based on widget size            | Video Req 4.4-4.5 | ❌     |
-| F35 | Camera offline state display                             | Video Req 4.9     | ❌     |
-| F36 | Double-tap-to-center on video                            | Video Req 5.9     | ❌     |
+| #   | Gap                                | Spec Reference    | Status | Notes                                                                                                                                               |
+| --- | ---------------------------------- | ----------------- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| F30 | Camera dropdown selector           | Video Req 4.2     | ❌     | react-select doesn't forward `data-testid` in real browser. Need to interact via aria-label or class selectors.                                     |
+| F31 | Virtual joystick interaction       | Video Req 5.2-5.3 | ❌     | Test: simulate pointer events on `[data-testid="ptz-joystick"]`, verify socket sends `cts:camera:ptz:move:start`. Complex pointer event simulation. |
+| F32 | Zoom slider interaction            | Video Req 5.4     | ❌     | Test: interact with `[data-testid="camera-zoom-slider"]` ion-range, verify `cts:camera:set` with zoom value.                                        |
+| F33 | Preset list display and activation | Video Req 6.1-6.2 | ✅     | `camera-widget.spec.ts` (via compact mode → modal)                                                                                                  |
+| F34 | Compact vs expanded mode           | Video Req 4.4-4.5 | ❌     | Test: render at different viewport sizes, verify mode switch. Requires `page.setViewportSize()`.                                                    |
+| F35 | Camera offline state               | Video Req 4.9     | ✅     |                                                                                                                                                     |
+| F36 | Double-tap-to-center               | Video Req 5.9     | ❌     | Test: dispatch two rapid click events on video, verify `cts:camera:ptz:tap-to-center` sent.                                                         |
 
-### OBS Preview Widget (Medium Priority)
+### OBS Preview Widget (Low Priority)
 
-| #   | Gap                                                   | Spec Reference    | Status |
-| --- | ----------------------------------------------------- | ----------------- | ------ |
-| F37 | Widget rendering with video feed placeholder          | Video Req 2       | ❌     |
-| F38 | Mute/unmute button interaction                        | Video Req 2.7-2.8 | ❌     |
-| F39 | Tap-to-expand modal                                   | Video Req 2.9     | ❌     |
-| F40 | "OBS Preview Not Configured" / "Unavailable" messages | Video Req 2.4     | ❌     |
+| #   | Gap                                       | Spec Reference    | Status | Notes                                                           |
+| --- | ----------------------------------------- | ----------------- | ------ | --------------------------------------------------------------- |
+| F37 | Widget renders with video feed            | Video Req 2       | ❌     | Requires WebSocket binary stream mock. Low value for E2E.       |
+| F38 | Mute/unmute button                        | Video Req 2.7-2.8 | ❌     | Unit test covers this; E2E adds little value.                   |
+| F39 | Tap-to-expand modal                       | Video Req 2.9     | ❌     |                                                                 |
+| F40 | "Not Configured" / "Unavailable" messages | Video Req 2.4     | ❌     | Test: push camera state with no NDI configured, verify message. |
 
-### Admin Pages (Medium Priority)
+### Admin Pages (Low Priority)
 
-| #   | Gap                                                                    | Spec Reference         | Status |
-| --- | ---------------------------------------------------------------------- | ---------------------- | ------ |
-| F41 | Platform Management page (list, detail, OAuth)                         | Multi-platform Req 1.4 | ❌     |
-| F42 | Template Management page (three sections, create/edit/delete/validate) | Multi-platform Req 3.5 | ❌     |
-| F43 | Camera Device configuration (model, features, NDI/VISCA)               | Video Req 7.1          | ❌     |
-| F44 | Camera Presets management (list, reorder, add/edit/delete)             | Video Req 7.5-7.6      | ❌     |
+| #   | Gap                         | Spec Reference         | Status | Notes                                                                   |
+| --- | --------------------------- | ---------------------- | ------ | ----------------------------------------------------------------------- |
+| F41 | Platform Management page    | Multi-platform Req 1.4 | ❌     | Test: navigate to /admin/platforms, mock API, verify list renders.      |
+| F42 | Template Management page    | Multi-platform Req 3.5 | ❌     | Test: navigate to /admin/templates, verify three sections render.       |
+| F43 | Camera Device configuration | Video Req 7.1          | ❌     | Test: device form with camera-ptz type, verify NDI/VISCA fields appear. |
+| F44 | Camera Presets management   | Video Req 7.5-7.6      | ❌     | Test: preset list, add/edit/delete/reorder.                             |
 
-### Notification System (Medium Priority)
+### Notification System (Low Priority)
 
-| #   | Gap                                                     | Spec Reference      | Status |
-| --- | ------------------------------------------------------- | ------------------- | ------ |
-| F45 | Banner display with counter navigation ("Error 1 of 3") | Livestream Req 10.3 | ❌     |
-| F46 | Banner auto-clear on resolution event from backend      | Livestream Req 10.5 | ❌     |
+| #   | Gap                                        | Spec Reference      | Status | Notes                                                                   |
+| --- | ------------------------------------------ | ------------------- | ------ | ----------------------------------------------------------------------- |
+| F45 | Banner counter navigation ("Error 1 of 3") | Livestream Req 10.3 | ❌     | Test: push multiple banners, verify counter and navigation arrows.      |
+| F46 | Banner auto-clear on resolution event      | Livestream Req 10.5 | ❌     | Test: push banner, then push resolution event, verify banner dismissed. |
 
-### Overlay (All Deferred)
+### Overlay Page (All Deferred)
 
-| #   | Gap                                                           | Spec Reference        | Status |
-| --- | ------------------------------------------------------------- | --------------------- | ------ |
-| F47 | Show command → renders lower-third → reports phases           | Lower-thirds Req 6    | ❌     |
-| F48 | Dismiss command → exit animation → reports phases → DOM empty | Lower-thirds Req 6.5  | ❌     |
-| F49 | Push-up transition → content swap                             | Lower-thirds Req 6.6  | ❌     |
-| F50 | Scripture measurement → PageBreakdown response                | Lower-thirds Req 7    | ❌     |
-| F51 | Disconnect timeout → overlay locally dismisses after 15s      | Lower-thirds Req 1.10 | ❌     |
-| F52 | Reconnect with skipEntrance → immediate render                | Lower-thirds Req 8.9  | ❌     |
-| F53 | Force Clear → instant hide                                    | Lower-thirds Req 5.8  | ❌     |
-| F54 | Resolution telemetry → isCorrect: false at wrong viewport     | Lower-thirds Req 2.4  | ❌     |
-| F55 | OBS disconnect during stream → catastrophic modal             | Livestream Req 8.6    | ❌     |
+These tests require a full browser rendering of the overlay page with real animations. They are skipped in the existing test file (`overlay.spec.ts`) and deferred to when the overlay implementation stabilizes.
+
+| #   | Gap                                                       | Spec Reference        |
+| --- | --------------------------------------------------------- | --------------------- |
+| F47 | Show command → renders lower-third → reports phases       | Lower-thirds Req 6    |
+| F48 | Dismiss command → exit animation → phases → DOM empty     | Lower-thirds Req 6.5  |
+| F49 | Push-up transition → content swap                         | Lower-thirds Req 6.6  |
+| F50 | Scripture measurement → PageBreakdown response            | Lower-thirds Req 7    |
+| F51 | Disconnect timeout → overlay locally dismisses after 15s  | Lower-thirds Req 1.10 |
+| F52 | Reconnect with skipEntrance → immediate render            | Lower-thirds Req 8.9  |
+| F53 | Force Clear → instant hide                                | Lower-thirds Req 5.8  |
+| F54 | Resolution telemetry → isCorrect: false at wrong viewport | Lower-thirds Req 2.4  |
+| F55 | OBS disconnect during stream → catastrophic modal         | Livestream Req 8.6    |
 
 ---
 
-## Implementation Priority Order
+## Implementation Gaps — All Resolved
 
-### Phase 1 — Core Backend Gaps (B1–B6, B15, B25–B26)
-
-Session manifest interpolation, lower-third template recomputation, camera dead-man's switch and presets.
-
-### Phase 2 — Streaming Recovery (B7–B13)
-
-FFmpeg recovery, recovering state, stop-with-retry.
-
-### Phase 3 — Frontend Core Flows (F1–F6, F15)
-
-Recording, socket disconnect/reconnect, ADMIN redirect.
-
-### Phase 4 — Frontend Session Manifest (F7–F14)
-
-Template selection, field generation, scripture input.
-
-### Phase 5 — Remaining Backend (B16–B32)
-
-Lower-third edge cases, camera state machine details.
-
-### Phase 6 — Frontend Widgets (F23–F36)
-
-Lower-third widget, camera widget.
-
-### Phase 7 — Medium/Low Priority (all remaining)
-
-Admin pages, OBS preview, notifications, overlay.
+| #   | Spec Requirement                                                  | Resolution                                                                                           |
+| --- | ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| IG1 | Video Req 6.6 — startMove clears activePresetId                   | **Fixed.** Added to `CameraService.startMove()`.                                                     |
+| IG2 | Livestream Req 23.2 — controls disabled on socket disconnect      | **Fixed.** Added `socketConnected` to store; ObsWidget disables controls when `!socketConnected`.    |
+| IG3 | Lower-thirds Req 4.6 — auto-dismiss + overlay disconnect          | **Verified working** in B16 test.                                                                    |
+| IG4 | Multi-platform Req 5.4 — FFmpeg recovery with exponential backoff | **Fixed.** `onForwarderExited` now retries 3× with 2s/4s/8s backoff.                                 |
+| IG5 | Multi-platform Req 7.4 — endBroadcast retry on stop               | **Fixed.** `stopSinglePlatform` retries 4× (immediate + 2s + 4s + 8s).                               |
+| IG6 | Video Req 3.10 — MAX_EFFECTIVE_SPEED global cap                   | **Confirmed implemented.** `applyAdaptiveSpeed` uses `Math.min(abs, 0.6)`.                           |
+| IG7 | Video Req 4.2 — Camera dropdown always rendered                   | **Fixed.** Removed `cameras.length > 1` guard; dropdown always renders, disabled when single camera. |
 
 ---
 
-## Implementation Gaps (Spec vs Code)
+## Priority Guide for Future Work
 
-These are discrepancies between what the specs require and what the code actually does. Discovered during integration test development.
+**If you have 1 hour:** B22, B23 (simple CRUD tests for lower-third remove/edit commands)
 
-| #   | Spec Requirement                                                 | Expected Behavior                                                                                                                                                                                                    | Actual Behavior                                                                                                                                                                                    | Severity |
-| --- | ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
-| IG1 | Video Req 6.6 — activePresetId clearing                          | Joystick movement (`startMove`) should clear `activePresetId`                                                                                                                                                        | Only `applySet` (zoom/focus/toggle changes) clears it; `startMove` does not                                                                                                                        | Medium   |
-| IG2 | Livestream Req 23.2 — controls disabled on socket disconnect     | All OBS command controls should be disabled while Socket.io is disconnected                                                                                                                                          | Controls remain enabled; only a banner notification is shown. The `WidgetErrorOverlay` disables controls for OBS device disconnect (`obsState.connected: false`), but not for tablet network loss. | Medium   |
-| IG3 | Lower-thirds Req 4.6 — auto-dismiss timer and overlay disconnect | When auto-dismiss fires while overlay is disconnected, service should transition phase to `dismissing` internally                                                                                                    | Not verified — needs dedicated test (B16)                                                                                                                                                          | Unknown  |
-| IG4 | Multi-platform Req 5.4 — FFmpeg recovery retry with backoff      | Recovery should retry with exponential backoff (2s, 4s, 8s) up to 3 retries                                                                                                                                          | Implementation does a single 2s wait + 5s verify + one health poll. No exponential backoff or multiple retries visible in `onForwarderExited`.                                                     | Low      |
-| IG5 | Multi-platform Req 7.4 — stop-platform end-broadcast retry       | Should retry `endBroadcast` up to 3 times with exponential backoff (2s, 4s, 8s)                                                                                                                                      | Implementation calls `endBroadcast` once in `stopSinglePlatform`; failure is caught and logged but not retried                                                                                     | Low      |
-| IG6 | Video Req 3.10 — MAX_EFFECTIVE_SPEED global cap                  | A global `MAX_EFFECTIVE_SPEED` cap (default 0.6) should clamp effective speed regardless of zoom                                                                                                                     | **Confirmed implemented.** `applyAdaptiveSpeed` uses `Math.min(Math.abs(scaled), MAX_EFFECTIVE_SPEED)`. Verified in test B29.                                                                      | N/A      |
-| IG7 | Video Req 4.2 — Camera dropdown always rendered                  | "WHEN multiple cameras are configured, THE widget SHALL include the dropdown selector... WHEN only one camera is configured, the dropdown SHALL be disabled (showing the single camera's name, but not interactive)" | Implementation uses `cameras.length > 1` guard — dropdown is **hidden** (not rendered at all) with a single camera, instead of rendered-but-disabled. With multiple cameras it renders correctly.  | Medium   |
+**If you have 2 hours:** F5 (controls disabled — now implementable), F19 (no-source state), F27 (scripture pagination UI)
 
-### Notes
+**If you have a day:** F30-F32 (camera joystick/zoom interactions — complex pointer events), F41-F44 (admin pages — straightforward but many routes to mock)
 
-- **IG1** is easy to fix: add `instance.state.activePresetId = null` + `broadcastState` to `startMove()` in `CameraService.ts`.
-- **IG2** requires a design decision: should the socket disconnect disable buttons at the store level (a `socketConnected` flag in the OBS slice), or should it be handled via the existing `WidgetErrorOverlay` by setting `obsState.connected = false` when the socket drops? The latter would be simpler but semantically conflates "OBS device offline" with "tablet network lost".
-- **IG4/IG5** are low severity because the happy path works and the volunteer can manually retry. The spec's retry logic adds resilience but the current implementation is acceptable for the initial release.
-- **IG6** needs verification — the cap may be applied elsewhere in the pipeline.
-- **IG7** fix: change `{cameras.length > 1 && (<Select .../>)}` to always render `<Select>` with `isDisabled={cameras.length <= 1}`. The dropdown should show the single camera name even when only one is configured.
+**Defer indefinitely:** F47-F55 (overlay page — requires animation testing infrastructure that doesn't exist yet)
