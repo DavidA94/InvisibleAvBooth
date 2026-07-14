@@ -404,14 +404,18 @@ test.describe("SwipeableRow — touch swipe", () => {
       pointerType: "touch",
     });
 
-    await page.waitForTimeout(50);
+    // Wait for swipe animation to settle and verify it worked
+    await page.waitForTimeout(100);
+    const transform = await swipeableContent.evaluate((el) => el.style.transform);
+    expect(transform).toBe("translateX(48px)");
 
-    // Click the Go Live button (force: true to bypass pointer interception)
-    const goLiveBtn = page.getByLabel("Go Live").first();
+    // Click the Go Live button — use a more specific locator to get the revealed one
+    // The right-side actions container is revealed by right swipe
+    const goLiveBtn = swipeableContent.locator("..").getByLabel("Go Live").first();
     await expect(goLiveBtn).toBeVisible();
     await goLiveBtn.click({ force: true });
 
-    await page.waitForTimeout(100);
+    await page.waitForTimeout(150);
     expect(socket.lastCommand()).toEqual({ type: "activate", itemId: "item-2", skipAnimation: true });
   });
 });
