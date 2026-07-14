@@ -95,15 +95,15 @@ This document tracks identified gaps in integration/E2E test coverage across the
 
 | #   | Gap                                                                | Spec Reference      | Status |
 | --- | ------------------------------------------------------------------ | ------------------- | ------ |
-| F4  | "Connection lost — reconnecting…" banner on socket disconnect      | Livestream Req 23.1 | ❌     |
+| F4  | "Connection lost — reconnecting…" banner on socket disconnect      | Livestream Req 23.1 | ✅     |
 | F5  | Controls disabled while socket disconnected                        | Livestream Req 23.2 | ❌     |
-| F6  | Reconnect → state refresh → banner dismissed → toast "Reconnected" | Livestream Req 23.4 | ❌     |
+| F6  | Reconnect → state refresh → banner dismissed → toast "Reconnected" | Livestream Req 23.4 | ✅     |
 
 ### Session Manifest Modal (High Priority)
 
 | #   | Gap                                                                                | Spec Reference             | Status |
 | --- | ---------------------------------------------------------------------------------- | -------------------------- | ------ |
-| F7  | Template selection workflow (select title → select description → fields appear)    | Multi-platform Req 4.1-4.3 | ❌     |
+| F7  | Template selection workflow (select title → select description → fields appear)    | Multi-platform Req 4.1-4.3 | ✅     |
 | F8  | "Select title and description formats above to continue" message before selections | Multi-platform Req 4.2     | ❌     |
 | F9  | Union of tokens across templates → one input per unique token                      | Multi-platform Req 4.3     | ❌     |
 | F10 | Save button disabled until required fields filled                                  | Multi-platform Req 4.7     | ❌     |
