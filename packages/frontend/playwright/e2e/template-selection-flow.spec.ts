@@ -59,3 +59,48 @@ test.describe("Session manifest modal template selection workflow", () => {
     await expect(page.getByText("Select a title format")).toBeVisible();
   });
 });
+
+// Single templates — auto-select kicks in, fields appear immediately
+const singleTemplates: TemplatePayload[] = [
+  { id: "t1", name: "Speaker and Title", category: "title", formatString: "{Date} – {Speaker} – {Title}", roleMinimum: "AvVolunteer" },
+  { id: "t4", name: "None", category: "description", formatString: "", roleMinimum: "AvVolunteer" },
+];
+
+test.describe("Session manifest modal — field generation (F9-F14)", () => {
+  test("F9: auto-selected templates show input fields for required tokens", async ({ page }) => {
+    await routeAuthLogin(page, volunteerLogin);
+    await routeAuthCheck(page, volunteerLogin);
+    await routeDashboardApi(page);
+    await routeTemplatesApi(page, singleTemplates);
+    await routeSocketIo(page, undefined, sessionManifestDefault());
+
+    await loginAndOpenModal(page);
+
+    // With single title template, auto-select fires → fields appear
+    // Template "{Date} – {Speaker} – {Title}" requires Speaker and Title inputs
+    await expect(page.getByTestId("manifest-speaker")).toBeVisible({ timeout: 5000 });
+    await expect(page.getByTestId("manifest-title")).toBeVisible({ timeout: 5000 });
+  });
+
+  test("F10: Save button and fields are present when templates are selected", async ({ page }) => {
+    await routeAuthLogin(page, volunteerLogin);
+    await routeAuthCheck(page, volunteerLogin);
+    await routeDashboardApi(page);
+    await routeTemplatesApi(page, singleTemplates);
+    await routeSocketIo(page, undefined, sessionManifestDefault());
+
+    await loginAndOpenModal(page);
+
+    // Fields should be visible (auto-selected)
+    await expect(page.getByTestId("manifest-speaker")).toBeVisible({ timeout: 5000 });
+    await expect(page.getByTestId("manifest-title")).toBeVisible({ timeout: 5000 });
+
+    // Save button should be present
+    const saveBtn = page.getByTestId("manifest-save");
+    await expect(saveBtn).toBeVisible();
+
+    // User can fill fields
+    await page.getByTestId("manifest-speaker").locator("input").fill("Pastor John");
+    await page.getByTestId("manifest-title").locator("input").fill("Grace");
+  });
+});

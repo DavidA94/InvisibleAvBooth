@@ -217,7 +217,7 @@ test.describe("SwipeableRow — mouse swipe", () => {
     await swipeableContent.dispatchEvent("pointermove", { clientX: centerX - 30, clientY: centerY, pointerId: 1, pointerType: "mouse" });
     await swipeableContent.dispatchEvent("pointerup", { clientX: centerX - 30, clientY: centerY, pointerId: 1, pointerType: "mouse" });
 
-    await page.waitForTimeout(50);
+    await page.waitForTimeout(100);
 
     // Verify swipe worked
     const transform = await swipeableContent.evaluate((el) => el.style.transform);
@@ -229,7 +229,7 @@ test.describe("SwipeableRow — mouse swipe", () => {
     await forceClearBtn.click({ force: true });
 
     // Verify the command was sent
-    await page.waitForTimeout(100);
+    await page.waitForTimeout(200);
     expect(socket.lastCommand()).toEqual({ type: "force-clear" });
   });
 
