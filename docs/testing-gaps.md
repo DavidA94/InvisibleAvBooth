@@ -63,10 +63,10 @@ This document tracks identified gaps in integration/E2E test coverage across the
 | B26 | Preset activation — stored-on-camera vs software-only recall strategy             | Video Req 6.3    | ✅     |
 | B27 | Preset activation applying toggle states (autoFocus, aiTracking, etc.)            | Video Req 6.4    | ✅     |
 | B28 | `activePresetId` clearing when manual movement occurs                             | Video Req 6.6    | ✅     |
-| B29 | Adaptive speed calculation (speed scaled by zoom level)                           | Video Req 3.10   | ❌     |
-| B30 | Tap-to-center calculation (FOV-based offset → absolute position)                  | Video Req 5.9    | ❌     |
-| B31 | AI tracking HTTP API calls (Tongveo model-specific driver)                        | Video Req 3.13   | ❌     |
-| B32 | Hot-reload bus events (`BUS_CAMERA_DEVICE_CHANGED`, `BUS_CAMERA_PRESETS_CHANGED`) | Architecture doc | ❌     |
+| B29 | Adaptive speed calculation (speed scaled by zoom level)                           | Video Req 3.10   | ✅     |
+| B30 | Tap-to-center calculation (FOV-based offset → absolute position)                  | Video Req 5.9    | ✅     |
+| B31 | AI tracking HTTP API calls (Tongveo model-specific driver)                        | Video Req 3.13   | ✅     |
+| B32 | Hot-reload bus events (`BUS_CAMERA_DEVICE_CHANGED`, `BUS_CAMERA_PRESETS_CHANGED`) | Architecture doc | ✅     |
 
 ### Other Backend Gaps (Medium/Low Priority)
 
@@ -238,7 +238,7 @@ These are discrepancies between what the specs require and what the code actuall
 | IG3 | Lower-thirds Req 4.6 — auto-dismiss timer and overlay disconnect | When auto-dismiss fires while overlay is disconnected, service should transition phase to `dismissing` internally | Not verified — needs dedicated test (B16)                                                                                                                                                          | Unknown  |
 | IG4 | Multi-platform Req 5.4 — FFmpeg recovery retry with backoff      | Recovery should retry with exponential backoff (2s, 4s, 8s) up to 3 retries                                       | Implementation does a single 2s wait + 5s verify + one health poll. No exponential backoff or multiple retries visible in `onForwarderExited`.                                                     | Low      |
 | IG5 | Multi-platform Req 7.4 — stop-platform end-broadcast retry       | Should retry `endBroadcast` up to 3 times with exponential backoff (2s, 4s, 8s)                                   | Implementation calls `endBroadcast` once in `stopSinglePlatform`; failure is caught and logged but not retried                                                                                     | Low      |
-| IG6 | Video Req 3.10 — MAX_EFFECTIVE_SPEED global cap                  | A global `MAX_EFFECTIVE_SPEED` cap (default 0.6) should clamp effective speed regardless of zoom                  | `applyAdaptiveSpeed` applies damping but no global cap is visible in the exported function                                                                                                         | Low      |
+| IG6 | Video Req 3.10 — MAX_EFFECTIVE_SPEED global cap                  | A global `MAX_EFFECTIVE_SPEED` cap (default 0.6) should clamp effective speed regardless of zoom                  | **Confirmed implemented.** `applyAdaptiveSpeed` uses `Math.min(Math.abs(scaled), MAX_EFFECTIVE_SPEED)`. Verified in test B29.                                                                      | N/A      |
 
 ### Notes
 
