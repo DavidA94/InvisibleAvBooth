@@ -87,9 +87,9 @@ This document tracks identified gaps in integration/E2E test coverage across the
 
 | #   | Gap                                                                   | Spec Reference      | Status |
 | --- | --------------------------------------------------------------------- | ------------------- | ------ |
-| F1  | Start Recording flow (button click → pending state → confirmed state) | Livestream Req 8.4  | ❌     |
-| F2  | Stop Recording with confirmation modal                                | Livestream Req 8.11 | ❌     |
-| F3  | Recording button disabled while command pending                       | Livestream Req 8.5  | ❌     |
+| F1  | Start Recording flow (button click → pending state → confirmed state) | Livestream Req 8.4  | ✅     |
+| F2  | Stop Recording with confirmation modal                                | Livestream Req 8.11 | ✅     |
+| F3  | Recording button disabled while command pending                       | Livestream Req 8.5  | ✅     |
 
 ### Socket Disconnect/Reconnect UX (High Priority)
 
@@ -116,7 +116,7 @@ This document tracks identified gaps in integration/E2E test coverage across the
 
 | #   | Gap                                                           | Spec Reference          | Status |
 | --- | ------------------------------------------------------------- | ----------------------- | ------ |
-| F15 | ADMIN auto-redirect to `/admin` on login                      | Multi-platform Req 11.3 | ❌     |
+| F15 | ADMIN auto-redirect to `/admin` on login                      | Multi-platform Req 11.3 | ✅     |
 | F16 | Invalid cached dashboard → cleared + toast + selection screen | Livestream Req 5.8      | ❌     |
 
 ### Manage Streams Modal — Error States (Medium Priority)
