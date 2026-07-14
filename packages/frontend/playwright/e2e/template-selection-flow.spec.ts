@@ -14,9 +14,6 @@ import {
   TEST_ID_SESSION_MANIFEST_MODAL,
   TEST_ID_MANIFEST_TITLE_TEMPLATE,
   TEST_ID_MANIFEST_DESCRIPTION_TEMPLATE,
-  TEST_ID_MANIFEST_SPEAKER,
-  TEST_ID_MANIFEST_TITLE,
-  TEST_ID_MANIFEST_SAVE,
 } from "../../src/constants/testIds";
 
 const volunteerLogin = authLoginSuccess({ role: "AvVolunteer" });
