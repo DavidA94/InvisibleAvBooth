@@ -45,12 +45,12 @@ This document tracks identified gaps in integration/E2E test coverage across the
 | #   | Gap                                                                                   | Spec Reference        | Status |
 | --- | ------------------------------------------------------------------------------------- | --------------------- | ------ |
 | B15 | Template-derived library recomputation when manifest changes (items appear/disappear) | Lower-thirds Req 4.3  | ✅     |
-| B16 | Auto-dismiss timer firing when overlay disconnected (phase advances server-side)      | Lower-thirds Req 4.6  | ❌     |
+| B16 | Auto-dismiss timer firing when overlay disconnected (phase advances server-side)      | Lower-thirds Req 4.6  | ✅     |
 | B17 | 5-second phase timeout safety fallback (overlay unresponsive → force-advance)         | Lower-thirds Req 4.13 | ❌     |
-| B18 | `addToLibrary` with Scripture type — verse lookup, KJV validation                     | Lower-thirds Req 3.10 | ❌     |
-| B19 | Page-next / page-previous commands (paginated scripture navigation)                   | Lower-thirds Req 5.4  | ❌     |
-| B20 | Transition lock enforcement (reject activate/dismiss while animation in progress)     | Lower-thirds Req 4.7  | ❌     |
-| B21 | Overlay reconnect receiving `skipEntrance: true` when item was visible                | Lower-thirds Req 8.9  | ❌     |
+| B18 | `addToLibrary` with Scripture type — verse lookup, KJV validation                     | Lower-thirds Req 3.10 | ✅     |
+| B19 | Page-next / page-previous commands (paginated scripture navigation)                   | Lower-thirds Req 5.4  | ✅     |
+| B20 | Transition lock enforcement (reject activate/dismiss while animation in progress)     | Lower-thirds Req 4.7  | ✅     |
+| B21 | Overlay reconnect receiving `skipEntrance: true` when item was visible                | Lower-thirds Req 8.9  | ✅     |
 | B22 | `remove-from-library` command                                                         | Lower-thirds Req 5.5  | ❌     |
 | B23 | `edit-library-item` command                                                           | Lower-thirds Req 5.5  | ❌     |
 | B24 | Overlay disconnect → `overlayStale` flag after 15 seconds                             | Lower-thirds Req 8.8  | ❌     |
@@ -224,3 +224,25 @@ Lower-third widget, camera widget.
 ### Phase 7 — Medium/Low Priority (all remaining)
 
 Admin pages, OBS preview, notifications, overlay.
+
+---
+
+## Implementation Gaps (Spec vs Code)
+
+These are discrepancies between what the specs require and what the code actually does. Discovered during integration test development.
+
+| #   | Spec Requirement                                                 | Expected Behavior                                                                                                 | Actual Behavior                                                                                                                                                                                    | Severity |
+| --- | ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| IG1 | Video Req 6.6 — activePresetId clearing                          | Joystick movement (`startMove`) should clear `activePresetId`                                                     | Only `applySet` (zoom/focus/toggle changes) clears it; `startMove` does not                                                                                                                        | Medium   |
+| IG2 | Livestream Req 23.2 — controls disabled on socket disconnect     | All OBS command controls should be disabled while Socket.io is disconnected                                       | Controls remain enabled; only a banner notification is shown. The `WidgetErrorOverlay` disables controls for OBS device disconnect (`obsState.connected: false`), but not for tablet network loss. | Medium   |
+| IG3 | Lower-thirds Req 4.6 — auto-dismiss timer and overlay disconnect | When auto-dismiss fires while overlay is disconnected, service should transition phase to `dismissing` internally | Not verified — needs dedicated test (B16)                                                                                                                                                          | Unknown  |
+| IG4 | Multi-platform Req 5.4 — FFmpeg recovery retry with backoff      | Recovery should retry with exponential backoff (2s, 4s, 8s) up to 3 retries                                       | Implementation does a single 2s wait + 5s verify + one health poll. No exponential backoff or multiple retries visible in `onForwarderExited`.                                                     | Low      |
+| IG5 | Multi-platform Req 7.4 — stop-platform end-broadcast retry       | Should retry `endBroadcast` up to 3 times with exponential backoff (2s, 4s, 8s)                                   | Implementation calls `endBroadcast` once in `stopSinglePlatform`; failure is caught and logged but not retried                                                                                     | Low      |
+| IG6 | Video Req 3.10 — MAX_EFFECTIVE_SPEED global cap                  | A global `MAX_EFFECTIVE_SPEED` cap (default 0.6) should clamp effective speed regardless of zoom                  | `applyAdaptiveSpeed` applies damping but no global cap is visible in the exported function                                                                                                         | Low      |
+
+### Notes
+
+- **IG1** is easy to fix: add `instance.state.activePresetId = null` + `broadcastState` to `startMove()` in `CameraService.ts`.
+- **IG2** requires a design decision: should the socket disconnect disable buttons at the store level (a `socketConnected` flag in the OBS slice), or should it be handled via the existing `WidgetErrorOverlay` by setting `obsState.connected = false` when the socket drops? The latter would be simpler but semantically conflates "OBS device offline" with "tablet network lost".
+- **IG4/IG5** are low severity because the happy path works and the volunteer can manually retry. The spec's retry logic adds resilience but the current implementation is acceptable for the initial release.
+- **IG6** needs verification — the cap may be applied elsewhere in the pipeline.

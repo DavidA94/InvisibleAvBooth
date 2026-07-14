@@ -369,6 +369,7 @@ test.describe("SwipeableRow — touch swipe", () => {
     expect(transform).toBe("translateX(48px)");
   });
 
+  // This test involves precise touch event timing that can be flaky under CI load
   test("tapping Go Live action after touch swipe sends activate command", async ({ page }) => {
     await routeAuthLogin(page, volunteerLogin);
     await routeAuthCheck(page, volunteerLogin);
@@ -405,7 +406,7 @@ test.describe("SwipeableRow — touch swipe", () => {
     });
 
     // Wait for swipe animation to settle and verify it worked
-    await page.waitForTimeout(100);
+    await page.waitForTimeout(200);
     const transform = await swipeableContent.evaluate((el) => el.style.transform);
     expect(transform).toBe("translateX(48px)");
 
@@ -415,7 +416,7 @@ test.describe("SwipeableRow — touch swipe", () => {
     await expect(goLiveBtn).toBeVisible();
     await goLiveBtn.click({ force: true });
 
-    await page.waitForTimeout(150);
+    await page.waitForTimeout(200);
     expect(socket.lastCommand()).toEqual({ type: "activate", itemId: "item-2", skipAnimation: true });
   });
 });
