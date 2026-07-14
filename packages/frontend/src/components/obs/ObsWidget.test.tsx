@@ -37,6 +37,7 @@ function resetStore(obsState = connectedState): void {
     user: { id: "u1", username: "admin", role: "ADMIN" },
     obsState,
     obsPending: false,
+    socketConnected: true,
     manifest: { speaker: "John", title: "Grace" },
     interpolatedStreamTitle: "Apr 19 – John – Grace",
     interpolatedDescription: "",

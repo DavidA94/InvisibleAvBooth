@@ -190,6 +190,12 @@ export class CameraService {
     const instance = this.cameras.get(cameraId);
     if (!instance) return;
 
+    // Clear active preset on manual joystick movement (Req 6.6)
+    if (instance.state.activePresetId !== null) {
+      instance.state.activePresetId = null;
+      this.broadcastState(instance);
+    }
+
     // Normalize zoom to 0-1 for adaptive speed calculation
     const zoomRaw = instance.state.position?.zoom ?? 0;
     const zoomMin = instance.metadata.zoomMin ?? 0;

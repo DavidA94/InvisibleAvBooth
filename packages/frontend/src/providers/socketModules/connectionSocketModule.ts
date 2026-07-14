@@ -8,6 +8,7 @@ const NETWORK_LOSS_ID = "network-loss";
 export function registerConnectionSocketHandlers(socket: Socket): void {
   socket.on("disconnect", (reason) => {
     logger.warn("Socket disconnected", { context: { reason } });
+    useStore.getState().setSocketConnected(false);
     useStore.getState().addNotification({
       id: NETWORK_LOSS_ID,
       level: "banner",
@@ -19,6 +20,7 @@ export function registerConnectionSocketHandlers(socket: Socket): void {
 
   socket.on("connect", () => {
     logger.info("Socket connected, requesting initial state");
+    useStore.getState().setSocketConnected(true);
     useStore.getState().removeNotification(NETWORK_LOSS_ID);
     socket.emit(CTS_REQUEST_INITIAL_STATE);
   });

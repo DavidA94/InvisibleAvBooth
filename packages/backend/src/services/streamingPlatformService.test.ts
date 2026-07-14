@@ -806,7 +806,10 @@ describe("StreamingPlatformService", () => {
       await service.startAll();
 
       eventBus.emit(BUS_FORWARDER_EXITED, { platformId: "youtube", code: 1, lastStderr: [] });
+      // Recovery retries 3 times with backoff: (2s+5s) + (4s+5s) + (8s+5s) = 29s
       await vi.advanceTimersByTimeAsync(2_000 + 5_000 + 100);
+      await vi.advanceTimersByTimeAsync(4_000 + 5_000 + 100);
+      await vi.advanceTimersByTimeAsync(8_000 + 5_000 + 100);
 
       vi.useRealTimers();
 
@@ -1008,25 +1011,34 @@ describe("StreamingPlatformService", () => {
 
   describe("stopSinglePlatform edge cases", () => {
     it("logs warning when endBroadcast fails during stop", async () => {
+      vi.useFakeTimers();
       const client = makeMockClient("youtube");
       vi.mocked(client.endBroadcast).mockRejectedValue(new Error("API error"));
 
       const { service } = makeService({ clients: new Map([["youtube", client]]) });
       await service.startAll();
-      await service.stopAll();
+      const stopPromise = service.stopAll();
+      // Advance through retry backoff delays (0 + 2s + 4s + 8s)
+      await vi.advanceTimersByTimeAsync(15_000);
+      await stopPromise;
 
+      vi.useRealTimers();
       // Should still transition to idle despite error
       expect(service.getPlatformStates().get("youtube")?.status).toBe("idle");
     });
 
     it("handles non-Error rejection in endBroadcast", async () => {
+      vi.useFakeTimers();
       const client = makeMockClient("youtube");
       vi.mocked(client.endBroadcast).mockRejectedValue("string error");
 
       const { service } = makeService({ clients: new Map([["youtube", client]]) });
       await service.startAll();
-      await service.stopAll();
+      const stopPromise = service.stopAll();
+      await vi.advanceTimersByTimeAsync(15_000);
+      await stopPromise;
 
+      vi.useRealTimers();
       expect(service.getPlatformStates().get("youtube")?.status).toBe("idle");
     });
   });

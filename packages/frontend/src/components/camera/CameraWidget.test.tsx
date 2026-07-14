@@ -283,9 +283,12 @@ describe("CameraWidget", () => {
     expect(screen.getByTestId("camera-select")).toBeInTheDocument();
   });
 
-  it("hides camera selector with single camera", () => {
+  it("shows disabled camera selector with single camera", () => {
     render(<CameraWidget />);
-    expect(screen.queryByTestId("camera-select")).not.toBeInTheDocument();
+    const select = screen.getByTestId("camera-select");
+    expect(select).toBeInTheDocument();
+    // With one camera, select is rendered but disabled
+    expect(select).toBeDisabled();
   });
 
   it("opens modal on preview click in compact mode", () => {

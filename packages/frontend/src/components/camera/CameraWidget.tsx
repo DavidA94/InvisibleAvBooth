@@ -150,16 +150,14 @@ export function CameraWidget({ enabled = true, forceSelectedId }: CameraWidgetPr
   return (
     <div data-testid="camera-widget" ref={containerRef} className="full-height">
       <WidgetContainer title="Camera" connections={[connection]}>
-        {cameras.length > 1 && (
-          <Select
-            data-testid="camera-select"
-            options={cameraOptions}
-            value={selectedOption}
-            onChange={(opt) => opt && setSelectedId((opt as { value: string }).value)}
-            isDisabled={cameras.length <= 1}
-            placeholder="Select Camera"
-          />
-        )}
+        <Select
+          data-testid="camera-select"
+          options={cameraOptions}
+          value={selectedOption}
+          onChange={(opt) => opt && setSelectedId((opt as { value: string }).value)}
+          isDisabled={cameras.length <= 1}
+          placeholder="Select Camera"
+        />
 
         {isCompact ? (
           <div className="preview-video-container" data-testid="camera-preview" onClick={() => setModalOpen(true)}>

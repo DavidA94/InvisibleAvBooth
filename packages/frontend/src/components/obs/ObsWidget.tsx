@@ -23,6 +23,7 @@ export function ObsWidget(): ReactNode {
   const interpolatedStreamTitle = useStore((s) => s.interpolatedStreamTitle);
   const interpolatedDescription = useStore((s) => s.interpolatedDescription);
   const manifestReady = useStore((s) => s.manifestReady);
+  const socketConnected = useStore((s) => s.socketConnected);
   const socket = useSocket();
 
   const [showManifestModal, setShowManifestModal] = useState(false);
@@ -90,7 +91,7 @@ export function ObsWidget(): ReactNode {
         >
           <ObsControls
             obsState={obsState}
-            isPending={isPending}
+            isPending={isPending || !socketConnected}
             manifestReady={manifestReady}
             onManageStreams={() => setShowManageStreams(true)}
             onStartRecording={handleStartRecording}

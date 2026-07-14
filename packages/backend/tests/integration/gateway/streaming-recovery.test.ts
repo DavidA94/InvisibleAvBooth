@@ -119,25 +119,35 @@ describe("FFmpeg forwarder auto-recovery", () => {
     expect([...afterStates.values()][0]?.status).toBe("streaming");
   }, 15000);
 
-  it("transitions to error when forwarder exits and health poll fails", async () => {
+  it("transitions to error when forwarder exits and all health poll retries fail", async () => {
     const client = await connectClient();
 
     await new Promise<void>((resolve) => {
       client.emit(CTS_PLATFORM_COMMAND, { type: "startAll" }, () => resolve());
     });
 
-    // Make health poll fail (broadcast ended)
+    // Make health poll always fail (enough for 3+ retries)
+    s.fakePlatformClient.enqueue("pollHealth", new Error("Broadcast ended"));
+    s.fakePlatformClient.enqueue("pollHealth", new Error("Broadcast ended"));
+    s.fakePlatformClient.enqueue("pollHealth", new Error("Broadcast ended"));
+    s.fakePlatformClient.enqueue("pollHealth", new Error("Broadcast ended"));
     s.fakePlatformClient.enqueue("pollHealth", new Error("Broadcast ended"));
 
     // Simulate FFmpeg exit
     eventBus.emit(BUS_FORWARDER_EXITED, { platformId: "youtube", code: 1, lastStderr: [] });
 
-    // Wait for recovery attempt (2s + 5s + buffer)
-    await new Promise((r) => setTimeout(r, 8000));
+    // Wait for recovery to eventually fail — with exponential backoff this takes up to ~30s
+    // Poll for state change rather than fixed timeout
+    const deadline = Date.now() + 38000;
+    let status = "streaming";
+    while (Date.now() < deadline && status === "streaming") {
+      await new Promise((r) => setTimeout(r, 1000));
+      const states = s.ctx.platformService.getPlatformStates();
+      status = [...states.values()][0]?.status ?? "unknown";
+    }
 
-    const afterStates = s.ctx.platformService.getPlatformStates();
-    expect([...afterStates.values()][0]?.status).toBe("error");
-  }, 15000);
+    expect(status).toBe("error");
+  }, 45000);
 });
 
 // ── B8: no_source → recovering → streaming/error ─────────────────────────────

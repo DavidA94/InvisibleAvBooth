@@ -429,12 +429,25 @@ export class StreamingPlatformService {
     const work = async (): Promise<void> => {
       this.relayService.stopForwarder(platformId);
       if (entry.broadcastId) {
-        try {
-          await entry.client.endBroadcast(entry.broadcastId);
-        } catch (error: unknown) {
-          logger.warn(`Failed to end broadcast for ${entry.config.label}`, {
-            context: { platformId, error: error instanceof Error ? error.message : String(error) },
-          });
+        // Retry endBroadcast up to 3 times with exponential backoff (Req 7.4)
+        const backoffDelays = [0, 2000, 4000, 8000]; // first attempt immediate, then 2s, 4s, 8s
+        let success = false;
+        for (let attempt = 0; attempt < 4; attempt++) {
+          if (attempt > 0) {
+            await new Promise((resolve) => setTimeout(resolve, backoffDelays[attempt]!));
+          }
+          try {
+            await entry.client.endBroadcast(entry.broadcastId!);
+            success = true;
+            break;
+          } catch (error: unknown) {
+            logger.warn(`Failed to end broadcast for ${entry.config.label} (attempt ${attempt + 1}/4)`, {
+              context: { platformId, error: error instanceof Error ? error.message : String(error) },
+            });
+          }
+        }
+        if (!success) {
+          logger.warn(`All endBroadcast retries exhausted for ${entry.config.label} — broadcast may still be active`, { context: { platformId } });
         }
         entry.broadcastId = undefined;
         entry.rtmpUrl = undefined;
@@ -509,22 +522,40 @@ export class StreamingPlatformService {
     if (entry.state.status === "streaming") {
       logger.warn(`FFmpeg exited for ${platformId}, attempting recovery`);
 
-      await new Promise((resolve) => setTimeout(resolve, RECOVERY_WAIT_MS));
+      const backoffDelays = [RECOVERY_WAIT_MS, RECOVERY_WAIT_MS * 2, RECOVERY_WAIT_MS * 4]; // 2s, 4s, 8s
+      const maxRetries = 3;
 
-      if (entry.rtmpUrl) {
-        this.relayService.startForwarder(platformId, entry.rtmpUrl);
-      }
+      for (let attempt = 0; attempt < maxRetries; attempt++) {
+        const delay = backoffDelays[attempt] ?? backoffDelays[backoffDelays.length - 1]!;
+        await new Promise((resolve) => setTimeout(resolve, delay));
 
-      await new Promise((resolve) => setTimeout(resolve, RECOVERY_VERIFY_MS));
+        // Check if state changed while waiting (e.g., user stopped the stream)
+        if (entry.state.status !== "streaming") return;
 
-      try {
-        const health = await entry.client.pollHealth();
-        if (!health.healthy) {
-          this._transitionPlatform(platformId, "error", `${entry.config.label} stream recovery failed`);
+        if (entry.rtmpUrl) {
+          this.relayService.startForwarder(platformId, entry.rtmpUrl);
         }
-      } catch {
-        this._transitionPlatform(platformId, "error", `${entry.config.label} stream recovery failed`);
+
+        await new Promise((resolve) => setTimeout(resolve, RECOVERY_VERIFY_MS));
+
+        // Check state again after verify window
+        if (entry.state.status !== "streaming") return;
+
+        try {
+          const health = await entry.client.pollHealth();
+          if (health.healthy) {
+            logger.info(`FFmpeg recovery succeeded for ${platformId} on attempt ${attempt + 1}`);
+            return; // Recovery successful
+          }
+        } catch {
+          // Health poll failed — continue to next retry
+        }
+
+        logger.warn(`FFmpeg recovery attempt ${attempt + 1}/${maxRetries} failed for ${platformId}`);
       }
+
+      // All retries exhausted
+      this._transitionPlatform(platformId, "error", `${entry.config.label} stream recovery failed`);
     }
   }
 
