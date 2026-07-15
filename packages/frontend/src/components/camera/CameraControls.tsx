@@ -45,6 +45,8 @@ export interface CameraControlsProps {
   onPresetActivate: (presetId: string) => void;
   /** Double-tap-to-center handler for the video preview */
   onVideoTap?: (e: { clientX: number; clientY: number; currentTarget: Element }) => void;
+  /** Optional camera selector dropdown rendered at the top of the right column */
+  cameraSelector?: ReactNode;
 }
 
 function hasFeature(features: CameraFeature[], f: CameraFeature): boolean {
@@ -81,6 +83,7 @@ export function CameraControls({
   onJoystickStop,
   onPresetActivate,
   onVideoTap,
+  cameraSelector,
 }: CameraControlsProps): ReactNode {
   const hasPan = hasFeature(features, "pan");
   const hasTilt = hasFeature(features, "tilt");
@@ -119,8 +122,9 @@ export function CameraControls({
         </div>
 
         {/* Joystick + Presets column */}
-        {(showJoystick || presets.length > 0) && (
+        {(showJoystick || presets.length > 0 || cameraSelector) && (
           <div className="camera-controls-right">
+            {cameraSelector}
             {showJoystick && (
               <PtzJoystick onStart={onJoystickStart} onMove={onJoystickMove} onStop={onJoystickStop} disabled={{ pan: !hasPan, tilt: !hasTilt }} />
             )}

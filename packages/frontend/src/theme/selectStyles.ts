@@ -17,7 +17,8 @@ export function darkSelectStyles<Option, IsMulti extends boolean = false, Group 
       borderRadius: "0.375rem",
       minHeight: "2.5rem",
       boxShadow: "none",
-      "&:hover": { borderColor: "var(--color-primary)" },
+      opacity: 1,
+      "&:hover": { borderColor: state.isDisabled ? "var(--color-border)" : "var(--color-primary)" },
     }),
     menu: (base) => ({
       ...base,
@@ -39,9 +40,10 @@ export function darkSelectStyles<Option, IsMulti extends boolean = false, Group 
       cursor: "pointer",
       "&:active": { background: "var(--color-primary-hover)" },
     }),
-    singleValue: (base) => ({
+    singleValue: (base, state) => ({
       ...base,
-      color: "var(--color-text)",
+      color: state.isDisabled ? "var(--color-text-muted)" : "var(--color-text)",
+      opacity: 1,
     }),
     placeholder: (base) => ({
       ...base,
@@ -55,9 +57,9 @@ export function darkSelectStyles<Option, IsMulti extends boolean = false, Group 
       ...base,
       backgroundColor: "var(--color-border)",
     }),
-    dropdownIndicator: (base) => ({
+    dropdownIndicator: (base, state) => ({
       ...base,
-      color: "var(--color-text-muted)",
+      color: state.isDisabled ? "var(--color-text-muted)" : "var(--color-text-muted)",
       "&:hover": { color: "var(--color-text)" },
     }),
     clearIndicator: (base) => ({

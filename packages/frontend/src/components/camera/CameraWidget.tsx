@@ -146,25 +146,26 @@ export function CameraWidget({ enabled = true, forceSelectedId }: CameraWidgetPr
     onJoystickStop: handleJoystickStop,
     onPresetActivate: handlePresetActivate,
     onVideoTap: handleDoubleTap,
+    cameraSelector: (
+      <div className="camera-select-wrapper">
+        <Select
+          data-testid="camera-select"
+          options={cameraOptions}
+          value={selectedOption}
+          onChange={(opt) => opt && setSelectedId((opt as { value: string }).value)}
+          isDisabled={cameras.length <= 1}
+          isSearchable={false}
+          styles={darkSelectStyles()}
+          placeholder="Select Camera"
+          menuPortalTarget={document.body}
+        />
+      </div>
+    ),
   };
 
   return (
     <div data-testid="camera-widget" ref={containerRef} className="full-height">
       <WidgetContainer title="Camera" connections={[connection]}>
-        <div className="camera-select-row">
-          <Select
-            data-testid="camera-select"
-            options={cameraOptions}
-            value={selectedOption}
-            onChange={(opt) => opt && setSelectedId((opt as { value: string }).value)}
-            isDisabled={cameras.length <= 1}
-            isSearchable={false}
-            styles={darkSelectStyles()}
-            placeholder="Select Camera"
-            menuPortalTarget={document.body}
-          />
-        </div>
-
         {isCompact ? (
           <div className="preview-video-container" data-testid="camera-preview" onClick={() => setModalOpen(true)}>
             <img ref={imgRef} className="preview-video" alt="Camera preview" style={status !== "streaming" ? { display: "none" } : undefined} />

@@ -633,7 +633,6 @@
   flex: 1;
   padding: var(--space-widget-inner);
   overflow: hidden;
-  position: relative;
 }
 
 .widget-indicators {
@@ -1043,13 +1042,9 @@
 
 /* ── Camera Controls Layout ─────────────────────────────────────────────────── */
 
-.camera-select-row {
-  position: absolute;
-  top: 0;
-  right: 0;
-  z-index: 10;
-  width: 10rem;
-  padding-bottom: var(--space-control-gap);
+.camera-select-wrapper {
+  width: 100%;
+  margin-bottom: var(--space-control-gap);
 }
 
 .camera-controls-layout {
