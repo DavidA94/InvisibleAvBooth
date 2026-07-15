@@ -6,4 +6,6 @@ To commit, `npm run ci` must pass with zero failures. Note that we are in a mono
 
 After commiting, unless instructed otherwise, you should push upstream.
 
+Commit directly to `main`. Do not create feature branches — this is a single-developer project and branches add unnecessary overhead.
+
 Mark completed tasks in tasks.md BEFORE committing, not after.
