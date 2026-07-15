@@ -223,6 +223,7 @@ function broadcastPresets(database: Database, cameraId: string): void {
       cameraId,
       state: {
         cameraId,
+        label: "",
         connected: false,
         position: null,
         autoFocus: true,

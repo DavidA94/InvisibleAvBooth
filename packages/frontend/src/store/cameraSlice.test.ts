@@ -4,6 +4,7 @@ import type { CameraState } from "@invisible-av-booth/shared";
 
 const CAMERA_STATE: CameraState = {
   cameraId: "cam1",
+  label: "Camera 1",
   connected: true,
   position: null,
   autoFocus: true,

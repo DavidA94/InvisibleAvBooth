@@ -104,6 +104,7 @@ export class CameraService {
 
       const state: CameraState = {
         cameraId: row.id,
+        label: row.label,
         connected: false,
         position: null,
         autoFocus: true,
@@ -637,6 +638,7 @@ export class CameraService {
 
     const state: CameraState = {
       cameraId: row.id,
+      label: row.label,
       connected: false,
       position: null,
       autoFocus: true,

@@ -29,6 +29,7 @@ export interface CameraPreset {
 
 export interface CameraState {
   cameraId: string;
+  label: string;
   connected: boolean;
   position: PositionInquiry | null;
   autoFocus: boolean;

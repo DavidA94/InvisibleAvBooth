@@ -11,6 +11,7 @@ vi.mock("../providers/SocketProvider", () => ({
 
 const baseCameraState: CameraState = {
   cameraId: "cam1",
+  label: "Main Camera",
   connected: true,
   position: { pan: 0, tilt: 0, zoom: 0, focus: 0.5, autoFocus: true },
   autoFocus: true,

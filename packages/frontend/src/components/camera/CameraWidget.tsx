@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import type { ReactNode } from "react";
 import Select from "react-select";
+import { darkSelectStyles } from "../../theme/selectStyles";
 import { WidgetContainer } from "../WidgetContainer";
 import type { ConnectionStatus } from "../WidgetContainer";
 import { CameraControls } from "./CameraControls";
@@ -112,7 +113,7 @@ export function CameraWidget({ enabled = true, forceSelectedId }: CameraWidgetPr
   );
 
   const connection = deriveConnection(currentState);
-  const cameraOptions = cameras.map((c) => ({ value: c.cameraId, label: c.cameraId }));
+  const cameraOptions = cameras.map((c) => ({ value: c.cameraId, label: c.label }));
   const selectedOption = cameraOptions.find((o) => o.value === selectedId) ?? null;
 
   const controlProps = {
@@ -150,14 +151,19 @@ export function CameraWidget({ enabled = true, forceSelectedId }: CameraWidgetPr
   return (
     <div data-testid="camera-widget" ref={containerRef} className="full-height">
       <WidgetContainer title="Camera" connections={[connection]}>
-        <Select
-          data-testid="camera-select"
-          options={cameraOptions}
-          value={selectedOption}
-          onChange={(opt) => opt && setSelectedId((opt as { value: string }).value)}
-          isDisabled={cameras.length <= 1}
-          placeholder="Select Camera"
-        />
+        <div className="camera-select-row">
+          <Select
+            data-testid="camera-select"
+            options={cameraOptions}
+            value={selectedOption}
+            onChange={(opt) => opt && setSelectedId((opt as { value: string }).value)}
+            isDisabled={cameras.length <= 1}
+            isSearchable={false}
+            styles={darkSelectStyles()}
+            placeholder="Select Camera"
+            menuPortalTarget={document.body}
+          />
+        </div>
 
         {isCompact ? (
           <div className="preview-video-container" data-testid="camera-preview" onClick={() => setModalOpen(true)}>
