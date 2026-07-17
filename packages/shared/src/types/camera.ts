@@ -31,6 +31,7 @@ export interface CameraState {
   cameraId: string;
   label: string;
   connected: boolean;
+  viscaConnected: boolean;
   position: PositionInquiry | null;
   autoFocus: boolean;
   aiTracking: boolean;

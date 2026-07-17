@@ -10,6 +10,7 @@ const cameraState = {
     {
       cameraId: "cam1",
       connected: true,
+      viscaConnected: true,
       position: { pan: 100, tilt: 200, zoom: 5000, focus: 0 },
       autoFocus: true,
       aiTracking: false,
@@ -54,6 +55,7 @@ const cameraState = {
     {
       cameraId: "cam2",
       connected: false,
+      viscaConnected: false,
       position: null,
       autoFocus: true,
       aiTracking: false,

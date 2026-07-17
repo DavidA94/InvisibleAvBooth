@@ -16,6 +16,7 @@ export interface CapabilitiesObject {
 export const BUS_OBS_STATE_CHANGED = "bus:obs:state:changed" as const;
 export const BUS_OBS_ERROR = "bus:obs:error" as const;
 export const BUS_OBS_ERROR_RESOLVED = "bus:obs:error:resolved" as const;
+export const BUS_OBS_AUDIO_LEVELS = "bus:obs:audio:levels" as const;
 export const BUS_SESSION_MANIFEST_UPDATED = "bus:session:manifest:updated" as const;
 export const BUS_DEVICE_CAPABILITIES_UPDATED = "bus:device:capabilities:updated" as const;
 

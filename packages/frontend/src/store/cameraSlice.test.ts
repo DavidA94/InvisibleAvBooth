@@ -6,6 +6,7 @@ const CAMERA_STATE: CameraState = {
   cameraId: "cam1",
   label: "Camera 1",
   connected: true,
+  viscaConnected: true,
   position: null,
   autoFocus: true,
   aiTracking: false,

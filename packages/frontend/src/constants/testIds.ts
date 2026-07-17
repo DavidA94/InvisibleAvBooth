@@ -248,3 +248,11 @@ export const TEST_ID_OBS_PREVIEW_VIDEO = "obs-preview-video";
 export const TEST_ID_OBS_PREVIEW_MUTE_BTN = "obs-preview-mute-btn";
 export const TEST_ID_OBS_PREVIEW_INACTIVE = "obs-preview-inactive";
 export const TEST_ID_OBS_PREVIEW_RECONNECTING = "obs-preview-reconnecting";
+
+// ── Audio Level Meters ─────────────────────────────────────────────────────────
+export const TEST_ID_AUDIO_METER_CONTAINER = "audio-meter-container";
+export const TEST_ID_AUDIO_METER_LEFT = "audio-meter-left";
+export const TEST_ID_AUDIO_METER_RIGHT = "audio-meter-right";
+
+// ── Fullscreen Toggle ──────────────────────────────────────────────────────────
+export const TEST_ID_FULLSCREEN_BUTTON = "fullscreen-button";

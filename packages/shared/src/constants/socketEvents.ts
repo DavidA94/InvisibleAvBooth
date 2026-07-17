@@ -29,6 +29,8 @@ export const STC_PLATFORM_HEALTH = "stc:platform:health" as const;
 export const STC_RELAY_STATE = "stc:relay:state" as const;
 export const STC_PLATFORM_READINESS = "stc:platform:readiness" as const;
 
+export const STC_OBS_AUDIO_LEVELS = "stc:obs:audio:levels" as const;
+
 // ── Camera: Server → Client ───────────────────────────────────────────────────
 
 export const STC_CAMERA_STATE = "stc:camera:state" as const;

@@ -225,6 +225,7 @@ function broadcastPresets(database: Database, cameraId: string): void {
         cameraId,
         label: "",
         connected: false,
+        viscaConnected: false,
         position: null,
         autoFocus: true,
         aiTracking: false,
