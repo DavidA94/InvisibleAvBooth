@@ -448,6 +448,7 @@ class ViscaCameraDriver {
   // Handles VISCA ACK/Completion/Error responses with command queue
   // Auto-reconnects on command if TCP connection has dropped
   // Probe: CAM_PowerInq to verify connectivity
+  public onDisconnect: (() => void) | null = null; // Invoked on socket close/error for immediate status propagation
   private socket: net.Socket;
   private host: string;
   private port: number;
