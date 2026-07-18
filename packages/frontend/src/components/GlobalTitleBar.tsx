@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { IonButton } from "@ionic/react";
 import { useLocation, useNavigate } from "react-router";
 import { useStore } from "../store";
+import { FullscreenButton } from "./FullscreenButton";
 import {
   TEST_ID_GLOBAL_TITLE_BAR,
   TEST_ID_TITLE_BAR_DASHBOARD_NAV,
@@ -60,6 +61,7 @@ export function GlobalTitleBar(): ReactNode {
         </span>
       )}
       <span className="fill-remaining" />
+      <FullscreenButton />
       <span data-testid={TEST_ID_TITLE_BAR_USERNAME} className="margin-right-tight">
         {user.username}
       </span>

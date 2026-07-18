@@ -11,7 +11,10 @@ import {
   TEST_ID_TITLE_BAR_ROLE,
   TEST_ID_TITLE_BAR_USERNAME,
   TEST_ID_TITLE_BAR_ADMIN_LINK,
+  TEST_ID_FULLSCREEN_BUTTON,
 } from "../constants/testIds";
+
+import "../test/ionicMocks";
 
 const mockNavigate = vi.fn();
 vi.mock("react-router", async () => {
@@ -109,5 +112,17 @@ describe("GlobalTitleBar", () => {
     renderBar();
     fireEvent.click(screen.getByTestId(TEST_ID_TITLE_BAR_ADMIN_LINK));
     expect(mockNavigate).toHaveBeenCalledWith("/admin");
+  });
+
+  it("shows fullscreen button when fullscreenEnabled is true", () => {
+    Object.defineProperty(document, "fullscreenEnabled", { value: true, configurable: true });
+    renderBar();
+    expect(screen.getByTestId(TEST_ID_FULLSCREEN_BUTTON)).toBeInTheDocument();
+  });
+
+  it("does not show fullscreen button when fullscreenEnabled is false", () => {
+    Object.defineProperty(document, "fullscreenEnabled", { value: false, configurable: true });
+    renderBar();
+    expect(screen.queryByTestId(TEST_ID_FULLSCREEN_BUTTON)).not.toBeInTheDocument();
   });
 });

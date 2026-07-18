@@ -125,17 +125,17 @@ Tests are part of each task's definition of done. Unit tests follow the unit or 
 
 ## Phase 6: Frontend — Fullscreen Toggle
 
-- [ ] 34. Create `FullscreenButton` component (`packages/frontend/src/components/FullscreenButton.tsx`) — feature detection via `document.fullscreenEnabled` (+ webkit prefix), return null if unsupported. State tracks `document.fullscreenElement`. Listen to `fullscreenchange`/`webkitfullscreenchange` events. Toggle calls `requestFullscreen()`/`exitFullscreen()` in try/catch. Icons: `expandOutline`/`contractOutline` from ionicons via `IonIcon`. Styling: transparent background, `color-text-muted` → `color-text` on hover, 2.5rem × 2.5rem touch target.
+- [x] 34. Create `FullscreenButton` component (`packages/frontend/src/components/FullscreenButton.tsx`) — feature detection via `document.fullscreenEnabled` (+ webkit prefix), return null if unsupported. State tracks `document.fullscreenElement`. Listen to `fullscreenchange`/`webkitfullscreenchange` events. Toggle calls `requestFullscreen()`/`exitFullscreen()` in try/catch. Icons: `expandOutline`/`contractOutline` from ionicons via `IonIcon`. Styling: transparent background, `color-text-muted` → `color-text` on hover, 2.5rem × 2.5rem touch target.
   - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6_
 
-- [ ] 35. Integrate `FullscreenButton` into `GlobalTitleBar` — render immediately before the username span (after `fill-remaining`).
+- [x] 35. Integrate `FullscreenButton` into `GlobalTitleBar` — render immediately before the username span (after `fill-remaining`).
   - _Requirements: 3.1_
 
-- [ ] 36. Write unit tests for `FullscreenButton` — renders when `fullscreenEnabled` is true, returns null when false, icon toggles on fullscreenchange event, toggle calls requestFullscreen/exitFullscreen, handles rejection gracefully (no throw), aria-label changes with state.
+- [x] 36. Write unit tests for `FullscreenButton` — renders when `fullscreenEnabled` is true, returns null when false, icon toggles on fullscreenchange event, toggle calls requestFullscreen/exitFullscreen, handles rejection gracefully (no throw), aria-label changes with state.
   - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5_
 
-- [ ] 37. Write unit tests for `GlobalTitleBar` with fullscreen button — button present in expected position, does not break existing title bar layout/tests.
+- [x] 37. Write unit tests for `GlobalTitleBar` with fullscreen button — button present in expected position, does not break existing title bar layout/tests.
   - _Requirements: 3.1_
 
-- [ ] 38. Write Playwright e2e test (`playwright/e2e/fullscreen-toggle.spec.ts`) — button visible when fullscreenEnabled, click enters fullscreen and icon changes, second click exits and icon reverts, external fullscreen exit updates icon, button hidden when fullscreenEnabled is false, requestFullscreen rejection handled gracefully.
+- [x] 38. Write Playwright e2e test (`playwright/e2e/fullscreen-toggle.spec.ts`) — button visible when fullscreenEnabled, click enters fullscreen and icon changes, second click exits and icon reverts, external fullscreen exit updates icon, button hidden when fullscreenEnabled is false, requestFullscreen rejection handled gracefully.
   - _Requirements: 3.8_

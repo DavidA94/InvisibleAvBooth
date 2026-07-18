@@ -1308,3 +1308,29 @@
   line-height: 1;
   margin-top: 2px;
 }
+
+/* ── Fullscreen Toggle Button ─────────────────────────────────────────────── */
+
+.fullscreen-button {
+  background: transparent;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 4px;
+  margin-right: 0.5rem;
+  transition: color 0.15s ease;
+}
+
+.fullscreen-button:hover,
+.fullscreen-button:active {
+  color: var(--color-text);
+}
+
+.fullscreen-button ion-icon {
+  font-size: 1.25rem;
+}
