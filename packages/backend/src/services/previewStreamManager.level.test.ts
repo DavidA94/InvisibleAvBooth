@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { EventEmitter } from "events";
-import { parseLevelMessage, attachLevelParser, buildLevelArgs, LEVEL_PEAK_REGEX } from "./previewStreamManager.js";
+import { parseLevelMessage, attachLevelParser, buildLevelArgs, LEVEL_PEAK_REGEX_GVALUEARRAY, LEVEL_PEAK_REGEX_GSTVALUELIST } from "./previewStreamManager.js";
 import type { ChildProcess } from "child_process";
 
 vi.mock("../logger.js", () => ({
@@ -81,17 +81,48 @@ describe("parseLevelMessage", () => {
     const result = parseLevelMessage(line);
     expect(result).toEqual({ left: -60, right: -60 });
   });
+
+  it("parses GStreamer 1.24+ GValueArray format", () => {
+    const line =
+      'Got message #54 from element "level0" (element): level, endtime=(guint64)100000000, peak=(GValueArray)< -20.5, -18.3 >, decay=(GValueArray)< -20.5, -18.3 >;';
+    const result = parseLevelMessage(line);
+    expect(result).toEqual({ left: -20.5, right: -18.3 });
+  });
+
+  it("parses GValueArray format with silence", () => {
+    const line = 'Got message #10 from element "level0" (element): level, peak=(GValueArray)< -inf, -inf >;';
+    const result = parseLevelMessage(line);
+    expect(result).toEqual({ left: -60, right: -60 });
+  });
+
+  it("parses GValueArray format with independent L/R", () => {
+    const line = 'Got message #10 from element "level0" (element): level, peak=(GValueArray)< -6.0, -30.0 >, decay=(GValueArray)< -6.0, -30.0 >;';
+    const result = parseLevelMessage(line);
+    expect(result).toEqual({ left: -6, right: -30 });
+  });
 });
 
-describe("LEVEL_PEAK_REGEX", () => {
+describe("LEVEL_PEAK_REGEX_GSTVALUELIST", () => {
   it("matches standard level output format", () => {
     const line = "peak, GstValueList:(double)-20.5, (double)-18.3;";
-    expect(LEVEL_PEAK_REGEX.test(line)).toBe(true);
+    expect(LEVEL_PEAK_REGEX_GSTVALUELIST.test(line)).toBe(true);
   });
 
   it("does not match rms lines", () => {
     const line = "rms, GstValueList:(double)-25.0, (double)-22.0;";
-    expect(LEVEL_PEAK_REGEX.test(line)).toBe(false);
+    expect(LEVEL_PEAK_REGEX_GSTVALUELIST.test(line)).toBe(false);
+  });
+});
+
+describe("LEVEL_PEAK_REGEX_GVALUEARRAY", () => {
+  it("matches GStreamer 1.24+ GValueArray format", () => {
+    const line = 'Got message #54 from element "level0" (element): level, peak=(GValueArray)< -20.5, -18.3 >, decay=(GValueArray)< -20.5, -18.3 >;';
+    expect(LEVEL_PEAK_REGEX_GVALUEARRAY.test(line)).toBe(true);
+  });
+
+  it("does not match rms-only lines without peak", () => {
+    const line = 'Got message #54 from element "level0" (element): level, rms=(GValueArray)< -25.0, -22.0 >;';
+    expect(LEVEL_PEAK_REGEX_GVALUEARRAY.test(line)).toBe(false);
   });
 });
 
@@ -169,7 +200,7 @@ describe("buildLevelArgs", () => {
   it("produces gstreamer level pipeline args", () => {
     const args = buildLevelArgs("OBS_OUTPUT");
     expect(args).toContain("-m");
-    expect(args).toContain("-q");
+    expect(args).not.toContain("-q"); // -q suppresses level output in GStreamer 1.24+
     expect(args).toContain('ndi-name="OBS_OUTPUT"');
     expect(args).toContain("level");
     expect(args).toContain("interval=100000000");

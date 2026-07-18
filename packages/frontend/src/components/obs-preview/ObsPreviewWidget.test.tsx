@@ -1,11 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { ObsPreviewWidget } from "./ObsPreviewWidget";
+import { useStore } from "../../store";
 import {
   TEST_ID_OBS_PREVIEW_WIDGET,
   TEST_ID_OBS_PREVIEW_INACTIVE,
   TEST_ID_OBS_PREVIEW_MUTE_BTN,
   TEST_ID_OBS_PREVIEW_RECONNECTING,
+  TEST_ID_AUDIO_METER_CONTAINER,
 } from "../../constants/testIds";
 
 // Mock the hook
@@ -84,5 +86,43 @@ describe("ObsPreviewWidget", () => {
   it("derives connection status as inactive when NDI not configured", () => {
     render(<ObsPreviewWidget enabled={true} ndiConfigured={false} />);
     expect(screen.getByTestId(TEST_ID_OBS_PREVIEW_WIDGET)).toBeInTheDocument();
+  });
+
+  describe("audio meter integration", () => {
+    it("meters not visible before first level event (obsAudioLevels is null)", () => {
+      mockUseObsPreviewStream.mockReturnValue({ ...defaultHookReturn(), status: "streaming" });
+      useStore.setState({ obsAudioLevels: null, obsAudioEventsFlowing: false, obsLevelPipelineAvailable: true });
+      render(<ObsPreviewWidget enabled={true} ndiConfigured={true} />);
+      expect(screen.queryByTestId(TEST_ID_AUDIO_METER_CONTAINER)).not.toBeInTheDocument();
+    });
+
+    it("meters visible after first level event", () => {
+      mockUseObsPreviewStream.mockReturnValue({ ...defaultHookReturn(), status: "streaming" });
+      useStore.setState({ obsAudioLevels: { left: -20, right: -15 }, obsAudioEventsFlowing: true, obsLevelPipelineAvailable: true });
+      render(<ObsPreviewWidget enabled={true} ndiConfigured={true} />);
+      expect(screen.getByTestId(TEST_ID_AUDIO_METER_CONTAINER)).toBeInTheDocument();
+    });
+
+    it("meters persist when muted", () => {
+      mockUseObsPreviewStream.mockReturnValue({ ...defaultHookReturn(), status: "streaming", muted: true });
+      useStore.setState({ obsAudioLevels: { left: -20, right: -15 }, obsAudioEventsFlowing: true, obsLevelPipelineAvailable: true });
+      render(<ObsPreviewWidget enabled={true} ndiConfigured={true} />);
+      expect(screen.getByTestId(TEST_ID_AUDIO_METER_CONTAINER)).toBeInTheDocument();
+    });
+
+    it("Audio connection indicator shows healthy when events flowing", () => {
+      mockUseObsPreviewStream.mockReturnValue({ ...defaultHookReturn(), status: "streaming" });
+      useStore.setState({ obsAudioLevels: { left: -20, right: -15 }, obsAudioEventsFlowing: true, obsLevelPipelineAvailable: true });
+      render(<ObsPreviewWidget enabled={true} ndiConfigured={true} />);
+      // The "Audio" text should appear in the connection indicators
+      expect(screen.getByText("Audio")).toBeInTheDocument();
+    });
+
+    it("Audio connection indicator shows inactive when level pipeline unavailable", () => {
+      mockUseObsPreviewStream.mockReturnValue({ ...defaultHookReturn(), status: "streaming" });
+      useStore.setState({ obsAudioLevels: null, obsAudioEventsFlowing: false, obsLevelPipelineAvailable: false });
+      render(<ObsPreviewWidget enabled={true} ndiConfigured={true} />);
+      expect(screen.getByText("Audio")).toBeInTheDocument();
+    });
   });
 });

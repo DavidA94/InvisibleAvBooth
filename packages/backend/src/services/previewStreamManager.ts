@@ -36,18 +36,23 @@ export type GstEncoder = { element: string; options: string } | null;
 
 /**
  * Regex for parsing GStreamer level element peak output.
- * The `-m` flag causes level to print messages like:
+ * GStreamer 1.24+ with `-m` flag outputs level messages in this format:
+ *   Got message #N from element "level0" (element): level, ..., peak=(GValueArray)< -20.5, -18.3 >, ...;
+ * Older versions may use:
  *   /GstPipeline:pipeline0/GstLevel:level0: peak, GstValueList:(double)-20.5, (double)-18.3;
+ * We support both formats.
  */
-export const LEVEL_PEAK_REGEX = /peak,\s*GstValueList:\(double\)([-\d.e+inf]+),\s*\(double\)([-\d.e+inf]+)/;
+export const LEVEL_PEAK_REGEX_GVALUEARRAY = /peak=\(GValueArray\)<\s*([-\d.e+inf]+),\s*([-\d.e+inf]+)\s*>/;
+export const LEVEL_PEAK_REGEX_GSTVALUELIST = /peak,\s*GstValueList:\(double\)([-\d.e+inf]+),\s*\(double\)([-\d.e+inf]+)/;
 
 /**
  * Parse a single GStreamer level output line into L/R dB values.
  * Returns null for non-level lines or malformed data.
  * Clamps values to [-60, 0] range; -Infinity (silence) maps to -60.
+ * Supports both GValueArray format (GStreamer 1.24+) and GstValueList format (older).
  */
 export function parseLevelMessage(line: string): { left: number; right: number } | null {
-  const match = line.match(LEVEL_PEAK_REGEX);
+  const match = line.match(LEVEL_PEAK_REGEX_GVALUEARRAY) ?? line.match(LEVEL_PEAK_REGEX_GSTVALUELIST);
   if (!match) return null;
   const left = parseFloat(match[1]!);
   const right = parseFloat(match[2]!);
@@ -658,7 +663,8 @@ export function buildAudioArgs(ndiName: string): string[] {
 export function buildLevelArgs(ndiName: string): string[] {
   // Level metering pipeline — measures stereo peak amplitude at 10Hz, outputs
   // structured bus messages to stdout via the -m flag. Does not produce audio output.
-  const args = ["-m", "-q"];
+  // NOTE: Do NOT use -q (quiet) — in GStreamer 1.24+ it suppresses level messages entirely.
+  const args = ["-m"];
 
   args.push("ndisrc", `ndi-name="${ndiName}"`, "do-timestamp=true", "!");
   args.push("decodebin", "!");

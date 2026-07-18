@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { registerObsSocketHandlers } from "./obsSocketModule";
 import { useStore } from "../../store";
-import { STC_OBS_STATE, STC_OBS_ERROR_RESOLVED, STC_DEVICE_CAPABILITIES } from "@invisible-av-booth/shared";
+import { STC_OBS_STATE, STC_OBS_ERROR_RESOLVED, STC_DEVICE_CAPABILITIES, STC_OBS_AUDIO_LEVELS } from "@invisible-av-booth/shared";
 
 vi.mock("../../logger", () => ({
   logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
@@ -58,5 +58,30 @@ describe("obsSocketModule", () => {
       capabilities: { deviceId: "other-device", deviceType: "camera", features: { ndiConfigured: true } },
     });
     expect(useStore.getState().obsPreviewNdiConfigured).toBe(false);
+  });
+
+  it("STC_DEVICE_CAPABILITIES sets obsLevelPipelineAvailable from preview device", () => {
+    const socket = makeFakeSocket();
+    registerObsSocketHandlers(socket as never);
+    socket.emit(STC_DEVICE_CAPABILITIES, {
+      deviceId: "preview",
+      capabilities: { deviceId: "preview", deviceType: "obs", features: { preview: true, audioMetering: true } },
+    });
+    expect(useStore.getState().obsLevelPipelineAvailable).toBe(true);
+  });
+
+  it("STC_OBS_AUDIO_LEVELS updates obsAudioLevels in store", () => {
+    const socket = makeFakeSocket();
+    registerObsSocketHandlers(socket as never);
+    socket.emit(STC_OBS_AUDIO_LEVELS, { left: -20, right: -10 });
+    expect(useStore.getState().obsAudioLevels).toEqual({ left: -20, right: -10 });
+  });
+
+  it("STC_OBS_AUDIO_LEVELS sets obsAudioEventsFlowing to true", () => {
+    useStore.setState({ obsAudioEventsFlowing: false });
+    const socket = makeFakeSocket();
+    registerObsSocketHandlers(socket as never);
+    socket.emit(STC_OBS_AUDIO_LEVELS, { left: -30, right: -30 });
+    expect(useStore.getState().obsAudioEventsFlowing).toBe(true);
   });
 });

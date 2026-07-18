@@ -119,7 +119,7 @@ function getLevelProcess(): (EventEmitter & { kill: Mock }) | null {
 }
 
 function simulateLevelOutput(stdout: EventEmitter, left: number, right: number): void {
-  const line = `/GstPipeline:pipeline0/GstLevel:level0: peak, GstValueList:(double)${left}, (double)${right};\n`;
+  const line = `Got message #1 from element "level0" (element): level, peak=(GValueArray)< ${left}, ${right} >;\n`;
   stdout.emit("data", Buffer.from(line));
 }
 
@@ -184,7 +184,7 @@ describe("OBS Audio Level Broadcasting", () => {
     expect(stdout).not.toBeNull();
 
     const levelPromise = waitForEvent<{ left: number; right: number }>(client, STC_OBS_AUDIO_LEVELS);
-    stdout!.emit("data", Buffer.from("peak, GstValueList:(double)-inf, (double)-inf;\n"));
+    stdout!.emit("data", Buffer.from('Got message #1 from element "level0" (element): level, peak=(GValueArray)< -inf, -inf >;\n'));
 
     const levels = await levelPromise;
     expect(levels.left).toBe(-60);

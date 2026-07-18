@@ -993,6 +993,16 @@
   background: var(--color-surface);
 }
 
+.preview-video-area {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+  display: flex;
+  align-items: start;
+  justify-content: center;
+  height: 100%;
+}
+
 .preview-video {
   max-width: 100%;
   max-height: 100%;
@@ -1221,4 +1231,80 @@
   font-size: 0.5rem;
   color: var(--color-text-muted);
   line-height: 1;
+}
+
+/* ── Audio Level Meter ────────────────────────────────────────────────────── */
+
+.audio-meter-container {
+  width: 1.5rem;
+  display: flex;
+  flex-direction: row;
+  gap: 2px;
+  padding: 0.25rem 0;
+  align-items: stretch;
+  flex-shrink: 0;
+}
+
+.audio-meter-bar-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+}
+
+.audio-meter-track {
+  position: relative;
+  flex: 1;
+  width: 100%;
+  background: var(--color-bg);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.audio-meter-gradient {
+  position: absolute;
+  inset: 0;
+  /* Fixed gradient: green below -12dBFS (80%), yellow -12 to -3 (80%-95%), red -3 to 0 (95%-100%) */
+  background: linear-gradient(
+    to top,
+    var(--color-success) 0%,
+    var(--color-success) 80%,
+    var(--color-warning) 80%,
+    var(--color-warning) 95%,
+    var(--color-danger) 95%,
+    var(--color-danger) 100%
+  );
+  /* Reveal only the bottom N% — top is clipped away */
+  clip-path: inset(calc(100% - var(--fill-percent)) 0 0 0);
+  transition: clip-path 50ms linear;
+}
+
+.audio-meter-nominal {
+  /* Subtle band at 70-80% height (-18 to -12 dBFS) — nominal speech range */
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 70%;
+  height: 10%;
+  background: rgba(255, 255, 255, 0.08);
+  pointer-events: none;
+}
+
+.audio-meter-peak-hold {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: var(--peak-percent);
+  height: 2px;
+  background: var(--color-text);
+  opacity: 0.8;
+  pointer-events: none;
+}
+
+.audio-meter-label {
+  font-size: 0.5rem;
+  color: var(--color-text-muted);
+  line-height: 1;
+  margin-top: 2px;
 }

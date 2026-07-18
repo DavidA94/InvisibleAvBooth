@@ -269,9 +269,9 @@ describe("Property P27: validate-then-save gate", () => {
               expect(VALID_TOKENS_SET.has(token!)).toBe(true);
             }
 
-            // No duplicate name among existing
+            // No duplicate name among existing (within same category)
             const collapseWs = (s: string): string => s.replace(/\s+/g, " ").trim();
-            const nameConflict = existingTemplates.some((t) => t.name === validationInput.name);
+            const nameConflict = existingTemplates.some((t) => t.category === validationInput.category && t.name === validationInput.name);
             expect(nameConflict).toBe(false);
 
             // No duplicate format string in same category
