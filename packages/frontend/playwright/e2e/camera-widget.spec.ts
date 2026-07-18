@@ -197,4 +197,56 @@ test.describe("Camera widget", () => {
     // The camera widget should render
     await expect(page.locator("[data-testid='camera-widget']")).toBeVisible();
   });
+
+  test("shows Controls indicator when camera has PTZ features and viscaConnected=true", async ({ page }) => {
+    await routeAuthLogin(page, volunteerLogin);
+    await routeAuthCheck(page, volunteerLogin);
+    await setupDashboardWithCamera(page);
+    await setupSocketWithCamera(page);
+    await loginAndNavigate(page);
+
+    // The connection indicators should show "Controls" with a healthy dot
+    const indicators = page.getByTestId("connection-indicators");
+    await expect(indicators).toBeVisible({ timeout: 5000 });
+    await expect(indicators).toContainText("Controls");
+  });
+
+  test("shows Controls indicator as unhealthy when viscaConnected=false", async ({ page }) => {
+    await routeAuthLogin(page, volunteerLogin);
+    await routeAuthCheck(page, volunteerLogin);
+    await setupDashboardWithCamera(page);
+    // Use camera state with viscaConnected: false
+    const disconnectedState = {
+      ...cameraState,
+      cameras: [{ ...cameraState.cameras[0]!, viscaConnected: false }],
+    };
+    await setupSocketWithCamera(page, disconnectedState);
+    await loginAndNavigate(page);
+
+    const indicators = page.getByTestId("connection-indicators");
+    await expect(indicators).toBeVisible({ timeout: 5000 });
+    await expect(indicators).toContainText("Controls");
+    // Check for unhealthy status dot within the indicator area
+    const unhealthyDot = indicators.locator('[data-status="unhealthy"]');
+    await expect(unhealthyDot.first()).toBeVisible();
+  });
+
+  test("does not show Controls indicator when camera has no VISCA features", async ({ page }) => {
+    await routeAuthLogin(page, volunteerLogin);
+    await routeAuthCheck(page, volunteerLogin);
+    await setupDashboardWithCamera(page);
+    // Use camera state with empty features
+    const noFeaturesState = {
+      ...cameraState,
+      cameras: [{ ...cameraState.cameras[0]!, features: [], viscaConnected: false }],
+    };
+    await setupSocketWithCamera(page, noFeaturesState);
+    await loginAndNavigate(page);
+
+    const indicators = page.getByTestId("connection-indicators");
+    await expect(indicators).toBeVisible({ timeout: 5000 });
+    // Should have "Camera" but NOT "Controls"
+    await expect(indicators).toContainText("Camera");
+    await expect(indicators).not.toContainText("Controls");
+  });
 });

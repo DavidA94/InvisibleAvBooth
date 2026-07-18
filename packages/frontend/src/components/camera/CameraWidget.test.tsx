@@ -56,9 +56,18 @@ vi.mock("../../hooks/useResizeObserver", () => ({
   useResizeObserver: () => mockWidth,
 }));
 
-// Mock WidgetContainer to just render children
+// Mock WidgetContainer to just render children and connection labels
 vi.mock("../WidgetContainer", () => ({
-  WidgetContainer: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  WidgetContainer: ({ children, connections }: { children: ReactNode; connections?: Array<{ label: string; status: string }> }) => (
+    <div>
+      {connections?.map((c) => (
+        <span key={c.label} data-status={c.status}>
+          {c.label}
+        </span>
+      ))}
+      {children}
+    </div>
+  ),
 }));
 
 const CAMERA_STATE: CameraState = {
@@ -382,5 +391,57 @@ describe("CameraWidget", () => {
     });
     render(<CameraWidget />);
     expect(screen.getByTestId("camera-zoom-slider")).toBeInTheDocument();
+  });
+
+  describe("Controls connection indicator", () => {
+    it("shows Controls indicator when camera has VISCA features and viscaConnected is true", () => {
+      useStore.setState({
+        cameraStates: { cam1: { ...CAMERA_STATE, features: ["pan", "tilt", "zoom"], viscaConnected: true } },
+      });
+      render(<CameraWidget />);
+      expect(screen.getByText("Controls")).toBeInTheDocument();
+    });
+
+    it("shows Controls indicator with unhealthy status when viscaConnected is false", () => {
+      useStore.setState({
+        cameraStates: { cam1: { ...CAMERA_STATE, features: ["pan", "tilt", "zoom"], viscaConnected: false } },
+      });
+      render(<CameraWidget />);
+      expect(screen.getByText("Controls")).toBeInTheDocument();
+    });
+
+    it("does not show Controls indicator when no VISCA features", () => {
+      useStore.setState({
+        cameraStates: { cam1: { ...CAMERA_STATE, features: [], viscaConnected: false } },
+      });
+      render(<CameraWidget />);
+      expect(screen.queryByText("Controls")).not.toBeInTheDocument();
+    });
+
+    it("does not show Controls indicator for NDI-only camera (empty features)", () => {
+      useStore.setState({
+        cameraStates: { cam1: { ...CAMERA_STATE, features: [], viscaConnected: false } },
+      });
+      render(<CameraWidget />);
+      expect(screen.queryByText("Controls")).not.toBeInTheDocument();
+      // Camera indicator should still be present
+      expect(screen.getByText("Camera")).toBeInTheDocument();
+    });
+
+    it("shows Controls when only focus feature is present", () => {
+      useStore.setState({
+        cameraStates: { cam1: { ...CAMERA_STATE, features: ["focus"], viscaConnected: true } },
+      });
+      render(<CameraWidget />);
+      expect(screen.getByText("Controls")).toBeInTheDocument();
+    });
+
+    it("does not show Controls when only ai-tracking features present (non-VISCA)", () => {
+      useStore.setState({
+        cameraStates: { cam1: { ...CAMERA_STATE, features: ["ai-tracking", "ai-tracking-tilt"], viscaConnected: false } },
+      });
+      render(<CameraWidget />);
+      expect(screen.queryByText("Controls")).not.toBeInTheDocument();
+    });
   });
 });

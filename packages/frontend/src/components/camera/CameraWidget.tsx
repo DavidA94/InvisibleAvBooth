@@ -12,10 +12,11 @@ import { useStore } from "../../store";
 import { useSocket } from "../../providers/SocketProvider";
 import { useResizeObserver } from "../../hooks/useResizeObserver";
 import { CTS_CAMERA_SET, CTS_CAMERA_PRESET_ACTIVATE } from "@invisible-av-booth/shared";
-import type { CameraState } from "@invisible-av-booth/shared";
+import type { CameraState, CameraFeature } from "@invisible-av-booth/shared";
 import { Modal } from "../Modal";
 
 const COMPACT_WIDTH_THRESHOLD = 480;
+const VISCA_FEATURES: CameraFeature[] = ["pan", "tilt", "zoom", "focus"];
 
 interface CameraWidgetProps {
   enabled?: boolean;
@@ -23,10 +24,31 @@ interface CameraWidgetProps {
   forceSelectedId?: string;
 }
 
-function deriveConnection(state: CameraState | null): ConnectionStatus {
-  if (!state) return { label: "Camera", status: "inactive" };
-  if (state.connected) return { label: "Camera", status: "healthy" };
-  return { label: "Camera", status: "unhealthy" };
+function hasViscaFeatures(features: CameraFeature[]): boolean {
+  return features.some((f) => VISCA_FEATURES.includes(f));
+}
+
+function deriveConnections(state: CameraState | null): ConnectionStatus[] {
+  const connections: ConnectionStatus[] = [];
+
+  // Camera (NDI preview) — always present
+  if (!state) {
+    connections.push({ label: "Camera", status: "inactive" });
+  } else if (state.connected) {
+    connections.push({ label: "Camera", status: "healthy" });
+  } else {
+    connections.push({ label: "Camera", status: "unhealthy" });
+  }
+
+  // Controls (VISCA) — only present if camera has VISCA-using features
+  if (state && hasViscaFeatures(state.features)) {
+    connections.push({
+      label: "Controls",
+      status: state.viscaConnected ? "healthy" : "unhealthy",
+    });
+  }
+
+  return connections;
 }
 
 export function CameraWidget({ enabled = true, forceSelectedId }: CameraWidgetProps): ReactNode {
@@ -112,7 +134,7 @@ export function CameraWidget({ enabled = true, forceSelectedId }: CameraWidgetPr
     [socket, selectedId],
   );
 
-  const connection = deriveConnection(currentState);
+  const connections = deriveConnections(currentState);
   const cameraOptions = cameras.map((c) => ({ value: c.cameraId, label: c.label }));
   const selectedOption = cameraOptions.find((o) => o.value === selectedId) ?? null;
 
@@ -165,7 +187,7 @@ export function CameraWidget({ enabled = true, forceSelectedId }: CameraWidgetPr
 
   return (
     <div data-testid="camera-widget" ref={containerRef} className="full-height">
-      <WidgetContainer title="Camera" connections={[connection]}>
+      <WidgetContainer title="Camera" connections={connections}>
         {isCompact ? (
           <div className="preview-video-container" data-testid="camera-preview" onClick={() => setModalOpen(true)}>
             <img ref={imgRef} className="preview-video" alt="Camera preview" style={status !== "streaming" ? { display: "none" } : undefined} />

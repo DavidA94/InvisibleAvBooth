@@ -112,13 +112,13 @@ Tests are part of each task's definition of done. Unit tests follow the unit or 
 
 ## Phase 5: Frontend — Camera VISCA Status
 
-- [ ] 31. Update `CameraWidget` — replace single `deriveConnection` with `deriveConnections` returning an array. Include "Controls" indicator when `hasViscaFeatures(state.features)` is true (`features` includes any of `pan`, `tilt`, `zoom`, `focus`). Status derived from `state.viscaConnected`.
+- [x] 31. Update `CameraWidget` — replace single `deriveConnection` with `deriveConnections` returning an array. Include "Controls" indicator when `hasViscaFeatures(state.features)` is true (`features` includes any of `pan`, `tilt`, `zoom`, `focus`). Status derived from `state.viscaConnected`.
   - _Requirements: 2.3, 2.4_
 
-- [ ] 32. Update `CameraWidget` unit tests — verify "Controls" indicator present when PTZ features exist and `viscaConnected` is true/false, verify "Controls" NOT present when no VISCA features, verify "Controls" NOT present for NDI-only camera (empty features).
+- [x] 32. Update `CameraWidget` unit tests — verify "Controls" indicator present when PTZ features exist and `viscaConnected` is true/false, verify "Controls" NOT present when no VISCA features, verify "Controls" NOT present for NDI-only camera (empty features).
   - _Requirements: 2.8_
 
-- [ ] 33. Write Playwright e2e test (extend `playwright/e2e/camera-widget.spec.ts`) — mock camera state with various feature/viscaConnected combinations, verify Controls indicator appears/disappears correctly, verify dot color matches healthy/unhealthy.
+- [x] 33. Write Playwright e2e test (extend `playwright/e2e/camera-widget.spec.ts`) — mock camera state with various feature/viscaConnected combinations, verify Controls indicator appears/disappears correctly, verify dot color matches healthy/unhealthy.
   - _Requirements: 2.8_
 
 ---
