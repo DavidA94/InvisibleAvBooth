@@ -1,10 +1,11 @@
 import { type Server as HttpServer } from "http";
 import { type ChildProcess, spawn, execSync } from "child_process";
+import { createInterface } from "readline";
 import { WebSocketServer, WebSocket } from "ws";
 import type { AuthService } from "./authService.js";
 import { logger } from "../logger.js";
 import { eventBus } from "../eventBus/eventBus.js";
-import { BUS_DEVICE_CAPABILITIES_UPDATED } from "../eventBus/types.js";
+import { BUS_DEVICE_CAPABILITIES_UPDATED, BUS_OBS_AUDIO_LEVELS } from "../eventBus/types.js";
 import {
   PREVIEW_AUDIO_SAMPLE_RATE,
   PREVIEW_AUDIO_CHANNELS,
@@ -26,8 +27,74 @@ export const RESTART_DELAY_MS = 2000;
 export const PING_INTERVAL_MS = 30000;
 export const PING_TIMEOUT_MS = 10000;
 export const RESTART_RESET_MS = 10000;
+export const LEVEL_MAX_RESTART_ATTEMPTS = 3;
+export const LEVEL_RESTART_DELAY_MS = 2000;
 
 export type GstEncoder = { element: string; options: string } | null;
+
+// ── Level message parsing ────────────────────────────────────────────────────
+
+/**
+ * Regex for parsing GStreamer level element peak output.
+ * The `-m` flag causes level to print messages like:
+ *   /GstPipeline:pipeline0/GstLevel:level0: peak, GstValueList:(double)-20.5, (double)-18.3;
+ */
+export const LEVEL_PEAK_REGEX = /peak,\s*GstValueList:\(double\)([-\d.e+inf]+),\s*\(double\)([-\d.e+inf]+)/;
+
+/**
+ * Parse a single GStreamer level output line into L/R dB values.
+ * Returns null for non-level lines or malformed data.
+ * Clamps values to [-60, 0] range; -Infinity (silence) maps to -60.
+ */
+export function parseLevelMessage(line: string): { left: number; right: number } | null {
+  const match = line.match(LEVEL_PEAK_REGEX);
+  if (!match) return null;
+  const left = parseFloat(match[1]!);
+  const right = parseFloat(match[2]!);
+  // Log out-of-range values at DEBUG level for diagnostics
+  if (Number.isFinite(left) && (left < -60 || left > 0)) {
+    logger.debug("Audio level out of display range", { context: { channel: "left", raw: left } });
+  }
+  if (Number.isFinite(right) && (right < -60 || right > 0)) {
+    logger.debug("Audio level out of display range", { context: { channel: "right", raw: right } });
+  }
+  // Clamp to display range; -Infinity from GStreamer represents silence
+  return {
+    left: Number.isFinite(left) ? Math.max(-60, Math.min(0, left)) : -60,
+    right: Number.isFinite(right) ? Math.max(-60, Math.min(0, right)) : -60,
+  };
+}
+
+/**
+ * Attach a line-buffered parser to a level pipeline's stdout.
+ * Implements coalescing: if multiple level messages arrive in a single event loop
+ * tick (due to event loop stalls under load), only the most recent reading is emitted.
+ * This prevents broadcasting stale intermediate values when the loop catches up.
+ */
+export function attachLevelParser(childProcess: ChildProcess, onLevel: (levels: { left: number; right: number }) => void): void {
+  if (!childProcess.stdout) return;
+  const rl = createInterface({ input: childProcess.stdout });
+
+  let latestLevels: { left: number; right: number } | null = null;
+  let emitScheduled = false;
+
+  rl.on("line", (line) => {
+    const parsed = parseLevelMessage(line);
+    if (parsed) {
+      latestLevels = parsed; // Always overwrite — only latest matters
+      if (!emitScheduled) {
+        emitScheduled = true;
+        queueMicrotask(() => {
+          if (latestLevels) {
+            onLevel(latestLevels);
+            latestLevels = null;
+          }
+          emitScheduled = false;
+        });
+      }
+    }
+  });
+}
 
 // ── Interfaces ───────────────────────────────────────────────────────────────
 
@@ -36,6 +103,9 @@ export interface PreviewSource {
   ndiName: string;
   process: ChildProcess | null;
   audioProcess: ChildProcess | null;
+  levelProcess: ChildProcess | null;
+  levelRestartCount: number;
+  levelRestartTimer: ReturnType<typeof setTimeout> | null;
   subscribers: Set<WebSocket>;
   graceTimeout: ReturnType<typeof setTimeout> | null;
   restartCount: number;
@@ -55,6 +125,7 @@ export class PreviewStreamManager {
   private sources = new Map<string, PreviewSource>();
   private encoder: GstEncoder = null;
   private gstreamerAvailable = false;
+  private levelElementAvailable = false;
   private authService: AuthService;
   private spawnFn: SpawnFn;
   private signalCleanupRegistered = false;
@@ -81,6 +152,18 @@ export class PreviewStreamManager {
     logger.info(`Preview encoder selected: ${this.encoder?.element ?? "x264enc ultrafast"}`, {
       context: { encoder: this.encoder?.element ?? "x264enc" },
     });
+
+    // Check if the GStreamer `level` element is available for audio metering
+    this.levelElementAvailable = await this.checkLevelElement();
+    if (!this.levelElementAvailable) {
+      logger.warn("GStreamer 'level' element not found — audio metering unavailable. Install gstreamer1.0-plugins-good.");
+    }
+    // Broadcast audio metering availability to frontends
+    eventBus.emit(BUS_DEVICE_CAPABILITIES_UPDATED, {
+      deviceId: "preview",
+      capabilities: { deviceId: "preview", deviceType: "obs", features: { preview: true, audioMetering: this.levelElementAvailable } },
+    });
+
     this.registerSignalHandlers();
     this.startPingInterval();
   }
@@ -132,6 +215,9 @@ export class PreviewStreamManager {
         ndiName,
         process: null,
         audioProcess: null,
+        levelProcess: null,
+        levelRestartCount: 0,
+        levelRestartTimer: null,
         subscribers: new Set(),
         graceTimeout: null,
         restartCount: 0,
@@ -168,6 +254,10 @@ export class PreviewStreamManager {
     return this.gstreamerAvailable;
   }
 
+  isLevelAvailable(): boolean {
+    return this.levelElementAvailable;
+  }
+
   getEncoder(): GstEncoder {
     return this.encoder;
   }
@@ -178,6 +268,7 @@ export class PreviewStreamManager {
     for (const source of this.sources.values()) {
       if (source.graceTimeout) clearTimeout(source.graceTimeout);
       if (source.restartResetTimer) clearTimeout(source.restartResetTimer);
+      if (source.levelRestartTimer) clearTimeout(source.levelRestartTimer);
       this.killProcess(source);
       for (const ws of source.subscribers) {
         ws.close(1001, "Server shutting down");
@@ -205,6 +296,9 @@ export class PreviewStreamManager {
         ndiName: "",
         process: null,
         audioProcess: null,
+        levelProcess: null,
+        levelRestartCount: 0,
+        levelRestartTimer: null,
         subscribers: new Set(),
         graceTimeout: null,
         restartCount: 0,
@@ -225,6 +319,17 @@ export class PreviewStreamManager {
     if (source.graceTimeout) {
       clearTimeout(source.graceTimeout);
       source.graceTimeout = null;
+    }
+
+    // Reset level pipeline retry counter on new subscriber — the NDI source
+    // is likely available again (e.g., OBS was restarted) so metering should retry.
+    if (source.withAudio && source.levelRestartCount >= LEVEL_MAX_RESTART_ATTEMPTS) {
+      source.levelRestartCount = 0;
+      // If the video pipeline is running but the level pipeline entered dormant,
+      // attempt to re-spawn it now.
+      if (source.process && !source.levelProcess && this.levelElementAvailable) {
+        this.spawnLevelPipeline(source);
+      }
     }
 
     if (source.available && !source.process && this.gstreamerAvailable) {
@@ -306,6 +411,10 @@ export class PreviewStreamManager {
     // Spawn separate audio pipeline for sources that need it
     if (source.withAudio) {
       this.spawnAudioPipeline(source);
+      // Spawn level metering pipeline (measurement-only, does NOT count against MAX_PREVIEW_STREAMS)
+      if (this.levelElementAvailable) {
+        this.spawnLevelPipeline(source);
+      }
     }
 
     proc.on("close", (code) => {
@@ -389,6 +498,77 @@ export class PreviewStreamManager {
     });
   }
 
+  /**
+   * Spawn a GStreamer level pipeline for audio metering. This is a measurement-only
+   * pipeline that uses the `level` element to compute per-channel peak amplitude and
+   * emits results on the EventBus. Does NOT count against MAX_PREVIEW_STREAMS.
+   */
+  private spawnLevelPipeline(source: PreviewSource): void {
+    if (this.destroyed || !this.gstreamerAvailable || !this.levelElementAvailable) return;
+    if (source.levelProcess) return; // Already running
+
+    const args = buildLevelArgs(source.ndiName);
+    logger.info(`Preview spawning level pipeline for ${source.sourceId}`, { context: { args: args.join(" ") } });
+    const levelProc = this.spawnFn("gst-launch-1.0", args);
+    source.levelProcess = levelProc;
+
+    // Attach the coalescing parser that emits to the EventBus
+    attachLevelParser(levelProc, (levels) => {
+      eventBus.emit(BUS_OBS_AUDIO_LEVELS, levels);
+    });
+
+    levelProc.on("close", (code) => {
+      logger.info(`Level pipeline exited for ${source.sourceId} with code ${code}`);
+      source.levelProcess = null;
+      if (this.destroyed) return;
+      // Only restart if the parent video pipeline is still running
+      if (!source.process) return;
+
+      source.levelRestartCount++;
+      if (source.levelRestartCount >= LEVEL_MAX_RESTART_ATTEMPTS) {
+        logger.error(`Level pipeline failed ${LEVEL_MAX_RESTART_ATTEMPTS} times for ${source.sourceId}, entering dormant state`);
+        return;
+      }
+
+      logger.warn(
+        `Level pipeline exited (code ${code}) for ${source.sourceId}, restarting in ${LEVEL_RESTART_DELAY_MS}ms (attempt ${source.levelRestartCount}/${LEVEL_MAX_RESTART_ATTEMPTS})`,
+      );
+      source.levelRestartTimer = setTimeout(() => {
+        source.levelRestartTimer = null;
+        if (!this.destroyed && source.process && !source.levelProcess) {
+          this.spawnLevelPipeline(source);
+        }
+      }, LEVEL_RESTART_DELAY_MS);
+    });
+
+    levelProc.stderr?.on("data", (chunk: Buffer) => {
+      logger.debug(`Level pipeline stderr [${source.sourceId}]: ${chunk.toString().trim()}`);
+    });
+
+    levelProc.on("error", () => {
+      source.levelProcess = null;
+    });
+  }
+
+  private killLevelPipeline(source: PreviewSource): void {
+    if (source.levelRestartTimer) {
+      clearTimeout(source.levelRestartTimer);
+      source.levelRestartTimer = null;
+    }
+    if (source.levelProcess) {
+      source.levelProcess.kill("SIGTERM");
+      source.levelProcess = null;
+    }
+  }
+
+  private async checkLevelElement(): Promise<boolean> {
+    return new Promise<boolean>((resolve) => {
+      const proc = this.spawnFn("gst-inspect-1.0", ["level"]);
+      proc.on("close", (code) => resolve(code === 0));
+      proc.on("error", () => resolve(false));
+    });
+  }
+
   private fanOut(source: PreviewSource, data: Buffer): void {
     for (const ws of source.subscribers) {
       if (ws.readyState === WebSocket.OPEN) {
@@ -406,6 +586,7 @@ export class PreviewStreamManager {
       source.audioProcess.kill("SIGTERM");
       source.audioProcess = null;
     }
+    this.killLevelPipeline(source);
   }
 
   private startPingInterval(): void {
@@ -470,6 +651,21 @@ export function buildAudioArgs(ndiName: string): string[] {
   args.push("audioresample", "!");
   args.push(`audio/x-raw,format=S16LE,rate=${PREVIEW_AUDIO_SAMPLE_RATE},channels=${PREVIEW_AUDIO_CHANNELS}`, "!");
   args.push("fdsink", "fd=1");
+
+  return args;
+}
+
+export function buildLevelArgs(ndiName: string): string[] {
+  // Level metering pipeline — measures stereo peak amplitude at 10Hz, outputs
+  // structured bus messages to stdout via the -m flag. Does not produce audio output.
+  const args = ["-m", "-q"];
+
+  args.push("ndisrc", `ndi-name="${ndiName}"`, "do-timestamp=true", "!");
+  args.push("decodebin", "!");
+  args.push("audioconvert", "!");
+  args.push("audio/x-raw,channels=2", "!");
+  args.push("level", "interval=100000000", "post-messages=true", "!");
+  args.push("fakesink");
 
   return args;
 }

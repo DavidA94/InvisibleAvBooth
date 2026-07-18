@@ -166,6 +166,9 @@ export function createFakeSpawn(): SpawnFn {
     // gst-launch-1.0 pipeline spawns get a real stdout emitter so data can flow
     if (cmd === "gst-launch-1.0" && args?.[0] !== "--version") {
       child.stdout = new EventEmitter() as EventEmitter;
+      // readline's createInterface requires resume() and setEncoding() on the input stream
+      (child.stdout as EventEmitter & { resume?: () => void; setEncoding?: () => void }).resume = () => {};
+      (child.stdout as EventEmitter & { resume?: () => void; setEncoding?: () => void }).setEncoding = () => {};
       // Don't auto-close — pipeline stays alive until killed
     } else {
       child.stdout = null;
@@ -179,9 +182,10 @@ export function createFakeSpawn(): SpawnFn {
     if (cmd === "ffmpeg" && args?.[0] === "-version") {
       setTimeout(() => child.emit("close", 0), 0);
     }
-    // gst-inspect-1.0 probes — all fail (no HW encoder in tests)
+    // gst-inspect-1.0 probes — "level" succeeds (audio metering), all others fail (no HW encoder in tests)
     if (cmd === "gst-inspect-1.0") {
-      setTimeout(() => child.emit("close", 1), 0);
+      const element = args?.[0];
+      setTimeout(() => child.emit("close", element === "level" ? 0 : 1), 0);
     }
     return child;
   });

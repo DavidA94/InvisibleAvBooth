@@ -3,8 +3,22 @@ import { eventBus } from "../../../eventBus/eventBus.js";
 import type { SocketModule, AuthenticatedSocket } from "./../socketModule.js";
 import type { ObsError, ObsService, ObsState, Result } from "../../../services/obsService.js";
 import { logger } from "../../../logger.js";
-import { BUS_OBS_STATE_CHANGED, BUS_OBS_ERROR, BUS_OBS_ERROR_RESOLVED, BUS_DEVICE_CAPABILITIES_UPDATED } from "../../../eventBus/types.js";
-import { CTS_OBS_COMMAND, CTS_OBS_RECONNECT, STC_OBS_STATE, STC_OBS_ERROR, STC_OBS_ERROR_RESOLVED, STC_DEVICE_CAPABILITIES } from "@invisible-av-booth/shared";
+import {
+  BUS_OBS_STATE_CHANGED,
+  BUS_OBS_ERROR,
+  BUS_OBS_ERROR_RESOLVED,
+  BUS_DEVICE_CAPABILITIES_UPDATED,
+  BUS_OBS_AUDIO_LEVELS,
+} from "../../../eventBus/types.js";
+import {
+  CTS_OBS_COMMAND,
+  CTS_OBS_RECONNECT,
+  STC_OBS_STATE,
+  STC_OBS_ERROR,
+  STC_OBS_ERROR_RESOLVED,
+  STC_DEVICE_CAPABILITIES,
+  STC_OBS_AUDIO_LEVELS,
+} from "@invisible-av-booth/shared";
 
 interface ObsCommand {
   type: "startStream" | "stopStream" | "startRecording" | "stopRecording";
@@ -38,6 +52,10 @@ export class ObsModule implements SocketModule {
 
     eventBus.subscribe(BUS_DEVICE_CAPABILITIES_UPDATED, (payload) => {
       io.emit(STC_DEVICE_CAPABILITIES, payload);
+    });
+
+    eventBus.subscribe(BUS_OBS_AUDIO_LEVELS, (levels) => {
+      io.emit(STC_OBS_AUDIO_LEVELS, levels);
     });
   }
 
