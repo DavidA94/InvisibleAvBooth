@@ -156,4 +156,107 @@ describe("Camera Socket Events", () => {
     // No errors thrown = lifecycle handled correctly
     socket.disconnect();
   });
+
+  describe("viscaConnected state tracking", () => {
+    it("viscaConnected defaults to false for cameras (VISCA not reachable in test env)", async () => {
+      server.ctx.database
+        .prepare("INSERT INTO device_connections (id, deviceType, label, host, port, metadata, features, createdAt) VALUES (?,?,?,?,?,?,?,?)")
+        .run(
+          "cam-visca",
+          "camera-ptz",
+          "ViscaCam",
+          "127.0.0.1",
+          5500,
+          JSON.stringify({
+            ndiSourceName: "V",
+            viscaEnabled: true,
+            cameraModel: "generic",
+            cameraFeatures: ["pan", "tilt", "zoom"],
+            fovWideAngle: 60,
+            opticalZoomRatio: 20,
+          }),
+          "{}",
+          new Date().toISOString(),
+        );
+
+      await server.ctx.cameraService.initialize();
+      // Wait for async connect attempt (will fail — no VISCA server running)
+      await new Promise((r) => setTimeout(r, 200));
+
+      const state = server.ctx.cameraService.getCameraState("cam-visca");
+      // viscaConnected stays false because the connect failed in test env
+      expect(state?.viscaConnected).toBe(false);
+    });
+
+    it("viscaConnected defaults to false for non-VISCA cameras", async () => {
+      server.ctx.database
+        .prepare("INSERT INTO device_connections (id, deviceType, label, host, port, metadata, features, createdAt) VALUES (?,?,?,?,?,?,?,?)")
+        .run(
+          "cam-ndi-only",
+          "camera-ptz",
+          "NdiOnlyCam",
+          "127.0.0.1",
+          5500,
+          JSON.stringify({
+            ndiSourceName: "N",
+            viscaEnabled: false,
+            cameraModel: "generic",
+            cameraFeatures: [],
+            fovWideAngle: 60,
+            opticalZoomRatio: 20,
+          }),
+          "{}",
+          new Date().toISOString(),
+        );
+
+      await server.ctx.cameraService.initialize();
+      await new Promise((r) => setTimeout(r, 100));
+
+      const state = server.ctx.cameraService.getCameraState("cam-ndi-only");
+      expect(state?.viscaConnected).toBe(false);
+    });
+
+    it("handleViscaSuccess sets viscaConnected=true, handleViscaFailure with debounce sets false", async () => {
+      server.ctx.database
+        .prepare("INSERT INTO device_connections (id, deviceType, label, host, port, metadata, features, createdAt) VALUES (?,?,?,?,?,?,?,?)")
+        .run(
+          "cam-deb",
+          "camera-ptz",
+          "DebCam",
+          "127.0.0.1",
+          5500,
+          JSON.stringify({
+            ndiSourceName: "D",
+            viscaEnabled: true,
+            cameraModel: "generic",
+            cameraFeatures: ["pan", "tilt"],
+            fovWideAngle: 60,
+            opticalZoomRatio: 20,
+          }),
+          "{}",
+          new Date().toISOString(),
+        );
+
+      await server.ctx.cameraService.initialize();
+      await new Promise((r) => setTimeout(r, 200));
+
+      const instance = server.ctx.cameraService["cameras"].get("cam-deb")!;
+
+      // Simulate successful connection
+      server.ctx.cameraService._handleViscaSuccess(instance);
+      expect(instance.state.viscaConnected).toBe(true);
+
+      // First failure — still connected (debounce)
+      server.ctx.cameraService._handleViscaFailure(instance);
+      expect(instance.state.viscaConnected).toBe(true);
+
+      // Second failure — transitions to disconnected
+      server.ctx.cameraService._handleViscaFailure(instance);
+      expect(instance.state.viscaConnected).toBe(false);
+
+      // Recovery — immediate
+      server.ctx.cameraService._handleViscaSuccess(instance);
+      expect(instance.state.viscaConnected).toBe(true);
+    });
+  });
 });

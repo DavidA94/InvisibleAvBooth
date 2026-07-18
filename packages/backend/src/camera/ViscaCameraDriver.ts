@@ -32,6 +32,10 @@ export class ViscaCameraDriver {
   private pendingResolve: ((data: Buffer) => void) | null = null;
   private commandQueue: Array<{ cmd: Buffer; resolve: (data: Buffer) => void; reject: (err: Error) => void; tag?: string }> = [];
 
+  /** Callback invoked when the VISCA TCP socket disconnects unexpectedly.
+   *  Registered by CameraService for sub-second disconnect detection. */
+  onDisconnect: (() => void) | null = null;
+
   constructor(host: string, port: number) {
     this.host = host;
     this.port = port;
@@ -54,12 +58,16 @@ export class ViscaCameraDriver {
       });
 
       socket.on("error", () => {
+        const wasConnected = this.connected;
         this.connected = false;
+        if (wasConnected) this.onDisconnect?.();
         resolve(false);
       });
 
       socket.on("close", () => {
+        const wasConnected = this.connected;
         this.connected = false;
+        if (wasConnected) this.onDisconnect?.();
       });
 
       socket.on("timeout", () => {

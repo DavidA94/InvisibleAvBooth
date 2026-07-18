@@ -31,6 +31,7 @@ const mockViscaDriver = {
   presetRecall: vi.fn().mockResolvedValue(undefined),
   presetStore: vi.fn().mockResolvedValue(undefined),
   stop: vi.fn().mockResolvedValue(undefined),
+  onDisconnect: null as (() => void) | null,
 };
 
 const mockAiDriver = {
@@ -828,6 +829,117 @@ describe("CameraService", () => {
       service.destroy();
       expect(mockViscaDriver.disconnect).toHaveBeenCalled();
       expect(service.getAllCameraStates()).toHaveLength(0);
+    });
+  });
+
+  describe("VISCA disconnect detection and debounce", () => {
+    let emitted: Array<{ cameraId: string; state: { viscaConnected: boolean } }>;
+
+    beforeEach(() => {
+      emitted = [];
+      eventBus.subscribe(BUS_CAMERA_STATE_CHANGED, (payload) => {
+        emitted.push({ cameraId: payload.cameraId, state: { viscaConnected: payload.state.viscaConnected } });
+      });
+    });
+
+    it("sets viscaConnected=true after successful VISCA connect", async () => {
+      await initService({ viscaEnabled: true });
+      expect(service.getCameraState("cam1")?.viscaConnected).toBe(true);
+    });
+
+    it("registers onDisconnect callback on VISCA driver", async () => {
+      await initService({ viscaEnabled: true });
+      expect(mockViscaDriver.onDisconnect).toBeDefined();
+      expect(typeof mockViscaDriver.onDisconnect).toBe("function");
+    });
+
+    it("debounce requires 2 consecutive failures before broadcasting viscaConnected=false", async () => {
+      await initService({ viscaEnabled: true });
+      emitted = [];
+
+      // First failure — increments counter but does NOT broadcast
+      service._handleViscaFailure(service["cameras"].get("cam1")!);
+      const afterFirst = emitted.filter((e) => e.state.viscaConnected === false);
+      expect(afterFirst).toHaveLength(0);
+      expect(service.getCameraState("cam1")?.viscaConnected).toBe(true);
+
+      // Second failure — broadcasts viscaConnected=false
+      service._handleViscaFailure(service["cameras"].get("cam1")!);
+      const afterSecond = emitted.filter((e) => e.state.viscaConnected === false);
+      expect(afterSecond).toHaveLength(1);
+      expect(service.getCameraState("cam1")?.viscaConnected).toBe(false);
+    });
+
+    it("single failure does not broadcast viscaConnected=false", async () => {
+      await initService({ viscaEnabled: true });
+      emitted = [];
+
+      service._handleViscaFailure(service["cameras"].get("cam1")!);
+      expect(service.getCameraState("cam1")?.viscaConnected).toBe(true);
+      expect(emitted).toHaveLength(0);
+    });
+
+    it("successful command resets counter and immediately sets viscaConnected=true", async () => {
+      await initService({ viscaEnabled: true });
+      const instance = service["cameras"].get("cam1")!;
+
+      // Drive to disconnected state
+      service._handleViscaFailure(instance);
+      service._handleViscaFailure(instance);
+      expect(service.getCameraState("cam1")?.viscaConnected).toBe(false);
+      emitted = [];
+
+      // Successful command — immediate recovery
+      service._handleViscaSuccess(instance);
+      expect(service.getCameraState("cam1")?.viscaConnected).toBe(true);
+      expect(emitted.some((e) => e.state.viscaConnected === true)).toBe(true);
+    });
+
+    it("onDisconnect callback triggers handleViscaFailure", async () => {
+      await initService({ viscaEnabled: true });
+      emitted = [];
+
+      // Simulate calling onDisconnect twice (as two socket events)
+      mockViscaDriver.onDisconnect!();
+      expect(service.getCameraState("cam1")?.viscaConnected).toBe(true); // 1 failure — not enough
+
+      mockViscaDriver.onDisconnect!();
+      expect(service.getCameraState("cam1")?.viscaConnected).toBe(false); // 2nd failure — broadcasts
+    });
+
+    it("poll cycle backup detection works when isConnected returns false", async () => {
+      await initService({ viscaEnabled: true });
+      const instance = service["cameras"].get("cam1")!;
+      emitted = [];
+
+      // Mock isConnected to return false (half-open TCP scenario)
+      mockViscaDriver.isConnected.mockReturnValue(false);
+
+      // Simulate poll tick
+      await (service as unknown as { pollPosition: (i: typeof instance) => Promise<void> }).pollPosition(instance);
+      // One failure from poll...
+      expect(service.getCameraState("cam1")?.viscaConnected).toBe(true); // 1 failure
+
+      // Second poll tick
+      await (service as unknown as { pollPosition: (i: typeof instance) => Promise<void> }).pollPosition(instance);
+      expect(service.getCameraState("cam1")?.viscaConnected).toBe(false); // 2nd failure
+    });
+
+    it("successful poll resets failure counter", async () => {
+      await initService({ viscaEnabled: true });
+      const instance = service["cameras"].get("cam1")!;
+
+      // One failure
+      service._handleViscaFailure(instance);
+
+      // Successful poll should reset
+      mockViscaDriver.isConnected.mockReturnValue(true);
+      mockViscaDriver.inquirePosition.mockResolvedValue({ pan: 100, tilt: 200, zoom: 300, focus: 400, autoFocus: true });
+      await (service as unknown as { pollPosition: (i: typeof instance) => Promise<void> }).pollPosition(instance);
+
+      // Now a single failure should NOT trigger disconnect (counter was reset)
+      service._handleViscaFailure(instance);
+      expect(service.getCameraState("cam1")?.viscaConnected).toBe(true);
     });
   });
 });

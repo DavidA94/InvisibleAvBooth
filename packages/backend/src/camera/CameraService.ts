@@ -65,6 +65,7 @@ export class CameraService {
   private moveSessions = new Map<string, MoveSession>();
   private destroyed = false;
   private previewManager: PreviewStreamManager | null;
+  private viscaFailureCounts = new Map<string, number>();
 
   constructor(database: Database, previewManager?: PreviewStreamManager) {
     this.database = database;
@@ -147,9 +148,15 @@ export class CameraService {
 
       // Start VISCA polling if available
       if (viscaDriver) {
+        // Register disconnect callback for sub-second detection
+        viscaDriver.onDisconnect = () => {
+          this._handleViscaFailure(instance);
+        };
+
         viscaDriver.connect().then((ok) => {
           if (ok) {
             logger.info(`VISCA connected for camera "${row.label}"`);
+            this._handleViscaSuccess(instance);
             instance.pollTimer = setInterval(() => this.pollPosition(instance), VISCA_POLL_INTERVAL_MS);
           } else {
             logger.warn(`VISCA connection failed for camera "${row.label}"`);
@@ -681,9 +688,15 @@ export class CameraService {
 
     // Connect VISCA
     if (viscaDriver) {
+      // Register disconnect callback for sub-second detection
+      viscaDriver.onDisconnect = () => {
+        this._handleViscaFailure(instance);
+      };
+
       const ok = await viscaDriver.connect();
       if (ok) {
         logger.info(`VISCA connected for camera "${row.label}"`);
+        this._handleViscaSuccess(instance);
         instance.pollTimer = setInterval(() => this.pollPosition(instance), 5000);
       } else {
         logger.warn(`VISCA connection failed for camera "${row.label}"`);
@@ -723,8 +736,17 @@ export class CameraService {
     if (this.destroyed || !instance.viscaDriver) return;
     // Skip polling when no dashboard client is viewing this camera
     if (this.previewManager && this.previewManager.getSubscriberCount(`camera-${instance.id}`) === 0) return;
+
+    // Backup detection path: check if driver reports disconnected
+    if (!instance.viscaDriver.isConnected()) {
+      this._handleViscaFailure(instance);
+      return;
+    }
+
     try {
       const pos = await instance.viscaDriver.inquirePosition();
+      // Successful poll confirms connection
+      this._handleViscaSuccess(instance);
       // Only update fields that have actual values (null = inquiry failed)
       const prev = instance.state.position ?? { pan: null, tilt: null, zoom: null, focus: null, autoFocus: null };
       const merged = {
@@ -739,7 +761,37 @@ export class CameraService {
       if (pos.autoFocus !== null) instance.state.autoFocus = pos.autoFocus;
       if (changed) this.broadcastState(instance);
     } catch {
-      // poll failed, skip
+      this._handleViscaFailure(instance);
+    }
+  }
+
+  // ── VISCA connection debounce ────────────────────────────────────────────
+
+  private static readonly VISCA_DISCONNECT_THRESHOLD = 2;
+
+  /**
+   * Handle a VISCA communication failure. Requires 2 consecutive failures before
+   * broadcasting viscaConnected: false — a single transient error does not flip
+   * the indicator. This prevents flapping on brief network hiccups.
+   */
+  _handleViscaFailure(instance: CameraInstance): void {
+    const count = (this.viscaFailureCounts.get(instance.id) ?? 0) + 1;
+    this.viscaFailureCounts.set(instance.id, count);
+    if (count >= CameraService.VISCA_DISCONNECT_THRESHOLD && instance.state.viscaConnected) {
+      instance.state.viscaConnected = false;
+      this.broadcastState(instance);
+    }
+  }
+
+  /**
+   * Handle a successful VISCA communication. Immediately resets the failure counter
+   * and restores viscaConnected: true. No debounce on the "up" transition.
+   */
+  _handleViscaSuccess(instance: CameraInstance): void {
+    this.viscaFailureCounts.set(instance.id, 0);
+    if (!instance.state.viscaConnected) {
+      instance.state.viscaConnected = true;
+      this.broadcastState(instance);
     }
   }
 
