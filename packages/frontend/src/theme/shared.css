@@ -1236,11 +1236,12 @@
 /* ── Audio Level Meter ────────────────────────────────────────────────────── */
 
 .audio-meter-container {
-  width: 1.5rem;
+  width: 1.25rem;
+  height: 100%;
   display: flex;
   flex-direction: row;
-  gap: 2px;
-  padding: 0.25rem 0;
+  gap: 0.25rem;
+  padding-left: 0.25rem;
   align-items: stretch;
   flex-shrink: 0;
 }
@@ -1251,44 +1252,45 @@
   align-items: center;
   flex: 1;
   min-width: 0;
+  min-height: 0;
 }
 
 .audio-meter-track {
   position: relative;
   flex: 1;
   width: 100%;
-  background: var(--color-bg);
+  min-height: 2rem;
   border-radius: 2px;
   overflow: hidden;
+  /*
+   * OBS-style: dark/muted version of the color zones as background.
+   * The unfilled area shows where audio COULD be — giving a visual
+   * reference for the full meter range at a glance.
+   *
+   * Standard broadcast color zones:
+   *   Green:  -60 to -20 dBFS → 0% to 67% of meter height
+   *   Yellow: -20 to -6 dBFS  → 67% to 90% of meter height
+   *   Red:    -6 to 0 dBFS    → 90% to 100% of meter height
+   */
+  background: linear-gradient(to top, #0a3d1e 0%, #0a3d1e 67%, #3d3510 67%, #3d3510 90%, #3d1515 90%, #3d1515 100%);
 }
 
 .audio-meter-gradient {
   position: absolute;
   inset: 0;
-  /* Fixed gradient: green below -12dBFS (80%), yellow -12 to -3 (80%-95%), red -3 to 0 (95%-100%) */
+  /* Bright version of the same zones — visible where audio level reaches */
   background: linear-gradient(
     to top,
     var(--color-success) 0%,
-    var(--color-success) 80%,
-    var(--color-warning) 80%,
-    var(--color-warning) 95%,
-    var(--color-danger) 95%,
+    var(--color-success) 67%,
+    var(--color-warning) 67%,
+    var(--color-warning) 90%,
+    var(--color-danger) 90%,
     var(--color-danger) 100%
   );
   /* Reveal only the bottom N% — top is clipped away */
   clip-path: inset(calc(100% - var(--fill-percent)) 0 0 0);
   transition: clip-path 50ms linear;
-}
-
-.audio-meter-nominal {
-  /* Subtle band at 70-80% height (-18 to -12 dBFS) — nominal speech range */
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 70%;
-  height: 10%;
-  background: rgba(255, 255, 255, 0.08);
-  pointer-events: none;
 }
 
 .audio-meter-peak-hold {

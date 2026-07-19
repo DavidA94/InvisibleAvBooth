@@ -140,15 +140,15 @@ test.describe("OBS Audio Level Meters", () => {
     await expect(page.getByTestId(TEST_ID_AUDIO_METER_CONTAINER)).toBeVisible();
   });
 
-  test("nominal range band is present at correct position", async ({ page }) => {
+  test("meter track has dark background zones (OBS-style unfilled reference)", async ({ page }) => {
     await loginAndNavigate(page, socketHandle);
     socketHandle.sendRaw("stc:obs:audio:levels", { left: -20, right: -10 });
     await expect(page.getByTestId(TEST_ID_AUDIO_METER_CONTAINER)).toBeVisible({ timeout: 5000 });
 
-    // Check nominal range element exists in the DOM (it's a subtle visual indicator)
-    const nominalBands = page.locator(".audio-meter-nominal");
-    await expect(nominalBands.first()).toBeAttached();
-    expect(await nominalBands.count()).toBe(2); // One per bar
+    // Check the track elements exist (they show dark color zones as background)
+    const tracks = page.locator(".audio-meter-track");
+    await expect(tracks.first()).toBeAttached();
+    expect(await tracks.count()).toBe(2); // One per bar
   });
 
   test("Audio connection indicator shows unhealthy on staleness", async ({ page }) => {

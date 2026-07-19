@@ -23,12 +23,12 @@ describe("dBToPercent", () => {
     expect(dBToPercent(5)).toBe(100);
   });
 
-  it("returns correct percent for -12 dB (80%)", () => {
-    expect(dBToPercent(-12)).toBe(80);
+  it("returns correct percent for -20 dB (green→yellow boundary = 67%)", () => {
+    expect(dBToPercent(-20)).toBeCloseTo(66.67, 1);
   });
 
-  it("returns correct percent for -3 dB (95%)", () => {
-    expect(dBToPercent(-3)).toBe(95);
+  it("returns correct percent for -6 dB (yellow→red boundary = 90%)", () => {
+    expect(dBToPercent(-6)).toBe(90);
   });
 });
 
@@ -82,36 +82,55 @@ describe("AudioLevelMeter", () => {
     expect((gradients[1] as HTMLElement).style.getPropertyValue("--fill-percent")).toBe("0%");
   });
 
-  it("nominal range band is present", () => {
-    const { container } = render(<AudioLevelMeter levels={{ left: -20, right: -10 }} eventsFlowing={true} />);
-    const nominal = container.querySelectorAll(".audio-meter-nominal");
-    expect(nominal).toHaveLength(2); // One per bar
-  });
-
   it("peak hold appears for peak values", () => {
     const { container } = render(<AudioLevelMeter levels={{ left: -10, right: -5 }} eventsFlowing={true} />);
     const peaks = container.querySelectorAll(".audio-meter-peak-hold");
     expect(peaks.length).toBeGreaterThan(0);
   });
 
-  it("peak hold decays after 1 second", () => {
+  it("peak hold decays after 1 second of no new (higher) peak", () => {
     const { container, rerender } = render(<AudioLevelMeter levels={{ left: -10, right: -5 }} eventsFlowing={true} />);
 
     // Peak should be visible
     let peaks = container.querySelectorAll(".audio-meter-peak-hold");
     expect(peaks.length).toBeGreaterThan(0);
 
+    // Send the same level repeatedly (not a new peak — shouldn't reset timer)
+    rerender(<AudioLevelMeter levels={{ left: -10, right: -5 }} eventsFlowing={true} />);
+    rerender(<AudioLevelMeter levels={{ left: -10, right: -5 }} eventsFlowing={true} />);
+
     // Advance past 1s decay time
     act(() => {
       vi.advanceTimersByTime(1100);
     });
 
-    // Re-render with same levels to trigger update
+    // Force a re-render to pick up the state change
     rerender(<AudioLevelMeter levels={{ left: -60, right: -60 }} eventsFlowing={true} />);
 
     // After decay, peaks at -60 are at 0% and should not render (peakPercent > 0 guard)
     peaks = container.querySelectorAll(".audio-meter-peak-hold");
     expect(peaks).toHaveLength(0);
+  });
+
+  it("peak hold resets timer when a HIGHER peak arrives", () => {
+    const { container, rerender } = render(<AudioLevelMeter levels={{ left: -20, right: -20 }} eventsFlowing={true} />);
+
+    // Advance 800ms (not yet decayed)
+    act(() => {
+      vi.advanceTimersByTime(800);
+    });
+
+    // New higher peak should reset the timer
+    rerender(<AudioLevelMeter levels={{ left: -10, right: -10 }} eventsFlowing={true} />);
+
+    // Advance another 800ms (total 1600ms from first, but only 800ms from last peak)
+    act(() => {
+      vi.advanceTimersByTime(800);
+    });
+
+    // Peaks should still be visible (timer was reset by the higher peak)
+    const peaks = container.querySelectorAll(".audio-meter-peak-hold");
+    expect(peaks.length).toBeGreaterThan(0);
   });
 
   it("renders nothing when levels is null", () => {
