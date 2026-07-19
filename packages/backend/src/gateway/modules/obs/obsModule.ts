@@ -34,6 +34,7 @@ export class ObsModule implements SocketModule {
   constructor(
     private readonly obsService: ObsService,
     private readonly getNdiConfigured?: () => boolean,
+    private readonly getLevelAvailable?: () => boolean,
   ) {}
 
   register(io: Server): void {
@@ -110,6 +111,12 @@ export class ObsModule implements SocketModule {
       auth.socket.emit(STC_DEVICE_CAPABILITIES, {
         deviceId: "obs-preview",
         capabilities: { deviceId: "obs-preview", deviceType: "obs", features: { ndiConfigured: this.getNdiConfigured() } },
+      });
+    }
+    if (this.getLevelAvailable) {
+      auth.socket.emit(STC_DEVICE_CAPABILITIES, {
+        deviceId: "preview",
+        capabilities: { deviceId: "preview", deviceType: "obs", features: { preview: true, audioMetering: this.getLevelAvailable() } },
       });
     }
   }

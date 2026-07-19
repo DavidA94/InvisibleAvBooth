@@ -159,7 +159,11 @@ export function buildApp(deps: AppDependencies): AppContext {
   });
 
   const gateway = new SocketGateway(httpServer, authService, [
-    new ObsModule(obsService, () => !!obsNdiPreviewSource.getNdiOutputName()),
+    new ObsModule(
+      obsService,
+      () => !!obsNdiPreviewSource.getNdiOutputName(),
+      () => previewManager.isLevelAvailable(),
+    ),
     new SessionManifestModule(manifestService),
     new StreamingPlatformModule(platformService, relayService),
     new LowerThirdModule(lowerThirdService),

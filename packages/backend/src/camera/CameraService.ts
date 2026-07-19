@@ -734,14 +734,16 @@ export class CameraService {
 
   private async pollPosition(instance: CameraInstance): Promise<void> {
     if (this.destroyed || !instance.viscaDriver) return;
-    // Skip polling when no dashboard client is viewing this camera
-    if (this.previewManager && this.previewManager.getSubscriberCount(`camera-${instance.id}`) === 0) return;
 
     // Backup detection path: check if driver reports disconnected
     if (!instance.viscaDriver.isConnected()) {
       this._handleViscaFailure(instance);
       return;
     }
+
+    // Skip position polling when no dashboard client is viewing this camera,
+    // but STILL run the connectivity check above so viscaConnected stays accurate.
+    if (this.previewManager && this.previewManager.getSubscriberCount(`camera-${instance.id}`) === 0) return;
 
     try {
       const pos = await instance.viscaDriver.inquirePosition();
