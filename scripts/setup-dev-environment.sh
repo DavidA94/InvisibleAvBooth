@@ -105,6 +105,7 @@ flatpak install com.obsproject.Studio com.obsproject.Studio.Plugin.DistroAV -y
 # Override the system and the user, to ensure NDI discovery works
 sudo flatpak override com.obsproject.Studio --system-talk-name=org.freedesktop.Avahi
 flatpak override --user com.obsproject.Studio --system-talk-name=org.freedesktop.Avahi
+./scripts/auto-launch-obs.sh
 
 info "Installing NDI"
 NDI_TEMP_DIR="$(mktemp -d)"
