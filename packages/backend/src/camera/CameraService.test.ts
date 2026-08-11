@@ -480,16 +480,16 @@ describe("CameraService", () => {
   describe("VISCA polling", () => {
     it("starts polling when VISCA connects", async () => {
       await initService({ viscaEnabled: true });
-      // pollPosition should be called periodically (VISCA_POLL_INTERVAL_MS = 5000)
+      // pollPosition should be called periodically (VISCA_POLL_INTERVAL_MS = 700)
       mockViscaDriver.inquirePosition.mockClear();
-      vi.advanceTimersByTime(5100);
+      vi.advanceTimersByTime(750);
       expect(mockViscaDriver.inquirePosition).toHaveBeenCalled();
     });
 
     it("updates state from poll results", async () => {
       await initService({ viscaEnabled: true });
       mockViscaDriver.inquirePosition.mockResolvedValue({ pan: 100, tilt: 200, zoom: 300, focus: 400, autoFocus: false });
-      vi.advanceTimersByTime(5100);
+      vi.advanceTimersByTime(750);
       await vi.advanceTimersByTimeAsync(10);
       const state = service.getCameraState("cam1");
       expect(state?.position?.pan).toBe(100);
@@ -498,7 +498,7 @@ describe("CameraService", () => {
     it("handles poll errors gracefully", async () => {
       await initService({ viscaEnabled: true });
       mockViscaDriver.inquirePosition.mockRejectedValue(new Error("timeout"));
-      vi.advanceTimersByTime(5100);
+      vi.advanceTimersByTime(750);
       // Should not throw, camera stays connected
       expect(service.getCameraState("cam1")).toBeDefined();
     });
@@ -644,24 +644,28 @@ describe("CameraService", () => {
   });
 
   describe("discoverRange", () => {
-    it("discovers pan range by moving to limits", async () => {
+    // discoverRange creates its own ViscaCameraDriver, but the test mock is shared.
+    // The background poll timer also calls inquirePosition. To make these tests
+    // independent of the poll interval, we clear the poll timer before running
+    // discoverRange and track only the calls that matter.
+    async function initAndStopPoll(): Promise<void> {
       await initService({ viscaEnabled: true });
-      // Simulate position changing then stabilizing:
-      // moveToLimit("min"): positions decrease then stabilize at 100
-      // moveToLimit("max"): positions increase then stabilize at 60000
+      // Stop the background poll so it doesn't consume mock responses
+      vi.clearAllTimers();
+    }
+
+    it("discovers pan range by moving to limits", async () => {
+      await initAndStopPoll();
       let callCount = 0;
       mockViscaDriver.inquirePosition.mockImplementation(() => {
         callCount++;
-        // First moveToLimit("min"): calls 1-3 change, call 3-4 stabilize at 100
         if (callCount <= 2) return Promise.resolve({ pan: 500 - callCount * 200, tilt: 0, zoom: 0, focus: 0, autoFocus: true });
         if (callCount <= 4) return Promise.resolve({ pan: 100, tilt: 0, zoom: 0, focus: 0, autoFocus: true });
-        // moveToLimit("max"): calls 5-6 change, calls 7-8 stabilize at 60000
         if (callCount <= 6) return Promise.resolve({ pan: 30000 + (callCount - 4) * 15000, tilt: 0, zoom: 0, focus: 0, autoFocus: true });
         return Promise.resolve({ pan: 60000, tilt: 0, zoom: 0, focus: 0, autoFocus: true });
       });
 
       const resultPromise = service.discoverRange("192.168.1.100", 5500, "pan");
-      // Advance through all the sleep(1000) and sleep(200) calls
       await vi.advanceTimersByTimeAsync(60 * 1200 * 2 + 500);
       const result = await resultPromise;
 
@@ -675,7 +679,7 @@ describe("CameraService", () => {
     });
 
     it("discovers zoom range", async () => {
-      await initService({ viscaEnabled: true });
+      await initAndStopPoll();
       let callCount = 0;
       mockViscaDriver.inquirePosition.mockImplementation(() => {
         callCount++;
@@ -699,7 +703,7 @@ describe("CameraService", () => {
     });
 
     it("discovers tilt range", async () => {
-      await initService({ viscaEnabled: true });
+      await initAndStopPoll();
       let callCount = 0;
       mockViscaDriver.inquirePosition.mockImplementation(() => {
         callCount++;
@@ -722,7 +726,7 @@ describe("CameraService", () => {
     });
 
     it("discovers focus range", async () => {
-      await initService({ viscaEnabled: true });
+      await initAndStopPoll();
       let callCount = 0;
       mockViscaDriver.inquirePosition.mockImplementation(() => {
         callCount++;

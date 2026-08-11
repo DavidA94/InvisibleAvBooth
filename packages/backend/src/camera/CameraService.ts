@@ -14,7 +14,7 @@ import type { PreviewStreamManager } from "../services/previewStreamManager.js";
 export const KEEPALIVE_TIMEOUT_MS = 750;
 export const ADAPTIVE_SPEED_DAMPING = 0.7;
 export const MAX_EFFECTIVE_SPEED = 0.6;
-const VISCA_POLL_INTERVAL_MS = 5000;
+const VISCA_POLL_INTERVAL_MS = 700;
 
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
