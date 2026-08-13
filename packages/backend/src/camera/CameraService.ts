@@ -697,7 +697,7 @@ export class CameraService {
       if (ok) {
         logger.info(`VISCA connected for camera "${row.label}"`);
         this._handleViscaSuccess(instance);
-        instance.pollTimer = setInterval(() => this.pollPosition(instance), 5000);
+        instance.pollTimer = setInterval(() => this.pollPosition(instance), VISCA_POLL_INTERVAL_MS);
       } else {
         logger.warn(`VISCA connection failed for camera "${row.label}"`);
       }
@@ -741,8 +741,13 @@ export class CameraService {
       return;
     }
 
-    // Skip position polling when no dashboard client is viewing this camera,
-    // but STILL run the connectivity check above so viscaConnected stays accurate.
+    // Driver reports connected — confirm connectivity state (even if we skip position polling below).
+    // This ensures viscaConnected is set to true on the first poll after connect,
+    // regardless of whether anyone is viewing the preview.
+    this._handleViscaSuccess(instance);
+
+    // Skip position polling when no dashboard client is viewing this camera.
+    // The connectivity confirmation above still runs so viscaConnected stays accurate.
     if (this.previewManager && this.previewManager.getSubscriberCount(`camera-${instance.id}`) === 0) return;
 
     try {
