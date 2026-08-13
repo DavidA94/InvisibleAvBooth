@@ -773,12 +773,10 @@
   display: grid;
   gap: var(--space-grid-gap);
   padding: var(--space-screen-edge);
-  width: 100%;
-  min-width: 1024px;
-  max-width: 1400px;
-  height: 100%;
-  min-height: 768px;
-  max-height: 900px;
+  /* min-width: 1024px; */
+  width: 1400px;
+  /* min-height: 768px; */
+  height: 900px;
   margin: 0 auto;
 }
 

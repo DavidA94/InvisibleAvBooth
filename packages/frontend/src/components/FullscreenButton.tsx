@@ -39,6 +39,9 @@ export function FullscreenButton(): ReactNode {
         await document.exitFullscreen();
       } else {
         await document.documentElement.requestFullscreen();
+        // Lock to landscape when entering fullscreen (supported on Android Chrome).
+        // Silently fails on browsers that don't support it (Safari, some WebViews).
+        screen.orientation.lock("landscape").catch(() => {});
       }
     } catch {
       // Fullscreen not permitted (permissions policy, iOS WebView restrictions, etc.)
