@@ -157,11 +157,15 @@ export class CameraService {
           if (ok) {
             logger.info(`VISCA connected for camera "${row.label}"`);
             this._handleViscaSuccess(instance);
-            instance.pollTimer = setInterval(() => this.pollPosition(instance), VISCA_POLL_INTERVAL_MS);
           } else {
-            logger.warn(`VISCA connection failed for camera "${row.label}"`);
+            logger.warn(`VISCA connection failed for camera "${row.label}", will retry via poll`);
           }
         });
+
+        // Always start the poll timer — if initial connect failed (e.g. camera TCP port
+        // still in TIME_WAIT after unclean shutdown), pollPosition will retry via
+        // ensureConnected on the driver once it detects disconnection.
+        instance.pollTimer = setInterval(() => this.pollPosition(instance), VISCA_POLL_INTERVAL_MS);
       }
     }
 
@@ -735,9 +739,17 @@ export class CameraService {
   private async pollPosition(instance: CameraInstance): Promise<void> {
     if (this.destroyed || !instance.viscaDriver) return;
 
-    // Backup detection path: check if driver reports disconnected
+    // If driver is disconnected, attempt to reconnect.
+    // This handles the case where the initial connect failed (e.g. camera TCP port
+    // in TIME_WAIT after unclean backend shutdown) — we retry every poll interval.
     if (!instance.viscaDriver.isConnected()) {
-      this._handleViscaFailure(instance);
+      const ok = await instance.viscaDriver.connect();
+      if (ok) {
+        logger.info(`VISCA reconnected for camera "${instance.state.label}"`);
+        this._handleViscaSuccess(instance);
+      } else {
+        this._handleViscaFailure(instance);
+      }
       return;
     }
 
