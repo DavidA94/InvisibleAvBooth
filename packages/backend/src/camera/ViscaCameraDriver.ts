@@ -104,6 +104,7 @@ export class ViscaCameraDriver {
   }
 
   async inquirePosition(): Promise<PositionInquiry> {
+    await this.ensureConnected();
     if (!this.connected) {
       return { pan: null, tilt: null, zoom: null, focus: null, autoFocus: null };
     }

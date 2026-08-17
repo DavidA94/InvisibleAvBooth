@@ -66,6 +66,8 @@ export class CameraService {
   private destroyed = false;
   private previewManager: PreviewStreamManager | null;
   private viscaFailureCounts = new Map<string, number>();
+  private viscaReconnectAttempts = new Map<string, number>();
+  private static readonly MAX_RECONNECT_ATTEMPTS = 5;
 
   constructor(database: Database, previewManager?: PreviewStreamManager) {
     this.database = database;
@@ -739,15 +741,20 @@ export class CameraService {
   private async pollPosition(instance: CameraInstance): Promise<void> {
     if (this.destroyed || !instance.viscaDriver) return;
 
-    // If driver is disconnected, attempt to reconnect.
-    // This handles the case where the initial connect failed (e.g. camera TCP port
-    // in TIME_WAIT after unclean backend shutdown) — we retry every poll interval.
+    // If driver is disconnected, attempt reconnect via ensureConnected.
+    // This handles the cold-start case where the initial connect() failed.
+    // Limited to MAX_RECONNECT_ATTEMPTS to avoid spamming logs forever.
     if (!instance.viscaDriver.isConnected()) {
-      const ok = await instance.viscaDriver.connect();
-      if (ok) {
-        logger.info(`VISCA reconnected for camera "${instance.state.label}"`);
+      const attempts = this.viscaReconnectAttempts.get(instance.id) ?? 0;
+      if (attempts >= CameraService.MAX_RECONNECT_ATTEMPTS) {
+        return; // Give up — will retry when a command is issued (ensureConnected on PTZ)
+      }
+      this.viscaReconnectAttempts.set(instance.id, attempts + 1);
+      try {
+        await instance.viscaDriver.inquirePosition();
+        // If we get here without throwing, ensureConnected succeeded
         this._handleViscaSuccess(instance);
-      } else {
+      } catch {
         this._handleViscaFailure(instance);
       }
       return;
@@ -808,6 +815,7 @@ export class CameraService {
    */
   _handleViscaSuccess(instance: CameraInstance): void {
     this.viscaFailureCounts.set(instance.id, 0);
+    this.viscaReconnectAttempts.set(instance.id, 0);
     if (!instance.state.viscaConnected) {
       instance.state.viscaConnected = true;
       this.broadcastState(instance);

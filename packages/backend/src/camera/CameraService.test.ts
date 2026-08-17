@@ -917,9 +917,10 @@ describe("CameraService", () => {
       emitted = [];
 
       // Mock isConnected to return false (half-open TCP scenario)
-      // and connect to fail (camera unreachable)
+      // and inquirePosition to throw (camera unreachable after ensureConnected)
       mockViscaDriver.isConnected.mockReturnValue(false);
       mockViscaDriver.connect.mockResolvedValue(false);
+      mockViscaDriver.inquirePosition.mockRejectedValue(new Error("connect failed"));
 
       // Simulate poll tick — reconnect attempt fails
       await (service as unknown as { pollPosition: (i: typeof instance) => Promise<void> }).pollPosition(instance);
