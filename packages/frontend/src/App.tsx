@@ -28,6 +28,7 @@ import { AdminDeviceManagement } from "./pages/AdminDeviceManagement";
 import { AdminIndexPage } from "./pages/AdminIndexPage";
 import { AdminTemplatesPage } from "./pages/AdminTemplatesPage";
 import { AdminPlatformManagement } from "./pages/AdminPlatformManagement";
+import { AdminDashboardManagement } from "./pages/AdminDashboardManagement";
 import { LowerThirdOverlay } from "./overlay/LowerThirdOverlay";
 import { useStore } from "./store";
 
@@ -59,6 +60,7 @@ export function App(): ReactNode {
                         <Route path="/dashboards" element={<DashboardSelectionScreen />} />
                         <Route path="/dashboard/:slug" element={<Dashboard />} />
                         <Route path="/admin" element={<AdminIndexPage />} />
+                        <Route path="/admin/dashboards" element={<AdminDashboardManagement />} />
                         <Route path="/admin/users" element={<AdminUserManagement />} />
                         <Route path="/admin/devices" element={<AdminDeviceManagement />} />
                         <Route path="/admin/templates" element={<AdminTemplatesPage />} />
