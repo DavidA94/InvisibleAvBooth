@@ -242,28 +242,29 @@ The dashboard is designed for tablet-first use. All sizing uses `rem` units with
 
 ### Target Viewport Range
 
-| Breakpoint        | Viewport              | Behavior                                                                   |
-| ----------------- | --------------------- | -------------------------------------------------------------------------- |
-| Minimum supported | 1024×768px            | Base design target — all layouts verified at this size                     |
-| Comfortable range | 1024×768 – 1280×800px | More breathing room; additional status indicator labels may become visible |
-| Large displays    | > 1280×800px          | Grid stops growing at max-width/max-height; centered horizontally          |
-| Small displays    | < 1024×768px          | Grid fills viewport; cells shrink proportionally via percentage sizing     |
+| Breakpoint      | Viewport            | Behavior                                                                               |
+| --------------- | ------------------- | -------------------------------------------------------------------------------------- |
+| Large threshold | ≥ 1200×700px        | Uses large grid types (11 or 7 columns); grid centered with `margin: 0 auto`           |
+| Small threshold | < 1200×700px        | Uses small grid types (7 or 3 columns); viewport scaling shrinks to fit                |
+| Scale floor     | Any (factor < 0.65) | Scaling stops at 0.65 — grid allowed to overflow and scroll rather than shrink further |
+| Orientation     | width > height      | Landscape grid selected; otherwise portrait                                            |
 
-Phone-sized viewports are explicitly out of scope for this release and will be addressed in a future iteration.
+Phone-sized viewports are supported via the small grid types (3 and 7 columns). The grid scrolls vertically if content exceeds the viewport height at the minimum scale.
 
 ### Root Font Size
 
 The `font-size` on `<html>` is set to a fixed `16px`. This is the reference point for all `rem` values. Unlike the previous `clamp()`-based approach, the font size does not change with viewport width — this eliminates inconsistent text rendering, unpredictable element sizes, and visual artifacts caused by fractional rem-to-pixel conversions at different viewport widths.
 
-Viewport adaptation is handled entirely by the grid container:
-
-- `width: 100%; max-width: 1400px` — fills the viewport horizontally up to a cap
-- `height: 100%; max-height: 900px` — fills the viewport vertically up to a cap
-- `margin: 0 auto` — centers the grid when the viewport exceeds the max dimensions
+When a dashboard page is mounted, the font-size may be reduced via viewport scaling (see Widget Grid Sizing below). The CSS rule `html:has(.dashboard-page) { font-size: var(--dashboard-scale-font-size, 16px); }` applies only when `.dashboard-page` is in the DOM. Admin pages, login, and other non-dashboard views are never affected — they always render at 16px.
 
 ```css
 html {
   font-size: 16px;
+}
+
+/* Viewport scaling — only applies when dashboard is mounted */
+html:has(.dashboard-page) {
+  font-size: var(--dashboard-scale-font-size, 16px);
 }
 ```
 
@@ -279,7 +280,7 @@ All spacing is defined in `rem` and applied consistently across the UI. These to
 
 | Token                  | Value     | Usage                                                              |
 | ---------------------- | --------- | ------------------------------------------------------------------ |
-| `--space-screen-edge`  | `1rem`    | Dashboard outer padding (all four sides)                           |
+| `--space-screen-edge`  | `1rem`    | Page outer padding (used on admin pages, not dashboard grid)       |
 | `--space-grid-gap`     | `0.75rem` | Gap between widgets in the dashboard grid                          |
 | `--space-widget-inner` | `0.75rem` | WidgetContainer inner padding (all sides, uniformly enforced)      |
 | `--space-control-gap`  | `0.75rem` | Gap between interactive controls (buttons, inputs) within a widget |
@@ -328,15 +329,24 @@ The threshold is defined in rem and converted to pixels at runtime using the cur
 
 ### Widget Grid Sizing
 
-Widget cells are sized as percentages of the available grid area (grid container minus outer padding and gaps). The grid fills the viewport up to its maximum dimensions (`max-width: 1400px`, `max-height: 900px`), then centers horizontally.
+The dashboard supports four grid types, each with fixed 7.25rem × 7.25rem (116×116px at 16px root) cells and 0.75rem (12px) gaps. Column count is fixed per grid type; row count is dynamic (grids grow vertically as widgets are placed):
 
-The grid uses a 10×6 layout in landscape and 6×10 in portrait. This doubled cell count (from the original 5×3 / 3×5) allows finer-grained widget placement — widgets that previously occupied 2×2 cells in the coarser grid now occupy the same physical space but can be positioned with more precision, and smaller 1×1 widgets become practical.
+| Grid Type         | Columns | Default Rows | Base Width (rem) | Base Height at default rows (rem) |
+| ----------------- | ------- | ------------ | ---------------- | --------------------------------- |
+| `large-landscape` | 11      | 7            | 87.25            | 55.25                             |
+| `large-portrait`  | 7       | 11           | 55.25            | 87.25                             |
+| `small-landscape` | 7       | 3            | 55.25            | 23.25                             |
+| `small-portrait`  | 3       | 7            | 23.25            | 55.25                             |
 
-The following are illustrative pixel values at the 1024×768px base viewport only. No code should use these values — all implementation uses rem and percentages.
+The frontend automatically selects the appropriate grid type based on viewport dimensions:
 
-At 1024×768px landscape with `--space-screen-edge: 1rem` (16px) and `--space-grid-gap: 0.75rem` (12px):
+- **Size:** viewport width ≥ 1200px AND height ≥ 700px → large; otherwise → small
+- **Orientation:** viewport width > height → landscape; otherwise → portrait
 
-- Available width: 1024 − 32px (2×edge) − 108px (9×gap between 10 cols) ≈ 884px → each column ≈ 88.4px
-- Available height: 768 − 32px (2×edge) − 60px (5×gap between 6 rows) ≈ 676px → each row ≈ 112.7px
+Breakpoints are defined as constants in `packages/shared/src/gridTypes.ts` (`BREAKPOINT_LARGE_WIDTH`, `BREAKPOINT_LARGE_HEIGHT`).
 
-A 2×2 widget occupies ≈ 188.8px × 237.4px at the base viewport. A 4×4 widget occupies ≈ 389.6px × 486.8px. These are examples only — see the OBS widget rem layout specification in the design doc for the authoritative rem-based layout.
+**Viewport scaling:** When the viewport is smaller than the grid's native pixel dimensions, the entire page is uniformly scaled down via a CSS custom property `--dashboard-scale-font-size` consumed by `html:has(.dashboard-page) { font-size: var(--dashboard-scale-font-size, 16px); }`. Since all sizing uses `rem`, everything shrinks proportionally. The `:has()` selector ensures scaling only applies when a dashboard is mounted — admin pages are never affected. Scale factor: `min(viewportWidth / gridNativeWidth, viewportHeight / gridNativeHeight, 1.0)`, clamped to a minimum floor of 0.65.
+
+**Dynamic rows:** Grids grow vertically as widgets are placed. The "default rows" represent how many rows fit on screen at native resolution without scrolling. Content beyond default rows scrolls vertically.
+
+Grid dimensions, cell sizes, and breakpoints are all defined in `packages/shared/src/gridTypes.ts` and used by both frontend (rendering, grid type selection, viewport scaling) and backend (column bounds validation).

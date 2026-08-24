@@ -23,7 +23,7 @@ This is an extension document — it references and builds on the designs at `.k
 
 - **`device_connections` table**: `deviceType` values expanded to include `"camera-ptz"`. Camera-specific config stored in the existing `metadata` JSON column. The existing `host`/`port` columns are reused for VISCA connectivity (placeholder `"127.0.0.1"`/`5500` when VISCA is not enabled). OBS devices gain an `ndiOutputName` field in their `metadata` JSON for NDI preview output.
 - **New table**: `camera_presets` for preset storage.
-- **`seed-dashboard.ts`**: Two new widget entries (OBS Preview at 2×2, Camera at 6×4); existing widget positions adjusted to avoid overlap.
+- **`seed-dashboard.ts`**: Two new widget entries (OBS Preview at 2×2, Camera at 6×4); existing widget positions adjusted to avoid overlap. _(Superseded by dashboard-management spec: all positions replaced by four-grid layout system.)_
 - **Caddy routing**: Both `Caddyfile` and `Caddyfile.dev` must add `/preview/*` to the backend route matcher (alongside `/api/*` and `/socket.io/*`). Without this, preview WebSocket upgrade requests are routed to the frontend and fail silently.
 
 ---
@@ -1119,6 +1119,8 @@ Backpressure handling: if FFmpeg's stdin pipe returns `false` on write (pipe ful
 ## Seed Script Updates
 
 ### `seed-dashboard.ts` Changes
+
+> **Superseded by dashboard-management spec:** The widget positions below have been replaced by the four-grid layout system. `seed-dashboard.ts` now inserts widget configurations for all four grid types (large-landscape, large-portrait, small-landscape, small-portrait) with concrete positions validated against grid bounds and widget constraints. See `packages/backend/scripts/seed-dashboard.ts` for the authoritative placements.
 
 ```typescript
 const OBS_PREVIEW_WIDGET_ID = "obs-preview";

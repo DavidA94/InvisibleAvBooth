@@ -12,7 +12,7 @@ Invisible A/V Booth is a web-based, touch-first control interface for managing c
 - **Backend**: The Node.js server that mediates all device communication, state management, and authentication.
 - **Widget**: A modular UI component that displays device state and provides controls for a specific device or function.
 - **Dashboard**: A named, admin-configured responsive grid layout that hosts one or more Widgets. A user may have access to multiple dashboards based on their role. Each dashboard has a name and description visible during selection.
-- **GridManifest**: The JSON structure describing a dashboard's layout (widget positions, titles, cell role permissions). Stored in the backend `widget_configurations` database table, scoped to a dashboard ID, and served via `GET /api/dashboards/:id/layout`. The frontend uses a hardcoded `DEFAULT_GRID_MANIFEST` constant only as a fallback if the API call fails or returns an unparseable response.
+- **GridManifest**: The JSON structure describing a dashboard's layout (widget positions, titles, cell role permissions). Stored in the backend `widget_configurations` database table, scoped to a dashboard ID, and served via `GET /api/dashboards/:slug/layout`. The frontend uses a hardcoded `DEFAULT_GRID_MANIFEST` constant only as a fallback if the API call fails or returns an unparseable response. _(Superseded by dashboard-management spec: GridManifest now uses `{ grids: Record<GridType, GridCell[]> }` format with four grid types; URL uses slug instead of id.)_
 - **Toast**: A short-lived (5-second) non-blocking notification.
 - **Banner**: A persistent, dismissable warning or error notification displayed in the UI.
 - **Modal**: A blocking notification requiring user acknowledgment, used for catastrophic errors.
@@ -111,15 +111,15 @@ Invisible A/V Booth is a web-based, touch-first control interface for managing c
 
 #### Acceptance Criteria
 
-1. THE Backend SHALL expose a `GET /api/dashboards/:id/layout` endpoint (authenticated) that returns the `GridManifest` for the specified dashboard.
+1. THE Backend SHALL expose a `GET /api/dashboards/:slug/layout` endpoint (authenticated) that returns the `GridManifest` for the specified dashboard. _(Superseded by dashboard-management spec: uses slug instead of id; returns four-grid format.)_
 2. WHEN loading a dashboard, THE Frontend SHALL display a full-screen spinner with the text "Loading Dashboard" while the layout API call is in progress.
 3. WHEN the layout API call completes successfully, THE Frontend SHALL cache the parsed `GridManifest` in localStorage keyed by dashboard ID and render the dashboard.
 4. IF the layout API call fails or returns an unparseable response, THE Frontend SHALL fall back to the cached `GridManifest` for that dashboard ID if one exists; IF no cached layout exists, THE Frontend SHALL show the Dashboard Selection Screen with a Toast "Could not load dashboard".
 5. AFTER the dashboard renders from cache, THE Frontend SHALL immediately fetch the fresh layout from the API in the background. IF the fresh layout differs in widget placement (different `widgetId`, `col`, `row`, `colSpan`, or `rowSpan` values), THE Frontend SHALL display a full-screen spinner "Refreshing Dashboard", apply the new layout, and update the cache. IF only non-structural data changes (e.g., widget title), THE Frontend SHALL apply the update silently with no spinner.
 6. IF the stored `GridManifest` cannot be parsed (malformed JSON, unknown widget type, or schema incompatible with the current frontend version), THE Frontend SHALL treat it as an invalid cached layout, clear it from localStorage, and fetch fresh from the API.
-7. THE Dashboard SHALL render a 10-column by 6-row grid in landscape orientation and a 6-column by 10-row grid in portrait orientation, reflowing automatically on orientation change.
+7. THE Dashboard SHALL render a 10-column by 6-row grid in landscape orientation and a 6-column by 10-row grid in portrait orientation, reflowing automatically on orientation change. _(Superseded by dashboard-management spec: replaced with four grid types — large-landscape 11×7, large-portrait 7×11, small-landscape 7×3, small-portrait 3×7 — with 7.25rem cells, dynamic rows, and viewport scaling.)_
 8. EACH Widget SHALL declare a footprint (e.g., 1×1, 2×1, 2×2) that determines the grid cells it occupies.
-9. THE Backend SHALL enforce that each `widgetId` is unique within a dashboard's `widget_configurations` rows via a database unique constraint on `dashboardId + widgetId`; the Frontend SHALL NOT reject a loaded `GridManifest` that contains duplicate `widgetId` values — if duplicates exist, the dashboard renders as-is.
+9. THE Backend SHALL enforce that each `widgetId` is unique within a dashboard's `widget_configurations` rows via a database unique constraint on `dashboardId + widgetId + gridType`; the Frontend SHALL NOT reject a loaded `GridManifest` that contains duplicate `widgetId` values — if duplicates exist, the dashboard renders as-is. _(Superseded by dashboard-management spec: unique constraint now includes gridType column — same widget can appear once per grid type per dashboard.)_
 10. THE Backend SHALL store dashboard layout in the `widget_configurations` table, scoped to a `dashboardId` foreign key.
 
 ---
