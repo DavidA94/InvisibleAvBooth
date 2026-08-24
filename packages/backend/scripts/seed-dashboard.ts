@@ -1,25 +1,71 @@
 // scripts/seed-dashboard.ts
 // Run with: npx tsx scripts/seed-dashboard.ts
-// Inserts the default dashboard and OBS widget configuration. Idempotent.
+// Inserts the default dashboard with widget configurations for all four grid types. Idempotent.
 
 import { getDatabase, resetDatabase } from "../src/database/database.js";
+import type { GridType } from "@invisible-av-booth/shared";
 
 const DASHBOARD_ID = "default";
-const WIDGET_ID = "obs";
-const LT_WIDGET_ID = "lower-thirds";
-const OBS_PREVIEW_WIDGET_ID = "obs-preview";
-const CAMERA_WIDGET_ID = "camera";
+const DASHBOARD_SLUG = "default";
+const DASHBOARD_NAME = "Main Dashboard";
 
-function seed(): void {
+/**
+ * Widget placements per grid type — validated to fit within bounds and constraints.
+ *
+ * Constraint reference (from widgetTypeRegistry):
+ * - obs: min 2×2, max 5×4
+ * - lower-thirds: min 2×2, no max
+ * - obs-preview: min 2×2, no max
+ * - camera: min 3×2, no max
+ *
+ * Grid column counts:
+ * - large-landscape: 11 cols, 7 default rows
+ * - large-portrait: 7 cols, 11 default rows
+ * - small-landscape: 7 cols, 3 default rows
+ * - small-portrait: 3 cols, 7 default rows
+ */
+const PLACEMENTS: Record<GridType, Array<{ widgetId: string; title: string; col: number; row: number; colSpan: number; rowSpan: number }>> = {
+  "large-landscape": [
+    // 11 columns — uses 7 rows (fits within default)
+    { widgetId: "obs", title: "OBS", col: 0, row: 0, colSpan: 3, rowSpan: 2 },
+    { widgetId: "lower-thirds", title: "Lower Thirds", col: 3, row: 0, colSpan: 3, rowSpan: 2 },
+    { widgetId: "obs-preview", title: "OBS Preview", col: 6, row: 0, colSpan: 3, rowSpan: 3 },
+    { widgetId: "camera", title: "Camera", col: 0, row: 2, colSpan: 6, rowSpan: 5 },
+  ],
+  "large-portrait": [
+    // 7 columns — uses 7 rows (fits within default 11)
+    { widgetId: "obs", title: "OBS", col: 0, row: 0, colSpan: 3, rowSpan: 2 },
+    { widgetId: "lower-thirds", title: "Lower Thirds", col: 3, row: 0, colSpan: 4, rowSpan: 2 },
+    { widgetId: "obs-preview", title: "OBS Preview", col: 0, row: 2, colSpan: 3, rowSpan: 3 },
+    { widgetId: "camera", title: "Camera", col: 3, row: 2, colSpan: 4, rowSpan: 5 },
+  ],
+  "small-landscape": [
+    // 7 columns — uses 4 rows (exceeds default 3 — scrolls on phone viewports)
+    { widgetId: "camera", title: "Camera", col: 0, row: 0, colSpan: 3, rowSpan: 2 },
+    { widgetId: "obs", title: "OBS", col: 3, row: 0, colSpan: 2, rowSpan: 2 },
+    { widgetId: "obs-preview", title: "OBS Preview", col: 5, row: 0, colSpan: 2, rowSpan: 2 },
+    { widgetId: "lower-thirds", title: "Lower Thirds", col: 0, row: 2, colSpan: 7, rowSpan: 2 },
+  ],
+  "small-portrait": [
+    // 3 columns — uses 8 rows (exceeds default 7 — scrolls on phone viewports)
+    { widgetId: "obs", title: "OBS", col: 0, row: 0, colSpan: 3, rowSpan: 2 },
+    { widgetId: "obs-preview", title: "OBS Preview", col: 0, row: 2, colSpan: 3, rowSpan: 2 },
+    { widgetId: "camera", title: "Camera", col: 0, row: 4, colSpan: 3, rowSpan: 2 },
+    { widgetId: "lower-thirds", title: "Lower Thirds", col: 0, row: 6, colSpan: 3, rowSpan: 2 },
+  ],
+};
+
+export function seed(): void {
   const database = getDatabase();
 
-  const existing = database.prepare("SELECT id FROM dashboards WHERE id = ?").get(DASHBOARD_ID);
+  const existing = database.prepare("SELECT id FROM dashboards WHERE id = ?").get(DASHBOARD_ID) as { id: string } | undefined;
   if (!existing) {
     database
-      .prepare("INSERT INTO dashboards (id, name, description, allowedRoles, createdAt) VALUES (?, ?, ?, ?, ?)")
+      .prepare("INSERT INTO dashboards (id, slug, name, description, allowedRoles, createdAt) VALUES (?, ?, ?, ?, ?, ?)")
       .run(
         DASHBOARD_ID,
-        "Main Dashboard",
+        DASHBOARD_SLUG,
+        DASHBOARD_NAME,
         "Standard volunteer control surface",
         JSON.stringify(["AvVolunteer", "AvPowerUser", "ADMIN"]),
         new Date().toISOString(),
@@ -29,69 +75,42 @@ function seed(): void {
     console.log("Dashboard already exists — skipping");
   }
 
-  const existingWidget = database.prepare("SELECT id FROM widget_configurations WHERE dashboardId = ? AND widgetId = ?").get(DASHBOARD_ID, WIDGET_ID);
+  // Check if widgets already exist for this dashboard
+  const existingWidgets = database.prepare("SELECT COUNT(*) as count FROM widget_configurations WHERE dashboardId = ?").get(DASHBOARD_ID) as { count: number };
 
-  if (!existingWidget) {
-    database
-      .prepare(
-        `INSERT INTO widget_configurations
-       (id, dashboardId, widgetId, title, col, row, colSpan, rowSpan, roleMinimum, createdAt)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      )
-      .run(`${DASHBOARD_ID}-${WIDGET_ID}`, DASHBOARD_ID, WIDGET_ID, "OBS", 0, 0, 3, 2, "AvVolunteer", new Date().toISOString());
-    console.log("Created widget: OBS");
-  } else {
-    console.log("OBS widget already exists — skipping");
+  if (existingWidgets.count > 0) {
+    console.log("Widget configurations already exist — skipping");
+    return;
   }
 
-  const existingLtWidget = database.prepare("SELECT id FROM widget_configurations WHERE dashboardId = ? AND widgetId = ?").get(DASHBOARD_ID, LT_WIDGET_ID);
+  const insert = database.prepare(
+    `INSERT INTO widget_configurations
+     (id, dashboardId, widgetId, gridType, title, col, row, colSpan, rowSpan, roleMinimum, createdAt)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  );
 
-  if (!existingLtWidget) {
-    database
-      .prepare(
-        `INSERT INTO widget_configurations
-       (id, dashboardId, widgetId, title, col, row, colSpan, rowSpan, roleMinimum, createdAt)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      )
-      .run(`${DASHBOARD_ID}-${LT_WIDGET_ID}`, DASHBOARD_ID, LT_WIDGET_ID, "Lower Thirds", 3, 0, 3, 2, "AvVolunteer", new Date().toISOString());
-    console.log("Created widget: Lower Thirds");
-  } else {
-    console.log("Lower Thirds widget already exists — skipping");
+  const createdAt = new Date().toISOString();
+
+  for (const [gridType, widgets] of Object.entries(PLACEMENTS)) {
+    for (const widget of widgets) {
+      const widgetConfigId = `${DASHBOARD_ID}-${gridType}-${widget.widgetId}`;
+      insert.run(
+        widgetConfigId,
+        DASHBOARD_ID,
+        widget.widgetId,
+        gridType,
+        widget.title,
+        widget.col,
+        widget.row,
+        widget.colSpan,
+        widget.rowSpan,
+        "AvVolunteer",
+        createdAt,
+      );
+    }
   }
 
-  const existingObsPreview = database
-    .prepare("SELECT id FROM widget_configurations WHERE dashboardId = ? AND widgetId = ?")
-    .get(DASHBOARD_ID, OBS_PREVIEW_WIDGET_ID);
-
-  if (!existingObsPreview) {
-    database
-      .prepare(
-        `INSERT INTO widget_configurations
-       (id, dashboardId, widgetId, title, col, row, colSpan, rowSpan, roleMinimum, createdAt)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      )
-      .run(`${DASHBOARD_ID}-${OBS_PREVIEW_WIDGET_ID}`, DASHBOARD_ID, OBS_PREVIEW_WIDGET_ID, "OBS Preview", 6, 0, 2, 2, "AvVolunteer", new Date().toISOString());
-    console.log("Created widget: OBS Preview");
-  } else {
-    console.log("OBS Preview widget already exists — skipping");
-  }
-
-  const existingCameraWidget = database
-    .prepare("SELECT id FROM widget_configurations WHERE dashboardId = ? AND widgetId = ?")
-    .get(DASHBOARD_ID, CAMERA_WIDGET_ID);
-
-  if (!existingCameraWidget) {
-    database
-      .prepare(
-        `INSERT INTO widget_configurations
-       (id, dashboardId, widgetId, title, col, row, colSpan, rowSpan, roleMinimum, createdAt)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      )
-      .run(`${DASHBOARD_ID}-${CAMERA_WIDGET_ID}`, DASHBOARD_ID, CAMERA_WIDGET_ID, "Camera", 0, 2, 6, 4, "AvVolunteer", new Date().toISOString());
-    console.log("Created widget: Camera");
-  } else {
-    console.log("Camera widget already exists — skipping");
-  }
+  console.log("Created widget configurations for all four grid types (16 entries)");
 }
 
 seed();

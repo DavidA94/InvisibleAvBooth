@@ -1,82 +1,161 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import Database from "better-sqlite3";
 import { applySchema } from "../src/database/schema.js";
+import { GRID_TYPES, GRID_DIMENSIONS, WIDGET_TYPE_REGISTRY } from "@invisible-av-booth/shared";
+import type { GridType } from "@invisible-av-booth/shared";
 
-// Test the seed logic directly rather than importing the script (which calls seed() at module load).
-// We replicate the seed logic here so it can be called with an injected DB.
+// Mock getDatabase and resetDatabase to use our test database
+let testDatabase: InstanceType<typeof Database>;
 
-function seed(database: Database.Database): void {
-  const DASHBOARD_ID = "default";
-  const WIDGET_ID = "obs";
+vi.mock("../src/database/database.js", () => ({
+  getDatabase: () => testDatabase,
+  resetDatabase: () => {},
+}));
 
-  const existing = database.prepare("SELECT id FROM dashboards WHERE id = ?").get(DASHBOARD_ID);
-  if (!existing) {
-    database
-      .prepare("INSERT INTO dashboards (id, name, description, allowedRoles, createdAt) VALUES (?, ?, ?, ?, ?)")
-      .run(
-        DASHBOARD_ID,
-        "Main Dashboard",
-        "Standard volunteer control surface",
-        JSON.stringify(["AvVolunteer", "AvPowerUser", "ADMIN"]),
-        new Date().toISOString(),
-      );
-  }
-
-  const existingWidget = database.prepare("SELECT id FROM widget_configurations WHERE dashboardId = ? AND widgetId = ?").get(DASHBOARD_ID, WIDGET_ID);
-  if (!existingWidget) {
-    database
-      .prepare(
-        "INSERT INTO widget_configurations (id, dashboardId, widgetId, title, col, row, colSpan, rowSpan, roleMinimum, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-      )
-      .run(`${DASHBOARD_ID}-${WIDGET_ID}`, DASHBOARD_ID, WIDGET_ID, "OBS", 0, 0, 3, 2, "AvVolunteer", new Date().toISOString());
-  }
-}
-
-function makeDatabase() {
+function makeDatabase(): InstanceType<typeof Database> {
   const database = new Database(":memory:");
   database.pragma("foreign_keys = ON");
   applySchema(database);
   return database;
 }
 
+async function seed(): Promise<void> {
+  // Dynamically import to pick up the mock
+  const module = await import("./seed-dashboard.js");
+  // The seed function is called on import (module-level execution), but we also export it
+  if (module.seed) module.seed();
+}
+
+interface DashboardRow {
+  id: string;
+  slug: string;
+  name: string;
+  allowedRoles: string;
+}
+
+interface WidgetRow {
+  widgetId: string;
+  gridType: string;
+  col: number;
+  row: number;
+  colSpan: number;
+  rowSpan: number;
+}
+
+beforeEach(() => {
+  testDatabase = makeDatabase();
+  vi.resetModules();
+});
+
 describe("seed-dashboard", () => {
-  it("inserts one dashboard and one widget on first run", () => {
-    const database = makeDatabase();
-    seed(database);
-    const dashCount = (database.prepare("SELECT COUNT(*) as cnt FROM dashboards").get() as { cnt: number }).cnt;
-    const widgetCount = (database.prepare("SELECT COUNT(*) as cnt FROM widget_configurations").get() as { cnt: number }).cnt;
-    expect(dashCount).toBe(1);
-    expect(widgetCount).toBe(1);
+  it("creates dashboard with slug 'default'", async () => {
+    await seed();
+    const row = testDatabase.prepare("SELECT * FROM dashboards WHERE id = ?").get("default") as DashboardRow | undefined;
+    expect(row).toBeDefined();
+    expect(row!.slug).toBe("default");
+    expect(row!.name).toBe("Main Dashboard");
   });
 
-  it("is idempotent — second run produces no duplicates", () => {
-    const database = makeDatabase();
-    seed(database);
-    seed(database);
-    const dashCount = (database.prepare("SELECT COUNT(*) as cnt FROM dashboards").get() as { cnt: number }).cnt;
-    const widgetCount = (database.prepare("SELECT COUNT(*) as cnt FROM widget_configurations").get() as { cnt: number }).cnt;
-    expect(dashCount).toBe(1);
-    expect(widgetCount).toBe(1);
+  it("populates all four grid types with widget configurations", async () => {
+    await seed();
+    for (const gridType of GRID_TYPES) {
+      const widgets = testDatabase
+        .prepare("SELECT * FROM widget_configurations WHERE dashboardId = ? AND gridType = ?")
+        .all("default", gridType) as WidgetRow[];
+      expect(widgets.length).toBeGreaterThan(0);
+    }
   });
 
-  it("dashboard has correct allowedRoles", () => {
-    const database = makeDatabase();
-    seed(database);
-    const row = database.prepare("SELECT allowedRoles FROM dashboards WHERE id = 'default'").get() as { allowedRoles: string };
-    const roles = JSON.parse(row.allowedRoles) as string[];
-    expect(roles).toContain("AvVolunteer");
-    expect(roles).toContain("ADMIN");
+  it("each grid type contains all four widgets (obs, lower-thirds, obs-preview, camera)", async () => {
+    await seed();
+    const expectedWidgets = ["obs", "lower-thirds", "obs-preview", "camera"];
+    for (const gridType of GRID_TYPES) {
+      const widgets = testDatabase
+        .prepare("SELECT widgetId FROM widget_configurations WHERE dashboardId = ? AND gridType = ?")
+        .all("default", gridType) as Array<{ widgetId: string }>;
+      const widgetIds = widgets.map((w) => w.widgetId).sort();
+      expect(widgetIds).toEqual(expectedWidgets.sort());
+    }
   });
 
-  it("OBS widget has correct footprint", () => {
-    const database = makeDatabase();
-    seed(database);
-    const row = database.prepare("SELECT col, row, colSpan, rowSpan FROM widget_configurations WHERE widgetId = 'obs'").get() as {
+  it("all placements are within grid column bounds for their grid type", async () => {
+    await seed();
+    const widgets = testDatabase.prepare("SELECT widgetId, gridType, col, colSpan FROM widget_configurations WHERE dashboardId = ?").all("default") as Array<{
+      widgetId: string;
+      gridType: string;
       col: number;
-      row: number;
+      colSpan: number;
+    }>;
+
+    for (const widget of widgets) {
+      const gridDimensions = GRID_DIMENSIONS[widget.gridType as GridType];
+      expect(widget.col + widget.colSpan).toBeLessThanOrEqual(gridDimensions.columns);
+    }
+  });
+
+  it("all placements meet minimum size constraints from the registry", async () => {
+    await seed();
+    const widgets = testDatabase.prepare("SELECT widgetId, colSpan, rowSpan FROM widget_configurations WHERE dashboardId = ?").all("default") as Array<{
+      widgetId: string;
       colSpan: number;
       rowSpan: number;
-    };
-    expect(row).toMatchObject({ col: 0, row: 0, colSpan: 3, rowSpan: 2 });
+    }>;
+
+    for (const widget of widgets) {
+      const definition = WIDGET_TYPE_REGISTRY[widget.widgetId];
+      expect(definition).toBeDefined();
+      expect(widget.colSpan).toBeGreaterThanOrEqual(definition!.minColSpan);
+      expect(widget.rowSpan).toBeGreaterThanOrEqual(definition!.minRowSpan);
+    }
+  });
+
+  it("all placements respect maximum size constraints from the registry", async () => {
+    await seed();
+    const widgets = testDatabase.prepare("SELECT widgetId, colSpan, rowSpan FROM widget_configurations WHERE dashboardId = ?").all("default") as Array<{
+      widgetId: string;
+      colSpan: number;
+      rowSpan: number;
+    }>;
+
+    for (const widget of widgets) {
+      const definition = WIDGET_TYPE_REGISTRY[widget.widgetId];
+      if (definition?.maxColSpan !== null && definition?.maxColSpan !== undefined) {
+        expect(widget.colSpan).toBeLessThanOrEqual(definition.maxColSpan);
+      }
+      if (definition?.maxRowSpan !== null && definition?.maxRowSpan !== undefined) {
+        expect(widget.rowSpan).toBeLessThanOrEqual(definition.maxRowSpan);
+      }
+    }
+  });
+
+  it("is idempotent — second run produces no duplicates", async () => {
+    await seed();
+    const countBefore = (testDatabase.prepare("SELECT COUNT(*) as count FROM widget_configurations WHERE dashboardId = ?").get("default") as { count: number })
+      .count;
+
+    // Reset modules and re-run
+    vi.resetModules();
+    await seed();
+
+    const countAfter = (testDatabase.prepare("SELECT COUNT(*) as count FROM widget_configurations WHERE dashboardId = ?").get("default") as { count: number })
+      .count;
+    expect(countAfter).toBe(countBefore);
+  });
+
+  it("same widget set across all four grids", async () => {
+    await seed();
+    const gridWidgets: Record<string, string[]> = {};
+    for (const gridType of GRID_TYPES) {
+      const widgets = testDatabase
+        .prepare("SELECT widgetId FROM widget_configurations WHERE dashboardId = ? AND gridType = ? ORDER BY widgetId")
+        .all("default", gridType) as Array<{ widgetId: string }>;
+      gridWidgets[gridType] = widgets.map((w) => w.widgetId);
+    }
+
+    // All grids should have the same set
+    const reference = gridWidgets["large-landscape"]!;
+    for (const gridType of GRID_TYPES) {
+      expect(gridWidgets[gridType]).toEqual(reference);
+    }
   });
 });
