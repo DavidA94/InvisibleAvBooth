@@ -286,7 +286,13 @@ describe("ViscaCameraDriver — inquirePosition", () => {
 
   it("returns null fields when not connected", async () => {
     driver.disconnect();
-    const pos = await driver.inquirePosition();
+    // After disconnect, inquirePosition calls ensureConnected which attempts reconnect.
+    // Simulate the reconnection failing (socket timeout) so the driver remains disconnected.
+    const positionPromise = driver.inquirePosition();
+    // The new Socket() from the reconnect attempt assigns to mockSocketInstance
+    // Emit timeout to simulate unreachable camera — connect() resolves with false
+    mockSocketInstance.emit("timeout");
+    const pos = await positionPromise;
     expect(pos.pan).toBeNull();
     expect(pos.tilt).toBeNull();
     expect(pos.zoom).toBeNull();

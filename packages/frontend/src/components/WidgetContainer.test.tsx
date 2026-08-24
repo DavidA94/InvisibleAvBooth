@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import "../test/ionicMocks";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { WidgetContainer } from "./WidgetContainer";
 import { TEST_ID_CONNECTION_INDICATORS, TEST_ID_WIDGET_TITLE_BAR } from "../constants/testIds";
