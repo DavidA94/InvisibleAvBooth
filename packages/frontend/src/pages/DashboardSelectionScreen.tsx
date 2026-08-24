@@ -6,7 +6,7 @@ import { STORAGE_KEY_DASHBOARD_ID, STORAGE_KEY_DASHBOARD_NAME } from "../constan
 import { TEST_ID_DASHBOARD_SELECTION_SCREEN, TEST_ID_DASHBOARD_OPTION, TEST_ID_NO_DASHBOARDS_SCREEN } from "../constants/testIds";
 
 interface DashboardSummary {
-  id: string;
+  slug: string;
   name: string;
   description: string;
 }
@@ -52,9 +52,9 @@ export function DashboardSelectionScreen(): ReactNode {
   }, []);
 
   const selectDashboard = (dashboard: DashboardSummary): void => {
-    localStorage.setItem(STORAGE_KEY_DASHBOARD_ID, dashboard.id);
+    localStorage.setItem(STORAGE_KEY_DASHBOARD_ID, dashboard.slug);
     localStorage.setItem(STORAGE_KEY_DASHBOARD_NAME, dashboard.name);
-    navigate(`/dashboard/${dashboard.id}`);
+    navigate(`/dashboard/${dashboard.slug}`);
   };
 
   if (loading) {
@@ -92,7 +92,7 @@ export function DashboardSelectionScreen(): ReactNode {
             <h2 className="text-center margin-bottom-spacious">Select Dashboard</h2>
             {dashboards.map((d) => (
               <div
-                key={d.id}
+                key={d.slug}
                 data-testid={TEST_ID_DASHBOARD_OPTION}
                 role="button"
                 tabIndex={0}

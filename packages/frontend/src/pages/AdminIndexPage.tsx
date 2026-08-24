@@ -4,6 +4,7 @@ import { useNavigate } from "react-router";
 import { TEST_ID_ADMIN_INDEX_PAGE } from "../constants/testIds";
 
 const ADMIN_SECTIONS = [
+  { label: "Dashboard Management", path: "/admin/dashboards" },
   { label: "User Management", path: "/admin/users" },
   { label: "Device Management", path: "/admin/devices" },
   { label: "Templates", path: "/admin/templates" },

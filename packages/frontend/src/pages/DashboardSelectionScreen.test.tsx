@@ -35,8 +35,8 @@ describe("DashboardSelectionScreen", () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
       json: async () => [
-        { id: "d1", name: "Main Dashboard", description: "Standard view" },
-        { id: "d2", name: "Tech Dashboard", description: "Advanced controls" },
+        { slug: "main", name: "Main Dashboard", description: "Standard view" },
+        { slug: "tech", name: "Tech Dashboard", description: "Advanced controls" },
       ],
     });
     renderPage();
@@ -58,7 +58,7 @@ describe("DashboardSelectionScreen", () => {
   it("selecting a dashboard stores name and navigates", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
-      json: async () => [{ id: "d1", name: "Main Dashboard", description: "Standard view" }],
+      json: async () => [{ slug: "main", name: "Main Dashboard", description: "Standard view" }],
     });
     renderPage();
     await waitFor(() => {
@@ -66,18 +66,18 @@ describe("DashboardSelectionScreen", () => {
     });
     await userEvent.click(screen.getByTestId(TEST_ID_DASHBOARD_OPTION));
     expect(localStorage.getItem("dashboardName")).toBe("Main Dashboard");
-    expect(mockPush).toHaveBeenCalledWith("/dashboard/d1");
+    expect(mockPush).toHaveBeenCalledWith("/dashboard/main");
   });
 
   it("auto-selects single dashboard on initial auth", async () => {
     sessionStorage.setItem("initialAuth", "true");
     mockFetch.mockResolvedValueOnce({
       ok: true,
-      json: async () => [{ id: "d1", name: "Only Dashboard", description: "" }],
+      json: async () => [{ slug: "only", name: "Only Dashboard", description: "" }],
     });
     renderPage();
     await waitFor(() => {
-      expect(mockPush).toHaveBeenCalledWith("/dashboard/d1");
+      expect(mockPush).toHaveBeenCalledWith("/dashboard/only");
     });
   });
 
@@ -101,7 +101,7 @@ describe("DashboardSelectionScreen", () => {
   it("selects dashboard on Enter key", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
-      json: async () => [{ id: "d1", name: "Main", description: "" }],
+      json: async () => [{ slug: "main", name: "Main", description: "" }],
     });
     renderPage();
     await waitFor(() => {
@@ -110,6 +110,6 @@ describe("DashboardSelectionScreen", () => {
     const option = screen.getByTestId(TEST_ID_DASHBOARD_OPTION);
     option.focus();
     await userEvent.keyboard("{Enter}");
-    expect(mockPush).toHaveBeenCalledWith("/dashboard/d1");
+    expect(mockPush).toHaveBeenCalledWith("/dashboard/main");
   });
 });

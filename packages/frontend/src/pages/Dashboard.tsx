@@ -4,10 +4,7 @@ import { IonPage, IonContent, IonSpinner } from "@ionic/react";
 import { useNavigate, useParams } from "react-router";
 import type { GridManifest, GridCell, Role } from "../types";
 import { useStore } from "../store";
-import { ObsWidget } from "../components/obs/ObsWidget";
-import { LowerThirdWidget } from "../components/lower-thirds/LowerThirdWidget";
-import { ObsPreviewWidget } from "../components/obs-preview/ObsPreviewWidget";
-import { CameraWidget } from "../components/camera/CameraWidget";
+import { renderWidget } from "../components/widgetRenderer";
 import { TEST_ID_DASHBOARD_GRID, TEST_ID_DASHBOARD_LOADING, TEST_ID_DASHBOARD_REFRESHING } from "../constants/testIds";
 import {
   GRID_DIMENSIONS,
@@ -122,29 +119,6 @@ function isStructuralChange(cached: GridCell[], fresh: GridCell[]): boolean {
   const key = (c: GridCell): string => `${c.widgetId}:${c.col}:${c.row}:${c.colSpan}:${c.rowSpan}`;
   const cachedKeys = new Set(cached.map(key));
   return fresh.some((c) => !cachedKeys.has(key(c)));
-}
-
-// ── Widget renderer ───────────────────────────────────────────────────────────
-
-function WidgetPlaceholder({ cell }: { cell: GridCell }): ReactNode {
-  const ndiConfigured = useStore((s) => s.obsPreviewNdiConfigured);
-  if (cell.widgetId === "obs") {
-    return <ObsWidget />;
-  }
-  if (cell.widgetId === "lower-thirds") {
-    return <LowerThirdWidget />;
-  }
-  if (cell.widgetId === "obs-preview") {
-    return <ObsPreviewWidget enabled={true} ndiConfigured={ndiConfigured} />;
-  }
-  if (cell.widgetId === "camera") {
-    return <CameraWidget />;
-  }
-  return (
-    <div data-testid={`widget-${cell.widgetId}`} className="surface layout-centered full-height">
-      {cell.title}
-    </div>
-  );
 }
 
 // ── Default fallback manifest ─────────────────────────────────────────────────
@@ -291,7 +265,7 @@ export function Dashboard(): ReactNode {
                 gridRow: `${cell.row + 1} / span ${cell.rowSpan}`,
               }}
             >
-              <WidgetPlaceholder cell={cell} />
+              {renderWidget(cell)}
             </div>
           ))}
         </div>
