@@ -32,25 +32,32 @@ export function sessionManifestFilled(overrides?: Partial<SessionManifestPayload
 }
 
 export interface DashboardLayoutPayload {
-  version: 1;
-  cells: Array<{
-    widgetId: string;
-    title: string;
-    col: number;
-    row: number;
-    colSpan: number;
-    rowSpan: number;
-    roleMinimum: string;
-  }>;
+  grids: Record<
+    string,
+    Array<{
+      widgetId: string;
+      title: string;
+      col: number;
+      row: number;
+      colSpan: number;
+      rowSpan: number;
+      roleMinimum: string;
+    }>
+  >;
 }
 
 export function dashboardLayoutDefault(): DashboardLayoutPayload {
+  const cells = [{ widgetId: "obs", title: "OBS", col: 0, row: 0, colSpan: 3, rowSpan: 2, roleMinimum: "AvVolunteer" }];
   return {
-    version: 1,
-    cells: [{ widgetId: "obs", title: "OBS", col: 0, row: 0, colSpan: 2, rowSpan: 2, roleMinimum: "AvVolunteer" }],
+    grids: {
+      "large-landscape": cells,
+      "large-portrait": cells,
+      "small-landscape": cells,
+      "small-portrait": cells,
+    },
   };
 }
 
-export function dashboardListDefault(): Array<{ id: string; name: string; description: string }> {
-  return [{ id: "default", name: "Main Dashboard", description: "Primary control dashboard" }];
+export function dashboardListDefault(): Array<{ slug: string; name: string; description: string }> {
+  return [{ slug: "default", name: "Main Dashboard", description: "Primary control dashboard" }];
 }
