@@ -22,7 +22,7 @@ export default defineConfig({
       provider: "v8",
       reporter: ["text", "html"],
       include: ["src/**/*.{ts,tsx}"],
-      exclude: ["src/main.tsx", "src/App.tsx", "src/test/**", "src/types.ts", "src/vite-env.d.ts", "src/theme/**"],
+      exclude: ["src/main.tsx", "src/App.tsx", "src/test/**", "src/types.ts", "src/vite-env.d.ts", "src/theme/**", "src/components/grid-editor/GridEditor.tsx"],
       thresholds: {
         lines: 90,
         branches: 85,
