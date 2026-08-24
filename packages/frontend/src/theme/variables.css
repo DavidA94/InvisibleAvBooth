@@ -103,3 +103,11 @@ ion-input .input-password-toggle-icon {
     opacity: 0.3;
   }
 }
+
+/* ── Dashboard viewport scaling ────────────────────────────────────────────── */
+/* Only applies when a dashboard is mounted (.dashboard-page in the DOM).
+   Falls back to 16px when no .dashboard-page exists (admin pages, login, etc).
+   The custom property is set by the useGridScale hook in Dashboard.tsx. */
+html:has(.dashboard-page) {
+  font-size: var(--dashboard-scale-font-size, 16px);
+}
