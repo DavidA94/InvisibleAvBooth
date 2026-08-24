@@ -29,16 +29,20 @@ export function applySchema(database: Database): void {
 
     CREATE TABLE IF NOT EXISTS dashboards (
       id TEXT PRIMARY KEY NOT NULL,
+      slug TEXT NOT NULL UNIQUE,
       name TEXT NOT NULL,
       description TEXT NOT NULL DEFAULT '',
       allowedRoles TEXT NOT NULL DEFAULT '[]',
       createdAt TEXT NOT NULL
     );
 
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_dashboards_name_lower ON dashboards(LOWER(name));
+
     CREATE TABLE IF NOT EXISTS widget_configurations (
       id TEXT PRIMARY KEY NOT NULL,
       dashboardId TEXT NOT NULL REFERENCES dashboards(id) ON DELETE CASCADE,
       widgetId TEXT NOT NULL,
+      gridType TEXT NOT NULL CHECK(gridType IN ('large-landscape', 'large-portrait', 'small-landscape', 'small-portrait')),
       title TEXT NOT NULL,
       col INTEGER NOT NULL,
       row INTEGER NOT NULL,
@@ -46,7 +50,7 @@ export function applySchema(database: Database): void {
       rowSpan INTEGER NOT NULL,
       roleMinimum TEXT NOT NULL CHECK(roleMinimum IN ('ADMIN', 'AvPowerUser', 'AvVolunteer')),
       createdAt TEXT NOT NULL,
-      UNIQUE(dashboardId, widgetId)
+      UNIQUE(dashboardId, widgetId, gridType)
     );
 
     CREATE TABLE IF NOT EXISTS metadata_templates (
@@ -108,6 +112,7 @@ export function applySchema(database: Database): void {
   `);
 
   migrateMetadataTemplates(database);
+  migrateDashboardSchema(database);
 }
 
 /**
@@ -139,3 +144,64 @@ function migrateMetadataTemplates(database: Database): void {
     ALTER TABLE metadata_templates_new RENAME TO metadata_templates;
   `);
 }
+
+/**
+ * Migrates the dashboard schema to add slug column and gridType column.
+ *
+ * Detects old schema by checking if widget_configurations has a gridType column.
+ * Since there are no production deployments on the old format, this is a
+ * destructive migration — widget_configurations is dropped and recreated.
+ * Existing dashboards get a slug derived from their name.
+ */
+function migrateDashboardSchema(database: Database): void {
+  const widgetColumns = database.pragma("table_info(widget_configurations)") as Array<{ name: string }>;
+  const hasGridType = widgetColumns.some((col) => col.name === "gridType");
+  if (hasGridType) return; // already migrated
+
+  // Check if dashboards table has slug column
+  const dashboardColumns = database.pragma("table_info(dashboards)") as Array<{ name: string }>;
+  const hasSlug = dashboardColumns.some((col) => col.name === "slug");
+
+  if (!hasSlug) {
+    // Add slug column to dashboards — generate default slugs from existing names
+    database.exec(`ALTER TABLE dashboards ADD COLUMN slug TEXT NOT NULL DEFAULT ''`);
+
+    // Generate slugs for existing dashboards
+    const rows = database.prepare("SELECT id, name FROM dashboards").all() as Array<{ id: string; name: string }>;
+    const updateSlug = database.prepare("UPDATE dashboards SET slug = ? WHERE id = ?");
+    for (const row of rows) {
+      const slug =
+        row.name
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-|-$/g, "") || row.id;
+      updateSlug.run(slug, row.id);
+    }
+
+    // Add unique constraint on slug (recreate table since SQLite can't add constraints)
+    // For simplicity in dev, we just create the unique index
+    database.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_dashboards_slug ON dashboards(slug)`);
+    database.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_dashboards_name_lower ON dashboards(LOWER(name))`);
+  }
+
+  // Drop and recreate widget_configurations with gridType column
+  database.exec(`DROP TABLE IF EXISTS widget_configurations`);
+  database.exec(`
+    CREATE TABLE widget_configurations (
+      id TEXT PRIMARY KEY NOT NULL,
+      dashboardId TEXT NOT NULL REFERENCES dashboards(id) ON DELETE CASCADE,
+      widgetId TEXT NOT NULL,
+      gridType TEXT NOT NULL CHECK(gridType IN ('large-landscape', 'large-portrait', 'small-landscape', 'small-portrait')),
+      title TEXT NOT NULL,
+      col INTEGER NOT NULL,
+      row INTEGER NOT NULL,
+      colSpan INTEGER NOT NULL,
+      rowSpan INTEGER NOT NULL,
+      roleMinimum TEXT NOT NULL CHECK(roleMinimum IN ('ADMIN', 'AvPowerUser', 'AvVolunteer')),
+      createdAt TEXT NOT NULL,
+      UNIQUE(dashboardId, widgetId, gridType)
+    )
+  `);
+}
+
+export { migrateMetadataTemplates, migrateDashboardSchema };
