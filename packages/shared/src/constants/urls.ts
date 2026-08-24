@@ -22,11 +22,12 @@ export const URL_ADMIN_DEVICE_BY_ID = (id: string): string => `/api/admin/device
 // ── Admin Dashboards ───────────────────────────────────────────────────────────
 
 export const URL_ADMIN_DASHBOARDS = "/api/admin/dashboards" as const;
+export const URL_ADMIN_DASHBOARD_BY_ID = (id: string): string => `/api/admin/dashboards/${id}`;
 
 // ── Dashboards ─────────────────────────────────────────────────────────────────
 
 export const URL_DASHBOARDS = "/api/dashboards" as const;
-export const URL_DASHBOARD_LAYOUT = (id: string): string => `/api/dashboards/${id}/layout`;
+export const URL_DASHBOARD_LAYOUT = (slug: string): string => `/api/dashboards/${slug}/layout`;
 
 // ── Session ────────────────────────────────────────────────────────────────────
 

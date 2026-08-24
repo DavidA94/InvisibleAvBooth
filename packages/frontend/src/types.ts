@@ -21,6 +21,9 @@ export type {
   PageBreakdown,
   AddLowerThirdInput,
   EditLowerThirdInput,
+  GridType,
+  GridDimensions,
+  WidgetTypeDefinition,
 } from "@invisible-av-booth/shared";
 
 import type { SessionManifestFields } from "@invisible-av-booth/shared";

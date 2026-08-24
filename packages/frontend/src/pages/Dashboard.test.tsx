@@ -13,7 +13,7 @@ vi.mock("react-router", async () => {
   return {
     ...actual,
     useNavigate: () => mockReplace,
-    useParams: () => ({ id: "d1" }),
+    useParams: () => ({ slug: "default" }),
   };
 });
 
@@ -26,8 +26,12 @@ const mockFetch = vi.fn();
 vi.stubGlobal("fetch", mockFetch);
 
 const TEST_MANIFEST: GridManifest = {
-  version: 1,
-  cells: [{ widgetId: "obs", title: "OBS", col: 0, row: 0, colSpan: 3, rowSpan: 2, roleMinimum: "AvVolunteer" }],
+  grids: {
+    "large-landscape": [{ widgetId: "obs", title: "OBS", col: 0, row: 0, colSpan: 3, rowSpan: 2, roleMinimum: "AvVolunteer" }],
+    "large-portrait": [{ widgetId: "obs", title: "OBS", col: 0, row: 0, colSpan: 3, rowSpan: 2, roleMinimum: "AvVolunteer" }],
+    "small-landscape": [{ widgetId: "obs", title: "OBS", col: 0, row: 0, colSpan: 3, rowSpan: 2, roleMinimum: "AvVolunteer" }],
+    "small-portrait": [{ widgetId: "obs", title: "OBS", col: 0, row: 0, colSpan: 3, rowSpan: 2, roleMinimum: "AvVolunteer" }],
+  },
 };
 
 beforeEach(() => {
@@ -52,11 +56,6 @@ function renderPage(): ReturnType<typeof render> {
 }
 
 describe("Dashboard", () => {
-  it("redirects to /dashboards when no dashboardId in localStorage", () => {
-    // With useParams mocked to return { id: "d1" }, this test needs
-    // a separate mock returning undefined. Skip — covered by URL routing.
-  });
-
   it("shows Loading spinner on first load", () => {
     mockFetch.mockReturnValueOnce(new Promise(() => {})); // Never resolves
     renderPage();
@@ -76,7 +75,7 @@ describe("Dashboard", () => {
   });
 
   it("falls back to localStorage cache on fetch failure", async () => {
-    localStorage.setItem("dashboardLayout:d1", JSON.stringify(TEST_MANIFEST));
+    localStorage.setItem("dashboardLayout:default", JSON.stringify(TEST_MANIFEST));
     mockFetch.mockRejectedValueOnce(new Error("network"));
     renderPage();
     await waitFor(() => {
@@ -88,14 +87,22 @@ describe("Dashboard", () => {
   it("shows Refreshing spinner on structural change", async () => {
     vi.useFakeTimers();
     const cachedManifest: GridManifest = {
-      version: 1,
-      cells: [{ widgetId: "obs", title: "OBS", col: 0, row: 0, colSpan: 3, rowSpan: 2, roleMinimum: "AvVolunteer" }],
+      grids: {
+        "large-landscape": [{ widgetId: "obs", title: "OBS", col: 0, row: 0, colSpan: 3, rowSpan: 2, roleMinimum: "AvVolunteer" }],
+        "large-portrait": [{ widgetId: "obs", title: "OBS", col: 0, row: 0, colSpan: 3, rowSpan: 2, roleMinimum: "AvVolunteer" }],
+        "small-landscape": [{ widgetId: "obs", title: "OBS", col: 0, row: 0, colSpan: 3, rowSpan: 2, roleMinimum: "AvVolunteer" }],
+        "small-portrait": [{ widgetId: "obs", title: "OBS", col: 0, row: 0, colSpan: 3, rowSpan: 2, roleMinimum: "AvVolunteer" }],
+      },
     };
     const freshManifest: GridManifest = {
-      version: 1,
-      cells: [{ widgetId: "obs", title: "OBS", col: 1, row: 0, colSpan: 3, rowSpan: 2, roleMinimum: "AvVolunteer" }],
+      grids: {
+        "large-landscape": [{ widgetId: "obs", title: "OBS", col: 1, row: 0, colSpan: 3, rowSpan: 2, roleMinimum: "AvVolunteer" }],
+        "large-portrait": [{ widgetId: "obs", title: "OBS", col: 1, row: 0, colSpan: 3, rowSpan: 2, roleMinimum: "AvVolunteer" }],
+        "small-landscape": [{ widgetId: "obs", title: "OBS", col: 1, row: 0, colSpan: 3, rowSpan: 2, roleMinimum: "AvVolunteer" }],
+        "small-portrait": [{ widgetId: "obs", title: "OBS", col: 1, row: 0, colSpan: 3, rowSpan: 2, roleMinimum: "AvVolunteer" }],
+      },
     };
-    localStorage.setItem("dashboardLayout:d1", JSON.stringify(cachedManifest));
+    localStorage.setItem("dashboardLayout:default", JSON.stringify(cachedManifest));
     mockFetch.mockResolvedValueOnce({
       ok: true,
       json: async () => freshManifest,
@@ -138,12 +145,17 @@ describe("Dashboard", () => {
 
   it("filters cells by user role", async () => {
     useStore.setState({ user: { id: "u1", username: "vol", role: "AvVolunteer" } });
+    const cells = [
+      { widgetId: "obs", title: "OBS", col: 0, row: 0, colSpan: 3, rowSpan: 2, roleMinimum: "AvVolunteer" as const },
+      { widgetId: "admin-only", title: "Admin", col: 3, row: 0, colSpan: 3, rowSpan: 2, roleMinimum: "ADMIN" as const },
+    ];
     const manifest: GridManifest = {
-      version: 1,
-      cells: [
-        { widgetId: "obs", title: "OBS", col: 0, row: 0, colSpan: 3, rowSpan: 2, roleMinimum: "AvVolunteer" },
-        { widgetId: "admin-only", title: "Admin", col: 3, row: 0, colSpan: 3, rowSpan: 2, roleMinimum: "ADMIN" },
-      ],
+      grids: {
+        "large-landscape": cells,
+        "large-portrait": cells,
+        "small-landscape": cells,
+        "small-portrait": cells,
+      },
     };
     mockFetch.mockResolvedValueOnce({ ok: true, json: async () => manifest });
     renderPage();
@@ -154,7 +166,7 @@ describe("Dashboard", () => {
     expect(screen.queryByText("Admin")).not.toBeInTheDocument();
   });
 
-  it("uses default manifest when version is not 1", async () => {
+  it("uses default manifest when response has invalid format", async () => {
     mockFetch.mockResolvedValueOnce({ ok: true, json: async () => ({ version: 99, cells: [] }) });
     renderPage();
     await waitFor(() => {
@@ -179,9 +191,14 @@ describe("Dashboard", () => {
   });
 
   it("renders non-obs widget as placeholder", async () => {
+    const cells = [{ widgetId: "audio", title: "Audio", col: 0, row: 0, colSpan: 3, rowSpan: 2, roleMinimum: "AvVolunteer" as const }];
     const manifest: GridManifest = {
-      version: 1,
-      cells: [{ widgetId: "audio", title: "Audio", col: 0, row: 0, colSpan: 3, rowSpan: 2, roleMinimum: "AvVolunteer" }],
+      grids: {
+        "large-landscape": cells,
+        "large-portrait": cells,
+        "small-landscape": cells,
+        "small-portrait": cells,
+      },
     };
     mockFetch.mockResolvedValueOnce({ ok: true, json: async () => manifest });
     renderPage();
@@ -189,5 +206,30 @@ describe("Dashboard", () => {
       expect(screen.getByTestId("widget-audio")).toBeInTheDocument();
     });
     expect(screen.getByText("Audio")).toBeInTheDocument();
+  });
+
+  it("normalizes legacy API response (version/cells format)", async () => {
+    const legacyResponse = {
+      version: 1,
+      cells: [{ widgetId: "obs", title: "OBS", col: 0, row: 0, colSpan: 3, rowSpan: 2, roleMinimum: "AvVolunteer" }],
+    };
+    mockFetch.mockResolvedValueOnce({ ok: true, json: async () => legacyResponse });
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByTestId(TEST_ID_DASHBOARD_GRID)).toBeInTheDocument();
+    });
+    expect(screen.getByTestId("widget-obs")).toBeInTheDocument();
+  });
+
+  it("clears invalid cache from localStorage", async () => {
+    localStorage.setItem("dashboardLayout:default", JSON.stringify({ version: 1, cells: [] }));
+    mockFetch.mockResolvedValueOnce({ ok: true, json: async () => TEST_MANIFEST });
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByTestId(TEST_ID_DASHBOARD_GRID)).toBeInTheDocument();
+    });
+    // The old format cache should have been cleared and replaced
+    const cached = JSON.parse(localStorage.getItem("dashboardLayout:default")!);
+    expect(cached).toHaveProperty("grids");
   });
 });

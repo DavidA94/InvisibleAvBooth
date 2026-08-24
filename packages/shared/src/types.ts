@@ -43,8 +43,7 @@ export interface Notification {
 }
 
 export interface GridManifest {
-  version: 1;
-  cells: GridCell[];
+  grids: Record<string, GridCell[]>;
 }
 
 export interface GridCell {

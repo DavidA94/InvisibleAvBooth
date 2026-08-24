@@ -256,3 +256,29 @@ export const TEST_ID_AUDIO_METER_RIGHT = "audio-meter-right";
 
 // ── Fullscreen Toggle ──────────────────────────────────────────────────────────
 export const TEST_ID_FULLSCREEN_BUTTON = "fullscreen-button";
+
+// ── Admin Dashboard Management ─────────────────────────────────────────────────
+export const TEST_ID_ADMIN_DASHBOARDS_PAGE = "admin-dashboards-page";
+export const TEST_ID_DASHBOARD_LIST = "dashboard-list";
+export const TEST_ID_DASHBOARD_LIST_ITEM = "dashboard-list-item";
+export const TEST_ID_ADD_DASHBOARD_BUTTON = "add-dashboard-button";
+export const TEST_ID_DASHBOARD_FORM_NAME = "dashboard-form-name";
+export const TEST_ID_DASHBOARD_FORM_SLUG = "dashboard-form-slug";
+export const TEST_ID_DASHBOARD_FORM_DESCRIPTION = "dashboard-form-description";
+export const TEST_ID_DASHBOARD_FORM_ROLES = "dashboard-form-roles";
+export const TEST_ID_DASHBOARD_FORM_SAVE = "dashboard-form-save";
+export const TEST_ID_DASHBOARD_FORM_DELETE = "dashboard-form-delete";
+export const TEST_ID_DASHBOARD_FORM_ERROR = "dashboard-form-error";
+export const TEST_ID_DASHBOARD_GRID_TAB = "dashboard-grid-tab";
+export const TEST_ID_DASHBOARD_GRID_EDITOR = "dashboard-grid-editor";
+export const TEST_ID_GRID_EDITOR_WIDGET = "grid-editor-widget";
+export const TEST_ID_GRID_EDITOR_GHOST = "grid-editor-ghost";
+export const TEST_ID_GRID_EDITOR_ADD_WIDGET = "grid-editor-add-widget";
+export const TEST_ID_GRID_EDITOR_WIDGET_DELETE = "grid-editor-widget-delete";
+export const TEST_ID_GRID_EDITOR_WIDGET_OPTIONS = "grid-editor-widget-options";
+export const TEST_ID_GRID_EDITOR_ADD_ROW = "grid-editor-add-row";
+export const TEST_ID_GRID_EDITOR_SCREEN_EDGE = "grid-editor-screen-edge";
+export const TEST_ID_DASHBOARD_LIST_DELETE_BUTTON = "dashboard-list-delete-button";
+export const TEST_ID_DASHBOARD_SLUG_ERROR = "dashboard-slug-error";
+export const TEST_ID_DASHBOARD_DETAIL_PANEL = "dashboard-detail-panel";
+export const TEST_ID_DASHBOARD_DETAIL_EMPTY = "dashboard-detail-empty";

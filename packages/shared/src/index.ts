@@ -7,6 +7,23 @@ export * from "./constants/socketEvents.js";
 export * from "./constants/urls.js";
 export * from "./constants/preview.js";
 
+// Widget Type Registry
+export { WIDGET_TYPE_REGISTRY, WIDGET_TYPE_IDS } from "./widgetTypeRegistry.js";
+export type { WidgetTypeDefinition } from "./widgetTypeRegistry.js";
+
+// Grid Types
+export {
+  GRID_TYPES,
+  GRID_DIMENSIONS,
+  GRID_CELL_SIZE_REM,
+  GRID_GAP_SIZE_REM,
+  computeGridHeightRem,
+  BREAKPOINT_LARGE_WIDTH,
+  BREAKPOINT_LARGE_HEIGHT,
+  MIN_SCALE_FLOOR,
+} from "./gridTypes.js";
+export type { GridType, GridDimensions } from "./gridTypes.js";
+
 // Types
 export type {
   Role,

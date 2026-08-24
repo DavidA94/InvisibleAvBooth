@@ -57,7 +57,7 @@ export function App(): ReactNode {
                       <Routes>
                         <Route path="/change-password" element={<ChangePasswordPage />} />
                         <Route path="/dashboards" element={<DashboardSelectionScreen />} />
-                        <Route path="/dashboard/:id" element={<Dashboard />} />
+                        <Route path="/dashboard/:slug" element={<Dashboard />} />
                         <Route path="/admin" element={<AdminIndexPage />} />
                         <Route path="/admin/users" element={<AdminUserManagement />} />
                         <Route path="/admin/devices" element={<AdminDeviceManagement />} />
