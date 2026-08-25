@@ -80,6 +80,23 @@ export function darkSelectStyles<Option, IsMulti extends boolean = false, Group 
       ...base,
       color: "var(--color-text-muted)",
     }),
+    multiValue: (base) => ({
+      ...base,
+      background: "var(--color-surface)",
+      borderRadius: "0.25rem",
+      border: "1px solid var(--color-border)",
+    }),
+    multiValueLabel: (base) => ({
+      ...base,
+      color: "var(--color-text)",
+      fontSize: "0.8rem",
+      padding: "0.125rem 0.375rem",
+    }),
+    multiValueRemove: (base) => ({
+      ...base,
+      color: "var(--color-text-muted)",
+      "&:hover": { background: "var(--color-danger)", color: "var(--color-text)" },
+    }),
     menuPortal: (base) => ({
       ...base,
       zIndex: 10100,

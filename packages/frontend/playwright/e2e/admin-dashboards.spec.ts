@@ -141,7 +141,8 @@ test.describe("Admin Dashboard Management", () => {
     await page.getByTestId("dashboard-detail-panel").waitFor();
 
     const addWidget = page.getByTestId("grid-editor-add-widget");
-    await addWidget.selectOption("obs");
+    await addWidget.locator("input").click();
+    await page.getByRole("option", { name: "OBS", exact: true }).click();
 
     await expect(page.getByTestId("grid-editor-widget-obs")).toBeVisible();
   });

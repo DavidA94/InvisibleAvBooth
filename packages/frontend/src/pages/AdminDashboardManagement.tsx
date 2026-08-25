@@ -389,58 +389,64 @@ export function AdminDashboardManagement(): ReactNode {
                   </div>
                 )}
 
-                {/* Name */}
-                <label className="form-field">
-                  <span className="form-label">Name</span>
-                  <input data-testid={TEST_ID_DASHBOARD_FORM_NAME} type="text" value={name} onChange={(e) => setName(e.target.value)} className="form-input" />
-                </label>
-
-                {/* Slug */}
-                <label className="form-field">
-                  <span className="form-label">Slug</span>
-                  <input
-                    data-testid={TEST_ID_DASHBOARD_FORM_SLUG}
-                    type="text"
-                    value={slug}
-                    onChange={(e) => {
-                      setSlug(e.target.value);
-                      validateSlugField(e.target.value);
-                    }}
-                    className="form-input"
-                  />
-                  {slugError && (
-                    <span data-testid={TEST_ID_DASHBOARD_SLUG_ERROR} className="form-field-error">
-                      {slugError}
-                    </span>
-                  )}
-                </label>
-
-                {/* Description */}
-                <label className="form-field">
-                  <span className="form-label">Description</span>
-                  <input
-                    data-testid={TEST_ID_DASHBOARD_FORM_DESCRIPTION}
-                    type="text"
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    className="form-input"
-                  />
-                </label>
-
-                {/* Allowed Roles */}
-                <div className="form-field">
-                  <span className="form-label">Allowed Roles</span>
-                  <div data-testid={TEST_ID_DASHBOARD_FORM_ROLES}>
-                    <Select
-                      isMulti
-                      options={ROLE_OPTIONS}
-                      value={selectedRoles}
-                      onChange={(selected) => setSelectedRoles([...selected])}
-                      styles={darkSelectStyles<RoleOption, true>()}
-                      placeholder="Select roles..."
+                {/* Row 1: Name | Slug | Allowed Roles (3 columns) */}
+                <div className="form-row-3col">
+                  <label className="form-field">
+                    <span className="form-label">Name</span>
+                    <input
+                      data-testid={TEST_ID_DASHBOARD_FORM_NAME}
+                      type="text"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      className="form-input"
                     />
+                  </label>
+
+                  <label className="form-field">
+                    <span className="form-label">Slug</span>
+                    <input
+                      data-testid={TEST_ID_DASHBOARD_FORM_SLUG}
+                      type="text"
+                      value={slug}
+                      onChange={(e) => {
+                        setSlug(e.target.value);
+                        validateSlugField(e.target.value);
+                      }}
+                      className="form-input"
+                    />
+                    {slugError && (
+                      <span data-testid={TEST_ID_DASHBOARD_SLUG_ERROR} className="form-field-error">
+                        {slugError}
+                      </span>
+                    )}
+                  </label>
+
+                  <div className="form-field">
+                    <span className="form-label">Allowed Roles</span>
+                    <div data-testid={TEST_ID_DASHBOARD_FORM_ROLES}>
+                      <Select
+                        isMulti
+                        options={ROLE_OPTIONS}
+                        value={selectedRoles}
+                        onChange={(selected) => setSelectedRoles([...selected])}
+                        styles={darkSelectStyles<RoleOption, true>()}
+                        placeholder="Select roles..."
+                      />
+                    </div>
                   </div>
                 </div>
+
+                {/* Row 2: Description (full width, multi-line) */}
+                <label className="form-field">
+                  <span className="form-label">Description</span>
+                  <textarea
+                    data-testid={TEST_ID_DASHBOARD_FORM_DESCRIPTION}
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    className="form-input form-textarea"
+                    rows={3}
+                  />
+                </label>
 
                 {/* Grid tabs */}
                 <div className="form-field">
@@ -464,40 +470,31 @@ export function AdminDashboardManagement(): ReactNode {
                   </IonSegment>
                 </div>
 
-                {/* Add widget */}
-                {availableWidgets.length > 0 && (
-                  <div className="form-field">
-                    <select
-                      data-testid={TEST_ID_GRID_EDITOR_ADD_WIDGET}
-                      onChange={(e) => {
-                        if (e.target.value) {
-                          addWidget(e.target.value);
-                          e.target.value = "";
-                        }
-                      }}
-                      className="form-input"
-                      defaultValue=""
-                    >
-                      <option value="" disabled>
-                        + Add Widget...
-                      </option>
-                      {availableWidgets.map((id) => (
-                        <option key={id} value={id}>
-                          {WIDGET_TYPE_REGISTRY[id]?.displayName ?? id}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-
-                {/* Grid editor */}
-                <GridEditor
-                  gridType={activeTab}
-                  widgets={grids[activeTab]}
-                  onWidgetsChange={(updated) => setGrids((prev) => ({ ...prev, [activeTab]: updated }))}
-                  onDeleteWidget={(widgetId) => setRemoveConfirmWidget(widgetId)}
-                  onRoleChange={changeWidgetRole}
-                />
+                {/* Grid editor with add-widget on the right */}
+                <div className="grid-editor-row">
+                  <GridEditor
+                    gridType={activeTab}
+                    widgets={grids[activeTab]}
+                    onWidgetsChange={(updated) => setGrids((prev) => ({ ...prev, [activeTab]: updated }))}
+                    onDeleteWidget={(widgetId) => setRemoveConfirmWidget(widgetId)}
+                    onRoleChange={changeWidgetRole}
+                  />
+                  {availableWidgets.length > 0 && (
+                    <div className="grid-editor-add-widget-panel" data-testid={TEST_ID_GRID_EDITOR_ADD_WIDGET}>
+                      <span className="form-label">Add Widget</span>
+                      <Select
+                        options={availableWidgets.map((id) => ({ value: id, label: WIDGET_TYPE_REGISTRY[id]?.displayName ?? id }))}
+                        value={null}
+                        onChange={(selected) => {
+                          if (selected) addWidget(selected.value);
+                        }}
+                        styles={darkSelectStyles<{ value: string; label: string }>()}
+                        placeholder="+ Add..."
+                        isClearable={false}
+                      />
+                    </div>
+                  )}
+                </div>
 
                 {/* Action buttons */}
                 <div className="form-actions">

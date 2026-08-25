@@ -292,18 +292,19 @@ export function GridEditor({ gridType, widgets, onWidgetsChange, onDeleteWidget,
             onPointerDown={(e) => handlePointerDown(e, widget.widgetId, "move")}
           >
             {/* Widget label */}
-            <div className="grid-editor-widget-label" style={{ textAlign: "center", padding: "0.25rem", fontSize: `${Math.max(10, 12 * scale)}px` }}>
+            <div className="grid-editor-widget-label" style={{ padding: "0.25rem", fontSize: `${Math.max(11, 14 * scale)}px` }}>
               {displayName}
             </div>
             {/* Size and role info */}
             <div
+              className="grid-editor-widget-info"
               style={{
                 position: "absolute",
                 bottom: "2px",
-                left: 0,
+                left: "4px",
                 right: 0,
-                textAlign: "center",
-                fontSize: `${Math.max(8, 9 * scale)}px`,
+                textAlign: "left",
+                fontSize: "0.6rem",
                 color: "var(--color-text-muted, #A0A0A0)",
               }}
             >
