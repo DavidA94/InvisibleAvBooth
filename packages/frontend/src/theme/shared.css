@@ -772,6 +772,7 @@
 .dashboard-grid {
   display: grid;
   margin: 0 auto;
+  padding: var(--space-screen-edge);
 }
 
 /* Dashboard selection */

@@ -316,10 +316,9 @@ export function AdminDashboardManagement(): ReactNode {
     void loadDashboards();
   };
 
-  // ── Available widgets for "Add Widget" ────────────────────────────────────
+  // ── Placed widget tracking for "Add Widget" dropdown ────────────────────────
 
   const placedWidgetIds = new Set(grids[activeTab].map((w) => w.widgetId));
-  const availableWidgets = WIDGET_TYPE_IDS.filter((id) => !placedWidgetIds.has(id));
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -475,21 +474,23 @@ export function AdminDashboardManagement(): ReactNode {
 
                 {/* Grid editor with add-widget on the left */}
                 <div className="grid-editor-row">
-                  {availableWidgets.length > 0 && (
-                    <div className="grid-editor-add-widget-panel" data-testid={TEST_ID_GRID_EDITOR_ADD_WIDGET}>
-                      <span className="form-label">Add Widget</span>
-                      <Select
-                        options={availableWidgets.map((id) => ({ value: id, label: WIDGET_TYPE_REGISTRY[id]?.displayName ?? id }))}
-                        value={null}
-                        onChange={(selected) => {
-                          if (selected) addWidget(selected.value);
-                        }}
-                        styles={darkSelectStyles<{ value: string; label: string }>()}
-                        placeholder="+ Add..."
-                        isClearable={false}
-                      />
-                    </div>
-                  )}
+                  <div className="grid-editor-add-widget-panel" data-testid={TEST_ID_GRID_EDITOR_ADD_WIDGET}>
+                    <span className="form-label">Add Widget</span>
+                    <Select
+                      options={WIDGET_TYPE_IDS.map((id) => ({
+                        value: id,
+                        label: WIDGET_TYPE_REGISTRY[id]?.displayName ?? id,
+                      }))}
+                      value={null}
+                      onChange={(selected) => {
+                        if (selected) addWidget(selected.value);
+                      }}
+                      styles={darkSelectStyles<{ value: string; label: string }>()}
+                      placeholder="+ Add..."
+                      isClearable={false}
+                      isOptionDisabled={(option) => placedWidgetIds.has(option.value)}
+                    />
+                  </div>
                   <GridEditor
                     gridType={activeTab}
                     widgets={grids[activeTab]}

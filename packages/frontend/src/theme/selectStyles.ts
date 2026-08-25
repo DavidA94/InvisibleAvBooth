@@ -34,11 +34,12 @@ export function darkSelectStyles<Option, IsMulti extends boolean = false, Group 
     }),
     option: (base, state) => ({
       ...base,
-      background: state.isFocused ? "var(--color-primary)" : "transparent",
-      color: state.isFocused ? "var(--color-text)" : "var(--color-text)",
+      background: state.isDisabled ? "transparent" : state.isFocused ? "var(--color-primary)" : "transparent",
+      color: state.isDisabled ? "var(--color-text-muted)" : "var(--color-text)",
       padding: "0.5rem 0.75rem",
-      cursor: "pointer",
-      "&:active": { background: "var(--color-primary-hover)" },
+      cursor: state.isDisabled ? "not-allowed" : "pointer",
+      opacity: state.isDisabled ? 0.5 : 1,
+      "&:active": { background: state.isDisabled ? "transparent" : "var(--color-primary-hover)" },
     }),
     singleValue: (base, state) => ({
       ...base,
