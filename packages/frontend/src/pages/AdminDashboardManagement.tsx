@@ -66,10 +66,10 @@ const ROLE_OPTIONS: RoleOption[] = [
 ];
 
 const GRID_TABS: Array<{ gridType: GridType; icon: string; label: string; ariaLabel: string }> = [
-  { gridType: "large-landscape", icon: tabletLandscapeOutline, label: "Large", ariaLabel: "Large Landscape" },
-  { gridType: "small-landscape", icon: phoneLandscapeOutline, label: "Small", ariaLabel: "Small Landscape" },
-  { gridType: "large-portrait", icon: tabletPortraitOutline, label: "Large", ariaLabel: "Large Portrait" },
-  { gridType: "small-portrait", icon: phonePortraitOutline, label: "Small", ariaLabel: "Small Portrait" },
+  { gridType: "large-landscape", icon: tabletLandscapeOutline, label: "Tablet (Landscape)", ariaLabel: "Tablet Landscape" },
+  { gridType: "large-portrait", icon: tabletPortraitOutline, label: "Tablet (Portrait)", ariaLabel: "Tablet Portrait" },
+  { gridType: "small-landscape", icon: phoneLandscapeOutline, label: "Phone (Landscape)", ariaLabel: "Phone Landscape" },
+  { gridType: "small-portrait", icon: phonePortraitOutline, label: "Phone (Portrait)", ariaLabel: "Phone Portrait" },
 ];
 
 const SLUG_REGEX = /^[a-z0-9]+(-[a-z0-9]+)*$/;
@@ -389,8 +389,8 @@ export function AdminDashboardManagement(): ReactNode {
                   </div>
                 )}
 
-                {/* Row 1: Name | Slug | Allowed Roles (3 columns) */}
-                <div className="form-row-3col">
+                {/* Row 1: Name | Slug (50% each) */}
+                <div className="form-row-2col">
                   <label className="form-field">
                     <span className="form-label">Name</span>
                     <input
@@ -420,23 +420,24 @@ export function AdminDashboardManagement(): ReactNode {
                       </span>
                     )}
                   </label>
+                </div>
 
-                  <div className="form-field">
-                    <span className="form-label">Allowed Roles</span>
-                    <div data-testid={TEST_ID_DASHBOARD_FORM_ROLES}>
-                      <Select
-                        isMulti
-                        options={ROLE_OPTIONS}
-                        value={selectedRoles}
-                        onChange={(selected) => setSelectedRoles([...selected])}
-                        styles={darkSelectStyles<RoleOption, true>()}
-                        placeholder="Select roles..."
-                      />
-                    </div>
+                {/* Row 2: Allowed Roles */}
+                <div className="form-field">
+                  <span className="form-label">Allowed Roles</span>
+                  <div data-testid={TEST_ID_DASHBOARD_FORM_ROLES}>
+                    <Select
+                      isMulti
+                      options={ROLE_OPTIONS}
+                      value={selectedRoles}
+                      onChange={(selected) => setSelectedRoles([...selected])}
+                      styles={darkSelectStyles<RoleOption, true>()}
+                      placeholder="Select roles..."
+                    />
                   </div>
                 </div>
 
-                {/* Row 2: Description (full width, multi-line) */}
+                {/* Row 3: Description (multi-line) */}
                 <label className="form-field">
                   <span className="form-label">Description</span>
                   <textarea
@@ -451,7 +452,7 @@ export function AdminDashboardManagement(): ReactNode {
                 {/* Grid tabs */}
                 <div className="form-field">
                   <span className="form-label">Grid Layouts</span>
-                  <IonSegment value={activeTab} onIonChange={(e) => setActiveTab(e.detail.value as GridType)}>
+                  <IonSegment value={activeTab} onIonChange={(e) => setActiveTab(e.detail.value as GridType)} className="grid-tabs-segment">
                     {GRID_TABS.map((tab) => (
                       <IonSegmentButton
                         key={tab.gridType}
@@ -460,25 +461,20 @@ export function AdminDashboardManagement(): ReactNode {
                         aria-label={tab.ariaLabel}
                       >
                         <IonIcon icon={tab.icon} />
-                        <IonLabel>{tab.label}</IonLabel>
-                        <IonIcon
-                          icon={grids[tab.gridType].length > 0 ? checkmarkDoneCircleOutline : warningOutline}
-                          className={grids[tab.gridType].length > 0 ? "tab-icon-complete" : "tab-icon-warning"}
-                        />
+                        <IonLabel className="tab-label-row">
+                          <IonIcon
+                            icon={grids[tab.gridType].length > 0 ? checkmarkDoneCircleOutline : warningOutline}
+                            className={grids[tab.gridType].length > 0 ? "tab-icon-complete" : "tab-icon-warning"}
+                          />
+                          {tab.label}
+                        </IonLabel>
                       </IonSegmentButton>
                     ))}
                   </IonSegment>
                 </div>
 
-                {/* Grid editor with add-widget on the right */}
+                {/* Grid editor with add-widget on the left */}
                 <div className="grid-editor-row">
-                  <GridEditor
-                    gridType={activeTab}
-                    widgets={grids[activeTab]}
-                    onWidgetsChange={(updated) => setGrids((prev) => ({ ...prev, [activeTab]: updated }))}
-                    onDeleteWidget={(widgetId) => setRemoveConfirmWidget(widgetId)}
-                    onRoleChange={changeWidgetRole}
-                  />
                   {availableWidgets.length > 0 && (
                     <div className="grid-editor-add-widget-panel" data-testid={TEST_ID_GRID_EDITOR_ADD_WIDGET}>
                       <span className="form-label">Add Widget</span>
@@ -494,6 +490,13 @@ export function AdminDashboardManagement(): ReactNode {
                       />
                     </div>
                   )}
+                  <GridEditor
+                    gridType={activeTab}
+                    widgets={grids[activeTab]}
+                    onWidgetsChange={(updated) => setGrids((prev) => ({ ...prev, [activeTab]: updated }))}
+                    onDeleteWidget={(widgetId) => setRemoveConfirmWidget(widgetId)}
+                    onRoleChange={changeWidgetRole}
+                  />
                 </div>
 
                 {/* Action buttons */}
