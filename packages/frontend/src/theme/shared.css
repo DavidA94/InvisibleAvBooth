@@ -771,8 +771,7 @@
 /* Dashboard grid — dimensions set inline via grid type constants */
 .dashboard-grid {
   display: grid;
-  margin: 0 auto;
-  padding: var(--space-screen-edge);
+  margin: var(--space-screen-edge) auto;
 }
 
 /* Dashboard selection */

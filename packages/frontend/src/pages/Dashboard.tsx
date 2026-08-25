@@ -249,9 +249,6 @@ export function Dashboard(): ReactNode {
           className="dashboard-page dashboard-grid"
           style={{
             width: `${gridDimensions.totalWidthRem}rem`,
-            height: `${computeGridHeightRem(actualRows)}rem`,
-            maxHeight: `${computeGridHeightRem(gridDimensions.defaultRows)}rem`,
-            overflowY: actualRows > gridDimensions.defaultRows ? "auto" : "hidden",
             gridTemplateColumns: `repeat(${gridDimensions.columns}, ${GRID_CELL_SIZE_REM}rem)`,
             gridTemplateRows: `repeat(${actualRows}, ${GRID_CELL_SIZE_REM}rem)`,
             gap: `${GRID_GAP_SIZE_REM}rem`,
