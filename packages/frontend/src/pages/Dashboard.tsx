@@ -11,8 +11,8 @@ import {
   GRID_CELL_SIZE_REM,
   GRID_GAP_SIZE_REM,
   computeGridHeightRem,
-  BREAKPOINT_LARGE_WIDTH,
-  BREAKPOINT_LARGE_HEIGHT,
+  BREAKPOINT_LARGE_LANDSCAPE,
+  BREAKPOINT_LARGE_PORTRAIT,
   MIN_SCALE_FLOOR,
 } from "@invisible-av-booth/shared";
 import type { GridType } from "@invisible-av-booth/shared";
@@ -22,8 +22,8 @@ import type { GridType } from "@invisible-av-booth/shared";
 function computeGridType(): GridType {
   const width = window.innerWidth;
   const height = window.innerHeight;
-  const isLarge = width >= BREAKPOINT_LARGE_WIDTH && height >= BREAKPOINT_LARGE_HEIGHT;
   const isLandscape = width > height;
+  const isLarge = isLandscape ? width >= BREAKPOINT_LARGE_LANDSCAPE : width >= BREAKPOINT_LARGE_PORTRAIT;
 
   if (isLarge && isLandscape) return "large-landscape";
   if (isLarge && !isLandscape) return "large-portrait";

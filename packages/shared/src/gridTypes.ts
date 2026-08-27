@@ -35,9 +35,15 @@ export function computeGridHeightRem(rows: number): number {
   return rows * GRID_CELL_SIZE_REM + (rows - 1) * GRID_GAP_SIZE_REM;
 }
 
-/** Breakpoints for grid type selection (pixels — viewport dimensions are always in px) */
-export const BREAKPOINT_LARGE_WIDTH = 1200;
-export const BREAKPOINT_LARGE_HEIGHT = 700;
+/**
+ * Breakpoints for grid type selection (pixels — viewport width thresholds).
+ *
+ * isLarge is determined by viewport width alone, relative to orientation:
+ * - In landscape (width > height): large if width >= BREAKPOINT_LARGE_LANDSCAPE (1200px)
+ * - In portrait (width <= height): large if width >= BREAKPOINT_LARGE_PORTRAIT (700px)
+ */
+export const BREAKPOINT_LARGE_LANDSCAPE = 1200;
+export const BREAKPOINT_LARGE_PORTRAIT = 700;
 
 /** Minimum scale factor — below this, touch targets become too small */
 export const MIN_SCALE_FLOOR = 0.65;

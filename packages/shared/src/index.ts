@@ -18,8 +18,8 @@ export {
   GRID_CELL_SIZE_REM,
   GRID_GAP_SIZE_REM,
   computeGridHeightRem,
-  BREAKPOINT_LARGE_WIDTH,
-  BREAKPOINT_LARGE_HEIGHT,
+  BREAKPOINT_LARGE_LANDSCAPE,
+  BREAKPOINT_LARGE_PORTRAIT,
   MIN_SCALE_FLOOR,
 } from "./gridTypes.js";
 export type { GridType, GridDimensions } from "./gridTypes.js";

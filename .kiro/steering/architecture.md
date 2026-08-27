@@ -242,12 +242,12 @@ The dashboard is designed for tablet-first use. All sizing uses `rem` units with
 
 ### Target Viewport Range
 
-| Breakpoint      | Viewport            | Behavior                                                                               |
-| --------------- | ------------------- | -------------------------------------------------------------------------------------- |
-| Large threshold | ≥ 1200×700px        | Uses large grid types (11 or 7 columns); grid centered with `margin: 0 auto`           |
-| Small threshold | < 1200×700px        | Uses small grid types (7 or 3 columns); viewport scaling shrinks to fit                |
-| Scale floor     | Any (factor < 0.65) | Scaling stops at 0.65 — grid allowed to overflow and scroll rather than shrink further |
-| Orientation     | width > height      | Landscape grid selected; otherwise portrait                                            |
+| Breakpoint      | Viewport                             | Behavior                                                                               |
+| --------------- | ------------------------------------ | -------------------------------------------------------------------------------------- |
+| Large threshold | ≥ 1200px landscape, ≥ 700px portrait | Uses large grid types (11 or 7 columns); grid centered with `margin: 0 auto`           |
+| Small threshold | < 1200px landscape, < 700px portrait | Uses small grid types (7 or 3 columns); viewport scaling shrinks to fit                |
+| Scale floor     | Any (factor < 0.65)                  | Scaling stops at 0.65 — grid allowed to overflow and scroll rather than shrink further |
+| Orientation     | width > height                       | Landscape grid selected; otherwise portrait                                            |
 
 Phone-sized viewports are supported via the small grid types (3 and 7 columns). The grid scrolls vertically if content exceeds the viewport height at the minimum scale.
 
@@ -340,10 +340,10 @@ The dashboard supports four grid types, each with fixed 7.25rem × 7.25rem (116�
 
 The frontend automatically selects the appropriate grid type based on viewport dimensions:
 
-- **Size:** viewport width ≥ 1200px AND height ≥ 700px → large; otherwise → small
 - **Orientation:** viewport width > height → landscape; otherwise → portrait
+- **Size:** In landscape, width ≥ 1200px → large; in portrait, width ≥ 700px → large; otherwise → small
 
-Breakpoints are defined as constants in `packages/shared/src/gridTypes.ts` (`BREAKPOINT_LARGE_WIDTH`, `BREAKPOINT_LARGE_HEIGHT`).
+Breakpoints are defined as constants in `packages/shared/src/gridTypes.ts` (`BREAKPOINT_LARGE_LANDSCAPE`, `BREAKPOINT_LARGE_PORTRAIT`).
 
 **Viewport scaling:** When the viewport is smaller than the grid's native pixel dimensions, the entire page is uniformly scaled down via a CSS custom property `--dashboard-scale-font-size` consumed by `html:has(.dashboard-page) { font-size: var(--dashboard-scale-font-size, 16px); }`. Since all sizing uses `rem`, everything shrinks proportionally. The `:has()` selector ensures scaling only applies when a dashboard is mounted — admin pages are never affected. Scale factor: `min(viewportWidth / gridNativeWidth, viewportHeight / gridNativeHeight, 1.0)`, clamped to a minimum floor of 0.65.
 
