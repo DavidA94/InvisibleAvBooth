@@ -60,9 +60,9 @@ This spec depends on the existing dashboard rendering infrastructure (`Dashboard
    The "Default Rows" represent the number of rows that fit on screen at native resolution (16px root). Grids CAN have more rows than this — widgets placed below the default row count create additional rows. The grid height is always `(actualRows × 7.25rem) + ((actualRows - 1) × 0.75rem)` where `actualRows` is the highest `row + rowSpan` of any widget on that grid.
 
 2. THE frontend SHALL automatically select the appropriate grid type based on viewport dimensions and orientation:
-   - **Size determination:** If viewport width ≥ 1200px AND viewport height ≥ 700px → large; otherwise → small. Both dimensions must meet the threshold.
    - **Orientation determination:** If viewport width > viewport height → landscape; otherwise → portrait.
-   - The breakpoints SHALL be defined as constants in `packages/shared` (`BREAKPOINT_LARGE_WIDTH: 1200`, `BREAKPOINT_LARGE_HEIGHT: 700`) for easy adjustment.
+   - **Size determination:** In landscape, if viewport width ≥ 1200px → large; in portrait, if viewport width ≥ 700px → large; otherwise → small. The threshold varies by orientation because portrait-oriented tablets have narrower widths.
+   - The breakpoints SHALL be defined as constants in `packages/shared` (`BREAKPOINT_LARGE_LANDSCAPE: 1200`, `BREAKPOINT_LARGE_PORTRAIT: 700`) for easy adjustment.
 
 3. THE frontend SHALL seamlessly switch between grid types on viewport resize or orientation change without requiring a page refresh. The layout SHALL transition immediately when the viewport crosses a breakpoint.
 
@@ -74,7 +74,7 @@ This spec depends on the existing dashboard rendering infrastructure (`Dashboard
 
 7. THE existing `Dashboard.tsx` grid styling SHALL be updated to use the new dimensions instead of the current fixed 1400×900px / 10×6 grid.
 
-8. WHEN loading a cached grid manifest from localStorage, IF the cached data does not have the expected shape (no `grids` record, or not an object), THE frontend SHALL treat it as invalid, clear it from localStorage, and fetch fresh from the API. No version field is needed — shape validation is sufficient since there are no production deployments on the old format.
+8. WHEN loading a cached grid manifest from localStorage, IF the cached data does not have the expected shape (no `grids` record, or not an object), THE frontend SHALL treat it as invalid, clear it from localStorage, and fetch fresh from the API. The existing `normalizeManifest()` backward-compat conversion and `DEFAULT_GRID_MANIFEST` fallback (defined in the livestream-control-system spec) are preserved — this spec does not change them.
 
 9. THE dashboard renderer SHALL only render rows that contain widgets. If a grid has widgets occupying rows 0–4 but the grid type has a default of 7 rows, only rows 0–4 are rendered (height = 5 rows). If widgets extend beyond the default row count (e.g., row 8 on a grid with default 7), the grid scrolls vertically — the viewport-fit scaling is based on default rows, so extra rows naturally overflow into scrollable area.
 
@@ -372,11 +372,12 @@ This threshold was chosen because it's far enough into the next cell's territory
 ### Breakpoint Logic
 
 ```
-viewport.width >= 1200 AND viewport.height >= 700 → large
-otherwise → small
-
 viewport.width > viewport.height → landscape
 otherwise → portrait
+
+landscape AND viewport.width >= 1200 → large
+portrait AND viewport.width >= 700 → large
+otherwise → small
 ```
 
 ### Slug Validation Regex

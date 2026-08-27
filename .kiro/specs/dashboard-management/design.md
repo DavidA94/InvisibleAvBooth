@@ -80,7 +80,7 @@ Rather than fixed row counts that cap widget placement, all grid types have dyna
 When a device viewport is smaller than the grid's native pixel dimensions, the entire page is scaled down via a CSS custom property (`--dashboard-scale-font-size`) consumed by `html:has(.dashboard-page) { font-size: var(...) }`. The `:has()` selector scopes the scaling to only when a dashboard is mounted — admin pages are never affected, and no explicit cleanup is needed (the CSS cascade handles it). This was chosen over `transform: scale()` because: (1) it avoids transform stacking context issues with Ionic overlays (popovers, toasts), (2) pointer events work naturally without coordinate translation, (3) the entire UI scales uniformly (no visual disconnect), and (4) scrolling within widgets works normally. The tradeoff is that Ionic's internal pixel-based borders/shadows appear slightly thicker proportionally at small scales — a cosmetic-only issue. If `:has()` causes issues with older browsers, the fallback is direct `document.documentElement.style.fontSize` with cleanup on unmount (~5-line change).
 
 **Cache shape validation (no versioning):**
-There are no production deployments on the old grid format. Rather than adding a version field and migration logic, the frontend simply checks whether the cached localStorage data has the expected shape (`grids` record). Invalid shapes are discarded and a fresh fetch is triggered. The existing "background refresh" mechanism (per livestream-control-system Req 5b.5) handles the rest.
+The canonical manifest format is `{ grids: Record<string, GridCell[]> }`. The frontend checks whether cached localStorage data has this expected shape. Invalid or corrupted data is discarded and a fresh fetch is triggered. The existing `normalizeManifest()` function handles backward-compatible conversion of old API responses (the `{ version: 1, cells: [...] }` format), and `DEFAULT_GRID_MANIFEST` provides a last-resort fallback if both cache and API fail. These are preserved behaviors from the livestream-control-system spec — this spec does not change them.
 
 ---
 
@@ -203,9 +203,18 @@ export function computeGridHeightRem(rows: number): number {
   return rows * GRID_CELL_SIZE_REM + (rows - 1) * GRID_GAP_SIZE_REM;
 }
 
-/** Breakpoints for grid type selection (pixels — viewport dimensions are always in px) */
-export const BREAKPOINT_LARGE_WIDTH = 1200;
-export const BREAKPOINT_LARGE_HEIGHT = 700;
+/**
+ * Breakpoints for grid type selection (pixels — viewport width thresholds).
+ *
+ * isLarge is determined by viewport width alone, relative to orientation:
+ * - In landscape (width > height): large if width >= BREAKPOINT_LARGE_LANDSCAPE (1200px)
+ * - In portrait (width <= height): large if width >= BREAKPOINT_LARGE_PORTRAIT (700px)
+ */
+export const BREAKPOINT_LARGE_LANDSCAPE = 1200;
+export const BREAKPOINT_LARGE_PORTRAIT = 700;
+
+/** Minimum scale factor — below this, touch targets become too small */
+export const MIN_SCALE_FLOOR = 0.65;
 ```
 
 ### Updated GridManifest Type
@@ -220,7 +229,7 @@ export interface GridManifest {
 // GridCell unchanged — col, row, colSpan, rowSpan, widgetId, title, roleMinimum
 ```
 
-No version field is needed. The frontend validates the cached manifest by checking for the `grids` record — if the cached data doesn't have the expected shape (e.g., old format with `cells` array), it's treated as invalid, cleared from localStorage, and a fresh fetch is triggered. This is safe because there are no production deployments on the old format.
+No version field is needed. The frontend validates the cached manifest by checking for the `grids` record — if the cached data doesn't have the expected shape, it's treated as invalid, cleared from localStorage, and a fresh fetch is triggered. The existing `normalizeManifest()` function handles backward-compatible conversion of old API responses; this spec does not change that behavior.
 
 ### Exports
 
@@ -235,8 +244,9 @@ export {
   GRID_CELL_SIZE_REM,
   GRID_GAP_SIZE_REM,
   computeGridHeightRem,
-  BREAKPOINT_LARGE_WIDTH,
-  BREAKPOINT_LARGE_HEIGHT,
+  BREAKPOINT_LARGE_LANDSCAPE,
+  BREAKPOINT_LARGE_PORTRAIT,
+  MIN_SCALE_FLOOR,
 } from "./gridTypes.js";
 export type { GridType, GridDimensions } from "./gridTypes.js";
 ```
@@ -544,14 +554,21 @@ Major changes:
 3. **Grid selection**: Auto-selects based on viewport (hook: `useGridType()`)
 4. **Widget rendering**: Uses the shared registry instead of hardcoded if/else
 
+Preserved behaviors (no changes — defined in livestream-control-system spec):
+
+- **`normalizeManifest()`**: Converts old `{ version: 1, cells: [...] }` API responses to the four-grid format for backward compatibility during transition.
+- **`DEFAULT_GRID_MANIFEST`**: Hardcoded fallback manifest used when both localStorage cache and API fetch fail. Ensures volunteers always see something.
+- **`isStructuralChange()` + refreshing state**: When a fresh API response differs structurally from the cached manifest, a brief "Refreshing" spinner is shown before applying the new layout. Prevents jarring layout shifts mid-session.
+
 ```typescript
 import {
   GRID_DIMENSIONS,
   GRID_CELL_SIZE_REM,
   GRID_GAP_SIZE_REM,
   computeGridHeightRem,
-  BREAKPOINT_LARGE_WIDTH,
-  BREAKPOINT_LARGE_HEIGHT,
+  BREAKPOINT_LARGE_LANDSCAPE,
+  BREAKPOINT_LARGE_PORTRAIT,
+  MIN_SCALE_FLOOR,
 } from "@invisible-av-booth/shared";
 import type { GridType } from "@invisible-av-booth/shared";
 
@@ -571,8 +588,8 @@ function useGridType(): GridType {
 function computeGridType(): GridType {
   const width = window.innerWidth;
   const height = window.innerHeight;
-  const isLarge = width >= BREAKPOINT_LARGE_WIDTH && height >= BREAKPOINT_LARGE_HEIGHT;
   const isLandscape = width > height;
+  const isLarge = isLandscape ? width >= BREAKPOINT_LARGE_LANDSCAPE : width >= BREAKPOINT_LARGE_PORTRAIT;
 
   if (isLarge && isLandscape) return "large-landscape";
   if (isLarge && !isLandscape) return "large-portrait";
@@ -676,7 +693,7 @@ if (cached) {
   try {
     const parsed = JSON.parse(cached);
     if (!isValidGridManifest(parsed)) {
-      // Old format or corrupted — discard and fetch fresh
+      // Corrupted — discard and fetch fresh
       localStorage.removeItem(`dashboardLayout:${slug}`);
     }
   } catch {
@@ -684,6 +701,8 @@ if (cached) {
   }
 }
 ```
+
+There is only one canonical manifest format (`{ grids: Record<string, GridCell[]> }`). If cached data doesn't match this shape, it is discarded. The existing `normalizeManifest()` and `DEFAULT_GRID_MANIFEST` fallback behaviors (defined in the livestream-control-system spec) are preserved — this spec does not change them.
 
 **Note:** The inline `style` here is a justified exception per code-style.md — the grid template values are computed from shared constants and cannot be expressed as static CSS classes.
 
@@ -1095,7 +1114,7 @@ The `.dashboard-grid` class is simplified — dimensions are now set inline via 
 }
 ```
 
-Breakpoint constants are defined in `packages/shared/src/gridTypes.ts` as JS constants (`BREAKPOINT_LARGE_WIDTH`, `BREAKPOINT_LARGE_HEIGHT`) — NOT as CSS custom properties. CSS custom properties cannot be read from JS without `getComputedStyle()` calls, and the breakpoints are only consumed by the `useGridType()` hook (JavaScript).
+Breakpoint constants are defined in `packages/shared/src/gridTypes.ts` as JS constants (`BREAKPOINT_LARGE_LANDSCAPE`, `BREAKPOINT_LARGE_PORTRAIT`) — NOT as CSS custom properties. CSS custom properties cannot be read from JS without `getComputedStyle()` calls, and the breakpoints are only consumed by the `useGridType()` hook (JavaScript).
 
 Grid editor styles:
 
