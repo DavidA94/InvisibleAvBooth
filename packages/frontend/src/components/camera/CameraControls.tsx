@@ -157,18 +157,18 @@ export function CameraControls({
             <Slider
               orientation="vertical"
               size="medium"
-              valueLabelDisplay="on"
+              valueLabelDisplay="off"
               min={0}
               max={1}
               step={0.01}
               value={zoomMax > zoomMin ? (zoom - zoomMin) / (zoomMax - zoomMin) : 0}
-              valueLabelFormat={(v) => `${Math.round(v * 100)}%`}
               onChange={(_, newValue) => {
                 // Map 0-1 user percentage to the camera's actual zoom range
                 const mapped = zoomMin + (newValue as number) * (zoomMax - zoomMin);
                 onZoomChange(mapped);
               }}
             />
+            <span className="camera-zoom-value">{Math.round((zoomMax > zoomMin ? (zoom - zoomMin) / (zoomMax - zoomMin) : 0) * 100)}%</span>
           </div>
         )}
       </div>

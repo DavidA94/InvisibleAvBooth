@@ -1113,6 +1113,13 @@
   font-size: 1rem;
 }
 
+.camera-zoom-value {
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  margin-top: 1.5rem;
+}
+
 .camera-controls-right {
   display: flex;
   flex-direction: column;
