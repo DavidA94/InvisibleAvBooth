@@ -308,6 +308,16 @@
   max-height: 80vh;
 }
 
+/* Small screens: modals take nearly full viewport */
+@media (max-width: 1199px) {
+  .modal-size-small,
+  .modal-size-large {
+    width: 95%;
+    max-width: 95%;
+    max-height: 80vh;
+  }
+}
+
 .text-button-large {
   font-size: 1.125rem;
 }

@@ -24,7 +24,10 @@ export function ActiveCountdown({ autoDismissAt }: ActiveCountdownProps): ReactN
     return () => clearInterval(interval);
   }, [autoDismissAt]);
 
-  const seconds = Math.ceil(remaining / 1000);
+  // Cap at totalDuration to prevent clock skew between backend/frontend from showing +1 second
+  const rawSeconds = Math.ceil(remaining / 1000);
+  const maxSeconds = totalDuration.current > 0 ? Math.round(totalDuration.current / 1000) : rawSeconds;
+  const seconds = Math.min(rawSeconds, maxSeconds);
   const progress = totalDuration.current > 0 ? remaining / totalDuration.current : 0;
 
   const radius = 14;
