@@ -151,7 +151,7 @@ test.describe("SwipeableRow — mouse swipe", () => {
     await loginAndNavigate(page);
 
     // Find the volunteer item row
-    const row = page.locator("[data-testid='lt-row-item-1']").first();
+    const row = page.locator("[data-testid='lower-third-row-item-1']").first();
     await expect(row).toBeVisible();
 
     // The parent of lt-row is .swipeable-content
@@ -178,7 +178,7 @@ test.describe("SwipeableRow — mouse swipe", () => {
     await setupSocketWithLowerThirds(page);
     await loginAndNavigate(page);
 
-    const row = page.locator("[data-testid='lt-row-item-1']").first();
+    const row = page.locator("[data-testid='lower-third-row-item-1']").first();
     await expect(row).toBeVisible();
 
     const swipeableContent = row.locator("..");
@@ -204,7 +204,7 @@ test.describe("SwipeableRow — mouse swipe", () => {
     await loginAndNavigate(page);
 
     // Find the active row and swipe left to reveal Force Clear
-    const activeRow = page.locator("[data-testid='lt-row-item-1']").first();
+    const activeRow = page.locator("[data-testid='lower-third-row-item-1']").first();
     await expect(activeRow).toBeVisible();
 
     const swipeableContent = activeRow.locator("..");
@@ -240,7 +240,7 @@ test.describe("SwipeableRow — mouse swipe", () => {
     await setupSocketWithLowerThirds(page);
     await loginAndNavigate(page);
 
-    const row = page.locator("[data-testid='lt-row-item-1']").first();
+    const row = page.locator("[data-testid='lower-third-row-item-1']").first();
     const swipeableContent = row.locator("..");
     const box = await swipeableContent.boundingBox();
 
@@ -272,7 +272,7 @@ test.describe("SwipeableRow — mouse swipe", () => {
     await setupSocketWithLowerThirds(page);
     await loginAndNavigate(page);
 
-    const row = page.locator("[data-testid='lt-row-item-1']").first();
+    const row = page.locator("[data-testid='lower-third-row-item-1']").first();
     const swipeableContent = row.locator("..");
     const box = await swipeableContent.boundingBox();
 
@@ -298,7 +298,7 @@ test.describe("SwipeableRow — touch swipe", () => {
     await setupSocketWithLowerThirds(page);
     await loginAndNavigate(page);
 
-    const row = page.locator("[data-testid='lt-row-item-1']").first();
+    const row = page.locator("[data-testid='lower-third-row-item-1']").first();
     const swipeableContent = row.locator("..");
     const box = await swipeableContent.boundingBox();
 
@@ -337,7 +337,7 @@ test.describe("SwipeableRow — touch swipe", () => {
     await setupSocketWithLowerThirds(page);
     await loginAndNavigate(page);
 
-    const row = page.locator("[data-testid='lt-row-item-2']").first();
+    const row = page.locator("[data-testid='lower-third-row-item-2']").first();
     await expect(row).toBeVisible();
     const swipeableContent = row.locator("..");
     const box = await swipeableContent.boundingBox();
@@ -378,7 +378,7 @@ test.describe("SwipeableRow — touch swipe", () => {
     await loginAndNavigate(page);
 
     // Template item (item-2) — swipe right reveals Go Live
-    const row = page.locator("[data-testid='lt-row-item-2']").first();
+    const row = page.locator("[data-testid='lower-third-row-item-2']").first();
     await expect(row).toBeVisible();
     const swipeableContent = row.locator("..");
     const box = await swipeableContent.boundingBox();
@@ -429,7 +429,7 @@ test.describe("SwipeableRow — only one open at a time", () => {
     await setupSocketWithLowerThirds(page);
     await loginAndNavigate(page);
 
-    const row1 = page.locator("[data-testid='lt-row-item-1']").first();
+    const row1 = page.locator("[data-testid='lower-third-row-item-1']").first();
     const content1 = row1.locator("..");
 
     const box1 = await content1.boundingBox();

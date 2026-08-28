@@ -14,6 +14,13 @@ import { useResizeObserver } from "../../hooks/useResizeObserver";
 import { CTS_CAMERA_SET, CTS_CAMERA_PRESET_ACTIVATE } from "@invisible-av-booth/shared";
 import type { CameraState, CameraFeature } from "@invisible-av-booth/shared";
 import { Modal } from "../Modal";
+import {
+  TEST_ID_CAMERA_WIDGET,
+  TEST_ID_CAMERA_SELECT,
+  TEST_ID_CAMERA_PREVIEW,
+  TEST_ID_CAMERA_OFFLINE_OVERLAY,
+  TEST_ID_CAMERA_CONNECTING_OVERLAY,
+} from "../../constants/testIds";
 
 const COMPACT_WIDTH_THRESHOLD = 480;
 const VISCA_FEATURES: CameraFeature[] = ["pan", "tilt", "zoom", "focus"];
@@ -171,7 +178,7 @@ export function CameraWidget({ enabled = true, forceSelectedId }: CameraWidgetPr
     cameraSelector: (
       <div className="camera-select-wrapper">
         <Select
-          data-testid="camera-select"
+          data-testid={TEST_ID_CAMERA_SELECT}
           options={cameraOptions}
           value={selectedOption}
           onChange={(opt) => opt && setSelectedId((opt as { value: string }).value)}
@@ -186,18 +193,18 @@ export function CameraWidget({ enabled = true, forceSelectedId }: CameraWidgetPr
   };
 
   return (
-    <div data-testid="camera-widget" ref={containerRef} className="full-height">
+    <div data-testid={TEST_ID_CAMERA_WIDGET} ref={containerRef} className="full-height">
       <WidgetContainer title="Camera" connections={connections}>
         {isCompact ? (
-          <div className="preview-video-container" data-testid="camera-preview" onClick={() => setModalOpen(true)}>
+          <div className="preview-video-container" data-testid={TEST_ID_CAMERA_PREVIEW} onClick={() => setModalOpen(true)}>
             <img ref={imgRef} className="preview-video" alt="Camera preview" style={status !== "streaming" ? { display: "none" } : undefined} />
             {currentState && !currentState.connected && (
-              <div className="preview-overlay" data-testid="camera-offline-overlay">
+              <div className="preview-overlay" data-testid={TEST_ID_CAMERA_OFFLINE_OVERLAY}>
                 Camera Offline
               </div>
             )}
             {status !== "streaming" && currentState?.connected && (
-              <div className="preview-overlay" data-testid="camera-connecting-overlay">
+              <div className="preview-overlay" data-testid={TEST_ID_CAMERA_CONNECTING_OVERLAY}>
                 Connecting…
               </div>
             )}

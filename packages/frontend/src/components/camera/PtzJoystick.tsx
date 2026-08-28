@@ -1,5 +1,6 @@
 import { useRef, useCallback, useState } from "react";
 import type { ReactNode, PointerEvent as ReactPointerEvent } from "react";
+import { TEST_ID_PTZ_JOYSTICK, TEST_ID_PTZ_JOYSTICK_DOT } from "../../constants/testIds";
 
 const DEAD_ZONE = 0.15;
 const QUANTIZATION = 0.05;
@@ -110,7 +111,7 @@ export function PtzJoystick({ onMove, onStart, onStop, disabled }: PtzJoystickPr
     <div
       ref={containerRef}
       className="ptz-joystick"
-      data-testid="ptz-joystick"
+      data-testid={TEST_ID_PTZ_JOYSTICK}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
@@ -118,7 +119,7 @@ export function PtzJoystick({ onMove, onStart, onStop, disabled }: PtzJoystickPr
       style={{ touchAction: "none" }}
     >
       <div className="ptz-joystick-deadzone" />
-      <div className="ptz-joystick-dot" data-testid="ptz-joystick-dot" style={{ left: `${50 + dotPos.x * 40}%`, top: `${50 + dotPos.y * 40}%` }} />
+      <div className="ptz-joystick-dot" data-testid={TEST_ID_PTZ_JOYSTICK_DOT} style={{ left: `${50 + dotPos.x * 40}%`, top: `${50 + dotPos.y * 40}%` }} />
     </div>
   );
 }

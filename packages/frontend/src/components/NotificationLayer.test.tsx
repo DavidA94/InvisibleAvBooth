@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, act } from "@testing-library/react";
+import { render, screen, act } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { IonApp } from "@ionic/react";
 import { NotificationLayer } from "./NotificationLayer";
 import { useStore } from "../store";
@@ -53,19 +54,21 @@ describe("NotificationLayer - Banner", () => {
     expect(screen.getByTestId(TEST_ID_BANNER_COUNTER)).toHaveTextContent("1 of 2");
   });
 
-  it("banner navigation cycles through errors", () => {
+  it("banner navigation cycles through errors", async () => {
+    const user = userEvent.setup();
     useStore.getState().addNotification({ id: "b1", level: "banner", severity: "error", message: "Error 1" });
     useStore.getState().addNotification({ id: "b2", level: "banner", severity: "error", message: "Error 2" });
     renderLayer();
     expect(screen.getByTestId(TEST_ID_NOTIFICATION_BANNER)).toHaveTextContent("Error 1");
-    fireEvent.click(screen.getByText("▶"));
+    await user.click(screen.getByText("▶"));
     expect(screen.getByTestId(TEST_ID_NOTIFICATION_BANNER)).toHaveTextContent("Error 2");
   });
 
-  it("banner dismiss removes notification", () => {
+  it("banner dismiss removes notification", async () => {
+    const user = userEvent.setup();
     useStore.getState().addNotification({ id: "b1", level: "banner", severity: "error", message: "Error 1" });
     renderLayer();
-    fireEvent.click(screen.getByTestId(TEST_ID_BANNER_DISMISS));
+    await user.click(screen.getByTestId(TEST_ID_BANNER_DISMISS));
     expect(useStore.getState().notifications).toHaveLength(0);
   });
 });
@@ -81,22 +84,24 @@ it("queues second toast when one is already active", async () => {
   expect(useStore.getState().notifications).toHaveLength(2);
 });
 
-it("banner counter back button navigates to previous", () => {
+it("banner counter back button navigates to previous", async () => {
+  const user = userEvent.setup();
   useStore.getState().addNotification({ id: "b1", level: "banner", severity: "error", message: "Error 1" });
   useStore.getState().addNotification({ id: "b2", level: "banner", severity: "error", message: "Error 2" });
   renderLayer();
   // Navigate forward then back
-  fireEvent.click(screen.getByText("▶"));
-  fireEvent.click(screen.getByText("◀"));
+  await user.click(screen.getByText("▶"));
+  await user.click(screen.getByText("◀"));
   expect(screen.getByTestId(TEST_ID_NOTIFICATION_BANNER)).toHaveTextContent("Error 1");
 });
 
 describe("NotificationLayer - Modal", () => {
-  it("modal requires acknowledgment", () => {
+  it("modal requires acknowledgment", async () => {
+    const user = userEvent.setup();
     useStore.getState().addNotification({ id: "m1", level: "modal", severity: "error", message: "Critical" });
     renderLayer();
     expect(screen.getByTestId(TEST_ID_NOTIFICATION_MODAL)).toBeInTheDocument();
-    fireEvent.click(screen.getByText("Acknowledge"));
+    await user.click(screen.getByText("Acknowledge"));
     expect(useStore.getState().notifications).toHaveLength(0);
   });
 

@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import type { CameraPreset } from "@invisible-av-booth/shared";
 import { useSocket } from "../../providers/SocketProvider";
 import { CTS_CAMERA_PRESET_ACTIVATE } from "@invisible-av-booth/shared";
+import { TEST_ID_PRESET_LIST, TEST_ID_PRESET_ROW, TEST_ID_PRESET_ACTIVATE_BUTTON } from "../../constants/testIds";
 
 interface PresetListProps {
   presets: CameraPreset[];
@@ -28,16 +29,16 @@ export function PresetList({ presets, activePresetId, cameraId, onToast }: Prese
   );
 
   return (
-    <div data-testid="preset-list" className="preset-list">
+    <div data-testid={TEST_ID_PRESET_LIST} className="preset-list">
       {presets.map((p) => (
         <div
           key={p.id}
           className={`preset-row ${p.id === activePresetId ? "preset-active" : ""}`}
-          data-testid="preset-row"
+          data-testid={TEST_ID_PRESET_ROW}
           data-active={p.id === activePresetId}
         >
           <span className="preset-name">{p.name}</span>
-          <button type="button" data-testid="preset-activate-btn" onClick={() => activate(p.id)}>
+          <button type="button" data-testid={TEST_ID_PRESET_ACTIVATE_BUTTON} onClick={() => activate(p.id)}>
             Activate
           </button>
         </div>

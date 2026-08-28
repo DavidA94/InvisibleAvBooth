@@ -5,13 +5,24 @@ import "../../test/ionicMocks";
 import { CameraWidget } from "./CameraWidget";
 import { useStore } from "../../store";
 import type { CameraState } from "@invisible-av-booth/shared";
+import {
+  TEST_ID_CAMERA_WIDGET,
+  TEST_ID_CAMERA_SELECT,
+  TEST_ID_CAMERA_PREVIEW,
+  TEST_ID_CAMERA_CONTROLS,
+  TEST_ID_CAMERA_OFFLINE_OVERLAY,
+  TEST_ID_CAMERA_ZOOM_SLIDER,
+  TEST_ID_CAMERA_FOCUS_SLIDER,
+  TEST_ID_CAMERA_TOGGLE_ROW,
+  TEST_ID_PTZ_JOYSTICK,
+} from "../../constants/testIds";
 
 vi.mock("react-select", () => ({
   default: ({ options, onChange, value, isDisabled, placeholder }: Record<string, unknown>) => {
     const opts = options as Array<{ value: string; label: string }>;
     return (
       <select
-        data-testid="camera-select"
+        data-testid={TEST_ID_CAMERA_SELECT}
         disabled={isDisabled as boolean}
         aria-label={placeholder as string}
         value={(value as { value: string } | null)?.value ?? ""}
@@ -99,28 +110,28 @@ beforeEach(() => {
 describe("CameraWidget", () => {
   it("renders the widget", () => {
     render(<CameraWidget />);
-    expect(screen.getByTestId("camera-widget")).toBeInTheDocument();
+    expect(screen.getByTestId(TEST_ID_CAMERA_WIDGET)).toBeInTheDocument();
   });
 
   it("renders video preview", () => {
     render(<CameraWidget />);
-    expect(screen.getByTestId("camera-preview")).toBeInTheDocument();
+    expect(screen.getByTestId(TEST_ID_CAMERA_PREVIEW)).toBeInTheDocument();
   });
 
   it("shows camera controls in expanded mode", () => {
     render(<CameraWidget />);
-    expect(screen.getByTestId("camera-controls")).toBeInTheDocument();
+    expect(screen.getByTestId(TEST_ID_CAMERA_CONTROLS)).toBeInTheDocument();
   });
 
   it("hides controls in compact mode", () => {
     mockWidth = 400;
     render(<CameraWidget />);
-    expect(screen.queryByTestId("camera-controls")).not.toBeInTheDocument();
+    expect(screen.queryByTestId(TEST_ID_CAMERA_CONTROLS)).not.toBeInTheDocument();
   });
 
   it("shows joystick when pan or tilt features present", () => {
     render(<CameraWidget />);
-    expect(screen.getByTestId("ptz-joystick")).toBeInTheDocument();
+    expect(screen.getByTestId(TEST_ID_PTZ_JOYSTICK)).toBeInTheDocument();
   });
 
   it("hides joystick when no pan/tilt features", () => {
@@ -128,12 +139,12 @@ describe("CameraWidget", () => {
       cameraStates: { cam1: { ...CAMERA_STATE, features: ["zoom"] } },
     });
     render(<CameraWidget />);
-    expect(screen.queryByTestId("ptz-joystick")).not.toBeInTheDocument();
+    expect(screen.queryByTestId(TEST_ID_PTZ_JOYSTICK)).not.toBeInTheDocument();
   });
 
   it("shows zoom slider when zoom feature present", () => {
     render(<CameraWidget />);
-    expect(screen.getByTestId("camera-zoom-slider")).toBeInTheDocument();
+    expect(screen.getByTestId(TEST_ID_CAMERA_ZOOM_SLIDER)).toBeInTheDocument();
   });
 
   it("hides zoom slider when no zoom feature", () => {
@@ -141,12 +152,12 @@ describe("CameraWidget", () => {
       cameraStates: { cam1: { ...CAMERA_STATE, features: ["pan", "tilt"] } },
     });
     render(<CameraWidget />);
-    expect(screen.queryByTestId("camera-zoom-slider")).not.toBeInTheDocument();
+    expect(screen.queryByTestId(TEST_ID_CAMERA_ZOOM_SLIDER)).not.toBeInTheDocument();
   });
 
   it("emits zoom change on slider input", () => {
     render(<CameraWidget />);
-    const slider = screen.getByTestId("camera-zoom-slider").querySelector("input")!;
+    const slider = screen.getByTestId(TEST_ID_CAMERA_ZOOM_SLIDER).querySelector("input")!;
     fireEvent.change(slider, { target: { value: "0.7" } });
     // Slider 0-1 maps to zoomMin..zoomMax (0..16384): 0.7 * 16384 = 11468.8
     expect(mockEmit).toHaveBeenCalledWith("cts:camera:set", { cameraId: "cam1", zoom: 11468.8 });
@@ -154,13 +165,13 @@ describe("CameraWidget", () => {
 
   it("shows AI toggle row for admin with ai-tracking feature", () => {
     render(<CameraWidget />);
-    expect(screen.getByTestId("camera-toggle-row")).toBeInTheDocument();
+    expect(screen.getByTestId(TEST_ID_CAMERA_TOGGLE_ROW)).toBeInTheDocument();
   });
 
   it("hides AI toggles for AvVolunteer", () => {
     useStore.setState({ user: { id: "u1", username: "vol", role: "AvVolunteer" } });
     render(<CameraWidget />);
-    expect(screen.queryByTestId("camera-toggle-row")).not.toBeInTheDocument();
+    expect(screen.queryByTestId(TEST_ID_CAMERA_TOGGLE_ROW)).not.toBeInTheDocument();
   });
 
   it("hides AI toggles when feature not present", () => {
@@ -168,7 +179,7 @@ describe("CameraWidget", () => {
       cameraStates: { cam1: { ...CAMERA_STATE, features: ["pan", "tilt", "zoom"] } },
     });
     render(<CameraWidget />);
-    expect(screen.queryByTestId("camera-toggle-row")).not.toBeInTheDocument();
+    expect(screen.queryByTestId(TEST_ID_CAMERA_TOGGLE_ROW)).not.toBeInTheDocument();
   });
 
   it("emits aiTracking toggle", () => {
@@ -205,7 +216,7 @@ describe("CameraWidget", () => {
   it("modal Close button closes modal", () => {
     mockWidth = 400;
     render(<CameraWidget />);
-    fireEvent.click(screen.getByTestId("camera-preview"));
+    fireEvent.click(screen.getByTestId(TEST_ID_CAMERA_PREVIEW));
     expect(screen.getByTestId("modal-container")).toBeInTheDocument();
     fireEvent.click(screen.getByTestId("modal-backdrop"));
     expect(screen.queryByTestId("modal-container")).not.toBeInTheDocument();
@@ -214,7 +225,7 @@ describe("CameraWidget", () => {
   it("modal content click does not close modal", () => {
     mockWidth = 400;
     render(<CameraWidget />);
-    fireEvent.click(screen.getByTestId("camera-preview"));
+    fireEvent.click(screen.getByTestId(TEST_ID_CAMERA_PREVIEW));
     fireEvent.click(screen.getByTestId("modal-container"));
     expect(screen.getByTestId("modal-container")).toBeInTheDocument();
   });
@@ -236,18 +247,18 @@ describe("CameraWidget", () => {
 
   it("shows focus slider for admin with focus feature", () => {
     render(<CameraWidget />);
-    expect(screen.getByTestId("camera-focus-slider")).toBeInTheDocument();
+    expect(screen.getByTestId(TEST_ID_CAMERA_FOCUS_SLIDER)).toBeInTheDocument();
   });
 
   it("hides focus slider for AvVolunteer", () => {
     useStore.setState({ user: { id: "u1", username: "vol", role: "AvVolunteer" } });
     render(<CameraWidget />);
-    expect(screen.queryByTestId("camera-focus-slider")).not.toBeInTheDocument();
+    expect(screen.queryByTestId(TEST_ID_CAMERA_FOCUS_SLIDER)).not.toBeInTheDocument();
   });
 
   it("disables focus range when autoFocus is true", () => {
     render(<CameraWidget />);
-    const slider = screen.getByTestId("camera-focus-slider").querySelectorAll("input[type=range]")[0]!;
+    const slider = screen.getByTestId(TEST_ID_CAMERA_FOCUS_SLIDER).querySelectorAll("input[type=range]")[0]!;
     expect(slider).toBeDisabled();
   });
 
@@ -256,7 +267,7 @@ describe("CameraWidget", () => {
       cameraStates: { cam1: { ...CAMERA_STATE, autoFocus: false } },
     });
     render(<CameraWidget />);
-    const slider = screen.getByTestId("camera-focus-slider").querySelectorAll("input[type=range]")[0]!;
+    const slider = screen.getByTestId(TEST_ID_CAMERA_FOCUS_SLIDER).querySelectorAll("input[type=range]")[0]!;
     expect(slider).not.toBeDisabled();
   });
 
@@ -265,7 +276,7 @@ describe("CameraWidget", () => {
       cameraStates: { cam1: { ...CAMERA_STATE, autoFocus: false } },
     });
     render(<CameraWidget />);
-    const slider = screen.getByTestId("camera-focus-slider").querySelectorAll("input[type=range]")[0]!;
+    const slider = screen.getByTestId(TEST_ID_CAMERA_FOCUS_SLIDER).querySelectorAll("input[type=range]")[0]!;
     fireEvent.change(slider, { target: { value: "0.3" } });
     expect(mockEmit).toHaveBeenCalledWith("cts:camera:set", { cameraId: "cam1", focus: 4915.2 });
   });
@@ -275,12 +286,12 @@ describe("CameraWidget", () => {
       cameraStates: { cam1: { ...CAMERA_STATE, connected: false } },
     });
     render(<CameraWidget />);
-    expect(screen.getByTestId("camera-offline-overlay")).toBeInTheDocument();
+    expect(screen.getByTestId(TEST_ID_CAMERA_OFFLINE_OVERLAY)).toBeInTheDocument();
   });
 
   it("does not show offline overlay when connected", () => {
     render(<CameraWidget />);
-    expect(screen.queryByTestId("camera-offline-overlay")).not.toBeInTheDocument();
+    expect(screen.queryByTestId(TEST_ID_CAMERA_OFFLINE_OVERLAY)).not.toBeInTheDocument();
   });
 
   it("shows camera selector when multiple cameras", () => {
@@ -291,12 +302,12 @@ describe("CameraWidget", () => {
       },
     });
     render(<CameraWidget />);
-    expect(screen.getByTestId("camera-select")).toBeInTheDocument();
+    expect(screen.getByTestId(TEST_ID_CAMERA_SELECT)).toBeInTheDocument();
   });
 
   it("shows disabled camera selector with single camera", () => {
     render(<CameraWidget />);
-    const select = screen.getByTestId("camera-select");
+    const select = screen.getByTestId(TEST_ID_CAMERA_SELECT);
     expect(select).toBeInTheDocument();
     // With one camera, select is rendered but disabled
     expect(select).toBeDisabled();
@@ -305,14 +316,14 @@ describe("CameraWidget", () => {
   it("opens modal on preview click in compact mode", () => {
     mockWidth = 400;
     render(<CameraWidget />);
-    fireEvent.click(screen.getByTestId("camera-preview"));
+    fireEvent.click(screen.getByTestId(TEST_ID_CAMERA_PREVIEW));
     expect(screen.getByTestId("modal-container")).toBeInTheDocument();
   });
 
   it("closes modal on backdrop click", () => {
     mockWidth = 400;
     render(<CameraWidget />);
-    fireEvent.click(screen.getByTestId("camera-preview"));
+    fireEvent.click(screen.getByTestId(TEST_ID_CAMERA_PREVIEW));
     fireEvent.click(screen.getByTestId("modal-backdrop"));
     expect(screen.queryByTestId("modal-container")).not.toBeInTheDocument();
   });
@@ -320,7 +331,7 @@ describe("CameraWidget", () => {
   it("auto-selects first camera when no selection", () => {
     localStorage.removeItem("camera-widget-selected");
     render(<CameraWidget />);
-    expect(screen.getByTestId("camera-controls")).toBeInTheDocument();
+    expect(screen.getByTestId(TEST_ID_CAMERA_CONTROLS)).toBeInTheDocument();
   });
 
   it("persists selection to localStorage", () => {
@@ -331,7 +342,7 @@ describe("CameraWidget", () => {
       },
     });
     render(<CameraWidget />);
-    fireEvent.change(screen.getByTestId("camera-select"), { target: { value: "cam2" } });
+    fireEvent.change(screen.getByTestId(TEST_ID_CAMERA_SELECT), { target: { value: "cam2" } });
     expect(localStorage.getItem("camera-widget-selected")).toBe("cam2");
   });
 
@@ -340,15 +351,15 @@ describe("CameraWidget", () => {
     render(<CameraWidget />);
     // width=0 means isCompact is false (0 > 0 is false), so !isCompact is true = controls show
     // This is correct behavior: before measurement, show controls
-    expect(screen.getByTestId("camera-controls")).toBeInTheDocument();
+    expect(screen.getByTestId(TEST_ID_CAMERA_CONTROLS)).toBeInTheDocument();
   });
 
   it("renders nothing when no cameras available", () => {
     useStore.setState({ cameraStates: {} });
     render(<CameraWidget />);
     // Widget renders but no controls since no camera is selected
-    expect(screen.getByTestId("camera-widget")).toBeInTheDocument();
-    expect(screen.queryByTestId("camera-controls")).toBeInTheDocument(); // still shows controls area
+    expect(screen.getByTestId(TEST_ID_CAMERA_WIDGET)).toBeInTheDocument();
+    expect(screen.queryByTestId(TEST_ID_CAMERA_CONTROLS)).toBeInTheDocument(); // still shows controls area
   });
 
   it("joystick onStart does nothing without selectedId", () => {
@@ -363,7 +374,7 @@ describe("CameraWidget", () => {
     useStore.setState({ cameraStates: {} });
     render(<CameraWidget />);
     // No zoom slider rendered
-    expect(screen.queryByTestId("camera-zoom-slider")).not.toBeInTheDocument();
+    expect(screen.queryByTestId(TEST_ID_CAMERA_ZOOM_SLIDER)).not.toBeInTheDocument();
   });
 
   it("connecting overlay shown during stream connection", () => {
@@ -381,8 +392,8 @@ describe("CameraWidget", () => {
   it("renders with AvPowerUser role showing admin features", () => {
     useStore.setState({ user: { id: "u1", username: "power", role: "AvPowerUser" } });
     render(<CameraWidget />);
-    expect(screen.getByTestId("camera-toggle-row")).toBeInTheDocument();
-    expect(screen.getByTestId("camera-focus-slider")).toBeInTheDocument();
+    expect(screen.getByTestId(TEST_ID_CAMERA_TOGGLE_ROW)).toBeInTheDocument();
+    expect(screen.getByTestId(TEST_ID_CAMERA_FOCUS_SLIDER)).toBeInTheDocument();
   });
 
   it("handles camera with null position gracefully", () => {
@@ -390,7 +401,7 @@ describe("CameraWidget", () => {
       cameraStates: { cam1: { ...CAMERA_STATE, position: null } },
     });
     render(<CameraWidget />);
-    expect(screen.getByTestId("camera-zoom-slider")).toBeInTheDocument();
+    expect(screen.getByTestId(TEST_ID_CAMERA_ZOOM_SLIDER)).toBeInTheDocument();
   });
 
   describe("Controls connection indicator", () => {

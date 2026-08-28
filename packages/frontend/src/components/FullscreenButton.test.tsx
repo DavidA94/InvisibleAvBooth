@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent, act } from "@testing-library/react";
+import { render, screen, act } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { FullscreenButton } from "./FullscreenButton";
 import "../test/ionicMocks";
 import { TEST_ID_FULLSCREEN_BUTTON } from "../constants/testIds";
@@ -47,23 +48,21 @@ describe("FullscreenButton", () => {
   });
 
   it("calls requestFullscreen on click when not in fullscreen", async () => {
+    const user = userEvent.setup();
     render(<FullscreenButton />);
-    await act(async () => {
-      fireEvent.click(screen.getByTestId(TEST_ID_FULLSCREEN_BUTTON));
-    });
+    await user.click(screen.getByTestId(TEST_ID_FULLSCREEN_BUTTON));
     expect(document.documentElement.requestFullscreen).toHaveBeenCalled();
   });
 
   it("calls exitFullscreen on click when in fullscreen", async () => {
+    const user = userEvent.setup();
     Object.defineProperty(document, "fullscreenElement", { value: document.documentElement, configurable: true });
     // Simulate fullscreenchange event so state updates
     render(<FullscreenButton />);
     act(() => {
       document.dispatchEvent(new Event("fullscreenchange"));
     });
-    await act(async () => {
-      fireEvent.click(screen.getByTestId(TEST_ID_FULLSCREEN_BUTTON));
-    });
+    await user.click(screen.getByTestId(TEST_ID_FULLSCREEN_BUTTON));
     expect(document.exitFullscreen).toHaveBeenCalled();
   });
 
@@ -86,12 +85,11 @@ describe("FullscreenButton", () => {
   });
 
   it("handles requestFullscreen rejection gracefully (no throw)", async () => {
+    const user = userEvent.setup();
     document.documentElement.requestFullscreen = vi.fn().mockRejectedValue(new Error("Not allowed"));
     render(<FullscreenButton />);
     // Should not throw
-    await act(async () => {
-      fireEvent.click(screen.getByTestId(TEST_ID_FULLSCREEN_BUTTON));
-    });
+    await user.click(screen.getByTestId(TEST_ID_FULLSCREEN_BUTTON));
     // Icon should remain unchanged (still "Enter fullscreen")
     expect(screen.getByTestId(TEST_ID_FULLSCREEN_BUTTON)).toHaveAttribute("aria-label", "Enter fullscreen");
   });

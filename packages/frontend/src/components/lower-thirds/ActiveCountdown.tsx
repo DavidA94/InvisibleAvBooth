@@ -1,4 +1,4 @@
-import { TEST_ID_LT_COUNTDOWN } from "../../constants/testIds";
+import { TEST_ID_LOWER_THIRD_COUNTDOWN } from "../../constants/testIds";
 import { useState, useEffect, useRef } from "react";
 import type { ReactNode } from "react";
 
@@ -35,7 +35,7 @@ export function ActiveCountdown({ autoDismissAt }: ActiveCountdownProps): ReactN
   const dashOffset = circumference * (1 - progress);
 
   return (
-    <div className="lt-countdown-indicator" data-testid={TEST_ID_LT_COUNTDOWN} aria-label={`Auto-dismiss in ${seconds} seconds`}>
+    <div className="lt-countdown-indicator" data-testid={TEST_ID_LOWER_THIRD_COUNTDOWN} aria-label={`Auto-dismiss in ${seconds} seconds`}>
       <svg width="36" height="36" viewBox="0 0 36 36">
         <circle cx="18" cy="18" r={radius} fill="none" stroke="var(--color-border)" strokeWidth="2" />
         <circle

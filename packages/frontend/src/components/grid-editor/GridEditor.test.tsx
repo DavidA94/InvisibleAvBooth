@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import "../../test/ionicMocks";
 import { GridEditor } from "./GridEditor";
 import type { WidgetPlacement } from "./snapLogic";
@@ -42,10 +43,11 @@ describe("GridEditor", () => {
     expect(screen.getByTestId(`${TEST_ID_GRID_EDITOR_WIDGET_DELETE}-camera`)).toBeInTheDocument();
   });
 
-  it("calls onDeleteWidget when delete button clicked", () => {
+  it("calls onDeleteWidget when delete button clicked", async () => {
+    const user = userEvent.setup();
     const onDelete = vi.fn();
     render(<GridEditor gridType="large-landscape" widgets={baseWidgets} onWidgetsChange={vi.fn()} onDeleteWidget={onDelete} />);
-    fireEvent.click(screen.getByTestId(`${TEST_ID_GRID_EDITOR_WIDGET_DELETE}-obs`));
+    await user.click(screen.getByTestId(`${TEST_ID_GRID_EDITOR_WIDGET_DELETE}-obs`));
     expect(onDelete).toHaveBeenCalledWith("obs");
   });
 

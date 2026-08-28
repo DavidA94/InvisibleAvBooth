@@ -19,14 +19,14 @@ function createMockPreviewManager(): PreviewStreamManager {
 }
 
 function createDbWithObsDevice(ndiOutputName?: string): Database.Database {
-  const db = new Database(":memory:");
-  db.pragma("foreign_keys = ON");
-  applySchema(db);
+  const database = new Database(":memory:");
+  database.pragma("foreign_keys = ON");
+  applySchema(database);
   const metadata = ndiOutputName ? JSON.stringify({ ndiOutputName }) : "{}";
-  db.prepare(
-    "INSERT INTO device_connections (id, deviceType, label, host, port, metadata, features, enabled, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-  ).run("obs-1", "obs", "Main OBS", "10.0.0.1", 4455, metadata, "{}", 1, new Date().toISOString());
-  return db;
+  database
+    .prepare("INSERT INTO device_connections (id, deviceType, label, host, port, metadata, features, enabled, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
+    .run("obs-1", "obs", "Main OBS", "10.0.0.1", 4455, metadata, "{}", 1, new Date().toISOString());
+  return database;
 }
 
 describe("ObsNdiPreviewSource", () => {
@@ -39,11 +39,11 @@ describe("ObsNdiPreviewSource", () => {
   });
 
   it("does nothing when no OBS device exists", async () => {
-    const db = new Database(":memory:");
-    db.pragma("foreign_keys = ON");
-    applySchema(db);
+    const database = new Database(":memory:");
+    database.pragma("foreign_keys = ON");
+    applySchema(database);
     previewManager = createMockPreviewManager();
-    source = new ObsNdiPreviewSource(db, previewManager);
+    source = new ObsNdiPreviewSource(database, previewManager);
 
     await source.initialize();
     expect(source.getNdiOutputName()).toBeNull();
@@ -57,9 +57,9 @@ describe("ObsNdiPreviewSource", () => {
   });
 
   it("does nothing when OBS device has no ndiOutputName", async () => {
-    const db = createDbWithObsDevice();
+    const database = createDbWithObsDevice();
     previewManager = createMockPreviewManager();
-    source = new ObsNdiPreviewSource(db, previewManager);
+    source = new ObsNdiPreviewSource(database, previewManager);
 
     await source.initialize();
     expect(source.getNdiOutputName()).toBeNull();
@@ -67,9 +67,9 @@ describe("ObsNdiPreviewSource", () => {
   });
 
   it("registers source when ndiOutputName is configured", async () => {
-    const db = createDbWithObsDevice("MY-PC (OBS)");
+    const database = createDbWithObsDevice("MY-PC (OBS)");
     previewManager = createMockPreviewManager();
-    source = new ObsNdiPreviewSource(db, previewManager);
+    source = new ObsNdiPreviewSource(database, previewManager);
 
     await source.initialize();
     expect(source.getNdiOutputName()).toBe("MY-PC (OBS)");
@@ -83,9 +83,9 @@ describe("ObsNdiPreviewSource", () => {
   });
 
   it("destroy marks source unavailable", async () => {
-    const db = createDbWithObsDevice("MY-PC (OBS)");
+    const database = createDbWithObsDevice("MY-PC (OBS)");
     previewManager = createMockPreviewManager();
-    source = new ObsNdiPreviewSource(db, previewManager);
+    source = new ObsNdiPreviewSource(database, previewManager);
     await source.initialize();
 
     source.destroy();
@@ -93,9 +93,9 @@ describe("ObsNdiPreviewSource", () => {
   });
 
   it("reload updates source when ndiOutputName changes", async () => {
-    const db = createDbWithObsDevice("OLD-NAME");
+    const database = createDbWithObsDevice("OLD-NAME");
     previewManager = createMockPreviewManager();
-    source = new ObsNdiPreviewSource(db, previewManager);
+    source = new ObsNdiPreviewSource(database, previewManager);
     await source.initialize();
 
     // Capture the subscriber callback for BUS_OBS_CONFIG_CHANGED
@@ -104,7 +104,7 @@ describe("ObsNdiPreviewSource", () => {
     expect(reloadCb).toBeDefined();
 
     // Update DB with new name
-    db.prepare("UPDATE device_connections SET metadata = ? WHERE id = 'obs-1'").run(JSON.stringify({ ndiOutputName: "NEW-NAME" }));
+    database.prepare("UPDATE device_connections SET metadata = ? WHERE id = 'obs-1'").run(JSON.stringify({ ndiOutputName: "NEW-NAME" }));
     reloadCb!();
 
     expect(source.getNdiOutputName()).toBe("NEW-NAME");
@@ -113,16 +113,16 @@ describe("ObsNdiPreviewSource", () => {
   });
 
   it("reload removes source when ndiOutputName cleared", async () => {
-    const db = createDbWithObsDevice("MY-PC");
+    const database = createDbWithObsDevice("MY-PC");
     previewManager = createMockPreviewManager();
-    source = new ObsNdiPreviewSource(db, previewManager);
+    source = new ObsNdiPreviewSource(database, previewManager);
     await source.initialize();
 
     const subscribeMock = vi.mocked(eventBus.subscribe);
     const reloadCb = subscribeMock.mock.calls.find((call) => call[0] === "bus:obs:config:changed")?.[1] as (() => void) | undefined;
 
     // Clear ndiOutputName
-    db.prepare("UPDATE device_connections SET metadata = '{}' WHERE id = 'obs-1'").run();
+    database.prepare("UPDATE device_connections SET metadata = '{}' WHERE id = 'obs-1'").run();
     reloadCb!();
 
     expect(source.getNdiOutputName()).toBeNull();
@@ -130,9 +130,9 @@ describe("ObsNdiPreviewSource", () => {
   });
 
   it("reload does nothing when name unchanged", async () => {
-    const db = createDbWithObsDevice("MY-PC");
+    const database = createDbWithObsDevice("MY-PC");
     previewManager = createMockPreviewManager();
-    source = new ObsNdiPreviewSource(db, previewManager);
+    source = new ObsNdiPreviewSource(database, previewManager);
     await source.initialize();
 
     vi.mocked(previewManager.setSourceAvailable).mockClear();

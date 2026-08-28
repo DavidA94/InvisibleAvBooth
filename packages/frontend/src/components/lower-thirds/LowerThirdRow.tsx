@@ -1,4 +1,4 @@
-import { TEST_ID_LT_DISMISS_BUTTON, TEST_ID_LT_SHOW_BUTTON, TEST_ID_LT_STATUS_OVERLAY } from "../../constants/testIds";
+import { TEST_ID_LOWER_THIRD_DISMISS_BUTTON, TEST_ID_LOWER_THIRD_SHOW_BUTTON, TEST_ID_LOWER_THIRD_STATUS_OVERLAY } from "../../constants/testIds";
 import type { ReactNode } from "react";
 import type { LowerThirdItem, AnimationPhase, TitleContent, TitleSubtitleContent, ScriptureContent } from "@invisible-av-booth/shared";
 import { SwipeableRow } from "./SwipeableRow";
@@ -93,10 +93,10 @@ export function LowerThirdRow({
   const rowContent = (
     <div
       className={`lt-row ${item.used ? "lt-row--used" : ""} ${isActive && section === "library" ? "lt-row--active-badge" : ""}`}
-      data-testid={`lt-row-${item.id}`}
+      data-testid={`lower-third-row-${item.id}`}
     >
       {isDismissing && (
-        <div className="lt-status-overlay" data-testid={TEST_ID_LT_STATUS_OVERLAY}>
+        <div className="lt-status-overlay" data-testid={TEST_ID_LOWER_THIRD_STATUS_OVERLAY}>
           Dismissing
         </div>
       )}
@@ -116,7 +116,7 @@ export function LowerThirdRow({
           className="lt-action-btn lt-action-primary"
           onClick={onDismiss}
           disabled={transitionLocked || isDismissing}
-          data-testid={TEST_ID_LT_DISMISS_BUTTON}
+          data-testid={TEST_ID_LOWER_THIRD_DISMISS_BUTTON}
           aria-label="Dismiss"
         >
           <span className="lt-action-icon">✕</span>
@@ -128,7 +128,7 @@ export function LowerThirdRow({
           className="lt-action-btn lt-action-primary"
           onClick={() => onActivate?.(item.id)}
           disabled={transitionLocked}
-          data-testid={TEST_ID_LT_SHOW_BUTTON}
+          data-testid={TEST_ID_LOWER_THIRD_SHOW_BUTTON}
           aria-label="Show"
         >
           <span className="lt-action-icon">▶</span>

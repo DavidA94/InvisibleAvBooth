@@ -1,11 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { ObsPreviewWidget } from "./ObsPreviewWidget";
 import { useStore } from "../../store";
 import {
   TEST_ID_OBS_PREVIEW_WIDGET,
   TEST_ID_OBS_PREVIEW_INACTIVE,
-  TEST_ID_OBS_PREVIEW_MUTE_BTN,
+  TEST_ID_OBS_PREVIEW_MUTE_BUTTON,
   TEST_ID_OBS_PREVIEW_RECONNECTING,
   TEST_ID_AUDIO_METER_CONTAINER,
 } from "../../constants/testIds";
@@ -58,28 +59,30 @@ describe("ObsPreviewWidget", () => {
     expect(screen.getByTestId(TEST_ID_OBS_PREVIEW_RECONNECTING)).toHaveTextContent("Reconnecting");
   });
 
-  it("shows unavailable overlay in error state with tap to reconnect", () => {
+  it("shows unavailable overlay in error state with tap to reconnect", async () => {
+    const user = userEvent.setup();
     const reconnect = vi.fn();
     mockUseObsPreviewStream.mockReturnValue({ ...defaultHookReturn(), status: "error", reconnect });
     render(<ObsPreviewWidget enabled={true} ndiConfigured={true} />);
     const overlay = screen.getByTestId(TEST_ID_OBS_PREVIEW_INACTIVE);
     expect(overlay).toHaveTextContent("Unavailable");
-    fireEvent.click(overlay);
+    await user.click(overlay);
     expect(reconnect).toHaveBeenCalled();
   });
 
   it("shows mute button when streaming", () => {
     mockUseObsPreviewStream.mockReturnValue({ ...defaultHookReturn(), status: "streaming" });
     render(<ObsPreviewWidget enabled={true} ndiConfigured={true} />);
-    expect(screen.getByTestId(TEST_ID_OBS_PREVIEW_MUTE_BTN)).toBeInTheDocument();
+    expect(screen.getByTestId(TEST_ID_OBS_PREVIEW_MUTE_BUTTON)).toBeInTheDocument();
   });
 
-  it("mute button toggles muted state", () => {
+  it("mute button toggles muted state", async () => {
+    const user = userEvent.setup();
     const setMuted = vi.fn();
     mockUseObsPreviewStream.mockReturnValue({ ...defaultHookReturn(), status: "streaming", muted: true, setMuted });
     render(<ObsPreviewWidget enabled={true} ndiConfigured={true} />);
-    const btn = screen.getByTestId(TEST_ID_OBS_PREVIEW_MUTE_BTN);
-    fireEvent.click(btn);
+    const btn = screen.getByTestId(TEST_ID_OBS_PREVIEW_MUTE_BUTTON);
+    await user.click(btn);
     expect(setMuted).toHaveBeenCalledWith(false);
   });
 

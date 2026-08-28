@@ -2,13 +2,13 @@ import { useState, useRef, useEffect } from "react";
 import type { ReactNode } from "react";
 import { IonButton, IonInput, IonToggle } from "@ionic/react";
 import {
-  TEST_ID_LT_ADD_DIALOG,
-  TEST_ID_LT_ADD_TITLE_INPUT,
-  TEST_ID_LT_ADD_SUBTITLE_INPUT,
-  TEST_ID_LT_ADD_AUTODISMISS_TOGGLE,
-  TEST_ID_LT_ADD_AUTODISMISS_DURATION,
-  TEST_ID_LT_ADD_CANCEL,
-  TEST_ID_LT_ADD_SAVE,
+  TEST_ID_LOWER_THIRD_ADD_DIALOG,
+  TEST_ID_LOWER_THIRD_ADD_TITLE_INPUT,
+  TEST_ID_LOWER_THIRD_ADD_SUBTITLE_INPUT,
+  TEST_ID_LOWER_THIRD_ADD_AUTODISMISS_TOGGLE,
+  TEST_ID_LOWER_THIRD_ADD_AUTODISMISS_DURATION,
+  TEST_ID_LOWER_THIRD_ADD_CANCEL,
+  TEST_ID_LOWER_THIRD_ADD_SAVE,
 } from "../../constants/testIds";
 import type { LowerThirdType, AddLowerThirdInput, ScriptureReference } from "@invisible-av-booth/shared";
 import { Modal } from "../Modal";
@@ -77,10 +77,10 @@ export function AddLowerThirdDialog({ type, onSave, onGoLive, onCancel }: AddLow
         Go Live
       </IonButton>
       <div className="layout-row gap-standard">
-        <IonButton fill="outline" onClick={onCancel} data-testid={TEST_ID_LT_ADD_CANCEL}>
+        <IonButton fill="outline" onClick={onCancel} data-testid={TEST_ID_LOWER_THIRD_ADD_CANCEL}>
           Cancel
         </IonButton>
-        <IonButton onClick={handleSave} disabled={!isValid()} data-testid={TEST_ID_LT_ADD_SAVE}>
+        <IonButton onClick={handleSave} disabled={!isValid()} data-testid={TEST_ID_LOWER_THIRD_ADD_SAVE}>
           Save
         </IonButton>
       </div>
@@ -89,7 +89,7 @@ export function AddLowerThirdDialog({ type, onSave, onGoLive, onCancel }: AddLow
 
   return (
     <Modal isOpen={true} onClose={onCancel} header={`Add ${type === "TitleSubtitle" ? "Title + Subtitle" : type}`} footer={footer}>
-      <div data-testid={TEST_ID_LT_ADD_DIALOG} className="layout-column gap-standard">
+      <div data-testid={TEST_ID_LOWER_THIRD_ADD_DIALOG} className="layout-column gap-standard">
         {(type === "Title" || type === "TitleSubtitle") && (
           <IonInput
             ref={titleRef}
@@ -99,7 +99,7 @@ export function AddLowerThirdDialog({ type, onSave, onGoLive, onCancel }: AddLow
             autocapitalize="words"
             value={title}
             onIonInput={(event) => setTitle(event.detail.value ?? "")}
-            data-testid={TEST_ID_LT_ADD_TITLE_INPUT}
+            data-testid={TEST_ID_LOWER_THIRD_ADD_TITLE_INPUT}
           />
         )}
 
@@ -111,7 +111,7 @@ export function AddLowerThirdDialog({ type, onSave, onGoLive, onCancel }: AddLow
             autocapitalize="words"
             value={subtitle}
             onIonInput={(event) => setSubtitle(event.detail.value ?? "")}
-            data-testid={TEST_ID_LT_ADD_SUBTITLE_INPUT}
+            data-testid={TEST_ID_LOWER_THIRD_ADD_SUBTITLE_INPUT}
           />
         )}
 
@@ -133,7 +133,7 @@ export function AddLowerThirdDialog({ type, onSave, onGoLive, onCancel }: AddLow
           <IonToggle
             checked={autoDismissEnabled}
             onIonChange={(event) => setAutoDismissEnabled(event.detail.checked)}
-            data-testid={TEST_ID_LT_ADD_AUTODISMISS_TOGGLE}
+            data-testid={TEST_ID_LOWER_THIRD_ADD_AUTODISMISS_TOGGLE}
           >
             Auto-Dismiss
           </IonToggle>
@@ -145,7 +145,7 @@ export function AddLowerThirdDialog({ type, onSave, onGoLive, onCancel }: AddLow
             value={autoDismissSeconds}
             disabled={!autoDismissEnabled}
             onIonInput={(event) => setAutoDismissSeconds(Math.max(1, parseInt(event.detail.value ?? "10") || 10))}
-            data-testid={TEST_ID_LT_ADD_AUTODISMISS_DURATION}
+            data-testid={TEST_ID_LOWER_THIRD_ADD_AUTODISMISS_DURATION}
             style={{ maxWidth: "5rem" }}
           />
           <span className="text-muted">seconds</span>

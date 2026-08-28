@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { GlobalTitleBar } from "./GlobalTitleBar";
 import { useStore } from "../store";
@@ -101,16 +102,18 @@ describe("GlobalTitleBar", () => {
     expect(screen.queryByTestId(TEST_ID_GLOBAL_TITLE_BAR)).not.toBeInTheDocument();
   });
 
-  it("(CHANGE) button navigates to /dashboards", () => {
+  it("(CHANGE) button navigates to /dashboards", async () => {
+    const user = userEvent.setup();
     renderBar();
-    fireEvent.click(screen.getByText("(CHANGE)"));
+    await user.click(screen.getByText("(CHANGE)"));
     expect(mockNavigate).toHaveBeenCalledWith("/dashboards");
   });
 
-  it("Admin Pages button navigates to /admin", () => {
+  it("Admin Pages button navigates to /admin", async () => {
+    const user = userEvent.setup();
     useStore.setState({ user: { id: "u1", username: "Admin", role: "ADMIN" } });
     renderBar();
-    fireEvent.click(screen.getByTestId(TEST_ID_TITLE_BAR_ADMIN_LINK));
+    await user.click(screen.getByTestId(TEST_ID_TITLE_BAR_ADMIN_LINK));
     expect(mockNavigate).toHaveBeenCalledWith("/admin");
   });
 

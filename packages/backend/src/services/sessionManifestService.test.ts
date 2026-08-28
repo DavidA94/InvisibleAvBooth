@@ -53,7 +53,7 @@ function insertKjvVerse(bookId: number, chapter: number, verse: number, text: st
   database.prepare("INSERT INTO kjv (BOOKID, CHAPTERNO, VERSENO, VERSETEXT) VALUES (?, ?, ?, ?)").run(bookId, chapter, verse, text);
 }
 
-function makeSvc(): SessionManifestService {
+function makeService(): SessionManifestService {
   const service = new SessionManifestService(database);
   services.push(service);
   return service;
@@ -77,21 +77,21 @@ afterEach(() => {
 
 describe("SessionManifestService.get", () => {
   it("returns empty manifest initially", () => {
-    const service = makeSvc();
+    const service = makeService();
     expect(service.get()).toEqual({});
   });
 });
 
 describe("SessionManifestService.update", () => {
   it("merges patch into manifest", () => {
-    const service = makeSvc();
+    const service = makeService();
     service.update({ speaker: "John" }, actor);
     service.update({ title: "Grace" }, actor);
     expect(service.get()).toMatchObject({ speaker: "John", title: "Grace" });
   });
 
   it("emits session:manifest:updated on EventBus", () => {
-    const service = makeSvc();
+    const service = makeService();
     const handler = vi.fn();
     eventBus.subscribe(BUS_SESSION_MANIFEST_UPDATED, handler);
     cleanups.push(() => eventBus.unsubscribe(BUS_SESSION_MANIFEST_UPDATED, handler));
@@ -106,7 +106,7 @@ describe("SessionManifestService.update", () => {
   });
 
   it("returns the updated manifest", () => {
-    const service = makeSvc();
+    const service = makeService();
     const result = service.update({ speaker: "John" }, actor);
     expect(result.success).toBe(true);
     if (result.success) expect(result.value.speaker).toBe("John");
@@ -116,7 +116,7 @@ describe("SessionManifestService.update", () => {
 describe("SessionManifestService.clear", () => {
   it("resets manifest fields but preserves template IDs", () => {
     insertTemplate("t1", "Default", "title", "{Speaker}");
-    const service = makeSvc();
+    const service = makeService();
     service.update({ speaker: "John", titleTemplateId: "t1" }, actor);
     service.clear(actor);
     const manifest = service.get();
@@ -125,7 +125,7 @@ describe("SessionManifestService.clear", () => {
   });
 
   it("emits session:manifest:updated with cleared manifest", () => {
-    const service = makeSvc();
+    const service = makeService();
     service.update({ speaker: "John" }, actor);
     const handler = vi.fn();
     eventBus.subscribe(BUS_SESSION_MANIFEST_UPDATED, handler);
@@ -137,7 +137,7 @@ describe("SessionManifestService.clear", () => {
   });
 
   it("is blocked while streaming", () => {
-    const service = makeSvc();
+    const service = makeService();
     eventBus.emit(BUS_OBS_STATE_CHANGED, { state: liveObsState });
     const result = service.clear(actor);
     expect(result.success).toBe(false);
@@ -145,14 +145,14 @@ describe("SessionManifestService.clear", () => {
   });
 
   it("is blocked while recording", () => {
-    const service = makeSvc();
+    const service = makeService();
     eventBus.emit(BUS_OBS_STATE_CHANGED, { state: recordingObsState });
     const result = service.clear(actor);
     expect(result.success).toBe(false);
   });
 
   it("is allowed after streaming stops", () => {
-    const service = makeSvc();
+    const service = makeService();
     eventBus.emit(BUS_OBS_STATE_CHANGED, { state: liveObsState });
     eventBus.emit(BUS_OBS_STATE_CHANGED, { state: idleObsState });
     expect(service.clear(actor).success).toBe(true);
@@ -164,13 +164,13 @@ describe("SessionManifestService.clear", () => {
 describe("multi-template interpolation", () => {
   it("uses title template from DAO when titleTemplateId is set", () => {
     insertTemplate("t1", "Custom", "title", "{Speaker} preaches {Title}");
-    const service = makeSvc();
+    const service = makeService();
     service.update({ titleTemplateId: "t1", speaker: "John", title: "Grace" }, actor);
     expect(service.getInterpolated().interpolatedStreamTitle).toBe("John preaches Grace");
   });
 
   it("falls back to DEFAULT_STREAM_TITLE_TEMPLATE when no titleTemplateId", () => {
-    const service = makeSvc();
+    const service = makeService();
     service.update({ speaker: "John", title: "Grace" }, actor);
     const { interpolatedStreamTitle } = service.getInterpolated();
     expect(interpolatedStreamTitle).toContain("John");
@@ -180,20 +180,20 @@ describe("multi-template interpolation", () => {
 
   it("interpolates description template when descriptionTemplateId is set", () => {
     insertTemplate("d1", "Desc", "description", "Sermon by {Speaker}");
-    const service = makeSvc();
+    const service = makeService();
     service.update({ descriptionTemplateId: "d1", speaker: "John" }, actor);
     expect(service.getInterpolated().interpolatedDescription).toBe("Sermon by John");
   });
 
   it("returns empty description when no descriptionTemplateId", () => {
-    const service = makeSvc();
+    const service = makeService();
     service.update({ speaker: "John" }, actor);
     expect(service.getInterpolated().interpolatedDescription).toBe("");
   });
 
   it("returns empty description when description template has empty formatString", () => {
     insertTemplate("d1", "None", "description", "");
-    const service = makeSvc();
+    const service = makeService();
     service.update({ descriptionTemplateId: "d1", speaker: "John" }, actor);
     expect(service.getInterpolated().interpolatedDescription).toBe("");
   });
@@ -203,21 +203,21 @@ describe("multi-template interpolation", () => {
 
 describe("manifestReady", () => {
   it("is false when no titleTemplateId is set", () => {
-    const service = makeSvc();
+    const service = makeService();
     service.update({ speaker: "John", title: "Grace" }, actor);
     expect(service.getInterpolated().manifestReady).toBe(false);
   });
 
   it("is true when titleTemplateId is set and all tokens are filled", () => {
     insertTemplate("t1", "Default", "title", "{Date} – {Speaker} – {Title}");
-    const service = makeSvc();
+    const service = makeService();
     service.update({ titleTemplateId: "t1", speaker: "John", title: "Grace" }, actor);
     expect(service.getInterpolated().manifestReady).toBe(true);
   });
 
   it("is false when a required token is missing", () => {
     insertTemplate("t1", "Default", "title", "{Speaker} – {Title}");
-    const service = makeSvc();
+    const service = makeService();
     service.update({ titleTemplateId: "t1", speaker: "John" }, actor);
     expect(service.getInterpolated().manifestReady).toBe(false);
   });
@@ -225,7 +225,7 @@ describe("manifestReady", () => {
   it("considers description template tokens too", () => {
     insertTemplate("t1", "Title", "title", "{Date}");
     insertTemplate("d1", "Desc", "description", "{Speaker} on {Title}");
-    const service = makeSvc();
+    const service = makeService();
     service.update({ titleTemplateId: "t1", descriptionTemplateId: "d1", speaker: "John" }, actor);
     expect(service.getInterpolated().manifestReady).toBe(false);
     service.update({ title: "Grace" }, actor);
@@ -234,7 +234,7 @@ describe("manifestReady", () => {
 
   it("requires scripture when {Scripture} token is present", () => {
     insertTemplate("t1", "Default", "title", "{Scripture} – {Speaker}");
-    const service = makeSvc();
+    const service = makeService();
     service.update({ titleTemplateId: "t1", speaker: "John" }, actor);
     expect(service.getInterpolated().manifestReady).toBe(false);
     service.update({ scripture: { bookId: 43, chapter: 3, verse: 16 } }, actor);
@@ -244,7 +244,7 @@ describe("manifestReady", () => {
   it("requires scripture when {verseText} token is present", () => {
     insertTemplate("t1", "Default", "title", "{Speaker}");
     insertTemplate("d1", "Desc", "description", "{verseText}");
-    const service = makeSvc();
+    const service = makeService();
     service.update({ titleTemplateId: "t1", descriptionTemplateId: "d1", speaker: "John" }, actor);
     expect(service.getInterpolated().manifestReady).toBe(false);
     service.update({ scripture: { bookId: 43, chapter: 3, verse: 16 } }, actor);
@@ -258,7 +258,7 @@ describe("verseTextResolver", () => {
   it("resolves single verse from KJV table", () => {
     insertTemplate("d1", "Desc", "description", "{verseText}");
     insertKjvVerse(43, 3, 16, "For God so loved the world");
-    const service = makeSvc();
+    const service = makeService();
     service.update({ descriptionTemplateId: "d1", scripture: { bookId: 43, chapter: 3, verse: 16 } }, actor);
     expect(service.getInterpolated().interpolatedDescription).toBe("John 3:16 – For God so loved the world");
   });
@@ -267,7 +267,7 @@ describe("verseTextResolver", () => {
     insertTemplate("d1", "Desc", "description", "{verseText}");
     insertKjvVerse(43, 3, 16, "For God so loved the world");
     insertKjvVerse(43, 3, 17, "For God sent not his Son");
-    const service = makeSvc();
+    const service = makeService();
     service.update({ descriptionTemplateId: "d1", scripture: { bookId: 43, chapter: 3, verse: 16, verseEnd: 17 } }, actor);
     expect(service.getInterpolated().interpolatedDescription).toBe("John 3:16-17\n16. For God so loved the world\n17. For God sent not his Son");
   });
@@ -277,7 +277,7 @@ describe("verseTextResolver", () => {
     insertKjvVerse(19, 3, 0, "A Psalm of David.");
     insertKjvVerse(19, 3, 1, "LORD, how are they increased");
     insertKjvVerse(19, 3, 2, "Many there be which say");
-    const service = makeSvc();
+    const service = makeService();
     service.update({ descriptionTemplateId: "d1", scripture: { bookId: 19, chapter: 3, verse: 0, verseEnd: 2 } }, actor);
     expect(service.getInterpolated().interpolatedDescription).toBe(
       "Psalms 3:1-2\nA Psalm of David.\n1. LORD, how are they increased\n2. Many there be which say",
@@ -286,7 +286,7 @@ describe("verseTextResolver", () => {
 
   it("returns [Verse not found] for missing verse", () => {
     insertTemplate("d1", "Desc", "description", "{verseText}");
-    const service = makeSvc();
+    const service = makeService();
     service.update({ descriptionTemplateId: "d1", scripture: { bookId: 99, chapter: 1, verse: 1 } }, actor);
     expect(service.getInterpolated().interpolatedDescription).toBe("[Verse not found]");
   });
@@ -295,7 +295,7 @@ describe("verseTextResolver", () => {
     insertTemplate("d1", "Desc", "description", "{verseText}");
     insertKjvVerse(19, 23, 1, "The LORD is my shepherd");
     insertKjvVerse(19, 23, 2, "He maketh me to lie down");
-    const service = makeSvc();
+    const service = makeService();
     service.update({ descriptionTemplateId: "d1", scripture: { bookId: 19, chapter: 23, verse: 0 } }, actor);
     expect(service.getInterpolated().interpolatedDescription).toBe("Psalms 23\n1. The LORD is my shepherd\n2. He maketh me to lie down");
   });

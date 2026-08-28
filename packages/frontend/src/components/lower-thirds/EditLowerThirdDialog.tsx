@@ -2,13 +2,13 @@ import { useState } from "react";
 import type { ReactNode } from "react";
 import { IonButton, IonInput, IonToggle } from "@ionic/react";
 import {
-  TEST_ID_LT_EDIT_DIALOG,
-  TEST_ID_LT_EDIT_TITLE_INPUT,
-  TEST_ID_LT_EDIT_SUBTITLE_INPUT,
-  TEST_ID_LT_EDIT_AUTODISMISS_TOGGLE,
-  TEST_ID_LT_EDIT_AUTODISMISS_DURATION,
-  TEST_ID_LT_EDIT_CANCEL,
-  TEST_ID_LT_EDIT_SAVE,
+  TEST_ID_LOWER_THIRD_EDIT_DIALOG,
+  TEST_ID_LOWER_THIRD_EDIT_TITLE_INPUT,
+  TEST_ID_LOWER_THIRD_EDIT_SUBTITLE_INPUT,
+  TEST_ID_LOWER_THIRD_EDIT_AUTODISMISS_TOGGLE,
+  TEST_ID_LOWER_THIRD_EDIT_AUTODISMISS_DURATION,
+  TEST_ID_LOWER_THIRD_EDIT_CANCEL,
+  TEST_ID_LOWER_THIRD_EDIT_SAVE,
 } from "../../constants/testIds";
 import type { LowerThirdItem, EditLowerThirdInput, ScriptureReference, TitleContent, TitleSubtitleContent, ScriptureContent } from "@invisible-av-booth/shared";
 import { Modal } from "../Modal";
@@ -65,10 +65,10 @@ export function EditLowerThirdDialog({ item, onSave, onCancel }: EditLowerThirdD
 
   const footer = (
     <div className="layout-row gap-standard justify-end">
-      <IonButton fill="outline" onClick={onCancel} data-testid={TEST_ID_LT_EDIT_CANCEL}>
+      <IonButton fill="outline" onClick={onCancel} data-testid={TEST_ID_LOWER_THIRD_EDIT_CANCEL}>
         Cancel
       </IonButton>
-      <IonButton onClick={handleSave} disabled={!isValid()} data-testid={TEST_ID_LT_EDIT_SAVE}>
+      <IonButton onClick={handleSave} disabled={!isValid()} data-testid={TEST_ID_LOWER_THIRD_EDIT_SAVE}>
         Save
       </IonButton>
     </div>
@@ -76,7 +76,7 @@ export function EditLowerThirdDialog({ item, onSave, onCancel }: EditLowerThirdD
 
   return (
     <Modal isOpen={true} onClose={onCancel} header={`Edit ${item.type === "TitleSubtitle" ? "Title + Subtitle" : item.type}`} footer={footer}>
-      <div data-testid={TEST_ID_LT_EDIT_DIALOG} className="layout-column gap-standard">
+      <div data-testid={TEST_ID_LOWER_THIRD_EDIT_DIALOG} className="layout-column gap-standard">
         {(item.type === "Title" || item.type === "TitleSubtitle") && (
           <IonInput
             label="Title"
@@ -85,7 +85,7 @@ export function EditLowerThirdDialog({ item, onSave, onCancel }: EditLowerThirdD
             autocapitalize="words"
             value={title}
             onIonInput={(event) => setTitle(event.detail.value ?? "")}
-            data-testid={TEST_ID_LT_EDIT_TITLE_INPUT}
+            data-testid={TEST_ID_LOWER_THIRD_EDIT_TITLE_INPUT}
           />
         )}
 
@@ -97,7 +97,7 @@ export function EditLowerThirdDialog({ item, onSave, onCancel }: EditLowerThirdD
             autocapitalize="words"
             value={subtitle}
             onIonInput={(event) => setSubtitle(event.detail.value ?? "")}
-            data-testid={TEST_ID_LT_EDIT_SUBTITLE_INPUT}
+            data-testid={TEST_ID_LOWER_THIRD_EDIT_SUBTITLE_INPUT}
           />
         )}
 
@@ -118,7 +118,7 @@ export function EditLowerThirdDialog({ item, onSave, onCancel }: EditLowerThirdD
           <IonToggle
             checked={autoDismissEnabled}
             onIonChange={(event) => setAutoDismissEnabled(event.detail.checked)}
-            data-testid={TEST_ID_LT_EDIT_AUTODISMISS_TOGGLE}
+            data-testid={TEST_ID_LOWER_THIRD_EDIT_AUTODISMISS_TOGGLE}
           >
             Auto-Dismiss
           </IonToggle>
@@ -130,7 +130,7 @@ export function EditLowerThirdDialog({ item, onSave, onCancel }: EditLowerThirdD
             value={autoDismissSeconds}
             disabled={!autoDismissEnabled}
             onIonInput={(event) => setAutoDismissSeconds(Math.max(1, parseInt(event.detail.value ?? "10") || 10))}
-            data-testid={TEST_ID_LT_EDIT_AUTODISMISS_DURATION}
+            data-testid={TEST_ID_LOWER_THIRD_EDIT_AUTODISMISS_DURATION}
             style={{ maxWidth: "5rem" }}
           />
           <span className="text-muted">seconds</span>

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { ManageStreamsModal } from "./ManageStreamsModal";
 import { useStore } from "../../store";
 import { INITIAL_OBS_STATE } from "../../store/obsSlice";
@@ -107,35 +108,39 @@ describe("ManageStreamsModal", () => {
     expect((btn as HTMLButtonElement).disabled).toBe(true);
   });
 
-  it("sends startAll command after confirmation", () => {
+  it("sends startAll command after confirmation", async () => {
+    const user = userEvent.setup();
     resetStore(new Map([["youtube", { state: "idle" }]]));
     render(<ManageStreamsModal isOpen={true} onClose={vi.fn()} />);
-    fireEvent.click(screen.getByTestId(TEST_ID_PLATFORM_START_ALL));
-    fireEvent.click(screen.getByTestId(TEST_ID_CONFIRMATION_CONFIRM_BUTTON));
+    await user.click(screen.getByTestId(TEST_ID_PLATFORM_START_ALL));
+    await user.click(screen.getByTestId(TEST_ID_CONFIRMATION_CONFIRM_BUTTON));
     expect(mockEmit).toHaveBeenCalledWith("cts:platform:command", { type: "startAll" });
   });
 
-  it("sends stopAll command after confirmation", () => {
+  it("sends stopAll command after confirmation", async () => {
+    const user = userEvent.setup();
     resetStore(new Map([["youtube", { state: "streaming" }]]));
     render(<ManageStreamsModal isOpen={true} onClose={vi.fn()} />);
-    fireEvent.click(screen.getByTestId(TEST_ID_PLATFORM_STOP_ALL));
-    fireEvent.click(screen.getByTestId(TEST_ID_CONFIRMATION_CONFIRM_BUTTON));
+    await user.click(screen.getByTestId(TEST_ID_PLATFORM_STOP_ALL));
+    await user.click(screen.getByTestId(TEST_ID_CONFIRMATION_CONFIRM_BUTTON));
     expect(mockEmit).toHaveBeenCalledWith("cts:platform:command", { type: "stopAll" });
   });
 
-  it("sends startPlatform command for individual start after confirmation", () => {
+  it("sends startPlatform command for individual start after confirmation", async () => {
+    const user = userEvent.setup();
     resetStore(new Map([["youtube", { state: "idle" }]]));
     render(<ManageStreamsModal isOpen={true} onClose={vi.fn()} />);
-    fireEvent.click(screen.getByTestId(TEST_ID_PLATFORM_START_SINGLE));
-    fireEvent.click(screen.getByTestId(TEST_ID_CONFIRMATION_CONFIRM_BUTTON));
+    await user.click(screen.getByTestId(TEST_ID_PLATFORM_START_SINGLE));
+    await user.click(screen.getByTestId(TEST_ID_CONFIRMATION_CONFIRM_BUTTON));
     expect(mockEmit).toHaveBeenCalledWith("cts:platform:command", { type: "startPlatform", platformType: "youtube" });
   });
 
-  it("sends stopPlatform command for individual stop after confirmation", () => {
+  it("sends stopPlatform command for individual stop after confirmation", async () => {
+    const user = userEvent.setup();
     resetStore(new Map([["youtube", { state: "streaming" }]]));
     render(<ManageStreamsModal isOpen={true} onClose={vi.fn()} />);
-    fireEvent.click(screen.getByTestId(TEST_ID_PLATFORM_STOP_SINGLE));
-    fireEvent.click(screen.getByTestId(TEST_ID_CONFIRMATION_CONFIRM_BUTTON));
+    await user.click(screen.getByTestId(TEST_ID_PLATFORM_STOP_SINGLE));
+    await user.click(screen.getByTestId(TEST_ID_CONFIRMATION_CONFIRM_BUTTON));
     expect(mockEmit).toHaveBeenCalledWith("cts:platform:command", { type: "stopPlatform", platformType: "youtube" });
   });
 });

@@ -337,10 +337,10 @@ describe("Preview data fan-out and lifecycle", () => {
     const received = new Promise<Buffer>((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error("No audio message")), 2000);
       ws.on("message", (data) => {
-        const buf = data as Buffer;
-        if (buf[0] === 0x02) {
+        const buffer = data as Buffer;
+        if (buffer[0] === 0x02) {
           clearTimeout(timeout);
-          resolve(buf);
+          resolve(buffer);
         }
       });
     });

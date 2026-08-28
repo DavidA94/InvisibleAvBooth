@@ -4,81 +4,64 @@ import Database from "better-sqlite3";
 
 describe("metadata_templates migration", () => {
   it("fresh install creates table with lowerThirdType and autoDismissMs columns", () => {
-    const db = new Database(":memory:");
-    applySchema(db);
+    const database = new Database(":memory:");
+    applySchema(database);
 
-    const cols = (db.pragma("table_info(metadata_templates)") as Array<{ name: string }>).map((r) => r.name);
+    const cols = (database.pragma("table_info(metadata_templates)") as Array<{ name: string }>).map((r) => r.name);
 
     expect(cols).toContain("lowerThirdType");
     expect(cols).toContain("autoDismissMs");
-    db.close();
+    database.close();
   });
 
   it("category CHECK constraint accepts lower_third", () => {
-    const db = new Database(":memory:");
-    applySchema(db);
+    const database = new Database(":memory:");
+    applySchema(database);
 
     expect(() => {
-      db.prepare("INSERT INTO metadata_templates (id, name, category, formatString, roleMinimum, lowerThirdType, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)").run(
-        "lt1",
-        "Speaker",
-        "lower_third",
-        '{"title":"{Speaker}"}',
-        "AvVolunteer",
-        "Title",
-        new Date().toISOString(),
-      );
+      database
+        .prepare("INSERT INTO metadata_templates (id, name, category, formatString, roleMinimum, lowerThirdType, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)")
+        .run("lt1", "Speaker", "lower_third", '{"title":"{Speaker}"}', "AvVolunteer", "Title", new Date().toISOString());
     }).not.toThrow();
-    db.close();
+    database.close();
   });
 
   it("lowerThirdType CHECK constraint rejects invalid values", () => {
-    const db = new Database(":memory:");
-    applySchema(db);
+    const database = new Database(":memory:");
+    applySchema(database);
 
     expect(() => {
-      db.prepare("INSERT INTO metadata_templates (id, name, category, formatString, roleMinimum, lowerThirdType, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)").run(
-        "lt1",
-        "Bad",
-        "lower_third",
-        '{"title":"x"}',
-        "AvVolunteer",
-        "Invalid",
-        new Date().toISOString(),
-      );
+      database
+        .prepare("INSERT INTO metadata_templates (id, name, category, formatString, roleMinimum, lowerThirdType, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)")
+        .run("lt1", "Bad", "lower_third", '{"title":"x"}', "AvVolunteer", "Invalid", new Date().toISOString());
     }).toThrow();
-    db.close();
+    database.close();
   });
 
   it("lowerThirdType and autoDismissMs are nullable (existing title/description templates unaffected)", () => {
-    const db = new Database(":memory:");
-    applySchema(db);
+    const database = new Database(":memory:");
+    applySchema(database);
 
     expect(() => {
-      db.prepare("INSERT INTO metadata_templates (id, name, category, formatString, roleMinimum, createdAt) VALUES (?, ?, ?, ?, ?, ?)").run(
-        "t1",
-        "Standard",
-        "title",
-        "{Date} – {Speaker}",
-        "AvVolunteer",
-        new Date().toISOString(),
-      );
+      database
+        .prepare("INSERT INTO metadata_templates (id, name, category, formatString, roleMinimum, createdAt) VALUES (?, ?, ?, ?, ?, ?)")
+        .run("t1", "Standard", "title", "{Date} – {Speaker}", "AvVolunteer", new Date().toISOString());
     }).not.toThrow();
 
-    const row = db.prepare("SELECT lowerThirdType, autoDismissMs FROM metadata_templates WHERE id = ?").get("t1") as {
+    const row = database.prepare("SELECT lowerThirdType, autoDismissMs FROM metadata_templates WHERE id = ?").get("t1") as {
       lowerThirdType: string | null;
       autoDismissMs: number | null;
     };
     expect(row.lowerThirdType).toBeNull();
     expect(row.autoDismissMs).toBeNull();
-    db.close();
+    database.close();
   });
 
   it("migrates existing table preserving data", () => {
-    const db = new Database(":memory:");
+    const database = new Database(":memory:");
 
     // Create old schema (without lowerThirdType/autoDismissMs)
-    db.exec(`
+    database.exec(`
       CREATE TABLE metadata_templates (
         id TEXT PRIMARY KEY NOT NULL,
         name TEXT NOT NULL,
@@ -90,20 +73,15 @@ describe("metadata_templates migration", () => {
     `);
 
     // Insert data in old schema
-    db.prepare("INSERT INTO metadata_templates (id, name, category, formatString, roleMinimum, createdAt) VALUES (?, ?, ?, ?, ?, ?)").run(
-      "existing1",
-      "Speaker and Title",
-      "title",
-      "{Date} – {Speaker} – {Title}",
-      "AvVolunteer",
-      "2025-01-01T00:00:00.000Z",
-    );
+    database
+      .prepare("INSERT INTO metadata_templates (id, name, category, formatString, roleMinimum, createdAt) VALUES (?, ?, ?, ?, ?, ?)")
+      .run("existing1", "Speaker and Title", "title", "{Date} – {Speaker} – {Title}", "AvVolunteer", "2025-01-01T00:00:00.000Z");
 
     // Run applySchema which should detect and migrate
-    applySchema(db);
+    applySchema(database);
 
     // Verify data survived
-    const row = db.prepare("SELECT * FROM metadata_templates WHERE id = ?").get("existing1") as {
+    const row = database.prepare("SELECT * FROM metadata_templates WHERE id = ?").get("existing1") as {
       id: string;
       name: string;
       category: string;
@@ -120,25 +98,19 @@ describe("metadata_templates migration", () => {
 
     // Verify new category works after migration
     expect(() => {
-      db.prepare("INSERT INTO metadata_templates (id, name, category, formatString, roleMinimum, lowerThirdType, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)").run(
-        "lt1",
-        "Speaker LT",
-        "lower_third",
-        '{"title":"{Speaker}"}',
-        "AvVolunteer",
-        "Title",
-        new Date().toISOString(),
-      );
+      database
+        .prepare("INSERT INTO metadata_templates (id, name, category, formatString, roleMinimum, lowerThirdType, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)")
+        .run("lt1", "Speaker LT", "lower_third", '{"title":"{Speaker}"}', "AvVolunteer", "Title", new Date().toISOString());
     }).not.toThrow();
 
-    db.close();
+    database.close();
   });
 
   it("migration is idempotent — running applySchema twice after migration does not throw", () => {
-    const db = new Database(":memory:");
+    const database = new Database(":memory:");
 
     // Create old schema
-    db.exec(`
+    database.exec(`
       CREATE TABLE metadata_templates (
         id TEXT PRIMARY KEY NOT NULL,
         name TEXT NOT NULL,
@@ -150,10 +122,10 @@ describe("metadata_templates migration", () => {
     `);
 
     // First call migrates
-    applySchema(db);
+    applySchema(database);
     // Second call should be a no-op
-    expect(() => applySchema(db)).not.toThrow();
+    expect(() => applySchema(database)).not.toThrow();
 
-    db.close();
+    database.close();
   });
 });

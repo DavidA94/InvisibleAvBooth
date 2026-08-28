@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
 import "../../test/ionicMocks";
 import { CameraDeviceForm } from "./CameraDeviceForm";
-import { TEST_ID_DEVICE_FORM_LABEL, TEST_ID_DEVICE_FORM_SAVE, TEST_ID_DEVICE_FORM_DELETE } from "../../constants/testIds";
+import { TEST_ID_DEVICE_FORM_LABEL, TEST_ID_DEVICE_FORM_SAVE, TEST_ID_DEVICE_FORM_DELETE, TEST_ID_CAMERA_NDI_SOURCE } from "../../constants/testIds";
 
 vi.mock("react-select", () => ({
   default: ({ options, onChange, value, placeholder }: Record<string, unknown>) => {
@@ -113,7 +113,7 @@ describe("CameraDeviceForm", () => {
   it("filling label, NDI source, and host enables save", () => {
     render(<CameraDeviceForm device={null} onSaved={mockOnSaved} onDeleted={mockOnDeleted} registerDirtyCheck={mockRegisterDirtyCheck} />);
     fireEvent.change(screen.getByTestId(TEST_ID_DEVICE_FORM_LABEL), { target: { value: "Test Cam" } });
-    fireEvent.change(screen.getByTestId("camera-ndi-source"), { target: { value: "NDI-Test" } });
+    fireEvent.change(screen.getByTestId(TEST_ID_CAMERA_NDI_SOURCE), { target: { value: "NDI-Test" } });
     fireEvent.change(screen.getByLabelText("Camera IP"), { target: { value: "192.168.1.1" } });
     expect(screen.getByTestId(TEST_ID_DEVICE_FORM_SAVE)).not.toBeDisabled();
   });
@@ -125,7 +125,7 @@ describe("CameraDeviceForm", () => {
       .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ id: "new-id" }) }) as unknown as typeof fetch;
     render(<CameraDeviceForm device={null} onSaved={mockOnSaved} onDeleted={mockOnDeleted} registerDirtyCheck={mockRegisterDirtyCheck} />);
     fireEvent.change(screen.getByTestId(TEST_ID_DEVICE_FORM_LABEL), { target: { value: "Cam" } });
-    fireEvent.change(screen.getByTestId("camera-ndi-source"), { target: { value: "NDI" } });
+    fireEvent.change(screen.getByTestId(TEST_ID_CAMERA_NDI_SOURCE), { target: { value: "NDI" } });
     fireEvent.change(screen.getByLabelText("Camera IP"), { target: { value: "10.0.0.1" } });
     await act(async () => {
       fireEvent.click(screen.getByTestId(TEST_ID_DEVICE_FORM_SAVE));
@@ -169,7 +169,7 @@ describe("CameraDeviceForm", () => {
 
     render(<CameraDeviceForm device={null} onSaved={mockOnSaved} onDeleted={mockOnDeleted} registerDirtyCheck={mockRegisterDirtyCheck} />);
     fireEvent.change(screen.getByTestId(TEST_ID_DEVICE_FORM_LABEL), { target: { value: "Minimal Cam" } });
-    fireEvent.change(screen.getByTestId("camera-ndi-source"), { target: { value: "NDI-MIN" } });
+    fireEvent.change(screen.getByTestId(TEST_ID_CAMERA_NDI_SOURCE), { target: { value: "NDI-MIN" } });
     fireEvent.change(screen.getByLabelText("Camera IP"), { target: { value: "10.0.0.1" } });
 
     await act(async () => {
@@ -206,7 +206,7 @@ describe("CameraDeviceForm", () => {
 
     // Required fields
     fireEvent.change(screen.getByTestId(TEST_ID_DEVICE_FORM_LABEL), { target: { value: "Full Cam" } });
-    fireEvent.change(screen.getByTestId("camera-ndi-source"), { target: { value: "NDI-FULL" } });
+    fireEvent.change(screen.getByTestId(TEST_ID_CAMERA_NDI_SOURCE), { target: { value: "NDI-FULL" } });
     fireEvent.change(screen.getByLabelText("Camera IP"), { target: { value: "192.168.1.50" } });
     fireEvent.change(screen.getByLabelText("Port"), { target: { value: "1234" } });
 
@@ -355,7 +355,7 @@ describe("CameraDeviceForm", () => {
 
     render(<CameraDeviceForm device={null} onSaved={mockOnSaved} onDeleted={mockOnDeleted} registerDirtyCheck={mockRegisterDirtyCheck} />);
     fireEvent.change(screen.getByTestId(TEST_ID_DEVICE_FORM_LABEL), { target: { value: "Range Cam" } });
-    fireEvent.change(screen.getByTestId("camera-ndi-source"), { target: { value: "NDI" } });
+    fireEvent.change(screen.getByTestId(TEST_ID_CAMERA_NDI_SOURCE), { target: { value: "NDI" } });
     fireEvent.change(screen.getByLabelText("Camera IP"), { target: { value: "10.0.0.1" } });
 
     // Fill all min/max range fields — these are rendered for each feature that's enabled

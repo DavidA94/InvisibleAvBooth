@@ -59,8 +59,8 @@ vi.mock("net", () => {
 
 describe("ViscaCameraDriver — normalization utilities", () => {
   it("buildViscaPositionFromResponse extracts nibbles correctly", () => {
-    const buf = Buffer.from([0x90, 0x50, 0x01, 0x02, 0x03, 0x04, 0xff]);
-    expect(buildViscaPositionFromResponse(buf)).toBe(0x1234);
+    const responseBuffer = Buffer.from([0x90, 0x50, 0x01, 0x02, 0x03, 0x04, 0xff]);
+    expect(buildViscaPositionFromResponse(responseBuffer)).toBe(0x1234);
   });
 
   it("buildViscaPositionFromResponse returns 0 for short buffer", () => {

@@ -4,6 +4,14 @@ import { IonToggle, IonInput, IonButton, IonSpinner } from "@ionic/react";
 import type { PositionInquiry } from "@invisible-av-booth/shared";
 import { Modal } from "../Modal";
 import { CameraWidget } from "./CameraWidget";
+import {
+  TEST_ID_PRESET_SAVE_BUTTON,
+  TEST_ID_PRESET_CANCEL_BUTTON,
+  TEST_ID_PRESET_NAME_INPUT,
+  TEST_ID_PRESET_STORE_ON_CAMERA_TOGGLE,
+  TEST_ID_PRESET_SLOT_INPUT,
+  TEST_ID_PRESET_POSITION_SUMMARY,
+} from "../../constants/testIds";
 
 interface PresetConfigModalProps {
   open: boolean;
@@ -60,10 +68,10 @@ export function PresetConfigModal({
 
   const footer = (
     <div className="layout-row gap-standard">
-      <IonButton data-testid="preset-save-btn" disabled={!name || capturing} onClick={() => void handleCaptureAndSave()}>
+      <IonButton data-testid={TEST_ID_PRESET_SAVE_BUTTON} disabled={!name || capturing} onClick={() => void handleCaptureAndSave()}>
         {capturing ? <IonSpinner name="crescent" /> : "Capture Position and Save"}
       </IonButton>
-      <IonButton data-testid="preset-cancel-btn" fill="outline" onClick={onClose}>
+      <IonButton data-testid={TEST_ID_PRESET_CANCEL_BUTTON} fill="outline" onClick={onClose}>
         Cancel
       </IonButton>
     </div>
@@ -72,7 +80,7 @@ export function PresetConfigModal({
   return (
     <Modal isOpen={open} onClose={onClose} size="large" header={title} footer={footer}>
       <IonInput
-        data-testid="preset-name-input"
+        data-testid={TEST_ID_PRESET_NAME_INPUT}
         label="Preset Name"
         labelPlacement="stacked"
         fill="outline"
@@ -88,11 +96,11 @@ export function PresetConfigModal({
 
       <div className="layout-row gap-standard" style={{ margin: "1rem 0 0.5rem", alignItems: "center" }}>
         <label className="layout-row gap-standard" style={{ alignItems: "center", cursor: "pointer" }} onClick={() => setStoredOnCamera(!storedOnCamera)}>
-          <IonToggle data-testid="store-on-camera-toggle" checked={storedOnCamera} onIonChange={(e) => setStoredOnCamera(e.detail.checked)} />
+          <IonToggle data-testid={TEST_ID_PRESET_STORE_ON_CAMERA_TOGGLE} checked={storedOnCamera} onIonChange={(e) => setStoredOnCamera(e.detail.checked)} />
           Store on Camera
         </label>
         <IonInput
-          data-testid="preset-slot-input"
+          data-testid={TEST_ID_PRESET_SLOT_INPUT}
           label="Slot #"
           labelPlacement="stacked"
           fill="outline"
@@ -105,7 +113,7 @@ export function PresetConfigModal({
       </div>
 
       {position && (
-        <div data-testid="position-summary" className="text-muted text-secondary" style={{ fontSize: "0.8rem", margin: "0.5rem 0" }}>
+        <div data-testid={TEST_ID_PRESET_POSITION_SUMMARY} className="text-muted text-secondary text-small margin-block-standard">
           Pan: {position.pan ?? "N/A"} &nbsp; Tilt: {position.tilt ?? "N/A"} &nbsp; Zoom: {position.zoom ?? "N/A"} &nbsp; Focus: {position.focus ?? "N/A"}
         </div>
       )}

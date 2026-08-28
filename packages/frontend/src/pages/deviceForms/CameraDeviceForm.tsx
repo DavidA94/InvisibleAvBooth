@@ -16,6 +16,7 @@ import {
   TEST_ID_DEVICE_FORM_SAVE,
   TEST_ID_DEVICE_FORM_DELETE,
   TEST_ID_DEVICE_FORM_ERROR,
+  TEST_ID_CAMERA_NDI_SOURCE,
 } from "../../constants/testIds";
 import type { CameraFormState } from "./cameraDeviceFormLogic";
 import { AI_FEATURES, ALL_FEATURES, buildInitialState, isFormDirty, MODEL_OPTIONS, PTZ_FEATURES } from "./cameraDeviceFormLogic";
@@ -299,9 +300,7 @@ export function CameraDeviceForm({ device, onSaved, onDeleted, registerDirtyChec
       />
 
       <div>
-        <label className="text-muted text-secondary" style={{ fontSize: "0.75rem", marginBottom: "0.125rem", display: "block" }}>
-          Camera Model
-        </label>
+        <label className="text-muted text-secondary form-label">Camera Model</label>
         <Select
           options={MODEL_OPTIONS}
           value={selectedModel}
@@ -311,7 +310,7 @@ export function CameraDeviceForm({ device, onSaved, onDeleted, registerDirtyChec
       </div>
 
       <IonInput
-        data-testid="camera-ndi-source"
+        data-testid={TEST_ID_CAMERA_NDI_SOURCE}
         label="NDI Source Name (required)"
         labelPlacement="stacked"
         fill="outline"
@@ -331,16 +330,12 @@ export function CameraDeviceForm({ device, onSaved, onDeleted, registerDirtyChec
       />
 
       {/* VISCA Section */}
-      <label className="layout-row gap-standard" style={{ marginTop: "0.75rem" }}>
+      <label className="layout-row gap-standard margin-top-standard">
         <IonToggle checked={form.viscaEnabled} onIonChange={(e) => updateField("viscaEnabled", e.detail.checked)} />
         VISCA Connection {requiresVisca ? "(Required for PTZ)" : "(Optional)"}
       </label>
 
-      {viscaMissing && (
-        <p className="text-danger" style={{ fontSize: "0.8rem", margin: "0.25rem 0" }}>
-          VISCA is required when pan, tilt, or zoom features are enabled.
-        </p>
-      )}
+      {viscaMissing && <p className="text-danger text-small margin-block-tight">VISCA is required when pan, tilt, or zoom features are enabled.</p>}
 
       {form.viscaEnabled && (
         <div className="manifest-scripture-row">
@@ -366,7 +361,7 @@ export function CameraDeviceForm({ device, onSaved, onDeleted, registerDirtyChec
       )}
 
       {!form.viscaEnabled && !viscaMissing && (
-        <p className="text-muted text-secondary" style={{ fontSize: "0.8rem", margin: "0.5rem 0" }}>
+        <p className="text-muted text-secondary text-small margin-block-standard">
           No VISCA configured — position tracking uses last-commanded values, which may drift if the camera is controlled externally.
         </p>
       )}
@@ -445,9 +440,7 @@ export function CameraDeviceForm({ device, onSaved, onDeleted, registerDirtyChec
       {/* AI Config (non-generic only) */}
       {form.cameraModel !== "generic" && (
         <>
-          <h4 className="text-muted" style={{ margin: "0.75rem 0 0.25rem" }}>
-            AI Tracking Configuration
-          </h4>
+          <h4 className="text-muted section-heading-margin">AI Tracking Configuration</h4>
           <IonInput
             label="HTTP Cookie"
             labelPlacement="stacked"
@@ -472,9 +465,7 @@ export function CameraDeviceForm({ device, onSaved, onDeleted, registerDirtyChec
       )}
 
       {/* Features Section */}
-      <h4 className="text-muted" style={{ margin: "0.75rem 0 0.25rem" }}>
-        Features
-      </h4>
+      <h4 className="text-muted section-heading-margin">Features</h4>
       {ALL_FEATURES.map((f) => {
         const isPtz = PTZ_FEATURES.includes(f);
         const enabled = form.features.includes(f);
@@ -531,14 +522,8 @@ export function CameraDeviceForm({ device, onSaved, onDeleted, registerDirtyChec
       {/* Presets Section (edit mode only) */}
       {isEdit && (
         <>
-          <h4 className="text-muted" style={{ margin: "0.75rem 0 0.25rem" }}>
-            Presets
-          </h4>
-          {presets.length === 0 && (
-            <p className="text-muted text-secondary" style={{ fontSize: "0.8rem" }}>
-              No presets configured.
-            </p>
-          )}
+          <h4 className="text-muted section-heading-margin">Presets</h4>
+          {presets.length === 0 && <p className="text-muted text-secondary text-small">No presets configured.</p>}
           <IonReorderGroup
             disabled={false}
             onIonItemReorder={(e: CustomEvent<ItemReorderEventDetail>) => {
@@ -588,7 +573,7 @@ export function CameraDeviceForm({ device, onSaved, onDeleted, registerDirtyChec
 
       {/* Enabled toggle (edit only) */}
       {isEdit && (
-        <label className="layout-row gap-standard" style={{ marginTop: "0.75rem" }}>
+        <label className="layout-row gap-standard margin-top-standard">
           <IonCheckbox data-testid={TEST_ID_DEVICE_FORM_ENABLED} checked={form.enabled} onIonChange={(e) => updateField("enabled", e.detail.checked)} />
           Enabled
         </label>
@@ -617,7 +602,7 @@ export function CameraDeviceForm({ device, onSaved, onDeleted, registerDirtyChec
         </IonText>
       )}
 
-      <div className="layout-row gap-standard" style={{ marginTop: "0.75rem" }}>
+      <div className="layout-row gap-standard margin-top-standard">
         <IonButton data-testid={TEST_ID_DEVICE_FORM_SAVE} disabled={pending || !canSave} onClick={() => void handleSave()}>
           {pending ? <IonSpinner name="crescent" /> : "Save"}
         </IonButton>

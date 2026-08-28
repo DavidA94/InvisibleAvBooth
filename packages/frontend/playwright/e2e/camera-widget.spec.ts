@@ -180,7 +180,7 @@ test.describe("Camera widget", () => {
       await expect(presetList).toContainText("Pulpit");
 
       // Click activate
-      const activateBtn = page.locator("[data-testid='preset-activate-btn']").first();
+      const activateBtn = page.locator("[data-testid='preset-activate-button']").first();
       await activateBtn.click();
       await page.waitForTimeout(200);
       expect(socket.lastCameraEvent()).toEqual({ cameraId: "cam1", presetId: "p1" });

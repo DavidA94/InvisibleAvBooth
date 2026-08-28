@@ -62,26 +62,26 @@ beforeEach(() => {
 describe("EditLowerThirdDialog — Title type", () => {
   it("renders pre-populated title input", () => {
     render(<EditLowerThirdDialog item={titleItem} onSave={onSave} onCancel={onCancel} />);
-    expect(screen.getByTestId("lt-edit-dialog")).toBeInTheDocument();
-    expect(screen.getByTestId("lt-edit-title-input")).toHaveValue("Original Title");
+    expect(screen.getByTestId("lower-third-edit-dialog")).toBeInTheDocument();
+    expect(screen.getByTestId("lower-third-edit-title-input")).toHaveValue("Original Title");
   });
 
   it("save is disabled when title is cleared", () => {
     render(<EditLowerThirdDialog item={titleItem} onSave={onSave} onCancel={onCancel} />);
-    fireEvent.change(screen.getByTestId("lt-edit-title-input"), { target: { value: "" } });
-    expect(screen.getByTestId("lt-edit-save")).toBeDisabled();
+    fireEvent.change(screen.getByTestId("lower-third-edit-title-input"), { target: { value: "" } });
+    expect(screen.getByTestId("lower-third-edit-save")).toBeDisabled();
   });
 
   it("calls onSave with item id and title patch", () => {
     render(<EditLowerThirdDialog item={titleItem} onSave={onSave} onCancel={onCancel} />);
-    fireEvent.change(screen.getByTestId("lt-edit-title-input"), { target: { value: "New Title" } });
-    fireEvent.click(screen.getByTestId("lt-edit-save"));
+    fireEvent.change(screen.getByTestId("lower-third-edit-title-input"), { target: { value: "New Title" } });
+    fireEvent.click(screen.getByTestId("lower-third-edit-save"));
     expect(onSave).toHaveBeenCalledWith("item-1", expect.objectContaining({ content: { title: "New Title" } }));
   });
 
   it("calls onCancel when cancel is clicked", () => {
     render(<EditLowerThirdDialog item={titleItem} onSave={onSave} onCancel={onCancel} />);
-    fireEvent.click(screen.getByTestId("lt-edit-cancel"));
+    fireEvent.click(screen.getByTestId("lower-third-edit-cancel"));
     expect(onCancel).toHaveBeenCalled();
   });
 });
@@ -89,20 +89,20 @@ describe("EditLowerThirdDialog — Title type", () => {
 describe("EditLowerThirdDialog — TitleSubtitle type", () => {
   it("renders pre-populated title and subtitle inputs", () => {
     render(<EditLowerThirdDialog item={titleSubtitleItem} onSave={onSave} onCancel={onCancel} />);
-    expect(screen.getByTestId("lt-edit-title-input")).toHaveValue("Name");
-    expect(screen.getByTestId("lt-edit-subtitle-input")).toHaveValue("Role");
+    expect(screen.getByTestId("lower-third-edit-title-input")).toHaveValue("Name");
+    expect(screen.getByTestId("lower-third-edit-subtitle-input")).toHaveValue("Role");
   });
 
   it("save is disabled when subtitle is cleared", () => {
     render(<EditLowerThirdDialog item={titleSubtitleItem} onSave={onSave} onCancel={onCancel} />);
-    fireEvent.change(screen.getByTestId("lt-edit-subtitle-input"), { target: { value: "" } });
-    expect(screen.getByTestId("lt-edit-save")).toBeDisabled();
+    fireEvent.change(screen.getByTestId("lower-third-edit-subtitle-input"), { target: { value: "" } });
+    expect(screen.getByTestId("lower-third-edit-save")).toBeDisabled();
   });
 
   it("calls onSave with both title and subtitle in patch", () => {
     render(<EditLowerThirdDialog item={titleSubtitleItem} onSave={onSave} onCancel={onCancel} />);
-    fireEvent.change(screen.getByTestId("lt-edit-title-input"), { target: { value: "New Name" } });
-    fireEvent.click(screen.getByTestId("lt-edit-save"));
+    fireEvent.change(screen.getByTestId("lower-third-edit-title-input"), { target: { value: "New Name" } });
+    fireEvent.click(screen.getByTestId("lower-third-edit-save"));
     expect(onSave).toHaveBeenCalledWith("item-2", expect.objectContaining({ content: { title: "New Name", subtitle: "Role" } }));
   });
 });
@@ -119,7 +119,7 @@ describe("EditLowerThirdDialog — Scripture type", () => {
     fireEvent.click(screen.getByTestId("set-book"));
     fireEvent.click(screen.getByTestId("set-chapter"));
     fireEvent.click(screen.getByTestId("set-verse"));
-    fireEvent.click(screen.getByTestId("lt-edit-save"));
+    fireEvent.click(screen.getByTestId("lower-third-edit-save"));
     expect(onSave).toHaveBeenCalledWith("item-3", expect.objectContaining({ content: { reference: { bookId: 2, chapter: 3, verse: 4, verseEnd: 3 } } }));
   });
 });
@@ -127,9 +127,9 @@ describe("EditLowerThirdDialog — Scripture type", () => {
 describe("EditLowerThirdDialog — auto-dismiss", () => {
   it("includes autoDismissMs when toggle is enabled", () => {
     render(<EditLowerThirdDialog item={titleItem} onSave={onSave} onCancel={onCancel} />);
-    fireEvent.change(screen.getByTestId("lt-edit-title-input"), { target: { value: "Test" } });
-    fireEvent.click(screen.getByTestId("lt-edit-autodismiss-toggle"));
-    fireEvent.click(screen.getByTestId("lt-edit-save"));
+    fireEvent.change(screen.getByTestId("lower-third-edit-title-input"), { target: { value: "Test" } });
+    fireEvent.click(screen.getByTestId("lower-third-edit-autodismiss-toggle"));
+    fireEvent.click(screen.getByTestId("lower-third-edit-save"));
     expect(onSave).toHaveBeenCalledWith("item-1", expect.objectContaining({ autoDismissMs: 10000 }));
   });
 
@@ -137,6 +137,6 @@ describe("EditLowerThirdDialog — auto-dismiss", () => {
     const itemWithDismiss = { ...titleItem, autoDismissMs: 5000 };
     render(<EditLowerThirdDialog item={itemWithDismiss} onSave={onSave} onCancel={onCancel} />);
     // Toggle should be checked — our mock renders it as a checkbox
-    expect(screen.getByTestId("lt-edit-autodismiss-toggle")).toBeChecked();
+    expect(screen.getByTestId("lower-third-edit-autodismiss-toggle")).toBeChecked();
   });
 });

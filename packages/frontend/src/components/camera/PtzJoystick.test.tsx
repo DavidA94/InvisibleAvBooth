@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, fireEvent, screen } from "@testing-library/react";
 import { PtzJoystick } from "./PtzJoystick";
+import { TEST_ID_PTZ_JOYSTICK, TEST_ID_PTZ_JOYSTICK_DOT } from "../../constants/testIds";
 
 function mockRect(el: HTMLElement, rect: Partial<DOMRect>) {
   vi.spyOn(el, "getBoundingClientRect").mockReturnValue({
@@ -24,7 +25,7 @@ describe("PtzJoystick", () => {
 
   function renderJoystick(disabled?: { pan?: boolean; tilt?: boolean }) {
     const result = render(<PtzJoystick onMove={onMove} onStart={onStart} onStop={onStop} disabled={disabled} />);
-    const joystick = screen.getByTestId("ptz-joystick");
+    const joystick = screen.getByTestId(TEST_ID_PTZ_JOYSTICK);
     mockRect(joystick, { left: 0, top: 0, width: 200, height: 200 });
     return { joystick, ...result };
   }
@@ -35,8 +36,8 @@ describe("PtzJoystick", () => {
 
   it("renders joystick and dot", () => {
     renderJoystick();
-    expect(screen.getByTestId("ptz-joystick")).toBeInTheDocument();
-    expect(screen.getByTestId("ptz-joystick-dot")).toBeInTheDocument();
+    expect(screen.getByTestId(TEST_ID_PTZ_JOYSTICK)).toBeInTheDocument();
+    expect(screen.getByTestId(TEST_ID_PTZ_JOYSTICK_DOT)).toBeInTheDocument();
   });
 
   it("calls onStart on pointerDown outside dead zone", () => {
@@ -112,7 +113,7 @@ describe("PtzJoystick", () => {
     const { joystick } = renderJoystick();
     fireEvent.pointerDown(joystick, { clientX: 180, clientY: 100, pointerId: 1 });
     fireEvent.pointerUp(joystick, { pointerId: 1 });
-    const dot = screen.getByTestId("ptz-joystick-dot");
+    const dot = screen.getByTestId(TEST_ID_PTZ_JOYSTICK_DOT);
     expect(dot.style.left).toBe("50%");
     expect(dot.style.top).toBe("50%");
   });

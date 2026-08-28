@@ -4,6 +4,15 @@ import { searchOutline } from "ionicons/icons";
 import { PtzJoystick } from "./PtzJoystick";
 import type { CameraFeature, CameraPreset } from "@invisible-av-booth/shared";
 import { Slider } from "@mui/material";
+import {
+  TEST_ID_CAMERA_CONTROLS,
+  TEST_ID_CAMERA_PREVIEW,
+  TEST_ID_CAMERA_OFFLINE_OVERLAY,
+  TEST_ID_CAMERA_CONNECTING_OVERLAY,
+  TEST_ID_CAMERA_ZOOM_SLIDER,
+  TEST_ID_CAMERA_FOCUS_SLIDER,
+  TEST_ID_CAMERA_TOGGLE_ROW,
+} from "../../constants/testIds";
 
 export interface CameraControlsProps {
   /** Ref to the img element for MJPEG preview */
@@ -93,12 +102,12 @@ export function CameraControls({
   const showJoystick = hasPan || hasTilt;
 
   return (
-    <div className="camera-controls-layout" data-testid="camera-controls">
+    <div className="camera-controls-layout" data-testid={TEST_ID_CAMERA_CONTROLS}>
       {/* Row 1: Video + Zoom slider + Joystick */}
       <div className="camera-controls-top">
         {/* Video Preview */}
         <div className="camera-controls-video">
-          <div className="preview-video-container" data-testid="camera-preview">
+          <div className="preview-video-container" data-testid={TEST_ID_CAMERA_PREVIEW}>
             <picture className="cross-hairs">
               <img
                 ref={imgRef}
@@ -109,12 +118,12 @@ export function CameraControls({
               />
             </picture>
             {!connected && (
-              <div className="preview-overlay" data-testid="camera-offline-overlay">
+              <div className="preview-overlay" data-testid={TEST_ID_CAMERA_OFFLINE_OVERLAY}>
                 <p className="margin-none text-muted">Camera Offline</p>
               </div>
             )}
             {connected && previewStatus !== "streaming" && (
-              <div className="preview-overlay" data-testid="camera-connecting-overlay">
+              <div className="preview-overlay" data-testid={TEST_ID_CAMERA_CONNECTING_OVERLAY}>
                 <p className="margin-none text-muted">{previewStatus === "connecting" ? "Connecting…" : "No preview"}</p>
               </div>
             )}
@@ -132,9 +141,7 @@ export function CameraControls({
             {/* Presets */}
             {presets.length > 0 && (
               <div className="camera-controls-presets">
-                <label className="text-muted text-secondary" style={{ fontSize: "0.75rem", marginBottom: "0.25rem" }}>
-                  Presets
-                </label>
+                <label className="text-muted text-secondary text-caption">Presets</label>
                 {presets.map((p) => (
                   <button
                     key={p.id}
@@ -152,7 +159,7 @@ export function CameraControls({
 
         {/* Zoom slider (vertical) — between video and joystick */}
         {hasZoom && (
-          <div className="camera-controls-zoom" data-testid="camera-zoom-slider">
+          <div className="camera-controls-zoom" data-testid={TEST_ID_CAMERA_ZOOM_SLIDER}>
             <IonIcon slot="end" icon={searchOutline} className="camera-zoom-icon" /> <br />
             <Slider
               orientation="vertical"
@@ -175,10 +182,8 @@ export function CameraControls({
 
       {/* Row 2: Focus bar (width of video) */}
       {isAdmin && hasFocus && (
-        <div className="camera-controls-focus" data-testid="camera-focus-slider">
-          <label className="text-muted text-secondary" style={{ fontSize: "0.75rem" }}>
-            Focus
-          </label>
+        <div className="camera-controls-focus" data-testid={TEST_ID_CAMERA_FOCUS_SLIDER}>
+          <label className="text-muted text-secondary text-caption">Focus</label>
           <Slider
             size="small"
             valueLabelDisplay="auto"
@@ -198,7 +203,7 @@ export function CameraControls({
 
       {/* Row 3-4: Toggles (two-column grid) */}
       {isAdmin && (hasFocus || hasAiTracking) && (
-        <div className="camera-controls-toggles" data-testid="camera-toggle-row">
+        <div className="camera-controls-toggles" data-testid={TEST_ID_CAMERA_TOGGLE_ROW}>
           {hasFocus && (
             <label className="camera-toggle-item">
               <IonToggle checked={autoFocus} onIonChange={(e) => onAutoFocusChange(e.detail.checked)} />

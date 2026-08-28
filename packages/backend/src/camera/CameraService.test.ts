@@ -55,13 +55,13 @@ vi.mock("./TongveoAiDriver.js", () => {
 });
 
 function makeDatabase(): Database.Database {
-  const db = new Database(":memory:");
-  db.pragma("foreign_keys = ON");
-  applySchema(db);
-  return db;
+  const database = new Database(":memory:");
+  database.pragma("foreign_keys = ON");
+  applySchema(database);
+  return database;
 }
 
-function seedCamera(db: Database.Database, opts?: { viscaEnabled?: boolean; model?: string; aiCookie?: string; aiCredentialId?: string }): void {
+function seedCamera(database: Database.Database, opts?: { viscaEnabled?: boolean; model?: string; aiCookie?: string; aiCredentialId?: string }): void {
   const meta = JSON.stringify({
     ndiSourceName: "CAM1",
     fovWideAngle: 60,
@@ -71,15 +71,17 @@ function seedCamera(db: Database.Database, opts?: { viscaEnabled?: boolean; mode
     viscaEnabled: opts?.viscaEnabled ?? false,
     ...(opts?.aiCookie ? { aiHttpCookie: opts.aiCookie, aiCredentialId: opts.aiCredentialId } : {}),
   });
-  db.prepare(
-    "INSERT INTO device_connections (id, deviceType, label, host, port, metadata, features, enabled, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-  ).run("cam1", "camera-ptz", "Test Camera", "192.168.1.100", 5500, meta, "{}", 1, new Date().toISOString());
+  database
+    .prepare("INSERT INTO device_connections (id, deviceType, label, host, port, metadata, features, enabled, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
+    .run("cam1", "camera-ptz", "Test Camera", "192.168.1.100", 5500, meta, "{}", 1, new Date().toISOString());
 }
 
-function seedPreset(db: Database.Database): void {
-  db.prepare(
-    "INSERT INTO camera_presets (id, cameraId, name, sortOrder, storedOnCamera, cameraPresetSlot, pan, tilt, zoom, focus, autoFocus, aiTracking, aiTilt, aiZoom, createdAt) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-  ).run("p1", "cam1", "Wide", 0, 0, null, 0.1, 0.2, 0.3, 0.5, 1, 0, 0, 0, new Date().toISOString());
+function seedPreset(database: Database.Database): void {
+  database
+    .prepare(
+      "INSERT INTO camera_presets (id, cameraId, name, sortOrder, storedOnCamera, cameraPresetSlot, pan, tilt, zoom, focus, autoFocus, aiTracking, aiTilt, aiZoom, createdAt) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+    )
+    .run("p1", "cam1", "Wide", 0, 0, null, 0.1, 0.2, 0.3, 0.5, 1, 0, 0, 0, new Date().toISOString());
 }
 
 describe("applyAdaptiveSpeed", () => {
@@ -113,14 +115,14 @@ describe("computeFov", () => {
 });
 
 describe("CameraService", () => {
-  let db: Database.Database;
+  let database: Database.Database;
   let service: CameraService;
 
   beforeEach(() => {
     vi.clearAllMocks();
     vi.useFakeTimers();
     eventBus.removeAllListeners();
-    db = makeDatabase();
+    database = makeDatabase();
   });
 
   afterEach(() => {
@@ -129,8 +131,8 @@ describe("CameraService", () => {
   });
 
   async function initService(opts?: Parameters<typeof seedCamera>[1]): Promise<void> {
-    seedCamera(db, opts);
-    service = new CameraService(db);
+    seedCamera(database, opts);
+    service = new CameraService(database);
     await service.initialize();
     // Let async connect callbacks fire (they use setTimeout(fn, 0))
     await vi.advanceTimersByTimeAsync(10);
@@ -149,9 +151,9 @@ describe("CameraService", () => {
   });
 
   it("sets connected=true when previewManager is provided", async () => {
-    seedCamera(db);
+    seedCamera(database);
     const mockPreviewManager = { setSourceAvailable: vi.fn() };
-    service = new CameraService(db, mockPreviewManager as unknown as ConstructorParameters<typeof CameraService>[1]);
+    service = new CameraService(database, mockPreviewManager as unknown as ConstructorParameters<typeof CameraService>[1]);
     await service.initialize();
     await vi.advanceTimersByTimeAsync(10);
     expect(service.getCameraState("cam1")?.connected).toBe(true);
@@ -159,9 +161,9 @@ describe("CameraService", () => {
   });
 
   it("loads presets from database", async () => {
-    seedCamera(db);
-    seedPreset(db);
-    service = new CameraService(db);
+    seedCamera(database);
+    seedPreset(database);
+    service = new CameraService(database);
     await service.initialize();
     await vi.runAllTimersAsync();
     expect(service.getCameraState("cam1")?.presets).toHaveLength(1);
@@ -271,9 +273,9 @@ describe("CameraService", () => {
     });
 
     it("clears activePresetId on manual change", async () => {
-      seedCamera(db);
-      seedPreset(db);
-      service = new CameraService(db);
+      seedCamera(database);
+      seedPreset(database);
+      service = new CameraService(database);
       await service.initialize();
       await vi.runAllTimersAsync();
 
@@ -303,9 +305,9 @@ describe("CameraService", () => {
 
   describe("activatePreset", () => {
     it("applies preset position and toggles", async () => {
-      seedCamera(db, { viscaEnabled: true });
-      seedPreset(db);
-      service = new CameraService(db);
+      seedCamera(database, { viscaEnabled: true });
+      seedPreset(database);
+      service = new CameraService(database);
       await service.initialize();
       await vi.advanceTimersByTimeAsync(10);
 
@@ -328,11 +330,13 @@ describe("CameraService", () => {
     });
 
     it("calls focusManual for preset with autoFocus=false", async () => {
-      seedCamera(db, { viscaEnabled: true });
-      db.prepare(
-        "INSERT INTO camera_presets (id, cameraId, name, sortOrder, storedOnCamera, cameraPresetSlot, pan, tilt, zoom, focus, autoFocus, aiTracking, aiTilt, aiZoom, createdAt) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-      ).run("p2", "cam1", "Manual", 1, 0, null, 0, 0, 0.5, 0.7, 0, 0, 0, 0, new Date().toISOString());
-      service = new CameraService(db);
+      seedCamera(database, { viscaEnabled: true });
+      database
+        .prepare(
+          "INSERT INTO camera_presets (id, cameraId, name, sortOrder, storedOnCamera, cameraPresetSlot, pan, tilt, zoom, focus, autoFocus, aiTracking, aiTilt, aiZoom, createdAt) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        )
+        .run("p2", "cam1", "Manual", 1, 0, null, 0, 0, 0.5, 0.7, 0, 0, 0, 0, new Date().toISOString());
+      service = new CameraService(database);
       await service.initialize();
       await vi.advanceTimersByTimeAsync(10);
 
@@ -341,11 +345,13 @@ describe("CameraService", () => {
     });
 
     it("calls aiDriver.setAiState during preset activation", async () => {
-      seedCamera(db, { model: "tongveo-nvs20a-4kn", aiCookie: "cookie", aiCredentialId: "cred" });
-      db.prepare(
-        "INSERT INTO camera_presets (id, cameraId, name, sortOrder, storedOnCamera, cameraPresetSlot, pan, tilt, zoom, focus, autoFocus, aiTracking, aiTilt, aiZoom, createdAt) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-      ).run("p3", "cam1", "AI", 2, 0, null, 0, 0, 0, 0.5, 1, 1, 1, 1, new Date().toISOString());
-      service = new CameraService(db);
+      seedCamera(database, { model: "tongveo-nvs20a-4kn", aiCookie: "cookie", aiCredentialId: "cred" });
+      database
+        .prepare(
+          "INSERT INTO camera_presets (id, cameraId, name, sortOrder, storedOnCamera, cameraPresetSlot, pan, tilt, zoom, focus, autoFocus, aiTracking, aiTilt, aiZoom, createdAt) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        )
+        .run("p3", "cam1", "AI", 2, 0, null, 0, 0, 0, 0.5, 1, 1, 1, 1, new Date().toISOString());
+      service = new CameraService(database);
       await service.initialize();
       await vi.advanceTimersByTimeAsync(10);
 
@@ -539,17 +545,9 @@ describe("CameraService", () => {
         cameraFeatures: [],
         viscaEnabled: true,
       });
-      db.prepare("INSERT INTO device_connections (id, deviceType, label, host, port, metadata, features, enabled, createdAt) VALUES (?,?,?,?,?,?,?,?,?)").run(
-        "cam2",
-        "camera-ptz",
-        "Second Camera",
-        "192.168.1.101",
-        5500,
-        meta,
-        "{}",
-        1,
-        new Date().toISOString(),
-      );
+      database
+        .prepare("INSERT INTO device_connections (id, deviceType, label, host, port, metadata, features, enabled, createdAt) VALUES (?,?,?,?,?,?,?,?,?)")
+        .run("cam2", "camera-ptz", "Second Camera", "192.168.1.101", 5500, meta, "{}", 1, new Date().toISOString());
       eventBus.emit("bus:camera:device:changed", { deviceId: "cam2", action: "created" });
       await vi.advanceTimersByTimeAsync(100);
       expect(service.getCameraState("cam2")).not.toBeNull();
@@ -573,7 +571,7 @@ describe("CameraService", () => {
         cameraFeatures: ["pan", "tilt"],
         viscaEnabled: true,
       });
-      db.prepare("UPDATE device_connections SET metadata = ? WHERE id = ?").run(meta, "cam1");
+      database.prepare("UPDATE device_connections SET metadata = ? WHERE id = ?").run(meta, "cam1");
       eventBus.emit("bus:camera:device:changed", { deviceId: "cam1", action: "updated" });
       await vi.advanceTimersByTimeAsync(100);
       const state = service.getCameraState("cam1");
@@ -584,14 +582,14 @@ describe("CameraService", () => {
     it("removes camera when device is disabled on update", async () => {
       await initService({ viscaEnabled: true });
       // Disable the device in DB
-      db.prepare("UPDATE device_connections SET enabled = 0 WHERE id = ?").run("cam1");
+      database.prepare("UPDATE device_connections SET enabled = 0 WHERE id = ?").run("cam1");
       eventBus.emit("bus:camera:device:changed", { deviceId: "cam1", action: "updated" });
       await vi.advanceTimersByTimeAsync(100);
       expect(service.getCameraState("cam1")).toBeNull();
     });
 
     it("creates camera with AI driver for supported model", async () => {
-      db = makeDatabase();
+      database = makeDatabase();
       const meta = JSON.stringify({
         ndiSourceName: "CAM-AI",
         fovWideAngle: 60,
@@ -602,19 +600,11 @@ describe("CameraService", () => {
         aiHttpCookie: "test-cookie",
         aiCredentialId: "test-cred",
       });
-      db.prepare("INSERT INTO device_connections (id, deviceType, label, host, port, metadata, features, enabled, createdAt) VALUES (?,?,?,?,?,?,?,?,?)").run(
-        "cam-ai",
-        "camera-ptz",
-        "AI Camera",
-        "192.168.1.200",
-        5500,
-        meta,
-        "{}",
-        1,
-        new Date().toISOString(),
-      );
+      database
+        .prepare("INSERT INTO device_connections (id, deviceType, label, host, port, metadata, features, enabled, createdAt) VALUES (?,?,?,?,?,?,?,?,?)")
+        .run("cam-ai", "camera-ptz", "AI Camera", "192.168.1.200", 5500, meta, "{}", 1, new Date().toISOString());
 
-      service = new CameraService(db);
+      service = new CameraService(database);
       await service.initialize();
       await vi.advanceTimersByTimeAsync(10);
 
@@ -629,11 +619,13 @@ describe("CameraService", () => {
 
   describe("activatePreset with on-camera preset", () => {
     it("uses presetRecall for stored-on-camera presets", async () => {
-      seedCamera(db, { viscaEnabled: true });
-      db.prepare(
-        "INSERT INTO camera_presets (id, cameraId, name, sortOrder, storedOnCamera, cameraPresetSlot, pan, tilt, zoom, focus, autoFocus, aiTracking, aiTilt, aiZoom, createdAt) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-      ).run("p-hw", "cam1", "HW Preset", 0, 1, 3, null, null, null, null, 1, 0, 0, 0, new Date().toISOString());
-      service = new CameraService(db);
+      seedCamera(database, { viscaEnabled: true });
+      database
+        .prepare(
+          "INSERT INTO camera_presets (id, cameraId, name, sortOrder, storedOnCamera, cameraPresetSlot, pan, tilt, zoom, focus, autoFocus, aiTracking, aiTilt, aiZoom, createdAt) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        )
+        .run("p-hw", "cam1", "HW Preset", 0, 1, 3, null, null, null, null, 1, 0, 0, 0, new Date().toISOString());
+      service = new CameraService(database);
       await service.initialize();
       await vi.advanceTimersByTimeAsync(10);
 

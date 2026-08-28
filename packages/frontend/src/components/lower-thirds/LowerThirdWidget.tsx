@@ -1,4 +1,4 @@
-import { TEST_ID_LOWER_THIRD_WIDGET, TEST_ID_LT_ACTIVE_SECTION, TEST_ID_LT_LIBRARY_SECTION } from "../../constants/testIds";
+import { TEST_ID_LOWER_THIRD_WIDGET, TEST_ID_LOWER_THIRD_ACTIVE_SECTION, TEST_ID_LOWER_THIRD_LIBRARY_SECTION } from "../../constants/testIds";
 import { useState } from "react";
 import type { ReactNode } from "react";
 import { IonButton } from "@ionic/react";
@@ -85,7 +85,7 @@ export function LowerThirdWidget(): ReactNode {
     <WidgetContainer title="Lower Thirds" connections={connections}>
       <div className="lower-third-widget" data-testid={TEST_ID_LOWER_THIRD_WIDGET}>
         {/* Active Section */}
-        <section className="lt-section" data-testid={TEST_ID_LT_ACTIVE_SECTION}>
+        <section className="lt-section" data-testid={TEST_ID_LOWER_THIRD_ACTIVE_SECTION}>
           <span className="lt-section-title">Active</span>
           {active ? (
             <>
@@ -117,7 +117,7 @@ export function LowerThirdWidget(): ReactNode {
         </section>
 
         {/* Library Section */}
-        <section className="lt-section lt-section--library" data-testid={TEST_ID_LT_LIBRARY_SECTION}>
+        <section className="lt-section lt-section--library" data-testid={TEST_ID_LOWER_THIRD_LIBRARY_SECTION}>
           <span className="lt-section-title">Library</span>
           <div className="lt-library-items">
             {templateItems.length === 0 && volunteerItems.length === 0 ? (

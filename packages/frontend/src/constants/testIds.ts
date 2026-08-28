@@ -211,41 +211,41 @@ export const TEST_ID_PLATFORM_ACCOUNT_DISPLAY = "platform-account-display";
 
 // ── Lower Thirds ──────────────────────────────────────────────────────────────
 export const TEST_ID_LOWER_THIRD_WIDGET = "lower-third-widget";
-export const TEST_ID_LT_ACTIVE_SECTION = "lt-active-section";
-export const TEST_ID_LT_LIBRARY_SECTION = "lt-library-section";
-export const TEST_ID_LT_DISMISS_BUTTON = "lt-dismiss-button";
-export const TEST_ID_LT_SHOW_BUTTON = "lt-show-button";
-export const TEST_ID_LT_FORCE_CLEAR_AREA = "lt-force-clear-area";
-export const TEST_ID_LT_GO_LIVE_AREA = "lt-go-live-area";
-export const TEST_ID_LT_DELETE_AREA = "lt-delete-area";
-export const TEST_ID_LT_PAGINATION = "lt-pagination";
-export const TEST_ID_LT_PAGE_INFO = "lt-page-info";
-export const TEST_ID_LT_COUNTDOWN = "lt-countdown";
-export const TEST_ID_LT_STATUS_OVERLAY = "lt-status-overlay";
-export const TEST_ID_LT_PREVIEW_DIALOG = "lt-preview-dialog";
-export const TEST_ID_LT_PREVIEW_GO_LIVE = "lt-preview-go-live";
-export const TEST_ID_LT_PREVIEW_CANCEL = "lt-preview-cancel";
-export const TEST_ID_LT_ADD_DIALOG = "lt-add-dialog";
-export const TEST_ID_LT_ADD_TITLE_INPUT = "lt-add-title-input";
-export const TEST_ID_LT_ADD_SUBTITLE_INPUT = "lt-add-subtitle-input";
-export const TEST_ID_LT_ADD_AUTODISMISS_TOGGLE = "lt-add-autodismiss-toggle";
-export const TEST_ID_LT_ADD_AUTODISMISS_DURATION = "lt-add-autodismiss-duration";
-export const TEST_ID_LT_ADD_CANCEL = "lt-add-cancel";
-export const TEST_ID_LT_ADD_SAVE = "lt-add-save";
-export const TEST_ID_LT_EDIT_DIALOG = "lt-edit-dialog";
-export const TEST_ID_LT_EDIT_TITLE_INPUT = "lt-edit-title-input";
-export const TEST_ID_LT_EDIT_SUBTITLE_INPUT = "lt-edit-subtitle-input";
-export const TEST_ID_LT_EDIT_AUTODISMISS_TOGGLE = "lt-edit-autodismiss-toggle";
-export const TEST_ID_LT_EDIT_AUTODISMISS_DURATION = "lt-edit-autodismiss-duration";
-export const TEST_ID_LT_EDIT_CANCEL = "lt-edit-cancel";
-export const TEST_ID_LT_EDIT_SAVE = "lt-edit-save";
+export const TEST_ID_LOWER_THIRD_ACTIVE_SECTION = "lower-third-active-section";
+export const TEST_ID_LOWER_THIRD_LIBRARY_SECTION = "lower-third-library-section";
+export const TEST_ID_LOWER_THIRD_DISMISS_BUTTON = "lower-third-dismiss-button";
+export const TEST_ID_LOWER_THIRD_SHOW_BUTTON = "lower-third-show-button";
+export const TEST_ID_LOWER_THIRD_FORCE_CLEAR_AREA = "lower-third-force-clear-area";
+export const TEST_ID_LOWER_THIRD_GO_LIVE_AREA = "lower-third-go-live-area";
+export const TEST_ID_LOWER_THIRD_DELETE_AREA = "lower-third-delete-area";
+export const TEST_ID_LOWER_THIRD_PAGINATION = "lower-third-pagination";
+export const TEST_ID_LOWER_THIRD_PAGE_INFO = "lower-third-page-info";
+export const TEST_ID_LOWER_THIRD_COUNTDOWN = "lower-third-countdown";
+export const TEST_ID_LOWER_THIRD_STATUS_OVERLAY = "lower-third-status-overlay";
+export const TEST_ID_LOWER_THIRD_PREVIEW_DIALOG = "lower-third-preview-dialog";
+export const TEST_ID_LOWER_THIRD_PREVIEW_GO_LIVE = "lower-third-preview-go-live";
+export const TEST_ID_LOWER_THIRD_PREVIEW_CANCEL = "lower-third-preview-cancel";
+export const TEST_ID_LOWER_THIRD_ADD_DIALOG = "lower-third-add-dialog";
+export const TEST_ID_LOWER_THIRD_ADD_TITLE_INPUT = "lower-third-add-title-input";
+export const TEST_ID_LOWER_THIRD_ADD_SUBTITLE_INPUT = "lower-third-add-subtitle-input";
+export const TEST_ID_LOWER_THIRD_ADD_AUTODISMISS_TOGGLE = "lower-third-add-autodismiss-toggle";
+export const TEST_ID_LOWER_THIRD_ADD_AUTODISMISS_DURATION = "lower-third-add-autodismiss-duration";
+export const TEST_ID_LOWER_THIRD_ADD_CANCEL = "lower-third-add-cancel";
+export const TEST_ID_LOWER_THIRD_ADD_SAVE = "lower-third-add-save";
+export const TEST_ID_LOWER_THIRD_EDIT_DIALOG = "lower-third-edit-dialog";
+export const TEST_ID_LOWER_THIRD_EDIT_TITLE_INPUT = "lower-third-edit-title-input";
+export const TEST_ID_LOWER_THIRD_EDIT_SUBTITLE_INPUT = "lower-third-edit-subtitle-input";
+export const TEST_ID_LOWER_THIRD_EDIT_AUTODISMISS_TOGGLE = "lower-third-edit-autodismiss-toggle";
+export const TEST_ID_LOWER_THIRD_EDIT_AUTODISMISS_DURATION = "lower-third-edit-autodismiss-duration";
+export const TEST_ID_LOWER_THIRD_EDIT_CANCEL = "lower-third-edit-cancel";
+export const TEST_ID_LOWER_THIRD_EDIT_SAVE = "lower-third-edit-save";
 export const TEST_ID_BLUE_RHOMBUS = "blue-rhombus";
 export const TEST_ID_SWIPEABLE_ROW = "swipeable-row";
 
 // ── OBS Preview Widget ─────────────────────────────────────────────────────────
 export const TEST_ID_OBS_PREVIEW_WIDGET = "obs-preview-widget";
 export const TEST_ID_OBS_PREVIEW_VIDEO = "obs-preview-video";
-export const TEST_ID_OBS_PREVIEW_MUTE_BTN = "obs-preview-mute-btn";
+export const TEST_ID_OBS_PREVIEW_MUTE_BUTTON = "obs-preview-mute-button";
 export const TEST_ID_OBS_PREVIEW_INACTIVE = "obs-preview-inactive";
 export const TEST_ID_OBS_PREVIEW_RECONNECTING = "obs-preview-reconnecting";
 
@@ -282,3 +282,31 @@ export const TEST_ID_DASHBOARD_LIST_DELETE_BUTTON = "dashboard-list-delete-butto
 export const TEST_ID_DASHBOARD_SLUG_ERROR = "dashboard-slug-error";
 export const TEST_ID_DASHBOARD_DETAIL_PANEL = "dashboard-detail-panel";
 export const TEST_ID_DASHBOARD_DETAIL_EMPTY = "dashboard-detail-empty";
+
+// ── Camera Widget ──────────────────────────────────────────────────────────────
+export const TEST_ID_CAMERA_WIDGET = "camera-widget";
+export const TEST_ID_CAMERA_SELECT = "camera-select";
+export const TEST_ID_CAMERA_CONTROLS = "camera-controls";
+export const TEST_ID_CAMERA_PREVIEW = "camera-preview";
+export const TEST_ID_CAMERA_OFFLINE_OVERLAY = "camera-offline-overlay";
+export const TEST_ID_CAMERA_CONNECTING_OVERLAY = "camera-connecting-overlay";
+export const TEST_ID_CAMERA_ZOOM_SLIDER = "camera-zoom-slider";
+export const TEST_ID_CAMERA_FOCUS_SLIDER = "camera-focus-slider";
+export const TEST_ID_CAMERA_TOGGLE_ROW = "camera-toggle-row";
+export const TEST_ID_PTZ_JOYSTICK = "ptz-joystick";
+export const TEST_ID_PTZ_JOYSTICK_DOT = "ptz-joystick-dot";
+
+// ── Camera Presets ─────────────────────────────────────────────────────────────
+export const TEST_ID_PRESET_LIST = "preset-list";
+export const TEST_ID_PRESET_ROW = "preset-row";
+export const TEST_ID_PRESET_ACTIVATE_BUTTON = "preset-activate-button";
+export const TEST_ID_PRESET_SAVE_BUTTON = "preset-save-button";
+export const TEST_ID_PRESET_CANCEL_BUTTON = "preset-cancel-button";
+export const TEST_ID_PRESET_NAME_INPUT = "preset-name-input";
+export const TEST_ID_PRESET_STORE_ON_CAMERA_TOGGLE = "store-on-camera-toggle";
+export const TEST_ID_PRESET_SLOT_INPUT = "preset-slot-input";
+export const TEST_ID_PRESET_POSITION_SUMMARY = "position-summary";
+
+// ── Camera Device Form ─────────────────────────────────────────────────────────
+export const TEST_ID_CAMERA_NDI_SOURCE = "camera-ndi-source";
+export const TEST_ID_DEVICE_FORM_NDI_EXTRA_IPS = "device-form-ndi-extra-ips";

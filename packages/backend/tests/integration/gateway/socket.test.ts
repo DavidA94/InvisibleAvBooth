@@ -103,8 +103,8 @@ describe("OBS control integration", () => {
     eventBus.emit(BUS_OBS_ERROR, {
       error: Object.assign(new Error("test"), { code: "STREAM_START_FAILED" as const, name: "ObsError" }) as never,
     });
-    const err = await errorReceived;
-    expect(err.error.code).toBe("STREAM_START_FAILED");
+    const obsError = await errorReceived;
+    expect(obsError.error.code).toBe("STREAM_START_FAILED");
   });
 
   it("reconnect command triggers OBS reconnect", async () => {

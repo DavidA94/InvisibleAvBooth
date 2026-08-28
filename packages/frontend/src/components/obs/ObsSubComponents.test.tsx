@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { ObsStatusBar } from "./ObsStatusBar";
 import { ObsMetadataPreview } from "./ObsMetadataPreview";
 import { ObsControls } from "./ObsControls";
@@ -87,10 +88,11 @@ describe("ObsMetadataPreview", () => {
     expect(screen.getByTestId(TEST_ID_OBS_METADATA_PREVIEW)).toHaveTextContent("No session details set");
   });
 
-  it("pencil button fires onEditDetails", () => {
+  it("pencil button fires onEditDetails", async () => {
+    const user = userEvent.setup();
     const onEdit = vi.fn();
     render(<ObsMetadataPreview interpolatedStreamTitle="Title" onEditDetails={onEdit} />);
-    fireEvent.click(screen.getByTestId(TEST_ID_EDIT_DETAILS_BUTTON));
+    await user.click(screen.getByTestId(TEST_ID_EDIT_DETAILS_BUTTON));
     expect(onEdit).toHaveBeenCalledOnce();
   });
 });
@@ -110,7 +112,8 @@ describe("ObsControls", () => {
     expect(screen.getByTestId(TEST_ID_MANAGE_STREAMS_BUTTON)).toHaveTextContent("Manage Streams");
   });
 
-  it("calls onManageStreams when clicked", () => {
+  it("calls onManageStreams when clicked", async () => {
+    const user = userEvent.setup();
     const onManage = vi.fn();
     render(
       <ObsControls
@@ -122,7 +125,7 @@ describe("ObsControls", () => {
         onStopRecording={vi.fn()}
       />,
     );
-    fireEvent.click(screen.getByTestId(TEST_ID_MANAGE_STREAMS_BUTTON));
+    await user.click(screen.getByTestId(TEST_ID_MANAGE_STREAMS_BUTTON));
     expect(onManage).toHaveBeenCalledOnce();
   });
 

@@ -1,13 +1,13 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, act } from "@testing-library/react";
 import { ActiveCountdown } from "./ActiveCountdown";
-import { TEST_ID_LT_COUNTDOWN } from "../../constants/testIds";
+import { TEST_ID_LOWER_THIRD_COUNTDOWN } from "../../constants/testIds";
 
 describe("ActiveCountdown", () => {
   it("renders countdown with remaining seconds", () => {
     const future = new Date(Date.now() + 10000).toISOString();
     render(<ActiveCountdown autoDismissAt={future} />);
-    expect(screen.getByTestId(TEST_ID_LT_COUNTDOWN)).toBeInTheDocument();
+    expect(screen.getByTestId(TEST_ID_LOWER_THIRD_COUNTDOWN)).toBeInTheDocument();
     expect(screen.getByText("10s")).toBeInTheDocument();
   });
 

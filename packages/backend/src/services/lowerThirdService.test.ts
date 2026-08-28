@@ -13,50 +13,39 @@ import type { JwtPayload } from "./authService.js";
 const actor: JwtPayload = { sub: "u1", username: "admin", role: "ADMIN", iat: 0, exp: 9999999999 };
 
 function createDatabase(): Database {
-  const db = new BetterSqlite3(":memory:");
-  db.pragma("journal_mode = WAL");
-  db.pragma("foreign_keys = ON");
-  applySchema(db);
+  const database = new BetterSqlite3(":memory:");
+  database.pragma("journal_mode = WAL");
+  database.pragma("foreign_keys = ON");
+  applySchema(database);
   // Seed a title template so SessionManifestService doesn't complain
-  db.prepare("INSERT INTO metadata_templates (id, name, category, formatString, roleMinimum, createdAt) VALUES (?, ?, ?, ?, ?, ?)").run(
-    "t1",
-    "Default",
-    "title",
-    "{Date} – {Speaker}",
-    "AvVolunteer",
-    new Date().toISOString(),
-  );
-  return db;
+  database
+    .prepare("INSERT INTO metadata_templates (id, name, category, formatString, roleMinimum, createdAt) VALUES (?, ?, ?, ?, ?, ?)")
+    .run("t1", "Default", "title", "{Date} – {Speaker}", "AvVolunteer", new Date().toISOString());
+  return database;
 }
 
-function seedKjv(db: Database): void {
-  db.prepare("INSERT INTO kjv (BOOKID, CHAPTERNO, VERSENO, VERSETEXT) VALUES (?, ?, ?, ?)").run(
-    1,
-    1,
-    1,
-    "In the beginning God created the heaven and the earth.",
-  );
-  db.prepare("INSERT INTO kjv (BOOKID, CHAPTERNO, VERSENO, VERSETEXT) VALUES (?, ?, ?, ?)").run(1, 1, 2, "And the earth was without form, and void.");
-  db.prepare("INSERT INTO kjv (BOOKID, CHAPTERNO, VERSENO, VERSETEXT) VALUES (?, ?, ?, ?)").run(
-    1,
-    1,
-    3,
-    "And God said, Let there be light: and there was light.",
-  );
+function seedKjv(database: Database): void {
+  database
+    .prepare("INSERT INTO kjv (BOOKID, CHAPTERNO, VERSENO, VERSETEXT) VALUES (?, ?, ?, ?)")
+    .run(1, 1, 1, "In the beginning God created the heaven and the earth.");
+  database.prepare("INSERT INTO kjv (BOOKID, CHAPTERNO, VERSENO, VERSETEXT) VALUES (?, ?, ?, ?)").run(1, 1, 2, "And the earth was without form, and void.");
+  database
+    .prepare("INSERT INTO kjv (BOOKID, CHAPTERNO, VERSENO, VERSETEXT) VALUES (?, ?, ?, ?)")
+    .run(1, 1, 3, "And God said, Let there be light: and there was light.");
 }
 
-let db: Database;
+let database: Database;
 let dao: MetadataTemplateDao;
 let manifestService: SessionManifestService;
 let service: LowerThirdService;
 let sendToOverlay: ReturnType<typeof vi.fn<(event: string, data?: unknown) => void>>;
 
 beforeEach(() => {
-  db = createDatabase();
-  seedKjv(db);
-  dao = new MetadataTemplateDao(db);
-  manifestService = new SessionManifestService(db);
-  service = new LowerThirdService(dao, db, manifestService);
+  database = createDatabase();
+  seedKjv(database);
+  dao = new MetadataTemplateDao(database);
+  manifestService = new SessionManifestService(database);
+  service = new LowerThirdService(dao, database, manifestService);
   sendToOverlay = vi.fn<(event: string, data?: unknown) => void>();
   service.setSendToOverlay(sendToOverlay);
   service.setOverlayConnected(true);
@@ -337,7 +326,7 @@ describe("scripture and measurement", () => {
     vi.useFakeTimers();
     // Re-create service with fake timers active
     service.destroy();
-    service = new LowerThirdService(dao, db, manifestService);
+    service = new LowerThirdService(dao, database, manifestService);
     service.setSendToOverlay(sendToOverlay);
     service.setOverlayConnected(true);
 
@@ -414,25 +403,27 @@ describe("state emission", () => {
 
 describe("template resolution", () => {
   function seedLowerThirdTemplate(opts: { type: string; formatString: string; name?: string; autoDismissMs?: number | null }): void {
-    db.prepare(
-      "INSERT INTO metadata_templates (id, name, category, formatString, roleMinimum, lowerThirdType, autoDismissMs, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-    ).run(
-      `lt-${opts.type}-${Date.now()}`,
-      opts.name ?? "Test",
-      "lower_third",
-      opts.formatString,
-      "AvVolunteer",
-      opts.type,
-      opts.autoDismissMs ?? null,
-      new Date().toISOString(),
-    );
+    database
+      .prepare(
+        "INSERT INTO metadata_templates (id, name, category, formatString, roleMinimum, lowerThirdType, autoDismissMs, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+      )
+      .run(
+        `lt-${opts.type}-${Date.now()}`,
+        opts.name ?? "Test",
+        "lower_third",
+        opts.formatString,
+        "AvVolunteer",
+        opts.type,
+        opts.autoDismissMs ?? null,
+        new Date().toISOString(),
+      );
   }
 
   it("resolves Title template when manifest has speaker", () => {
     seedLowerThirdTemplate({ type: "Title", formatString: '{"title":"{Speaker}"}' });
     // Recreate service to pick up templates subscription
     service.destroy();
-    service = new LowerThirdService(dao, db, manifestService);
+    service = new LowerThirdService(dao, database, manifestService);
     service.setSendToOverlay(sendToOverlay);
     service.setOverlayConnected(true);
 
@@ -447,7 +438,7 @@ describe("template resolution", () => {
   it("does not resolve template when required token is missing", () => {
     seedLowerThirdTemplate({ type: "Title", formatString: '{"title":"{Speaker}"}' });
     service.destroy();
-    service = new LowerThirdService(dao, db, manifestService);
+    service = new LowerThirdService(dao, database, manifestService);
 
     // Update manifest without speaker
     manifestService.update({ title: "Something" }, actor);
@@ -459,7 +450,7 @@ describe("template resolution", () => {
   it("resolves TitleSubtitle template", () => {
     seedLowerThirdTemplate({ type: "TitleSubtitle", formatString: '{"title":"{Speaker}","subtitle":"{Title}"}' });
     service.destroy();
-    service = new LowerThirdService(dao, db, manifestService);
+    service = new LowerThirdService(dao, database, manifestService);
 
     manifestService.update({ speaker: "Jane", title: "Grace" }, actor);
 
@@ -471,7 +462,7 @@ describe("template resolution", () => {
   it("resolves Scripture template when manifest has scripture", () => {
     seedLowerThirdTemplate({ type: "Scripture", formatString: '{"title":"{Scripture}"}' });
     service.destroy();
-    service = new LowerThirdService(dao, db, manifestService);
+    service = new LowerThirdService(dao, database, manifestService);
     service.setSendToOverlay(sendToOverlay);
     service.setOverlayConnected(true);
 
@@ -486,7 +477,7 @@ describe("template resolution", () => {
   it("recomputes templates when manifest changes", () => {
     seedLowerThirdTemplate({ type: "Title", formatString: '{"title":"{Speaker}"}' });
     service.destroy();
-    service = new LowerThirdService(dao, db, manifestService);
+    service = new LowerThirdService(dao, database, manifestService);
     service.setSendToOverlay(sendToOverlay);
     service.setOverlayConnected(true);
 
@@ -499,7 +490,7 @@ describe("template resolution", () => {
   it("removes template items when tokens become unresolvable", () => {
     seedLowerThirdTemplate({ type: "Title", formatString: '{"title":"{Speaker}"}' });
     service.destroy();
-    service = new LowerThirdService(dao, db, manifestService);
+    service = new LowerThirdService(dao, database, manifestService);
 
     manifestService.update({ speaker: "Bob" }, actor);
     expect(service.getLibrary().filter((i) => i.source === "template")).toHaveLength(1);
@@ -511,7 +502,7 @@ describe("template resolution", () => {
   it("resolves static template (no tokens) always", () => {
     seedLowerThirdTemplate({ type: "Title", formatString: '{"title":"Welcome"}' });
     service.destroy();
-    service = new LowerThirdService(dao, db, manifestService);
+    service = new LowerThirdService(dao, database, manifestService);
 
     // Any manifest update triggers recompute
     manifestService.update({}, actor);
@@ -524,7 +515,7 @@ describe("template resolution", () => {
   it("includes autoDismissMs from template", () => {
     seedLowerThirdTemplate({ type: "Title", formatString: '{"title":"Hi"}', autoDismissMs: 5000 });
     service.destroy();
-    service = new LowerThirdService(dao, db, manifestService);
+    service = new LowerThirdService(dao, database, manifestService);
 
     manifestService.update({}, actor);
 

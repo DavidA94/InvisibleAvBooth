@@ -6,12 +6,12 @@ import {
   TEST_ID_LOGIN_PASSWORD,
   TEST_ID_LOGIN_SUBMIT,
   TEST_ID_LOWER_THIRD_WIDGET,
-  TEST_ID_LT_ACTIVE_SECTION,
-  TEST_ID_LT_LIBRARY_SECTION,
-  TEST_ID_LT_SHOW_BUTTON,
-  TEST_ID_LT_ADD_DIALOG,
-  TEST_ID_LT_ADD_TITLE_INPUT,
-  TEST_ID_LT_ADD_SAVE,
+  TEST_ID_LOWER_THIRD_ACTIVE_SECTION,
+  TEST_ID_LOWER_THIRD_LIBRARY_SECTION,
+  TEST_ID_LOWER_THIRD_SHOW_BUTTON,
+  TEST_ID_LOWER_THIRD_ADD_DIALOG,
+  TEST_ID_LOWER_THIRD_ADD_TITLE_INPUT,
+  TEST_ID_LOWER_THIRD_ADD_SAVE,
 } from "../../src/constants/testIds";
 
 const volunteerLogin = authLoginSuccess({ role: "AvVolunteer" });
@@ -152,7 +152,7 @@ test.describe("Lower-third widget — Active section", () => {
     await setupSocketWithLowerThirds(page, lowerThirdState({ active: null }));
     await loginAndNavigate(page);
 
-    const activeSection = page.getByTestId(TEST_ID_LT_ACTIVE_SECTION);
+    const activeSection = page.getByTestId(TEST_ID_LOWER_THIRD_ACTIVE_SECTION);
     await expect(activeSection).toBeVisible();
     await expect(activeSection).toContainText("Nothing active");
   });
@@ -164,7 +164,7 @@ test.describe("Lower-third widget — Active section", () => {
     await setupSocketWithLowerThirds(page, lowerThirdState({ active: activeItem, phase: "visible", library: [] }));
     await loginAndNavigate(page);
 
-    const activeSection = page.getByTestId(TEST_ID_LT_ACTIVE_SECTION);
+    const activeSection = page.getByTestId(TEST_ID_LOWER_THIRD_ACTIVE_SECTION);
     await expect(activeSection).toContainText("Active Speaker");
     await expect(page.getByLabel("Dismiss")).toBeVisible();
   });
@@ -180,7 +180,7 @@ test.describe("Lower-third widget — Library section", () => {
     await setupSocketWithLowerThirds(page);
     await loginAndNavigate(page);
 
-    const librarySection = page.getByTestId(TEST_ID_LT_LIBRARY_SECTION);
+    const librarySection = page.getByTestId(TEST_ID_LOWER_THIRD_LIBRARY_SECTION);
     await expect(librarySection).toBeVisible();
     await expect(librarySection).toContainText("John Smith");
   });
@@ -192,7 +192,7 @@ test.describe("Lower-third widget — Library section", () => {
     await setupSocketWithLowerThirds(page, lowerThirdState({ library: [] }));
     await loginAndNavigate(page);
 
-    const librarySection = page.getByTestId(TEST_ID_LT_LIBRARY_SECTION);
+    const librarySection = page.getByTestId(TEST_ID_LOWER_THIRD_LIBRARY_SECTION);
     await expect(librarySection).toContainText("No items available");
   });
 });
@@ -208,7 +208,7 @@ test.describe("Lower-third widget — Show (activate)", () => {
     await loginAndNavigate(page);
 
     // Click Show button on library item (directly activates — no preview dialog in implementation)
-    const showBtn = page.getByTestId(TEST_ID_LT_SHOW_BUTTON);
+    const showBtn = page.getByTestId(TEST_ID_LOWER_THIRD_SHOW_BUTTON);
     await expect(showBtn).toBeVisible();
     await showBtn.click();
 
@@ -239,13 +239,13 @@ test.describe("Lower-third widget — Add to library", () => {
       .click();
 
     // Add dialog should appear
-    await expect(page.getByTestId(TEST_ID_LT_ADD_DIALOG)).toBeVisible({ timeout: 3000 });
+    await expect(page.getByTestId(TEST_ID_LOWER_THIRD_ADD_DIALOG)).toBeVisible({ timeout: 3000 });
 
     // Fill in title
-    await page.getByTestId(TEST_ID_LT_ADD_TITLE_INPUT).locator("input").fill("New Speaker");
+    await page.getByTestId(TEST_ID_LOWER_THIRD_ADD_TITLE_INPUT).locator("input").fill("New Speaker");
 
     // Save
-    await page.getByTestId(TEST_ID_LT_ADD_SAVE).click();
+    await page.getByTestId(TEST_ID_LOWER_THIRD_ADD_SAVE).click();
 
     await page.waitForTimeout(100);
     const cmd = socket.lastCommand() as { type: string; input: { type: string; content: { title: string } } };

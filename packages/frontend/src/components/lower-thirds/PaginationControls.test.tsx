@@ -1,7 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { PaginationControls } from "./PaginationControls";
-import { TEST_ID_LT_PAGINATION, TEST_ID_LT_PAGE_INFO } from "../../constants/testIds";
+import { TEST_ID_LOWER_THIRD_PAGINATION, TEST_ID_LOWER_THIRD_PAGE_INFO } from "../../constants/testIds";
 import type { LowerThirdItem, PageBreakdown } from "@invisible-av-booth/shared";
 
 function makeItem(bookId = 1, chapter = 3): LowerThirdItem {
@@ -40,12 +41,12 @@ function makePages(currentPage: number, totalPages: number, pages?: PageBreakdow
 describe("PaginationControls", () => {
   it("renders pagination container", () => {
     render(<PaginationControls item={makeItem()} pages={makePages(1, 3)} transitionLocked={false} onPageNext={vi.fn()} onPagePrevious={vi.fn()} />);
-    expect(screen.getByTestId(TEST_ID_LT_PAGINATION)).toBeInTheDocument();
+    expect(screen.getByTestId(TEST_ID_LOWER_THIRD_PAGINATION)).toBeInTheDocument();
   });
 
   it("displays verse range for current page", () => {
     render(<PaginationControls item={makeItem()} pages={makePages(2, 3)} transitionLocked={false} onPageNext={vi.fn()} onPagePrevious={vi.fn()} />);
-    expect(screen.getByTestId(TEST_ID_LT_PAGE_INFO)).toHaveTextContent("Genesis 3:3-4");
+    expect(screen.getByTestId(TEST_ID_LOWER_THIRD_PAGE_INFO)).toHaveTextContent("Genesis 3:3-4");
   });
 
   it("displays single verse when startVerse equals endVerse", () => {
@@ -54,7 +55,7 @@ describe("PaginationControls", () => {
       { pageNumber: 2, startVerse: 6, endVerse: 7 },
     ]);
     render(<PaginationControls item={makeItem()} pages={pages} transitionLocked={false} onPageNext={vi.fn()} onPagePrevious={vi.fn()} />);
-    expect(screen.getByTestId(TEST_ID_LT_PAGE_INFO)).toHaveTextContent("Genesis 3:5");
+    expect(screen.getByTestId(TEST_ID_LOWER_THIRD_PAGE_INFO)).toHaveTextContent("Genesis 3:5");
   });
 
   it("disables previous button on first page", () => {
@@ -79,24 +80,26 @@ describe("PaginationControls", () => {
     expect(screen.getByLabelText("Next page")).toBeDisabled();
   });
 
-  it("calls onPageNext when next button clicked", () => {
+  it("calls onPageNext when next button clicked", async () => {
+    const user = userEvent.setup();
     const onPageNext = vi.fn();
     render(<PaginationControls item={makeItem()} pages={makePages(1, 3)} transitionLocked={false} onPageNext={onPageNext} onPagePrevious={vi.fn()} />);
-    fireEvent.click(screen.getByLabelText("Next page"));
+    await user.click(screen.getByLabelText("Next page"));
     expect(onPageNext).toHaveBeenCalledOnce();
   });
 
-  it("calls onPagePrevious when previous button clicked", () => {
+  it("calls onPagePrevious when previous button clicked", async () => {
+    const user = userEvent.setup();
     const onPagePrevious = vi.fn();
     render(<PaginationControls item={makeItem()} pages={makePages(2, 3)} transitionLocked={false} onPageNext={vi.fn()} onPagePrevious={onPagePrevious} />);
-    fireEvent.click(screen.getByLabelText("Previous page"));
+    await user.click(screen.getByLabelText("Previous page"));
     expect(onPagePrevious).toHaveBeenCalledOnce();
   });
 
   it("shows empty string when currentPage has no matching page info", () => {
     const pages = makePages(5, 5, [{ pageNumber: 1, startVerse: 1, endVerse: 2 }]);
     render(<PaginationControls item={makeItem()} pages={pages} transitionLocked={false} onPageNext={vi.fn()} onPagePrevious={vi.fn()} />);
-    expect(screen.getByTestId(TEST_ID_LT_PAGE_INFO)).toHaveTextContent("");
+    expect(screen.getByTestId(TEST_ID_LOWER_THIRD_PAGE_INFO)).toHaveTextContent("");
   });
 
   it("uses correct book name from BIBLE_BOOKS", () => {
@@ -110,7 +113,7 @@ describe("PaginationControls", () => {
         onPagePrevious={vi.fn()}
       />,
     );
-    expect(screen.getByTestId(TEST_ID_LT_PAGE_INFO)).toHaveTextContent("Psalms 23:1-6");
+    expect(screen.getByTestId(TEST_ID_LOWER_THIRD_PAGE_INFO)).toHaveTextContent("Psalms 23:1-6");
   });
 
   it("shows empty book name for unknown bookId", () => {
@@ -124,6 +127,6 @@ describe("PaginationControls", () => {
       />,
     );
     // Unknown bookId renders empty string for book name: " 1:1-3"
-    expect(screen.getByTestId(TEST_ID_LT_PAGE_INFO)).toHaveTextContent("1:1-3");
+    expect(screen.getByTestId(TEST_ID_LOWER_THIRD_PAGE_INFO)).toHaveTextContent("1:1-3");
   });
 });

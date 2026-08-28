@@ -156,6 +156,48 @@
   white-space: nowrap;
 }
 
+/* ── Spacing Utilities ──────────────────────────────────────────────────────── */
+
+.display-block {
+  display: block;
+}
+
+.margin-top-standard {
+  margin-top: 0.75rem;
+}
+
+.margin-block-tight {
+  margin: 0.25rem 0;
+}
+
+.margin-block-standard {
+  margin: 0.5rem 0;
+}
+
+.section-heading-margin {
+  margin: 0.75rem 0 0.25rem;
+}
+
+.justify-between {
+  justify-content: space-between;
+}
+
+.max-width-narrow {
+  max-width: 5rem;
+}
+
+.max-width-medium {
+  max-width: 10rem;
+}
+
+/* ── Form Labels ────────────────────────────────────────────────────────────── */
+
+.form-label {
+  font-size: 0.75rem;
+  margin-bottom: 0.125rem;
+  display: block;
+}
+
 /* Two-column label/value layout — labels right-aligned, values left-aligned */
 .detail-fields {
   display: grid;

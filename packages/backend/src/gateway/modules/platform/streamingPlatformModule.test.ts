@@ -63,8 +63,8 @@ describe("register", () => {
 
 describe("registerSocket", () => {
   it("startAll command calls platformService.startAll", async () => {
-    const svc = makeMockPlatformService();
-    const mod = new StreamingPlatformModule(svc, makeMockRelayService());
+    const service = makeMockPlatformService();
+    const mod = new StreamingPlatformModule(service, makeMockRelayService());
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let handler: any;
     socketOnMock.mockImplementation((_: string, fn: unknown) => {
@@ -74,13 +74,13 @@ describe("registerSocket", () => {
 
     const ack = vi.fn();
     await handler({ type: "startAll" }, ack);
-    expect(svc.startAll).toHaveBeenCalled();
+    expect(service.startAll).toHaveBeenCalled();
     expect(ack).toHaveBeenCalledWith({ success: true });
   });
 
   it("startPlatform command calls platformService.startPlatform", async () => {
-    const svc = makeMockPlatformService();
-    const mod = new StreamingPlatformModule(svc, makeMockRelayService());
+    const service = makeMockPlatformService();
+    const mod = new StreamingPlatformModule(service, makeMockRelayService());
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let handler: any;
     socketOnMock.mockImplementation((_: string, fn: unknown) => {
@@ -90,13 +90,13 @@ describe("registerSocket", () => {
 
     const ack = vi.fn();
     await handler({ type: "startPlatform", platformType: "youtube" }, ack);
-    expect(svc.startPlatform).toHaveBeenCalledWith("youtube");
+    expect(service.startPlatform).toHaveBeenCalledWith("youtube");
     expect(ack).toHaveBeenCalledWith({ success: true });
   });
 
   it("startPlatform without platformType returns error", async () => {
-    const svc = makeMockPlatformService();
-    const mod = new StreamingPlatformModule(svc, makeMockRelayService());
+    const service = makeMockPlatformService();
+    const mod = new StreamingPlatformModule(service, makeMockRelayService());
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let handler: any;
     socketOnMock.mockImplementation((_: string, fn: unknown) => {
@@ -110,8 +110,8 @@ describe("registerSocket", () => {
   });
 
   it("stopAll command calls platformService.stopAll", async () => {
-    const svc = makeMockPlatformService();
-    const mod = new StreamingPlatformModule(svc, makeMockRelayService());
+    const service = makeMockPlatformService();
+    const mod = new StreamingPlatformModule(service, makeMockRelayService());
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let handler: any;
     socketOnMock.mockImplementation((_: string, fn: unknown) => {
@@ -121,13 +121,13 @@ describe("registerSocket", () => {
 
     const ack = vi.fn();
     await handler({ type: "stopAll" }, ack);
-    expect(svc.stopAll).toHaveBeenCalled();
+    expect(service.stopAll).toHaveBeenCalled();
     expect(ack).toHaveBeenCalledWith({ success: true });
   });
 
   it("stopPlatform command calls platformService.stopPlatform", async () => {
-    const svc = makeMockPlatformService();
-    const mod = new StreamingPlatformModule(svc, makeMockRelayService());
+    const service = makeMockPlatformService();
+    const mod = new StreamingPlatformModule(service, makeMockRelayService());
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let handler: any;
     socketOnMock.mockImplementation((_: string, fn: unknown) => {
@@ -137,14 +137,14 @@ describe("registerSocket", () => {
 
     const ack = vi.fn();
     await handler({ type: "stopPlatform", platformType: "youtube" }, ack);
-    expect(svc.stopPlatform).toHaveBeenCalledWith("youtube");
+    expect(service.stopPlatform).toHaveBeenCalledWith("youtube");
     expect(ack).toHaveBeenCalledWith({ success: true });
   });
 
   it("returns error on failure", async () => {
-    const svc = makeMockPlatformService();
-    (svc.startAll as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("busy"));
-    const mod = new StreamingPlatformModule(svc, makeMockRelayService());
+    const service = makeMockPlatformService();
+    (service.startAll as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("busy"));
+    const mod = new StreamingPlatformModule(service, makeMockRelayService());
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let handler: any;
     socketOnMock.mockImplementation((_: string, fn: unknown) => {
@@ -158,8 +158,8 @@ describe("registerSocket", () => {
   });
 
   it("stopPlatform without platformType returns error", async () => {
-    const svc = makeMockPlatformService();
-    const mod = new StreamingPlatformModule(svc, makeMockRelayService());
+    const service = makeMockPlatformService();
+    const mod = new StreamingPlatformModule(service, makeMockRelayService());
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let handler: any;
     socketOnMock.mockImplementation((_: string, fn: unknown) => {
@@ -173,8 +173,8 @@ describe("registerSocket", () => {
   });
 
   it("unknown command returns error", async () => {
-    const svc = makeMockPlatformService();
-    const mod = new StreamingPlatformModule(svc, makeMockRelayService());
+    const service = makeMockPlatformService();
+    const mod = new StreamingPlatformModule(service, makeMockRelayService());
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let handler: any;
     socketOnMock.mockImplementation((_: string, fn: unknown) => {
@@ -190,9 +190,9 @@ describe("registerSocket", () => {
 
 describe("emitInitialState", () => {
   it("emits platform states, relay state, and readiness", () => {
-    const svc = makeMockPlatformService();
+    const service = makeMockPlatformService();
     const relay = makeMockRelayService();
-    const mod = new StreamingPlatformModule(svc, relay);
+    const mod = new StreamingPlatformModule(service, relay);
     mod.emitInitialState({ socket: socketMock, jwtPayload: fakeUser } as AuthenticatedSocket);
 
     expect(socketEmitMock).toHaveBeenCalledWith(STC_PLATFORM_STATE, { platformType: "youtube", state: { status: "idle" } });

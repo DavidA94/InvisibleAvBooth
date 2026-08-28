@@ -14,6 +14,7 @@ import {
   TEST_ID_DEVICE_FORM_DELETE,
   TEST_ID_DEVICE_FORM_ERROR,
   TEST_ID_DEVICE_FORM_NDI_OUTPUT_NAME,
+  TEST_ID_DEVICE_FORM_NDI_EXTRA_IPS,
 } from "../../constants/testIds";
 
 export function ObsDeviceForm({ device, onSaved, onDeleted, registerDirtyCheck }: DeviceFormProps): ReactNode {
@@ -161,7 +162,7 @@ export function ObsDeviceForm({ device, onSaved, onDeleted, registerDirtyCheck }
         clearInput
       />
       <IonInput
-        data-testid="device-form-ndi-extra-ips"
+        data-testid={TEST_ID_DEVICE_FORM_NDI_EXTRA_IPS}
         label="NDI Extra IPs (optional)"
         labelPlacement="stacked"
         fill="outline"
