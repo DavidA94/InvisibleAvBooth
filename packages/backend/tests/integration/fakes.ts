@@ -250,3 +250,190 @@ export function createFakeAudioPreviewManager(): AudioPreviewManager {
     destroy: vi.fn(),
   } as unknown as AudioPreviewManager;
 }
+
+// ── Fake Mixer driver ─────────────────────────────────────────────────────────
+//
+// A fake MixerControlInterface injected via buildApp's mixerDriverFactory. It
+// records commands, exposes queryable stateful values (seedable to DIFFER from
+// the commanded value to prove mixer-authority, Req 11.2), can simulate an
+// unsolicited external push (physical console / app), and can emit meter levels.
+// No OSC, no UDP, no hardware.
+
+import type { MixerControlInterface, MixerDriverConfig, ChannelMonitorSink } from "../../src/mixer/MixerControlInterface.js";
+import type { MixerModel, MixerCapabilities, MixerChannelState, MixerChannelLevel, MixerPresetPayload } from "@invisible-av-booth/shared";
+import { faderFloatToDb } from "@invisible-av-booth/shared";
+
+export interface FakeMixerDriver extends MixerControlInterface {
+  /** Recorded set commands for assertions. */
+  commands: Array<{ op: "fader" | "mute" | "gain"; channel: number; value: number | boolean }>;
+  /** Seed the value the "mixer" reports on read-back so it can differ from commanded. */
+  seedFader: (channel: number, value: number) => void;
+  seedMute: (channel: number, muted: boolean) => void;
+  seedGain: (channel: number, gainDb: number) => void;
+  /** Simulate an unsolicited external change (physical console / Behringer app). */
+  pushExternal: (channel: number, change: Partial<Pick<MixerChannelState, "fader" | "muted" | "gainDb" | "name">>) => void;
+  /** Emit a fake meter frame. */
+  pushMeters: (levels: MixerChannelLevel[]) => void;
+  meteringEnabled: () => boolean;
+}
+
+export interface FakeMixerRegistry {
+  factory: (model: MixerModel, config: MixerDriverConfig, capture: ChannelMonitorSink) => Promise<MixerControlInterface>;
+  /** Get the fake driver for a mixerId after initialize(). */
+  get: (mixerId: string) => FakeMixerDriver | undefined;
+}
+
+/** Build a registry whose factory produces fake drivers, keyed by mixerId. */
+export function createFakeMixer(): FakeMixerRegistry {
+  const drivers = new Map<string, FakeMixerDriver>();
+
+  const factory = async (_model: MixerModel, config: MixerDriverConfig, capture: ChannelMonitorSink): Promise<MixerControlInterface> => {
+    const channels = new Map<number, MixerChannelState>();
+    for (let channel = 1; channel <= config.channelCount; channel++) {
+      channels.set(channel, { channel, name: `Ch ${channel}`, fader: 0, faderDb: -Infinity, muted: false, gainDb: -12 });
+    }
+    const seeded = { fader: new Map<number, number>(), mute: new Map<number, boolean>(), gain: new Map<number, number>() };
+    const stateListeners = new Set<(s: MixerChannelState) => void>();
+    const meterListeners = new Set<(l: MixerChannelLevel[]) => void>();
+    const livenessListeners = new Set<() => void>();
+    let connected = false;
+    let metering = false;
+
+    const emitState = (channel: number): void => {
+      const state = channels.get(channel);
+      if (!state) return;
+      for (const listener of stateListeners) listener({ ...state });
+      for (const listener of livenessListeners) listener();
+    };
+
+    const capabilities: MixerCapabilities = { features: [...config.features], gainRange: { minDb: -12, maxDb: 60 } };
+
+    const driver: FakeMixerDriver = {
+      commands: [],
+      seedFader: (channel, value) => seeded.fader.set(channel, value),
+      seedMute: (channel, muted) => seeded.mute.set(channel, muted),
+      seedGain: (channel, gainDb) => seeded.gain.set(channel, gainDb),
+      pushExternal: (channel, change) => {
+        const state = channels.get(channel);
+        if (!state) return;
+        if (change.fader !== undefined) {
+          state.fader = change.fader;
+          state.faderDb = faderFloatToDb(change.fader);
+        }
+        if (change.muted !== undefined) state.muted = change.muted;
+        if (change.gainDb !== undefined) state.gainDb = change.gainDb;
+        if (change.name !== undefined) state.name = change.name;
+        emitState(channel);
+      },
+      pushMeters: (levels) => {
+        for (const listener of meterListeners) listener(levels);
+      },
+      meteringEnabled: () => metering,
+
+      connect: async () => {
+        connected = true;
+        return true;
+      },
+      disconnect: () => {
+        connected = false;
+      },
+      isConnected: () => connected,
+      getCapabilities: () => ({ features: [...capabilities.features], gainRange: { ...capabilities.gainRange } }),
+
+      setFader: async (channel, level) => {
+        driver.commands.push({ op: "fader", channel, value: level });
+        const reported = seeded.fader.get(channel) ?? level; // mixer is authoritative
+        const state = channels.get(channel);
+        if (state) {
+          state.fader = reported;
+          state.faderDb = faderFloatToDb(reported);
+          emitState(channel);
+        }
+      },
+      setMute: async (channel, muted) => {
+        driver.commands.push({ op: "mute", channel, value: muted });
+        const reported = seeded.mute.has(channel) ? seeded.mute.get(channel)! : muted;
+        const state = channels.get(channel);
+        if (state) {
+          state.muted = reported;
+          emitState(channel);
+        }
+      },
+      setGain: async (channel, gainDb) => {
+        if (!capabilities.features.includes("gain-control")) return; // capability enforcement
+        driver.commands.push({ op: "gain", channel, value: gainDb });
+        const reported = seeded.gain.get(channel) ?? gainDb;
+        const state = channels.get(channel);
+        if (state) {
+          state.gainDb = reported;
+          emitState(channel);
+        }
+      },
+      getChannelState: (channel) => {
+        const state = channels.get(channel);
+        return state ? { ...state } : null;
+      },
+      getAllChannelStates: () => Array.from(channels.values()).map((s) => ({ ...s })),
+      capturePreset: async () => {
+        const payload: MixerPresetPayload = {};
+        for (const [channel, state] of channels) {
+          payload[`/ch/${String(channel).padStart(2, "0")}/mix/fader`] = state.fader;
+          payload[`/ch/${String(channel).padStart(2, "0")}/mix/on`] = state.muted ? 0 : 1;
+          if (capabilities.features.includes("gain-control")) payload[`/headamp/${String(channel - 1).padStart(3, "0")}/gain`] = state.gainDb;
+        }
+        return payload;
+      },
+      activatePreset: async (payload) => {
+        for (const [address, value] of Object.entries(payload)) {
+          const faderMatch = /^\/ch\/(\d+)\/mix\/fader$/.exec(address);
+          if (faderMatch && typeof value === "number") {
+            driver.commands.push({ op: "fader", channel: Number(faderMatch[1]), value });
+            const state = channels.get(Number(faderMatch[1]));
+            if (state) {
+              state.fader = value;
+              state.faderDb = faderFloatToDb(value);
+            }
+          }
+          const onMatch = /^\/ch\/(\d+)\/mix\/on$/.exec(address);
+          if (onMatch && typeof value === "number") {
+            driver.commands.push({ op: "mute", channel: Number(onMatch[1]), value: value === 0 });
+            const state = channels.get(Number(onMatch[1]));
+            if (state) state.muted = value === 0;
+          }
+          const gainMatch = /^\/headamp\/(\d+)\/gain$/.exec(address);
+          if (gainMatch && typeof value === "number") {
+            driver.commands.push({ op: "gain", channel: Number(gainMatch[1]) + 1, value });
+            const state = channels.get(Number(gainMatch[1]) + 1);
+            if (state) state.gainDb = value;
+          }
+        }
+      },
+      onMeterUpdate: (listener) => {
+        meterListeners.add(listener);
+        return () => meterListeners.delete(listener);
+      },
+      setMeteringEnabled: (enabled) => {
+        metering = enabled;
+      },
+      onStateChange: (listener) => {
+        stateListeners.add(listener);
+        return () => stateListeners.delete(listener);
+      },
+      onLiveness: (listener) => {
+        livenessListeners.add(listener);
+        return () => livenessListeners.delete(listener);
+      },
+      startChannelMonitor: (channel) => {
+        capture.startChannelMonitor(config.mixerId, channel);
+      },
+      stopChannelMonitor: (channel) => {
+        capture.stopChannelMonitor(config.mixerId, channel);
+      },
+    };
+
+    drivers.set(config.mixerId, driver);
+    return driver;
+  };
+
+  return { factory, get: (mixerId) => drivers.get(mixerId) };
+}

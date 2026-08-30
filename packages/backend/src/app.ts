@@ -27,6 +27,9 @@ import type { SpawnFn as PreviewSpawnFn } from "./services/videoPreviewManager.j
 import { AudioPreviewManager } from "./services/audioPreviewManager.js";
 import { PreviewUpgradeRouter } from "./services/previewUpgradeRouter.js";
 import { AudioCaptureService } from "./mixer/AudioCaptureService.js";
+import { MixerService } from "./mixer/MixerService.js";
+import type { MixerDriverFactory } from "./mixer/MixerService.js";
+import { MixerSocketModule } from "./gateway/modules/mixer/mixerModule.js";
 import { CameraService } from "./camera/CameraService.js";
 import { CameraSocketModule } from "./camera/CameraSocketModule.js";
 import { ObsNdiPreviewSource } from "./camera/ObsNdiPreviewSource.js";
@@ -61,6 +64,8 @@ export interface AppDependencies {
   relayPort?: number;
   /** Override spawn for preview FFmpeg (for testing). */
   previewSpawnFn?: PreviewSpawnFn;
+  /** Inject a fake mixer driver factory (tests). Omit to use the real OSC driver. */
+  mixerDriverFactory?: MixerDriverFactory;
 }
 
 export interface AppContext {
@@ -78,12 +83,13 @@ export interface AppContext {
   audioPreviewManager: AudioPreviewManager;
   previewUpgradeRouter: PreviewUpgradeRouter;
   audioCaptureService: AudioCaptureService;
+  mixerService: MixerService;
   obsNdiPreviewSource: ObsNdiPreviewSource;
   gateway: SocketGateway;
 }
 
 export function buildApp(deps: AppDependencies): AppContext {
-  const { database, nmsFactory, spawnFn, obsClient, platformClients, relayPort = 1935, previewSpawnFn } = deps;
+  const { database, nmsFactory, spawnFn, obsClient, platformClients, relayPort = 1935, previewSpawnFn, mixerDriverFactory } = deps;
 
   const authService = new AuthService(database);
 
@@ -174,6 +180,7 @@ export function buildApp(deps: AppDependencies): AppContext {
   const previewUpgradeRouter = new PreviewUpgradeRouter(authService, videoPreviewManager, audioPreviewManager);
   const obsNdiPreviewSource = new ObsNdiPreviewSource(database, videoPreviewManager);
   const cameraService = new CameraService(database, videoPreviewManager);
+  const mixerService = new MixerService(database, audioCaptureService, mixerDriverFactory);
 
   // Preset routes need cameraService for position capture
   app.use("/api/admin/cameras/:cameraId/presets", mustBeAuthenticated, mustHaveChangedPassword, createPresetRouter(database, authService, cameraService));
@@ -216,6 +223,18 @@ export function buildApp(deps: AppDependencies): AppContext {
     res.json(result);
   });
 
+  // Capture the current board → MixerPresetPayload (ADMIN-only). Inline on the
+  // /api/admin/mixers mount, registered before the :mixerId preset router.
+  app.post("/api/admin/mixers/:mixerId/capture-preset", mustBeAuthenticated, mustHaveChangedPassword, mixerAdminOnly, async (req, res) => {
+    const mixerId = req.params["mixerId"] as string;
+    try {
+      const payload = await mixerService.capturePreset(mixerId);
+      res.json({ ok: true, payload });
+    } catch (error) {
+      res.status(409).json({ ok: false, error: (error as Error).message });
+    }
+  });
+
   app.use("/api/admin/mixers/:mixerId/presets", mustBeAuthenticated, mustHaveChangedPassword, createMixerPresetRouter(database, authService));
 
   const gateway = new SocketGateway(httpServer, authService, [
@@ -228,6 +247,7 @@ export function buildApp(deps: AppDependencies): AppContext {
     new StreamingPlatformModule(platformService, relayService),
     new LowerThirdModule(lowerThirdService),
     new CameraSocketModule(cameraService),
+    new MixerSocketModule(mixerService),
   ]);
 
   registerOverlayNamespace(gateway.getIo(), lowerThirdService);
@@ -252,6 +272,7 @@ export function buildApp(deps: AppDependencies): AppContext {
     audioPreviewManager,
     previewUpgradeRouter,
     audioCaptureService,
+    mixerService,
     obsNdiPreviewSource,
     gateway,
   };

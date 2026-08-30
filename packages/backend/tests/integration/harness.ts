@@ -11,8 +11,8 @@ import { seedKjv } from "../../src/database/database.js";
 import { buildApp } from "../../src/app.js";
 import type { AppContext } from "../../src/app.js";
 import { eventBus } from "../../src/eventBus/eventBus.js";
-import { createFakeObs, createFakeNmsFactory, createFakeSpawn, FakePlatformClient } from "./fakes.js";
-import type { FakeObs, FakeNmsInstance } from "./fakes.js";
+import { createFakeObs, createFakeNmsFactory, createFakeSpawn, FakePlatformClient, createFakeMixer } from "./fakes.js";
+import type { FakeObs, FakeNmsInstance, FakeMixerRegistry } from "./fakes.js";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 
@@ -24,6 +24,7 @@ export interface TestServer {
   fakeObs: FakeObs;
   fakeNms: FakeNmsInstance;
   fakePlatformClient: FakePlatformClient;
+  fakeMixer: FakeMixerRegistry;
   port: number;
   /** Supertest agent bound to the app */
   agent: ReturnType<typeof request>;
@@ -64,6 +65,7 @@ export async function buildTestServer(opts?: { seedKjv?: boolean; seedPlatform?:
   const fakeNms = (nmsFactory as unknown as { instance: FakeNmsInstance }).instance;
 
   const fakeSpawn = createFakeSpawn();
+  const fakeMixer = createFakeMixer();
 
   const ctx = buildApp({
     database,
@@ -74,6 +76,7 @@ export async function buildTestServer(opts?: { seedKjv?: boolean; seedPlatform?:
     relayPort: 0,
     // eslint-disable-next-line @typescript-eslint/consistent-type-imports
     previewSpawnFn: fakeSpawn as unknown as import("../../src/services/videoPreviewManager.js").SpawnFn,
+    mixerDriverFactory: fakeMixer.factory,
   });
 
   await new Promise<void>((resolve) => ctx.httpServer.listen(0, resolve));
@@ -82,7 +85,11 @@ export async function buildTestServer(opts?: { seedKjv?: boolean; seedPlatform?:
   // Start relay (mirrors index.ts behavior)
   await ctx.relayService.start().catch(() => {});
 
-  return { ctx, fakeObs, fakeNms, fakePlatformClient, port, agent: request(ctx.app) };
+  // Initialize the mixer service (no soundboard devices seeded yet — instances
+  // are created on demand via BUS_MIXER_DEVICE_CHANGED when a test creates one).
+  await ctx.mixerService.initialize();
+
+  return { ctx, fakeObs, fakeNms, fakePlatformClient, fakeMixer, port, agent: request(ctx.app) };
 }
 
 export function resetServer(server: TestServer): void {
@@ -103,6 +110,7 @@ export function destroyServer(server: TestServer): void {
   server.ctx.platformService.destroy();
   server.ctx.lowerThirdService.destroy();
   server.ctx.cameraService.destroy();
+  server.ctx.mixerService.destroy();
   server.ctx.obsNdiPreviewSource.destroy();
   server.ctx.audioPreviewManager.destroy();
   server.ctx.videoPreviewManager.destroy();
