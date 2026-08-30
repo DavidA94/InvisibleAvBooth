@@ -153,6 +153,19 @@ describe("SoundBoardWidget", () => {
     expect(screen.getByTestId(TEST_ID_MIXER_GAIN_MODAL)).toBeInTheDocument();
   });
 
+  it("emits a gain change from the gain modal slider", () => {
+    mockEmit.mockClear();
+    useStore.setState({ mixerStates: { mix1: makeMixer({ capabilities: { features: ["gain-control"], gainRange: { minDb: -12, maxDb: 60 } } }) } });
+    render(<SoundBoardWidget />);
+    fireEvent.click(screen.getByTestId(`${TEST_ID_MIXER_ADJUST_GAIN_BUTTON}-1`));
+    // The gain modal's MUI slider is the only slider in the modal.
+    const modalSlider = screen.getAllByRole("slider").find((el) => el.closest('[data-testid="mixer-gain-slider"]'));
+    expect(modalSlider).toBeDefined();
+    fireEvent.change(modalSlider!, { target: { value: "24" } });
+    const setEvents = mockEmit.mock.calls.filter((c) => c[0] === "cts:mixer:set").map((c) => c[1] as { gainDb?: number });
+    expect(setEvents.some((e) => e.gainDb !== undefined)).toBe(true);
+  });
+
   it("opens the gain window (capture) and emits a monitor request", () => {
     class MockWebSocket {
       static instances: MockWebSocket[] = [];
@@ -213,5 +226,24 @@ describe("SoundBoardWidget", () => {
     // Advance a page → prev appears.
     fireEvent.click(screen.getByTestId(TEST_ID_MIXER_PAGINATION_NEXT));
     expect(screen.getByTestId(TEST_ID_MIXER_PAGINATION_PREV)).toBeInTheDocument();
+  });
+
+  it("keeps prev/next in fixed reserved slots across pages (Req 13.6)", () => {
+    // 15 channels, 6 strips fit → perPage 5 → 3 pages (so page 1 is a true middle page).
+    const channels = Array.from({ length: 15 }, (_, i) => ({ channel: i + 1, name: `Ch ${i + 1}`, fader: 0.5, faderDb: -10, muted: false, gainDb: 0 }));
+    useStore.setState({ mixerStates: { mix1: makeMixer({ channelCount: 15, channels }) } });
+    render(<SoundBoardWidget />);
+    const pager = screen.getByTestId(TEST_ID_MIXER_PAGINATION);
+    // Always exactly two fixed slot containers, regardless of how many buttons show.
+    const slots = pager.querySelectorAll(".mixer-pagination-slot");
+    expect(slots).toHaveLength(2);
+    // First page: top slot (prev) is empty, bottom slot (next) holds the button.
+    expect(slots[0]!.querySelector("button")).toBeNull();
+    expect(slots[1]!.querySelector("button")).not.toBeNull();
+    // Middle page (page 1 of 3): both slots hold a button, each in its fixed position.
+    fireEvent.click(screen.getByTestId(TEST_ID_MIXER_PAGINATION_NEXT));
+    const midSlots = screen.getByTestId(TEST_ID_MIXER_PAGINATION).querySelectorAll(".mixer-pagination-slot");
+    expect(midSlots[0]!.querySelector("button")).not.toBeNull(); // prev at top
+    expect(midSlots[1]!.querySelector("button")).not.toBeNull(); // next at bottom
   });
 });
