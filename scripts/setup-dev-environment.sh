@@ -65,6 +65,39 @@ sudo apt-get install -y --no-install-recommends \
 
 sudo usermod -aG render,video $(whoami)
 
+# ── PipeWire (multi-consumer USB audio capture for the Sound Board) ───────────
+# The mixer's USB interface is owned by PipeWire and shared among consumers
+# (OBS's main-mix source + our per-channel capture) without exclusive-open
+# conflicts. gstreamer1.0-pipewire provides the `pipewiresrc` element the
+# Audio Capture Layer uses. See docs/setup.md for the required USB routing.
+info "Installing PipeWire and the GStreamer PipeWire plugin"
+sudo apt-get install -y --no-install-recommends \
+  pipewire \
+  pipewire-pulse \
+  wireplumber \
+  gstreamer1.0-pipewire
+
+info "Verifying the pipewiresrc GStreamer element is available"
+if gst-inspect-1.0 pipewiresrc &>/dev/null; then
+  info "pipewiresrc is available — per-channel audio capture (gain window) can run."
+else
+  warn "pipewiresrc NOT found. The gain window will fall back to the slider tier."
+  warn "Ensure gstreamer1.0-pipewire installed correctly and PipeWire is running."
+fi
+
+info "Checking for a class-compliant USB audio device (informational only)"
+# The X Air presents as an 18-in USB audio interface. This is a soft check —
+# the device may not be plugged in during setup. See docs/setup.md.
+if command -v pw-cli &>/dev/null; then
+  if pw-cli list-objects Node 2>/dev/null | grep -qi "audio"; then
+    info "PipeWire reports at least one audio node. Verify the mixer appears when plugged in."
+  else
+    warn "No PipeWire audio nodes detected yet. Plug in the mixer's USB and re-check with: pw-cli list-objects Node"
+  fi
+else
+  warn "pw-cli not found; skipping USB device enumeration check."
+fi
+
 info "Ensuring avahi-daemon is running..."
 sudo systemctl enable --now avahi-daemon 2>/dev/null || true
 

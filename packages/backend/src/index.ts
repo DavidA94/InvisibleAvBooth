@@ -49,6 +49,7 @@ const {
   audioPreviewManager,
   audioCaptureService,
   cameraService,
+  mixerService,
 } = buildApp({
   database,
   nmsFactory: () =>
@@ -73,6 +74,7 @@ httpServer.listen(PORT, () => {
   void videoPreviewManager.initialize().then(() => {
     void obsNdiPreviewSource.initialize();
     void cameraService.initialize();
+    void mixerService.initialize().catch((error) => logger.warn("Mixer service init failed", { error: String(error) }));
   });
 });
 
@@ -82,6 +84,7 @@ const shutdown = (): void => {
   logger.info("Shutting down...");
   audioPreviewManager.destroy();
   videoPreviewManager.destroy();
+  mixerService.destroy();
   audioCaptureService.destroy();
   platformService.destroy();
   relayService.stop();

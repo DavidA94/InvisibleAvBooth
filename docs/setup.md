@@ -363,6 +363,84 @@ With everything configured, verify the full system:
 
 ---
 
+## 14. Configure the Sound Board (Optional)
+
+The Sound Board widget controls a **Behringer X Air** mixer over OSC/UDP and — when
+`channel-audio-capture` is enabled — shows a live per-channel gain window fed by
+the mixer's USB audio interface via **PipeWire**.
+
+### PipeWire ownership (critical)
+
+The mixer's USB audio interface **must be owned by PipeWire**, not grabbed as a
+raw ALSA `hw:` device by any process — **including OBS's own audio source**. If
+OBS opens the device as raw ALSA, it and our capture will contend for the device
+and one of them will fail. Configure OBS to consume audio **via PipeWire** (the
+default on modern desktops), not a raw `hw:` ALSA input.
+
+Verify PipeWire owns the device:
+
+```bash
+gst-inspect-1.0 pipewiresrc   # must succeed
+pw-cli list-objects Node | grep -i audio   # the mixer should appear when plugged in
+```
+
+If `pipewiresrc` is missing, install it (the setup script does this):
+
+```bash
+sudo apt-get install -y pipewire pipewire-pulse wireplumber gstreamer1.0-pipewire
+```
+
+### USB routing
+
+The X Air is an 18-input USB interface with **user-configurable per-channel send
+routing** — a mixer channel's audio is **not** guaranteed to land on the
+same-numbered USB slot. Two consumers read the device:
+
+- **OBS** consumes the **main LR (post-processing) mix** — the audio that goes to
+  the livestream/recording.
+- **Our capture** reads **per-channel post-preamp / pre-processing input taps** on
+  their configured USB slots — the level the preamp gain directly affects, shown
+  in the gain window. This is independent of fader position.
+
+Because routing is per-channel configurable, the **channel→USB-slot mapping**
+entered in the Sound Board device form MUST match the mixer's actual USB send
+routing (set on the console or in X-Air Edit, **not** in this software). The map
+defaults to identity (channel _N_ → slot _N_) but is editable.
+
+> **Accepted limitation:** the map is validated only for shape, not against the
+> mixer's real routing. If it does not match, the gain window shows a different
+> channel's envelope with no in-product error — mitigated only by this checklist.
+
+### First-run installer checklist (ordered)
+
+1. **Plug in** the mixer's USB cable.
+2. **Set the X Air USB source routing** on the console / in the X-Air Edit app so
+   each channel's post-preamp tap lands on a known USB slot. (Not done in this
+   software.)
+3. **Confirm PipeWire enumerates** the device: `pw-cli list-objects Node | grep -i audio`.
+4. **Confirm OBS consumes via PipeWire** (not raw ALSA `hw:`) for its main-mix source.
+5. **Verify a test tone** appears on the expected channel's gain window in the
+   Sound Board widget (or check the mixer's `/meters/2` USB-in meters).
+
+### Headless servers
+
+On a headless machine PipeWire runs as a user service and normally stops when the
+user logs out. Enable lingering so it runs without an interactive login:
+
+```bash
+loginctl enable-linger "$USER"
+```
+
+### Add the mixer in Admin
+
+Admin → Devices → Add Device → **Sound Board**. Enter the label, host, and port
+(default `10024`), the number of channels, and toggle the capabilities the
+hardware supports. Use **Test Connection** to probe the mixer (`/xinfo`). When
+`channel-audio-capture` is on, fill in the channel→USB-slot mapping to match your
+routing.
+
+---
+
 ## Running in Development
 
 ### Full stack (recommended)
