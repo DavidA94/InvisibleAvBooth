@@ -45,6 +45,22 @@ export const CTS_CAMERA_SET = "cts:camera:set" as const;
 export const CTS_CAMERA_PRESET_ACTIVATE = "cts:camera:preset:activate" as const;
 export const CTS_CAMERA_PTZ_TAP_TO_CENTER = "cts:camera:ptz:tap-to-center" as const;
 
+// ── Mixer (Sound Board): Server → Client ──────────────────────────────────────
+
+export const STC_MIXER_STATE = "stc:mixer:state" as const; // full state (initial + on change)
+export const STC_MIXER_STATE_UPDATE = "stc:mixer:state:update" as const; // single mixer/channel delta
+export const STC_MIXER_LEVELS = "stc:mixer:levels" as const; // per-channel meter levels (throttled)
+export const STC_MIXER_ERROR = "stc:mixer:error" as const; // catastrophic capture-path raise: { errorCode, mixerId, message, level: "modal" }
+export const STC_MIXER_ERROR_RESOLVED = "stc:mixer:error:resolved" as const; // resolution: { errorCode } → removeNotification(errorCode)
+
+// ── Mixer (Sound Board): Client → Server ──────────────────────────────────────
+
+export const CTS_MIXER_SET = "cts:mixer:set" as const; // { mixerId, channel, fader?/muted?/gainDb? }
+export const CTS_MIXER_PRESET_ACTIVATE = "cts:mixer:preset:activate" as const; // { mixerId, presetId }
+export const CTS_MIXER_MONITOR_START = "cts:mixer:monitor:start" as const; // { mixerId, channel }
+export const CTS_MIXER_MONITOR_STOP = "cts:mixer:monitor:stop" as const; // { mixerId, channel }
+export const CTS_MIXER_WIDGET_PRESENT = "cts:mixer:widget:present" as const; // { mixerId, present } — per-mixer metering lifecycle
+
 // ── Lower Thirds: Client → Server ─────────────────────────────────────────────
 
 export const CTS_LOWER_THIRD_COMMAND = "cts:lower-third:command" as const;

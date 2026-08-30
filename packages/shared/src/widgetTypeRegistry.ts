@@ -62,6 +62,16 @@ export const WIDGET_TYPE_REGISTRY: Record<string, WidgetTypeDefinition> = {
     minRowSpan: 2,
     maxRowSpan: null,
   },
+  soundboard: {
+    displayName: "Sound Board",
+    // 3×3 minimum: fits the 3-channel minimum on small-portrait (3 cols); rows
+    // cover name + gain button + fader/meter + mute + preset row. Unconstrained
+    // max — uses extra space for more channels/presets (Req 5.1).
+    minColSpan: 3,
+    maxColSpan: null,
+    minRowSpan: 3,
+    maxRowSpan: null,
+  },
 };
 
 /** Ordered list of widget type IDs for the "add widget" UI */

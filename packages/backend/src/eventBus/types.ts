@@ -49,3 +49,16 @@ export const BUS_CAMERA_PRESETS_CHANGED = "bus:camera:presets:changed" as const;
 export const BUS_OBS_CONFIG_CHANGED = "bus:obs:config:changed" as const;
 /** Emitted when metadata templates (title, description, lower-third) are created, updated, or deleted. */
 export const BUS_TEMPLATES_CHANGED = "bus:templates:changed" as const;
+
+// ── Mixer (Sound Board) events ───────────────────────────────────────────────
+
+/** Emitted when a mixer's channel state changes (command reconcile or external /xremote push). */
+export const BUS_MIXER_STATE_CHANGED = "bus:mixer:state:changed" as const;
+/** Emitted with per-channel meter levels (throttled) while metering is enabled. */
+export const BUS_MIXER_LEVELS = "bus:mixer:levels" as const;
+/** Emitted when a mixer device is created, updated, or deleted in admin (hot-reload). */
+export const BUS_MIXER_DEVICE_CHANGED = "bus:mixer:device:changed" as const;
+/** Catastrophic capture-path fault (Req 15.7) — raises a frontend modal. */
+export const BUS_MIXER_CAPTURE_PATH_LOST = "bus:mixer:capture:lost" as const;
+/** Capture-path recovery (Req 15.7) — auto-clears the modal raised by the LOST event. */
+export const BUS_MIXER_CAPTURE_PATH_RESTORED = "bus:mixer:capture:restored" as const;

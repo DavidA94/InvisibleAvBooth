@@ -4,10 +4,11 @@ import type { SessionManifestEventMap } from "../gateway/modules/sessionManifest
 import type { RelayEventMap, PlatformEventMap } from "../gateway/modules/platform/types.js";
 import type { LowerThirdEventMap } from "../gateway/modules/lowerThird/types.js";
 import type { CameraEventMap } from "../gateway/modules/camera/types.js";
+import type { MixerEventMap } from "../gateway/modules/mixer/types.js";
 
 // EventMap is composed from each module's slice.
 // To add events for a new module: create a types.ts in its folder and intersect here.
-export interface EventMap extends ObsEventMap, SessionManifestEventMap, RelayEventMap, PlatformEventMap, LowerThirdEventMap, CameraEventMap {}
+export interface EventMap extends ObsEventMap, SessionManifestEventMap, RelayEventMap, PlatformEventMap, LowerThirdEventMap, CameraEventMap, MixerEventMap {}
 
 // ---- EventBus ----
 

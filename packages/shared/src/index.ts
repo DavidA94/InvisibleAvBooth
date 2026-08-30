@@ -6,6 +6,7 @@ export { BIBLE_REFERENCES } from "./bibleReferences.js";
 export * from "./constants/socketEvents.js";
 export * from "./constants/urls.js";
 export * from "./constants/preview.js";
+export * from "./constants/mixer.js";
 
 // Widget Type Registry
 export { WIDGET_TYPE_REGISTRY, WIDGET_TYPE_IDS } from "./widgetTypeRegistry.js";
@@ -41,6 +42,23 @@ export type {
 
 // Camera Types
 export type { CameraFeature, CameraModel, PositionInquiry, CameraPreset, CameraState, CameraMetadata, ObsMetadata, CameraSetPayload } from "./types/camera.js";
+
+// Mixer (Sound Board) Types
+export type {
+  MixerModel,
+  MixerFeature,
+  MixerCapabilities,
+  MixerChannelState,
+  MixerState,
+  MixerPresetSummary,
+  MixerPresetPayload,
+  MixerChannelLevel,
+  EnvelopePair,
+  MixerCommand,
+} from "./types/mixer.js";
+
+// Mixer fader taper
+export { faderFloatToDb, faderDbToFloat, FADER_TICKS_DB } from "./mixerTaper.js";
 
 // Lower-Third Types
 export type {

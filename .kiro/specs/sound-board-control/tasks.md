@@ -8,22 +8,22 @@ All work is committed directly to `main` (no feature branch). `npm run ci` must 
 
 ## Phase 1: Shared Types, Constants & Registry
 
-- [ ] 1. Add shared mixer types — `MixerModel`, `MixerFeature`, `MixerCapabilities`, `MixerChannelState`, `MixerState`, `MixerPresetSummary`, `MixerPresetPayload`, `MixerChannelLevel`, `EnvelopePair`, `MixerCommand` in `packages/shared/src/types/mixer.ts`; export from `index.ts`.
+- [x] 1. Add shared mixer types — `MixerModel`, `MixerFeature`, `MixerCapabilities`, `MixerChannelState`, `MixerState`, `MixerPresetSummary`, `MixerPresetPayload`, `MixerChannelLevel`, `EnvelopePair`, `MixerCommand` in `packages/shared/src/types/mixer.ts`; export from `index.ts`.
   - _Requirements: 1, 2, 10, 11_
 
-- [ ] 2. Add `mixerTaper.ts` — `faderFloatToDb`, `faderDbToFloat`, `FADER_TICKS_DB`. Property-based tests: round-trip within tolerance, monotonic, endpoints (0.0→−∞, ~0.75→~0 dB, 1.0→+10 dB).
+- [x] 2. Add `mixerTaper.ts` — `faderFloatToDb`, `faderDbToFloat`, `FADER_TICKS_DB`. Property-based tests: round-trip within tolerance, monotonic, endpoints (0.0→−∞, ~0.75→~0 dB, 1.0→+10 dB).
   - _Requirements: 2.6, 5.3_
 
-- [ ] 3. Add `constants/mixer.ts` — `LEVEL_AXIS_MIN_DBFS`/`MAX_DBFS`, `GAIN_WINDOW_MAX_HEIGHT_REM`, `CONTROL_SUPPRESS_MS`, `CONTROL_THROTTLE_MS`, `ENVELOPE_PAIRS_PER_SEC`, `OSC_PORT_DEFAULT`, `XREMOTE_RENEW_MS`, `METERS_RENEW_MS`, `METERS_BANK_CHANNEL_PREFADER`, `METERS_BANK_PREAMP_IN`, `NOISE_FLOOR_DBFS`, `MIXER_PROBE_TIMEOUT_MS`, `READBACK_TIMEOUT_MS`, `READBACK_MAX_RETRIES`, `CONTROLS_FRESHNESS_MS`; export.
+- [x] 3. Add `constants/mixer.ts` — `LEVEL_AXIS_MIN_DBFS`/`MAX_DBFS`, `GAIN_WINDOW_MAX_HEIGHT_REM`, `CONTROL_SUPPRESS_MS`, `CONTROL_THROTTLE_MS`, `ENVELOPE_PAIRS_PER_SEC`, `OSC_PORT_DEFAULT`, `XREMOTE_RENEW_MS`, `METERS_RENEW_MS`, `METERS_BANK_CHANNEL_PREFADER`, `METERS_BANK_PREAMP_IN`, `NOISE_FLOOR_DBFS`, `MIXER_PROBE_TIMEOUT_MS`, `READBACK_TIMEOUT_MS`, `READBACK_MAX_RETRIES`, `CONTROLS_FRESHNESS_MS`; export.
   - _Requirements: 2, 4, 7, 8, 9, 12_
 
-- [ ] 4. Add socket event constants — `STC_MIXER_STATE`, `STC_MIXER_STATE_UPDATE`, `STC_MIXER_LEVELS`, `STC_MIXER_ERROR`, `STC_MIXER_ERROR_RESOLVED`, `CTS_MIXER_SET`, `CTS_MIXER_PRESET_ACTIVATE`, `CTS_MIXER_MONITOR_START`, `CTS_MIXER_MONITOR_STOP`, `CTS_MIXER_WIDGET_PRESENT` in `socketEvents.ts`. Update `socketEvents.test.ts`.
+- [x] 4. Add socket event constants — `STC_MIXER_STATE`, `STC_MIXER_STATE_UPDATE`, `STC_MIXER_LEVELS`, `STC_MIXER_ERROR`, `STC_MIXER_ERROR_RESOLVED`, `CTS_MIXER_SET`, `CTS_MIXER_PRESET_ACTIVATE`, `CTS_MIXER_MONITOR_START`, `CTS_MIXER_MONITOR_STOP`, `CTS_MIXER_WIDGET_PRESENT` in `socketEvents.ts`. Update `socketEvents.test.ts`.
   - _Requirements: 11, 15.7_
 
-- [ ] 5. Add `soundboard` entry to `widgetTypeRegistry.ts` (min 3×3, unconstrained max). Update registry test.
+- [x] 5. Add `soundboard` entry to `widgetTypeRegistry.ts` (min 3×3, unconstrained max). Update registry test.
   - _Requirements: 5.1_
 
-- [ ] 6. Add `BUS_MIXER_STATE_CHANGED`, `BUS_MIXER_LEVELS`, `BUS_MIXER_DEVICE_CHANGED`, `BUS_MIXER_CAPTURE_PATH_LOST`, `BUS_MIXER_CAPTURE_PATH_RESTORED` (catastrophic capture-path raise/resolution pair, Req 15.7) and `MixerEventMap` to backend EventBus types; extend root `EventMap`.
+- [x] 6. Add `BUS_MIXER_STATE_CHANGED`, `BUS_MIXER_LEVELS`, `BUS_MIXER_DEVICE_CHANGED`, `BUS_MIXER_CAPTURE_PATH_LOST`, `BUS_MIXER_CAPTURE_PATH_RESTORED` (catastrophic capture-path raise/resolution pair, Req 15.7) and `MixerEventMap` to backend EventBus types; extend root `EventMap`.
   - _Requirements: 9.7, 11_
 
 ---
