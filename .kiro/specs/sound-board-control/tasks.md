@@ -17,8 +17,8 @@ All work is committed directly to `main` (no feature branch). `npm run ci` must 
 - [ ] 3. Add `constants/mixer.ts` — `LEVEL_AXIS_MIN_DBFS`/`MAX_DBFS`, `GAIN_WINDOW_MAX_HEIGHT_REM`, `CONTROL_SUPPRESS_MS`, `CONTROL_THROTTLE_MS`, `ENVELOPE_PAIRS_PER_SEC`, `OSC_PORT_DEFAULT`, `XREMOTE_RENEW_MS`, `METERS_RENEW_MS`, `METERS_BANK_CHANNEL_PREFADER`, `METERS_BANK_PREAMP_IN`, `NOISE_FLOOR_DBFS`, `MIXER_PROBE_TIMEOUT_MS`, `READBACK_TIMEOUT_MS`, `READBACK_MAX_RETRIES`, `CONTROLS_FRESHNESS_MS`; export.
   - _Requirements: 2, 4, 7, 8, 9, 12_
 
-- [ ] 4. Add socket event constants — `STC_MIXER_STATE`, `STC_MIXER_STATE_UPDATE`, `STC_MIXER_LEVELS`, `CTS_MIXER_SET`, `CTS_MIXER_PRESET_ACTIVATE`, `CTS_MIXER_MONITOR_START`, `CTS_MIXER_MONITOR_STOP`, `CTS_MIXER_WIDGET_PRESENT` in `socketEvents.ts`. Update `socketEvents.test.ts`.
-  - _Requirements: 11_
+- [ ] 4. Add socket event constants — `STC_MIXER_STATE`, `STC_MIXER_STATE_UPDATE`, `STC_MIXER_LEVELS`, `STC_MIXER_ERROR`, `STC_MIXER_ERROR_RESOLVED`, `CTS_MIXER_SET`, `CTS_MIXER_PRESET_ACTIVATE`, `CTS_MIXER_MONITOR_START`, `CTS_MIXER_MONITOR_STOP`, `CTS_MIXER_WIDGET_PRESENT` in `socketEvents.ts`. Update `socketEvents.test.ts`.
+  - _Requirements: 11, 15.7_
 
 - [ ] 5. Add `soundboard` entry to `widgetTypeRegistry.ts` (min 3×3, unconstrained max). Update registry test.
   - _Requirements: 5.1_
@@ -67,7 +67,7 @@ All work is committed directly to `main` (no feature branch). `npm run ci` must 
 - [ ] 17. Implement read-back reconciliation with **bounded retry** (`READBACK_TIMEOUT_MS` / `READBACK_MAX_RETRIES`, because UDP is lossy) — after each `setFader`/`setMute`/`setGain` (each a **separate** OSC address; a combined command writes+reconciles each field independently), query the address, retry on no-reply, emit the mixer-reported value as authoritative; on retry exhaustion WARN-log and mark the channel unreconciled.
   - _Requirements: 2.7, 11.2, 15.5_
 
-- [ ] 18. Implement `capturePreset()` (gather fader/mute/gain for all configured channels into address→value map) and `activatePreset(payload)` (write each address).
+- [ ] 18. Implement `capturePreset()` (gather fader/mute/gain for all configured channels into address→value map, using bounded-retry read-back per channel; **fail with a descriptive error naming unconfirmed channel(s)** rather than saving a partial/stale snapshot — Req 10.8) and `activatePreset(payload)` (write each address; entries for channels beyond the current channelCount are ignored). Unit tests incl. capture-fails-on-unconfirmed-channel.
   - _Requirements: 10.1, 10.2, 10.8_
 
 - [ ] 19. Implement server-side capability enforcement — reject/ignore commands for disabled capabilities (e.g., gain without `gain-control`).
@@ -118,8 +118,8 @@ All work is committed directly to `main` (no feature branch). `npm run ci` must 
 - [ ] 28. Implement `createFakeMixer()` — records commands (fader/mute/gain/preset); queryable stateful values (seedable to differ from commanded, for reconciliation); unsolicited external push method; fake meter stream; fake envelope stream. Inject via `buildApp()`.
   - _Requirements: 11_
 
-- [ ] 29. Implement `MixerSocketModule` (`SocketModule`) — `register` (bus→stc broadcasts), `registerSocket` (`CTS_MIXER_SET`, `CTS_MIXER_PRESET_ACTIVATE`, `CTS_MIXER_MONITOR_START`/`STOP`, `CTS_MIXER_WIDGET_PRESENT` with payload `{ mixerId, present }`; AvVolunteer+; server-side capability re-check), `emitInitialState` (full state on connect/reconnect). Widget-presence is **per-mixer + per-socket ref-counted**, and a per-socket `disconnect` handler MUST decrement all presence the socket held (prevents metering-subscription leak when a tablet crashes/backgrounds). Register in `socketGateway.ts`.
-  - _Requirements: 1.7, 9.5, 11.4, 11.5, 12.4_
+- [ ] 29. Implement `MixerSocketModule` (`SocketModule`) — `register` (bus→stc broadcasts, including `BUS_MIXER_CAPTURE_PATH_LOST` → `STC_MIXER_ERROR { errorCode: "MIXER_CAPTURE_PATH_LOST", mixerId, message, level: "modal" }` and `BUS_MIXER_CAPTURE_PATH_RESTORED` → `STC_MIXER_ERROR_RESOLVED { errorCode: "MIXER_CAPTURE_PATH_LOST" }`, mirroring `obsModule`'s error/resolved wiring), `registerSocket` (`CTS_MIXER_SET`, `CTS_MIXER_PRESET_ACTIVATE`, `CTS_MIXER_MONITOR_START`/`STOP`, `CTS_MIXER_WIDGET_PRESENT` with payload `{ mixerId, present }`; AvVolunteer+; server-side capability re-check), `emitInitialState` (full state on connect/reconnect). Widget-presence is **per-mixer + per-socket ref-counted**, and a per-socket `disconnect` handler MUST decrement all presence the socket held (prevents metering-subscription leak when a tablet crashes/backgrounds). Register in `socketGateway.ts`.
+  - _Requirements: 1.7, 9.5, 11.4, 11.5, 12.4, 15.7_
 
 - [ ] 30. Backend E2E (widget/service) — fader/mute/gain forwarded to fake with correct address/value (mute inversion), each field a **separate** write+read-back; preset activate writes all addresses; meter data → `STC_MIXER_LEVELS`; **read-back reconciliation** (fake value wins) + **bounded retry** on lost read-back; **external change** broadcast; **emitInitialState**; subscription lifecycle (xremote renew, meters per-mixer on widget-present / off when none); capture lifecycle (monitor-start spawns, monitor-stop AND disconnect tear down); capability enforcement; multiple-mixer routing; **connection-preserving hot-reload** (feature-only edit keeps connection/subscriptions alive; host/port change reconnects); **audio-path monitoring** (device-lost/capture-crash → recovery attempt → unrecoverable emits `BUS_MIXER_CAPTURE_PATH_LOST` → catastrophic modal; recovery emits `BUS_MIXER_CAPTURE_PATH_RESTORED` → modal auto-clears — assert both the raise and the resolution).
   - _Requirements: 1, 2, 4, 9, 11, 12, 15.7_
@@ -131,8 +131,8 @@ All work is committed directly to `main` (no feature branch). `npm run ci` must 
 - [ ] 31. Add `mixerSlice` (Zustand) — `mixerStates`, `mixerLevels`, setters/appliers. Unit tests.
   - _Requirements: 11_
 
-- [ ] 32. Add `mixerSocketModule` (frontend) — wire `STC_MIXER_STATE`/`STC_MIXER_STATE_UPDATE`/`STC_MIXER_LEVELS` to slice; emit `CTS_MIXER_WIDGET_PRESENT { mixerId, present }` on widget mount/unmount (per mixer). Register in `SocketProvider`. Unit tests.
-  - _Requirements: 11, 12.4_
+- [ ] 32. Add `mixerSocketModule` (frontend) — wire `STC_MIXER_STATE`/`STC_MIXER_STATE_UPDATE`/`STC_MIXER_LEVELS` to slice; wire `STC_MIXER_ERROR` → `addNotification({ id: errorCode, level: "modal", severity: "error", message, errorCode })` and `STC_MIXER_ERROR_RESOLVED` → `removeNotification(errorCode)` (identical to `obsSocketModule`'s error handling — the `id === errorCode` linkage is what auto-clears the modal); emit `CTS_MIXER_WIDGET_PRESENT { mixerId, present }` on widget mount/unmount (per mixer). Register in `SocketProvider`. Unit tests incl. modal raise + auto-clear.
+  - _Requirements: 11, 12.4, 15.7_
 
 ---
 
@@ -147,7 +147,7 @@ All work is committed directly to `main` (no feature branch). `npm run ci` must 
 - [ ] 35. Implement `VerticalFader` — vertical **MUI `Slider`** (`@mui/material`, `orientation="vertical"`, as used by the camera zoom control; not `ion-range`) with dB tick `marks` (`FADER_TICKS_DB`), value via `faderFloatToDb`, `useHeldControl`, emits `CTS_MIXER_SET { fader }`. `data-state` incl. an **`unreconciled`** state (read-back exhausted, Req 15.8) with subtle visual, auto-clearing on next confirmed value. Unit tests incl. suppression/throttle + unreconciled set/clear.
   - _Requirements: 5.3, 8, 15.8_
 
-- [ ] 36. Implement `MuteButton` — physical-button affordance, "Audio: On"/"Audio: Off" + green/red dot, "Mute" label; `data-state=muted/active`; discrete (bypasses hold); emits `CTS_MIXER_SET { muted }`; reflects backend changes immediately. On read-back-exhausted (Req 6.6): show **`data-state="unknown"`, yellow dot, "Audio: Unknown"** — never an assumed On/Off — resolving on next confirmed value. Unit tests incl. immediate backend reflection + unknown state.
+- [ ] 36. Implement `MuteButton` — physical-button affordance, "Audio: On"/"Audio: Off" + green/red dot, "Mute" label; `data-state=muted/active`; discrete (bypasses the fader/gain hold model but is NOT optimistic); emits `CTS_MIXER_SET { muted }`. On toggle it enters `data-state="unknown"` / "Audio: Unknown" / yellow dot **immediately** and stays there until the mixer confirms (read-back or `/xremote`), then resolves to the mixer-reported value — never showing an unconfirmed On/Off (Req 6.3/6.6). Also enters the unknown state on read-back exhaustion. Reflects external backend changes to the mixer-reported value. Unit tests: toggle→Unknown→resolve-on-confirm; false On/Off never shown pre-confirm; read-back-exhausted → Unknown; external change reflected.
   - _Requirements: 6_
 
 - [ ] 37. Implement `GainSemicircle` — arc fills clockwise 0%=`minDb` → 100%=`maxDb`. Updates from local + backend. Unit tests.
@@ -179,7 +179,7 @@ All work is committed directly to `main` (no feature branch). `npm run ci` must 
 
 ## Phase 9: Admin Frontend
 
-- [ ] 44. Implement `soundBoardDeviceFormLogic` (testable pure logic) — field validation, dirty-check, metadata (model/channelCount/features/usbSlotMap) serialization. Unit tests incl. usbSlotMap defaults-to-identity + edit.
+- [ ] 44. Implement `soundBoardDeviceFormLogic` (testable pure logic) — field validation, dirty-check, and metadata serialize/parse. **Feature toggles go in the dedicated `features` object (`Record<string, boolean>`); `model`/`channelCount`/`usbSlotMap` go in `metadata`.** Since the frontend `DeviceRecord.metadata` is typed `Record<string, string>`, the numeric `channelCount` and the `usbSlotMap` (`Record<string, number>`) MUST be explicitly serialized to / parsed from strings at this boundary (do not assume they round-trip as numbers). Unit tests incl. numeric metadata round-trip and usbSlotMap defaults-to-identity + edit.
   - _Requirements: 9_
 
 - [ ] 45. Implement `SoundBoardDeviceForm` — connection (label/model/host/port/channel count) + feature toggles (no gain-range field) + **channel→USB-slot mapping editor** (shown when `channel-audio-capture` enabled; defaults to identity) + probe result (calls `POST /api/admin/mixers/probe`); register in `deviceTypeRegistry`. Unit tests: features + usbSlotMap round-trip on reopen; probe success/failure render.

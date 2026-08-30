@@ -127,7 +127,11 @@ export interface MixerChannelState {
   channel: number; // 1-based
   name: string;
   fader: number; // normalized 0.0–1.0 (console taper)
-  faderDb: number; // convenience: dB equivalent for display
+  // Authoritative dB equivalent, computed BY THE BACKEND driver via the shared `faderFloatToDb`
+  // (from packages/shared/mixerTaper.ts) and sent with state. The frontend displays this value
+  // and uses the SAME shared util only for rendering tick positions — it does NOT independently
+  // derive the channel's dB from `fader`, so the two sides cannot disagree at tick boundaries.
+  faderDb: number;
   muted: boolean; // true = muted (interface sense; driver inverts to mix/on)
   gainDb: number; // preamp gain in dB, within capabilities.gainRange
 }
@@ -251,12 +255,12 @@ export const READBACK_MAX_RETRIES = 3;
 
 /**
  * Status indicator freshness — no confirmed mixer round-trip within this window → unhealthy.
- * MUST be > XREMOTE_RENEW_MS (8000) + margin: on a quiet board with no external changes,
- * the periodic /xremote renewal round-trip is the guaranteed liveness signal, so the
- * freshness window has to outlast one renewal interval or a healthy idle board flaps red
- * (Req 12.2). 12000 = 8000 renewal + 4000 margin (~1.5x).
+ * MUST be > XREMOTE_RENEW_MS (8000) with enough margin to tolerate a DROPPED renewal reply
+ * over UDP: one lost reply pushes the next confirmed round-trip to ~2× the renewal interval,
+ * so the window must clear 2× + margin or a healthy board flaps red mid-sermon (Req 12.2).
+ * 18000 = ~2× 8000 renewal + 2000 margin.
  */
-export const CONTROLS_FRESHNESS_MS = 12000;
+export const CONTROLS_FRESHNESS_MS = 18000;
 ```
 
 ### Widget Type Registry — `packages/shared/src/widgetTypeRegistry.ts` (modified)
@@ -278,6 +282,8 @@ soundboard: {
 export const STC_MIXER_STATE = "stc:mixer:state" as const; // full state (initial + on change)
 export const STC_MIXER_STATE_UPDATE = "stc:mixer:state:update" as const; // single mixer/channel delta
 export const STC_MIXER_LEVELS = "stc:mixer:levels" as const; // per-channel meter levels (throttled)
+export const STC_MIXER_ERROR = "stc:mixer:error" as const; // catastrophic capture-path raise: { errorCode, mixerId, message, level: "modal" }
+export const STC_MIXER_ERROR_RESOLVED = "stc:mixer:error:resolved" as const; // resolution: { errorCode } → removeNotification(errorCode)
 
 // ── Mixer: Client → Server ────────────────────────────────────────────────────
 export const CTS_MIXER_SET = "cts:mixer:set" as const; // { mixerId, channel, fader?/muted?/gainDb? }
@@ -311,7 +317,18 @@ interface MixerEventMap {
 }
 ```
 
-**Catastrophic capture-path modal (Req 15.7).** `BUS_MIXER_CAPTURE_PATH_LOST` (raise) and `BUS_MIXER_CAPTURE_PATH_RESTORED` (resolution) are the named pair driving the catastrophic **modal** (`NotificationLevel: "modal"`, same tier as `OBS_UNREACHABLE`). The frontend raises the modal on the `stc:` broadcast of the lost event and **auto-clears** it on the restored event — so the modal can never be un-clearable (Task 30 asserts the raise+resolve cycle). This mirrors the existing `OBS_UNREACHABLE` raise/resolution contract so there is a single established pattern for catastrophic auto-clearing modals.
+**Catastrophic capture-path modal (Req 15.7) — full notification contract.** The bus events above are backend-internal and never reach the browser on their own; the modal is driven by a frontend `Notification` exactly like `OBS_UNREACHABLE` (verified mechanism: raise via a `stc:` event carrying a notification whose `id === errorCode` with `level: "modal"`; resolve via a `stc:…:resolved` event carrying `{ errorCode }` → the frontend `removeNotification(errorCode)`).
+
+Concretely:
+
+```typescript
+// socketEvents.ts (shared) — add:
+export const STC_MIXER_ERROR = "stc:mixer:error" as const; // raise: { errorCode, mixerId, message, level: "modal" }
+export const STC_MIXER_ERROR_RESOLVED = "stc:mixer:error:resolved" as const; // resolve: { errorCode }
+```
+
+- `MixerSocketModule.register(io)` subscribes to `BUS_MIXER_CAPTURE_PATH_LOST` → `io.emit(STC_MIXER_ERROR, { errorCode: "MIXER_CAPTURE_PATH_LOST", mixerId, message, level: "modal" })`, and to `BUS_MIXER_CAPTURE_PATH_RESTORED` → `io.emit(STC_MIXER_ERROR_RESOLVED, { errorCode: "MIXER_CAPTURE_PATH_LOST" })`.
+- The frontend `mixerSocketModule` wires `STC_MIXER_ERROR` → `addNotification({ id: errorCode, level: "modal", severity: "error", message, errorCode })` and `STC_MIXER_ERROR_RESOLVED` → `removeNotification(errorCode)` — identical to `obsSocketModule`'s `STC_OBS_ERROR`/`STC_OBS_ERROR_RESOLVED` handling. The notification `id` equals the `errorCode`, which is what ties raise→resolution so the modal auto-clears (it can never be left un-clearable). Task 30 asserts both the `STC_MIXER_ERROR` raise and the `STC_MIXER_ERROR_RESOLVED` clear.
 
 `MixerSocketModule.register(io)` subscribes to `BUS_MIXER_STATE_CHANGED` → broadcasts `STC_MIXER_STATE_UPDATE`, and `BUS_MIXER_LEVELS` → broadcasts `STC_MIXER_LEVELS`. `MixerService` subscribes to `BUS_MIXER_DEVICE_CHANGED` (emitted by admin routes) to add/refresh/remove instances — the established hot-reload pattern (steering §7).
 
