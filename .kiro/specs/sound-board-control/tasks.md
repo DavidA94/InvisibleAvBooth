@@ -52,28 +52,28 @@ All work is committed directly to `main` (no feature branch). `npm run ci` must 
 
 ## Phase 3: Mixer HAL & X Air Driver
 
-- [ ] 13. Define `MixerControlInterface` + `createMixerDriver(model, config, capture)` factory in `packages/backend/src/mixer/MixerControlInterface.ts`.
+- [x] 13. Define `MixerControlInterface` + `createMixerDriver(model, config, capture)` factory in `packages/backend/src/mixer/MixerControlInterface.ts`.
   - _Requirements: 1_
 
-- [ ] 14. Add `@mxfriend/osc` dependency (pinned exact version). Document rationale + `osc` fallback in `BehringerXAirDriver` source header.
+- [x] 14. Add `@mxfriend/osc` dependency (pinned exact version). Document rationale + `osc` fallback in `BehringerXAirDriver` source header.
   - _Requirements: 2.1, 14.3_
 
-- [ ] 15. Implement `BehringerXAirDriver` — OSC/UDP on `OSC_PORT_DEFAULT`; address builders (`/ch/NN/mix/fader`, `/ch/NN/mix/on` inverted, `/headamp/NNN/gain`, `/ch/NN/config/name`); fader taper via shared util; `getCapabilities()` with `gainRange {-12, 60}`; capability declaration from admin features.
+- [x] 15. Implement `BehringerXAirDriver` — OSC/UDP on `OSC_PORT_DEFAULT`; address builders (`/ch/NN/mix/fader`, `/ch/NN/mix/on` inverted, `/headamp/NNN/gain`, `/ch/NN/config/name`); fader taper via shared util; `getCapabilities()` with `gainRange {-12, 60}`; capability declaration from admin features.
   - _Requirements: 2, 3_
 
-- [ ] 16. Implement `/xremote` renewal (every `XREMOTE_RENEW_MS`) and `onStateChange` emission for external changes; `/meters/1` blob decode for the per-channel **pre-fader** meter (indices 0–15; leading 32-bit **big-endian** count, 16-bit **signed little-endian** samples ÷256 = dB, clamp `NOISE_FLOOR_DBFS`..0) and `onMeterUpdate` emission gated by `setMeteringEnabled`. Post-preamp tap (`/meters/2` or USB) is used for the gain envelope, not this bank.
+- [x] 16. Implement `/xremote` renewal (every `XREMOTE_RENEW_MS`) and `onStateChange` emission for external changes; `/meters/1` blob decode for the per-channel **pre-fader** meter (indices 0–15; leading 32-bit **big-endian** count, 16-bit **signed little-endian** samples ÷256 = dB, clamp `NOISE_FLOOR_DBFS`..0) and `onMeterUpdate` emission gated by `setMeteringEnabled`. Post-preamp tap (`/meters/2` or USB) is used for the gain envelope, not this bank.
   - _Requirements: 2.4, 2.5, 11.3, 12.4_
 
-- [ ] 17. Implement read-back reconciliation with **bounded retry** (`READBACK_TIMEOUT_MS` / `READBACK_MAX_RETRIES`, because UDP is lossy) — after each `setFader`/`setMute`/`setGain` (each a **separate** OSC address; a combined command writes+reconciles each field independently), query the address, retry on no-reply, emit the mixer-reported value as authoritative; on retry exhaustion WARN-log and mark the channel unreconciled.
+- [x] 17. Implement read-back reconciliation with **bounded retry** (`READBACK_TIMEOUT_MS` / `READBACK_MAX_RETRIES`, because UDP is lossy) — after each `setFader`/`setMute`/`setGain` (each a **separate** OSC address; a combined command writes+reconciles each field independently), query the address, retry on no-reply, emit the mixer-reported value as authoritative; on retry exhaustion WARN-log and mark the channel unreconciled.
   - _Requirements: 2.7, 11.2, 15.5_
 
-- [ ] 18. Implement `capturePreset()` (gather fader/mute/gain for all configured channels into address→value map, using bounded-retry read-back per channel; **fail with a descriptive error naming unconfirmed channel(s)** rather than saving a partial/stale snapshot — Req 10.8) and `activatePreset(payload)` (write each address; entries for channels beyond the current channelCount are ignored). Unit tests incl. capture-fails-on-unconfirmed-channel.
+- [x] 18. Implement `capturePreset()` (gather fader/mute/gain for all configured channels into address→value map, using bounded-retry read-back per channel; **fail with a descriptive error naming unconfirmed channel(s)** rather than saving a partial/stale snapshot — Req 10.8) and `activatePreset(payload)` (write each address; entries for channels beyond the current channelCount are ignored). Unit tests incl. capture-fails-on-unconfirmed-channel.
   - _Requirements: 10.1, 10.2, 10.8_
 
-- [ ] 19. Implement server-side capability enforcement — reject/ignore commands for disabled capabilities (e.g., gain without `gain-control`).
+- [x] 19. Implement server-side capability enforcement — reject/ignore commands for disabled capabilities (e.g., gain without `gain-control`).
   - _Requirements: 1.7_
 
-- [ ] 20. Unit tests for driver — address/value mapping (incl. mute inversion), taper conversion, `/meters` decode (property-based), read-back reconciliation (mixer value wins), capability enforcement, `/xremote` + meters renewal cadence. Uses a fake OSC transport.
+- [x] 20. Unit tests for driver — address/value mapping (incl. mute inversion), taper conversion, `/meters` decode (property-based), read-back reconciliation (mixer value wins), capability enforcement, `/xremote` + meters renewal cadence. Uses a fake OSC transport.
   - _Requirements: 1, 2, 3, 11_
 
 ---
