@@ -71,6 +71,38 @@ describe("drawEnvelope", () => {
     const highColumn = high.rects[high.rects.length - 1]!;
     expect(highColumn.y).toBeLessThan(lowColumn.y);
   });
+
+  it("draws the bands but no envelope columns for an empty ring", () => {
+    const context = makeFakeContext() as ReturnType<typeof makeFakeContext>;
+    drawEnvelope(context, [], 200, 400);
+    // Blue + red + good band = 3 rects, no envelope columns.
+    expect(context.rects).toHaveLength(3);
+  });
+});
+
+describe("EnvelopeCanvas component draw loop", () => {
+  it("invokes drawEnvelope via requestAnimationFrame when a 2D context is available", async () => {
+    const fillRect = vi.fn();
+    const getContext = vi.fn(() => ({
+      clearRect: vi.fn(),
+      createLinearGradient: () => ({ addColorStop: vi.fn() }),
+      fillRect,
+      fillStyle: "",
+    }));
+    // Stub getContext on the canvas prototype so the rAF draw path runs.
+    const original = HTMLCanvasElement.prototype.getContext;
+    // @ts-expect-error test stub
+    HTMLCanvasElement.prototype.getContext = getContext;
+    try {
+      render(<EnvelopeCanvas pair={{ minDb: -30, maxDb: -10 }} width={200} height={400} />);
+      // Wait a frame for requestAnimationFrame to run the draw.
+      await new Promise((resolve) => setTimeout(resolve, 30));
+      expect(getContext).toHaveBeenCalledWith("2d");
+      expect(fillRect).toHaveBeenCalled();
+    } finally {
+      HTMLCanvasElement.prototype.getContext = original;
+    }
+  });
 });
 
 describe("EnvelopeCanvas component", () => {

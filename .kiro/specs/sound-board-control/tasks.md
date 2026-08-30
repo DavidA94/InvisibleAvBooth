@@ -179,16 +179,16 @@ All work is committed directly to `main` (no feature branch). `npm run ci` must 
 
 ## Phase 9: Admin Frontend
 
-- [ ] 44. Implement `soundBoardDeviceFormLogic` (testable pure logic) — field validation, dirty-check, and metadata serialize/parse. **Feature toggles go in the dedicated `features` object (`Record<string, boolean>`); `model`/`channelCount`/`usbSlotMap` go in `metadata`.** Since the frontend `DeviceRecord.metadata` is typed `Record<string, string>`, the numeric `channelCount` and the `usbSlotMap` (`Record<string, number>`) MUST be explicitly serialized to / parsed from strings at this boundary (do not assume they round-trip as numbers). Unit tests incl. numeric metadata round-trip and usbSlotMap defaults-to-identity + edit.
+- [x] 44. Implement `soundBoardDeviceFormLogic` (testable pure logic) — field validation, dirty-check, and metadata serialize/parse. **Feature toggles go in the dedicated `features` object (`Record<string, boolean>`); `model`/`channelCount`/`usbSlotMap` go in `metadata`.** Since the frontend `DeviceRecord.metadata` is typed `Record<string, string>`, the numeric `channelCount` and the `usbSlotMap` (`Record<string, number>`) MUST be explicitly serialized to / parsed from strings at this boundary (do not assume they round-trip as numbers). Unit tests incl. numeric metadata round-trip and usbSlotMap defaults-to-identity + edit.
   - _Requirements: 9_
 
-- [ ] 45. Implement `SoundBoardDeviceForm` — connection (label/model/host/port/channel count) + feature toggles (no gain-range field) + **channel→USB-slot mapping editor** (shown when `channel-audio-capture` enabled; defaults to identity) + probe result (calls `POST /api/admin/mixers/probe`); register in `deviceTypeRegistry`. Unit tests: features + usbSlotMap round-trip on reopen; probe success/failure render.
+- [x] 45. Implement `SoundBoardDeviceForm` — connection (label/model/host/port/channel count) + feature toggles (no gain-range field) + **channel→USB-slot mapping editor** (shown when `channel-audio-capture` enabled; defaults to identity) + probe result (calls `POST /api/admin/mixers/probe`); register in `deviceTypeRegistry`. Unit tests: features + usbSlotMap round-trip on reopen; probe success/failure render.
   - _Requirements: 9_
 
-- [ ] 46. Implement `PresetConfigModal` — reuses widget channel controls to drive the mixer **live before save** (draft), name input, capture snapshot, captured summary. Unit tests.
+- [x] 46. Implement `PresetConfigModal` — reuses widget channel controls to drive the mixer **live before save** (draft), name input, capture snapshot, captured summary. Unit tests.
   - _Requirements: 10.8_
 
-- [ ] 47. Frontend E2E (Playwright, admin) — unsaved-changes warning (creating with changes; switching device with changes; no-fire when unchanged, both cases); enter connection info; author presets for non-saved device (live control to backend) and saved device; save creates/updates; reopen recalls connection + presets; delete cascades presets.
+- [x] 47. Frontend E2E (Playwright, admin) — unsaved-changes warning (creating with changes; switching device with changes; no-fire when unchanged, both cases); enter connection info; author presets for non-saved device (live control to backend) and saved device; save creates/updates; reopen recalls connection + presets; delete cascades presets.
   - _Requirements: 9, 10_
 
 ---

@@ -41,10 +41,12 @@ export interface DeviceTypeEntry {
  */
 import { ObsDeviceForm } from "./ObsDeviceForm";
 import { CameraDeviceForm } from "./CameraDeviceForm";
+import { SoundBoardDeviceForm } from "./SoundBoardDeviceForm";
 
 export const DEVICE_TYPE_REGISTRY: Record<string, DeviceTypeEntry> = {
   obs: { displayName: "OBS", formComponent: ObsDeviceForm },
   "camera-ptz": { displayName: "Camera (PTZ)", formComponent: CameraDeviceForm },
+  soundboard: { displayName: "Sound Board", formComponent: SoundBoardDeviceForm },
 };
 
 /** Ordered list of device type keys for the "Add Device" popover. */
