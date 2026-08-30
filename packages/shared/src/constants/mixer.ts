@@ -40,6 +40,14 @@ export const CONTROL_SUPPRESS_MS = 300;
 // final emit on release.
 export const CONTROL_THROTTLE_MS = 50;
 
+// Mute-confirm window (Req 6, revised): mute is a discrete toggle, so the UI
+// OPTIMISTICALLY shows the commanded On/Off immediately (we trust the command
+// went through) and only falls back to the "Audio: Unknown" state if the mixer
+// has not confirmed the value within this window. This avoids a visible flash of
+// "Unknown" on every normal toggle while still surfacing a genuinely lost/failed
+// command. Read-back exhaustion (Req 6.6) still forces Unknown regardless.
+export const MUTE_CONFIRM_TIMEOUT_MS = 500;
+
 /** Envelope decimation for the gain window: min/max pairs per second (Req 4.4). */
 export const ENVELOPE_PAIRS_PER_SEC = 60;
 

@@ -105,7 +105,7 @@ test.describe("Sound Board widget", () => {
     await expect(page.getByTestId("mixer-mute-status-2")).toContainText("Audio: Off");
   });
 
-  test("toggling mute emits cts:mixer:set and enters the Unknown state (non-optimistic)", async ({ page }) => {
+  test("toggling mute emits cts:mixer:set and optimistically shows the commanded state", async ({ page }) => {
     await routeAuthLogin(page, volunteerLogin);
     await routeAuthCheck(page, volunteerLogin);
     await setupDashboard(page);
@@ -113,7 +113,8 @@ test.describe("Sound Board widget", () => {
     await loginAndNavigate(page);
 
     await page.getByTestId("mixer-mute-button-1").click();
-    await expect(page.getByTestId("mixer-mute-status-1")).toContainText("Audio: Unknown");
+    // Optimistic: shows the commanded "Audio: Off" immediately (channel 1 starts unmuted).
+    await expect(page.getByTestId("mixer-mute-status-1")).toContainText("Audio: Off");
     await expect.poll(() => socket.lastSet()).toMatchObject({ mixerId: "mix1", channel: 1, muted: true });
   });
 

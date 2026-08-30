@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
+import { MUTE_CONFIRM_TIMEOUT_MS } from "@invisible-av-booth/shared";
 import { TEST_ID_MIXER_MUTE_BUTTON, TEST_ID_MIXER_MUTE_STATUS } from "../../constants/testIds";
 
 interface MuteButtonProps {
@@ -19,37 +20,70 @@ type MuteDisplay = "on" | "off" | "unknown";
  * label and an unambiguous TEXT status above it — "Audio: On" (green dot),
  * "Audio: Off" (red dot), or "Audio: Unknown" (yellow dot).
  *
- * DISCRETE + NOT OPTIMISTIC (Req 6.3): toggling does NOT flip to the commanded
- * state. It immediately enters the UNKNOWN state and stays there until the
- * mixer's own value arrives (read-back success or /xremote push), then resolves
- * to the mixer-reported On/Off. This prevents a brief false "Audio: On/Off"
- * during the send→confirm gap — a false "Off" on a live mic is the worst-case
- * audio error, so mute never shows a value the mixer has not confirmed. It is
- * exempt from the fader/gain suppression window (a discrete toggle).
+ * DISCRETE + OPTIMISTIC-WITH-TIMEOUT: toggling immediately shows the COMMANDED
+ * state (we trust the command went through) rather than flashing "Unknown" on
+ * every normal toggle. A MUTE_CONFIRM_TIMEOUT_MS (500ms) timer runs; if the
+ * mixer confirms the commanded value (via a `muted` prop update from read-back
+ * or /xremote) before it fires, the optimistic value is simply confirmed and the
+ * timer is cancelled. If the window elapses with no confirmation, the control
+ * falls back to "Audio: Unknown" — surfacing a genuinely lost/failed command
+ * rather than continuing to assert an unconfirmed value. Read-back exhaustion
+ * reported by the backend (`unreconciled`, Req 6.6) always forces Unknown.
+ *
+ * Mute is exempt from the fader/gain suppression window (a discrete toggle).
  */
 export function MuteButton({ channel, muted, unreconciled = false, onToggle }: MuteButtonProps): ReactNode {
-  // While true, we've toggled and are waiting for the mixer to confirm.
-  const [awaitingConfirm, setAwaitingConfirm] = useState(false);
-  // Track the backend value we've "seen" so a genuine change clears the wait.
-  const lastSeenMutedRef = useRef(muted);
+  // The value we optimistically show after a local toggle, or null when we are
+  // simply reflecting the backend-reported `muted`.
+  const [optimisticMuted, setOptimisticMuted] = useState<boolean | null>(null);
+  // True after the confirm window elapsed with no matching backend value.
+  const [confirmTimedOut, setConfirmTimedOut] = useState(false);
 
+  const commandedRef = useRef<boolean | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearTimer = (): void => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+  };
+
+  // When the backend-reported value matches what we commanded, the mixer has
+  // confirmed the toggle — drop the optimistic overlay and cancel the timer.
   useEffect(() => {
-    // A new backend value arrived → the mixer confirmed; clear the pending state.
-    if (muted !== lastSeenMutedRef.current) {
-      lastSeenMutedRef.current = muted;
-      setAwaitingConfirm(false);
+    if (commandedRef.current !== null && muted === commandedRef.current) {
+      commandedRef.current = null;
+      setOptimisticMuted(null);
+      setConfirmTimedOut(false);
+      clearTimer();
     }
   }, [muted]);
 
-  const display: MuteDisplay = awaitingConfirm || unreconciled ? "unknown" : muted ? "off" : "on";
+  useEffect(() => clearTimer, []);
 
   const handleClick = (): void => {
-    setAwaitingConfirm(true); // enter unknown immediately; do NOT flip optimistically
-    onToggle(!muted);
+    const commanded = !muted;
+    commandedRef.current = commanded;
+    setOptimisticMuted(commanded); // OPTIMISTIC: show the commanded state immediately
+    setConfirmTimedOut(false);
+    onToggle(commanded);
+
+    clearTimer();
+    timerRef.current = setTimeout(() => {
+      // No confirmed value within the window → fall back to Unknown.
+      setConfirmTimedOut(true);
+      timerRef.current = null;
+    }, MUTE_CONFIRM_TIMEOUT_MS);
   };
 
+  // Effective mute state to display: the optimistic value while pending,
+  // otherwise the backend-reported value.
+  const effectiveMuted = optimisticMuted ?? muted;
+  const display: MuteDisplay = confirmTimedOut || unreconciled ? "unknown" : effectiveMuted ? "off" : "on";
+
   const statusText = display === "on" ? "Audio: On" : display === "off" ? "Audio: Off" : "Audio: Unknown";
-  const dataState = display === "unknown" ? "unknown" : muted ? "muted" : "active";
+  const dataState = display === "unknown" ? "unknown" : effectiveMuted ? "muted" : "active";
 
   return (
     <div className="mixer-mute">
