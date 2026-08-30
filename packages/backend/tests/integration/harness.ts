@@ -73,7 +73,7 @@ export async function buildTestServer(opts?: { seedKjv?: boolean; seedPlatform?:
     platformClients: new Map([["youtube", fakePlatformClient]]),
     relayPort: 0,
     // eslint-disable-next-line @typescript-eslint/consistent-type-imports
-    previewSpawnFn: fakeSpawn as unknown as import("../../src/services/previewStreamManager.js").SpawnFn,
+    previewSpawnFn: fakeSpawn as unknown as import("../../src/services/videoPreviewManager.js").SpawnFn,
   });
 
   await new Promise<void>((resolve) => ctx.httpServer.listen(0, resolve));
@@ -104,7 +104,9 @@ export function destroyServer(server: TestServer): void {
   server.ctx.lowerThirdService.destroy();
   server.ctx.cameraService.destroy();
   server.ctx.obsNdiPreviewSource.destroy();
-  server.ctx.previewManager.destroy();
+  server.ctx.audioPreviewManager.destroy();
+  server.ctx.videoPreviewManager.destroy();
+  server.ctx.audioCaptureService.destroy();
   server.ctx.relayService.stop();
   server.ctx.httpServer.close();
   eventBus.removeAllListeners();

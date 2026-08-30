@@ -1,8 +1,9 @@
-import { type Server as HttpServer } from "http";
 import { type ChildProcess, spawn, execSync } from "child_process";
+import type { IncomingMessage } from "http";
+import type { Duplex } from "stream";
 import { createInterface } from "readline";
 import { WebSocketServer, WebSocket } from "ws";
-import type { AuthService } from "./authService.js";
+import type { AuthUser } from "@invisible-av-booth/shared";
 import { logger } from "../logger.js";
 import { eventBus } from "../eventBus/eventBus.js";
 import { BUS_DEVICE_CAPABILITIES_UPDATED, BUS_OBS_AUDIO_LEVELS } from "../eventBus/types.js";
@@ -125,20 +126,26 @@ export interface SpawnFn {
 
 // ── Public API ───────────────────────────────────────────────────────────────
 
-export class PreviewStreamManager {
+/**
+ * VideoPreviewManager (formerly PreviewStreamManager) — owns NDI/GStreamer VIDEO
+ * previews for OBS and cameras. It no longer owns the `server.on("upgrade")`
+ * registration or cookie-JWT auth: that responsibility moved to
+ * PreviewUpgradeRouter, which verifies the user once and dispatches by path,
+ * calling handleUpgrade() here for video paths. All the video stream machinery
+ * (spawnPipeline, restart, grace, MAX_PREVIEW_STREAMS, NDI audio metering via
+ * `level`) is unchanged — this is a rename + extraction, not a behavior change.
+ */
+export class VideoPreviewManager {
   private wss: WebSocketServer;
   private sources = new Map<string, PreviewSource>();
   private encoder: GstEncoder = null;
   private gstreamerAvailable = false;
   private levelElementAvailable = false;
-  private authService: AuthService;
   private spawnFn: SpawnFn;
-  private signalCleanupRegistered = false;
   private destroyed = false;
   private pingInterval: ReturnType<typeof setInterval> | null = null;
 
-  constructor(authService: AuthService, spawnFn?: SpawnFn) {
-    this.authService = authService;
+  constructor(spawnFn?: SpawnFn) {
     this.spawnFn = spawnFn ?? ((cmd, args) => spawn(cmd, args));
     this.wss = new WebSocketServer({ noServer: true });
   }
@@ -169,46 +176,33 @@ export class PreviewStreamManager {
       capabilities: { deviceId: "preview", deviceType: "obs", features: { preview: true, audioMetering: this.levelElementAvailable } },
     });
 
-    this.registerSignalHandlers();
     this.startPingInterval();
   }
 
-  registerEndpoints(server: HttpServer): void {
-    server.on("upgrade", (request, socket, head) => {
-      const url = request.url ?? "";
-      if (!url.startsWith("/preview/")) return;
+  /**
+   * Handle a preview upgrade for a VIDEO path. The PreviewUpgradeRouter has
+   * already verified the cookie JWT and matched the path; `user` is the
+   * authenticated user (unused by video previews today but part of the
+   * media-handler contract shared with AudioPreviewManager).
+   */
+  handleUpgrade(request: IncomingMessage, socket: Duplex, head: Buffer, _user: AuthUser): void {
+    const url = request.url ?? "";
+    const sourceId = this.parseSourceId(url);
+    if (!sourceId) {
+      socket.write("HTTP/1.1 404 Not Found\r\n\r\n");
+      socket.destroy();
+      return;
+    }
 
-      const cookies = parseCookieHeader(request.headers.cookie ?? "");
-      const token = cookies["token"];
-      if (!token) {
-        socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n");
-        socket.destroy();
-        return;
-      }
-      const result = this.authService.verifyToken(token);
-      if (!result.success) {
-        socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n");
-        socket.destroy();
-        return;
-      }
-
-      const sourceId = this.parseSourceId(url);
-      if (!sourceId) {
-        socket.write("HTTP/1.1 404 Not Found\r\n\r\n");
-        socket.destroy();
-        return;
-      }
-
-      if (this.getActiveStreams() >= MAX_PREVIEW_STREAMS && !this.sources.has(sourceId)) {
-        this.wss.handleUpgrade(request, socket, head, (ws) => {
-          ws.close(4503, "Max preview streams reached");
-        });
-        return;
-      }
-
+    if (this.getActiveStreams() >= MAX_PREVIEW_STREAMS && !this.sources.has(sourceId)) {
       this.wss.handleUpgrade(request, socket, head, (ws) => {
-        this.handleConnection(ws, sourceId);
+        ws.close(4503, "Max preview streams reached");
       });
+      return;
+    }
+
+    this.wss.handleUpgrade(request, socket, head, (ws) => {
+      this.handleConnection(ws, sourceId);
     });
   }
 
@@ -609,20 +603,6 @@ export class PreviewStreamManager {
       }
     }, PING_INTERVAL_MS);
   }
-
-  private registerSignalHandlers(): void {
-    if (this.signalCleanupRegistered) return;
-    this.signalCleanupRegistered = true;
-
-    const cleanup = (): void => {
-      for (const source of this.sources.values()) {
-        this.killProcess(source);
-      }
-    };
-
-    process.on("SIGINT", cleanup);
-    process.on("SIGTERM", cleanup);
-  }
 }
 
 // ── Exported utilities ───────────────────────────────────────────────────────
@@ -720,16 +700,4 @@ export function checkGstreamerPath(): boolean {
   } catch {
     return false;
   }
-}
-
-// ── Cookie parsing ──────────────────────────────────────────────────────────
-
-function parseCookieHeader(header: string): Record<string, string> {
-  const result: Record<string, string> = {};
-  for (const pair of header.split(";")) {
-    const idx = pair.indexOf("=");
-    if (idx < 0) continue;
-    result[pair.substring(0, idx).trim()] = pair.substring(idx + 1).trim();
-  }
-  return result;
 }

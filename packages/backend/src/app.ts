@@ -22,8 +22,11 @@ import { LowerThirdService } from "./services/lowerThirdService.js";
 import { RelayService } from "./services/relayService.js";
 import type { NmsFactory, SpawnFn } from "./services/relayService.js";
 import { StreamingPlatformService } from "./services/streamingPlatformService.js";
-import { PreviewStreamManager } from "./services/previewStreamManager.js";
-import type { SpawnFn as PreviewSpawnFn } from "./services/previewStreamManager.js";
+import { VideoPreviewManager } from "./services/videoPreviewManager.js";
+import type { SpawnFn as PreviewSpawnFn } from "./services/videoPreviewManager.js";
+import { AudioPreviewManager } from "./services/audioPreviewManager.js";
+import { PreviewUpgradeRouter } from "./services/previewUpgradeRouter.js";
+import { AudioCaptureService } from "./mixer/AudioCaptureService.js";
 import { CameraService } from "./camera/CameraService.js";
 import { CameraSocketModule } from "./camera/CameraSocketModule.js";
 import { ObsNdiPreviewSource } from "./camera/ObsNdiPreviewSource.js";
@@ -71,7 +74,10 @@ export interface AppContext {
   manifestService: SessionManifestService;
   lowerThirdService: LowerThirdService;
   cameraService: CameraService;
-  previewManager: PreviewStreamManager;
+  videoPreviewManager: VideoPreviewManager;
+  audioPreviewManager: AudioPreviewManager;
+  previewUpgradeRouter: PreviewUpgradeRouter;
+  audioCaptureService: AudioCaptureService;
   obsNdiPreviewSource: ObsNdiPreviewSource;
   gateway: SocketGateway;
 }
@@ -132,9 +138,42 @@ export function buildApp(deps: AppDependencies): AppContext {
   const onPlatformChanged = (): void => platformServiceRef?.reloadPlatforms();
   app.use("/api", mustBeAuthenticated, mustHaveChangedPassword, createPlatformRouter(database, authService, onPlatformChanged));
 
-  const previewManager = new PreviewStreamManager(authService, previewSpawnFn);
-  const obsNdiPreviewSource = new ObsNdiPreviewSource(database, previewManager);
-  const cameraService = new CameraService(database, previewManager);
+  // ── Preview transport + audio capture ───────────────────────────────────────
+  //
+  // The USB-slot resolver and channel validator read mixer config from the DB.
+  // A MixerService (added in a later phase) may supply richer runtime state, but
+  // resolving from device_connections keeps the capture layer self-contained.
+  const usbSlotResolver = (mixerId: string, channel: number): number => {
+    const row = database.prepare("SELECT metadata FROM device_connections WHERE id = ? AND deviceType = 'soundboard'").get(mixerId) as
+      { metadata: string } | undefined;
+    if (!row) return channel; // identity fallback
+    try {
+      const metadata = JSON.parse(row.metadata) as { usbSlotMap?: Record<string, number> };
+      const slot = metadata.usbSlotMap?.[String(channel)];
+      return typeof slot === "number" ? slot : channel;
+    } catch {
+      return channel;
+    }
+  };
+  const isValidMixerChannel = (mixerId: string, channel: number): boolean => {
+    const row = database.prepare("SELECT metadata FROM device_connections WHERE id = ? AND deviceType = 'soundboard'").get(mixerId) as
+      { metadata: string } | undefined;
+    if (!row) return false;
+    try {
+      const metadata = JSON.parse(row.metadata) as { channelCount?: number };
+      const count = typeof metadata.channelCount === "number" ? metadata.channelCount : 0;
+      return channel >= 1 && channel <= count;
+    } catch {
+      return false;
+    }
+  };
+
+  const audioCaptureService = new AudioCaptureService(usbSlotResolver, previewSpawnFn);
+  const videoPreviewManager = new VideoPreviewManager(previewSpawnFn);
+  const audioPreviewManager = new AudioPreviewManager(audioCaptureService, isValidMixerChannel);
+  const previewUpgradeRouter = new PreviewUpgradeRouter(authService, videoPreviewManager, audioPreviewManager);
+  const obsNdiPreviewSource = new ObsNdiPreviewSource(database, videoPreviewManager);
+  const cameraService = new CameraService(database, videoPreviewManager);
 
   // Preset routes need cameraService for position capture
   app.use("/api/admin/cameras/:cameraId/presets", mustBeAuthenticated, mustHaveChangedPassword, createPresetRouter(database, authService, cameraService));
@@ -183,7 +222,7 @@ export function buildApp(deps: AppDependencies): AppContext {
     new ObsModule(
       obsService,
       () => !!obsNdiPreviewSource.getNdiOutputName(),
-      () => previewManager.isLevelAvailable(),
+      () => videoPreviewManager.isLevelAvailable(),
     ),
     new SessionManifestModule(manifestService),
     new StreamingPlatformModule(platformService, relayService),
@@ -193,7 +232,10 @@ export function buildApp(deps: AppDependencies): AppContext {
 
   registerOverlayNamespace(gateway.getIo(), lowerThirdService);
 
-  previewManager.registerEndpoints(httpServer);
+  // The router owns the /preview/* upgrade + cookie-JWT auth, dispatching to the
+  // video or audio manager by path (steering §2/§8 — adding a transport is a new
+  // dispatch line, not a manager change).
+  previewUpgradeRouter.registerUpgrade(httpServer);
 
   return {
     httpServer,
@@ -206,7 +248,10 @@ export function buildApp(deps: AppDependencies): AppContext {
     manifestService,
     lowerThirdService,
     cameraService,
-    previewManager,
+    videoPreviewManager,
+    audioPreviewManager,
+    previewUpgradeRouter,
+    audioCaptureService,
     obsNdiPreviewSource,
     gateway,
   };

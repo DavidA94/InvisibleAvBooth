@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { EventEmitter } from "events";
-import { parseLevelMessage, attachLevelParser, buildLevelArgs, LEVEL_PEAK_REGEX_GVALUEARRAY, LEVEL_PEAK_REGEX_GSTVALUELIST } from "./previewStreamManager.js";
+import { parseLevelMessage, attachLevelParser, buildLevelArgs, LEVEL_PEAK_REGEX_GVALUEARRAY, LEVEL_PEAK_REGEX_GSTVALUELIST } from "./videoPreviewManager.js";
 import type { ChildProcess } from "child_process";
 
 vi.mock("../logger.js", () => ({

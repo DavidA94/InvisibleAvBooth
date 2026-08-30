@@ -190,3 +190,63 @@ export function createFakeSpawn(): SpawnFn {
     return child;
   });
 }
+
+// ── Fake AudioCaptureService ─────────────────────────────────────────────────
+//
+// A no-op capture that records subscriptions and can push EnvelopePairs on
+// demand. Reports availability via a settable flag so tests exercise both the
+// capable and downgraded paths without hardware.
+
+import type { AudioCaptureService, AudioConsumer } from "../../src/mixer/AudioCaptureService.js";
+import type { AudioPreviewManager } from "../../src/services/audioPreviewManager.js";
+import type { EnvelopePair } from "@invisible-av-booth/shared";
+
+export interface FakeAudioCapture {
+  service: AudioCaptureService;
+  consumers: AudioConsumer[];
+  setAvailable: (value: boolean) => void;
+  pushEnvelope: (channel: number, pair: EnvelopePair) => void;
+}
+
+export function createFakeAudioCapture(): FakeAudioCapture {
+  const consumers: AudioConsumer[] = [];
+  let available = true;
+
+  const service = {
+    isAvailable: async () => available,
+    subscribe(consumer: AudioConsumer) {
+      consumers.push(consumer);
+      return () => {
+        const index = consumers.indexOf(consumer);
+        if (index >= 0) consumers.splice(index, 1);
+      };
+    },
+    getActiveChannelCount: () => consumers.length,
+    destroy: vi.fn(),
+  } as unknown as AudioCaptureService;
+
+  return {
+    service,
+    consumers,
+    setAvailable: (value: boolean) => {
+      available = value;
+    },
+    pushEnvelope: (channel: number, pair: EnvelopePair) => {
+      for (const consumer of consumers) {
+        if (consumer.channels.includes(channel)) consumer.onEnvelope(channel, pair);
+      }
+    },
+  };
+}
+
+// ── Fake AudioPreviewManager ──────────────────────────────────────────────────
+//
+// A no-op audio preview manager for wiring buildApp without a real WebSocket
+// server. handleUpgrade/destroy are inert.
+
+export function createFakeAudioPreviewManager(): AudioPreviewManager {
+  return {
+    handleUpgrade: vi.fn(),
+    destroy: vi.fn(),
+  } as unknown as AudioPreviewManager;
+}

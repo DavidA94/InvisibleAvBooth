@@ -2,10 +2,10 @@
  * OBS NDI Preview Source.
  *
  * Reads `ndiOutputName` from OBS device metadata and registers it with
- * PreviewStreamManager. GStreamer handles NDI receive internally.
+ * VideoPreviewManager. GStreamer handles NDI receive internally.
  */
 import type { Database } from "better-sqlite3";
-import type { PreviewStreamManager } from "../services/previewStreamManager.js";
+import type { VideoPreviewManager } from "../services/videoPreviewManager.js";
 import { eventBus } from "../eventBus/eventBus.js";
 import { BUS_DEVICE_CAPABILITIES_UPDATED, BUS_OBS_CONFIG_CHANGED } from "../eventBus/types.js";
 import { logger } from "../logger.js";
@@ -14,10 +14,10 @@ const OBS_PREVIEW_SOURCE_ID = "obs";
 
 export class ObsNdiPreviewSource {
   private database: Database;
-  private previewManager: PreviewStreamManager;
+  private previewManager: VideoPreviewManager;
   private ndiOutputName: string | null = null;
 
-  constructor(database: Database, previewManager: PreviewStreamManager) {
+  constructor(database: Database, previewManager: VideoPreviewManager) {
     this.database = database;
     this.previewManager = previewManager;
   }

@@ -13,7 +13,7 @@ import type { EventEmitter } from "events";
 import { buildTestServer, resetServer, destroyServer, loginAsAdmin } from "../harness.js";
 import type { TestServer } from "../harness.js";
 import { STC_OBS_AUDIO_LEVELS } from "@invisible-av-booth/shared";
-import { LEVEL_MAX_RESTART_ATTEMPTS, LEVEL_RESTART_DELAY_MS } from "../../../src/services/previewStreamManager.js";
+import { LEVEL_MAX_RESTART_ATTEMPTS, LEVEL_RESTART_DELAY_MS } from "../../../src/services/videoPreviewManager.js";
 
 let s: TestServer;
 let token: string;
@@ -30,7 +30,7 @@ beforeAll(async () => {
     .run("obs-1", "obs", "Main OBS", "localhost", 4455, null, '{"ndiOutputName":"OBS_NDI_OUTPUT"}', "{}", 1, new Date().toISOString());
   await s.ctx.obsService.connect();
   // Initialize preview manager and OBS NDI source
-  await s.ctx.previewManager.initialize();
+  await s.ctx.videoPreviewManager.initialize();
   s.ctx.obsNdiPreviewSource.initialize();
 });
 
@@ -86,7 +86,7 @@ function connectPreviewWs(): Promise<WebSocket> {
  * The level pipeline is spawned with args containing "-m" and "level".
  */
 function getLevelProcessStdout(): EventEmitter | null {
-  const fakeSpawn = s.ctx.previewManager["spawnFn"] as Mock;
+  const fakeSpawn = s.ctx.videoPreviewManager["spawnFn"] as Mock;
   const calls = fakeSpawn.mock?.calls ?? [];
   for (let i = calls.length - 1; i >= 0; i--) {
     const args = calls[i]?.[1] as string[] | undefined;
@@ -104,7 +104,7 @@ function getLevelProcessStdout(): EventEmitter | null {
  * Get the level pipeline process (to simulate crashes).
  */
 function getLevelProcess(): (EventEmitter & { kill: Mock }) | null {
-  const fakeSpawn = s.ctx.previewManager["spawnFn"] as Mock;
+  const fakeSpawn = s.ctx.videoPreviewManager["spawnFn"] as Mock;
   const calls = fakeSpawn.mock?.calls ?? [];
   for (let i = calls.length - 1; i >= 0; i--) {
     const args = calls[i]?.[1] as string[] | undefined;
@@ -142,7 +142,7 @@ describe("OBS Audio Level Broadcasting", () => {
     const client = await connectClient();
 
     // Make the OBS source available and connect a preview subscriber (triggers pipeline spawn)
-    s.ctx.previewManager.setSourceAvailable("obs", true, "OBS_NDI_OUTPUT");
+    s.ctx.videoPreviewManager.setSourceAvailable("obs", true, "OBS_NDI_OUTPUT");
     await connectPreviewWs();
     await sleep(50);
 
@@ -159,7 +159,7 @@ describe("OBS Audio Level Broadcasting", () => {
 
   it("emits correct values when L and R are identical", async () => {
     const client = await connectClient();
-    s.ctx.previewManager.setSourceAvailable("obs", true, "OBS_NDI_OUTPUT");
+    s.ctx.videoPreviewManager.setSourceAvailable("obs", true, "OBS_NDI_OUTPUT");
     await connectPreviewWs();
     await sleep(50);
 
@@ -176,7 +176,7 @@ describe("OBS Audio Level Broadcasting", () => {
 
   it("clamps silence (-inf) to -60", async () => {
     const client = await connectClient();
-    s.ctx.previewManager.setSourceAvailable("obs", true, "OBS_NDI_OUTPUT");
+    s.ctx.videoPreviewManager.setSourceAvailable("obs", true, "OBS_NDI_OUTPUT");
     await connectPreviewWs();
     await sleep(50);
 
@@ -195,7 +195,7 @@ describe("OBS Audio Level Broadcasting", () => {
     const client = await connectClient();
 
     // Source is available but NO preview WS subscriber connects — pipeline not spawned
-    s.ctx.previewManager.setSourceAvailable("obs", true, "OBS_NDI_OUTPUT");
+    s.ctx.videoPreviewManager.setSourceAvailable("obs", true, "OBS_NDI_OUTPUT");
     await sleep(100);
 
     const received: unknown[] = [];
@@ -206,7 +206,7 @@ describe("OBS Audio Level Broadcasting", () => {
 
   it("level pipeline crash triggers restart and events resume", async () => {
     const client = await connectClient();
-    s.ctx.previewManager.setSourceAvailable("obs", true, "OBS_NDI_OUTPUT");
+    s.ctx.videoPreviewManager.setSourceAvailable("obs", true, "OBS_NDI_OUTPUT");
     await connectPreviewWs();
     await sleep(50);
 
@@ -241,7 +241,7 @@ describe("OBS Audio Level Broadcasting", () => {
 
   it("stops retrying after 3 consecutive failures", async () => {
     const client = await connectClient();
-    s.ctx.previewManager.setSourceAvailable("obs", true, "OBS_NDI_OUTPUT");
+    s.ctx.videoPreviewManager.setSourceAvailable("obs", true, "OBS_NDI_OUTPUT");
     await connectPreviewWs();
     await sleep(50);
 
@@ -267,18 +267,18 @@ describe("OBS Audio Level Broadcasting", () => {
 
   it("does not count level pipeline against MAX_PREVIEW_STREAMS", async () => {
     await connectClient();
-    s.ctx.previewManager.setSourceAvailable("obs", true, "OBS_NDI_OUTPUT");
+    s.ctx.videoPreviewManager.setSourceAvailable("obs", true, "OBS_NDI_OUTPUT");
     await connectPreviewWs();
     await sleep(50);
 
     // OBS source spawns: video + audio + level = 3 processes
     // But getActiveStreams should only count 1 (the video pipeline)
-    expect(s.ctx.previewManager.getActiveStreams()).toBe(1);
+    expect(s.ctx.videoPreviewManager.getActiveStreams()).toBe(1);
   });
 
   it("new subscriber resets retry counter after dormant state and re-attempts level pipeline", async () => {
     const client = await connectClient();
-    s.ctx.previewManager.setSourceAvailable("obs", true, "OBS_NDI_OUTPUT");
+    s.ctx.videoPreviewManager.setSourceAvailable("obs", true, "OBS_NDI_OUTPUT");
     await connectPreviewWs();
     await sleep(50);
 
@@ -294,7 +294,7 @@ describe("OBS Audio Level Broadcasting", () => {
     await sleep(LEVEL_RESTART_DELAY_MS + 200);
 
     // Verify dormant state
-    const source = (s.ctx.previewManager as unknown as { sources: Map<string, { levelRestartCount: number }> }).sources.get("obs");
+    const source = (s.ctx.videoPreviewManager as unknown as { sources: Map<string, { levelRestartCount: number }> }).sources.get("obs");
     expect(source!.levelRestartCount).toBe(LEVEL_MAX_RESTART_ATTEMPTS);
 
     // Connect a new preview subscriber — should reset counter and re-attempt

@@ -74,19 +74,19 @@ describe("Preview WebSocket", () => {
     const cookie = await loginAsAdmin(server.agent, server.ctx.authService);
     const ws1 = connectWs("/preview/obs", cookie);
     await waitForOpen(ws1);
-    expect(server.ctx.previewManager.getSubscriberCount("obs")).toBe(1);
+    expect(server.ctx.videoPreviewManager.getSubscriberCount("obs")).toBe(1);
 
     const ws2 = connectWs("/preview/obs", cookie);
     await waitForOpen(ws2);
-    expect(server.ctx.previewManager.getSubscriberCount("obs")).toBe(2);
+    expect(server.ctx.videoPreviewManager.getSubscriberCount("obs")).toBe(2);
 
     ws1.close();
     await new Promise((r) => setTimeout(r, 50));
-    expect(server.ctx.previewManager.getSubscriberCount("obs")).toBe(1);
+    expect(server.ctx.videoPreviewManager.getSubscriberCount("obs")).toBe(1);
 
     ws2.close();
     await new Promise((r) => setTimeout(r, 50));
-    expect(server.ctx.previewManager.getSubscriberCount("obs")).toBe(0);
+    expect(server.ctx.videoPreviewManager.getSubscriberCount("obs")).toBe(0);
   });
 
   it("rejects connection to invalid preview path", async () => {
@@ -140,14 +140,14 @@ describe("OBS Preview with ndiOutputName", () => {
     const cookie = await loginAsAdmin(server.agent, server.ctx.authService);
 
     // Mark source available (simulates NDI connection established)
-    server.ctx.previewManager.setSourceAvailable("obs", true, "pipe:0");
+    server.ctx.videoPreviewManager.setSourceAvailable("obs", true, "pipe:0");
 
     const ws = connectWs("/preview/obs", cookie);
     await waitForOpen(ws);
 
     // Subscriber is connected; since fakeSpawn emits close immediately,
     // we just verify the subscriber count is tracked
-    expect(server.ctx.previewManager.getSubscriberCount("obs")).toBe(1);
+    expect(server.ctx.videoPreviewManager.getSubscriberCount("obs")).toBe(1);
 
     ws.close();
     await new Promise((r) => setTimeout(r, 50));
@@ -162,8 +162,8 @@ describe("OBS Preview with ndiOutputName", () => {
     await waitForOpen(ws);
 
     // Subscriber connected, but no FFmpeg spawned (source unavailable)
-    expect(server.ctx.previewManager.getSubscriberCount("obs")).toBe(1);
-    expect(server.ctx.previewManager.getActiveStreams()).toBe(0);
+    expect(server.ctx.videoPreviewManager.getSubscriberCount("obs")).toBe(1);
+    expect(server.ctx.videoPreviewManager.getActiveStreams()).toBe(0);
 
     ws.close();
     await new Promise((r) => setTimeout(r, 50));
@@ -177,8 +177,8 @@ describe("OBS Preview with ndiOutputName", () => {
     const ws = connectWs("/preview/obs", cookie);
     await waitForOpen(ws);
 
-    expect(server.ctx.previewManager.getSubscriberCount("obs")).toBe(1);
-    expect(server.ctx.previewManager.getActiveStreams()).toBe(0);
+    expect(server.ctx.videoPreviewManager.getSubscriberCount("obs")).toBe(1);
+    expect(server.ctx.videoPreviewManager.getActiveStreams()).toBe(0);
 
     ws.close();
     await new Promise((r) => setTimeout(r, 50));
@@ -190,17 +190,17 @@ describe("OBS Preview with ndiOutputName", () => {
 
     const ws = connectWs("/preview/obs", cookie);
     await waitForOpen(ws);
-    expect(server.ctx.previewManager.getActiveStreams()).toBe(0);
+    expect(server.ctx.videoPreviewManager.getActiveStreams()).toBe(0);
 
     // Source becomes available (NDI connected)
-    server.ctx.previewManager.setSourceAvailable("obs", true, "pipe:0");
+    server.ctx.videoPreviewManager.setSourceAvailable("obs", true, "pipe:0");
 
     // FFmpeg spawn should be triggered (fakeSpawn creates a mock process)
     // Give a tick for async spawn
     await new Promise((r) => setTimeout(r, 50));
     // The fakeSpawn emits close(0) immediately so the process may have already exited
     // but the spawn was attempted, verifiable by the source existing
-    expect(server.ctx.previewManager.getSubscriberCount("obs")).toBe(1);
+    expect(server.ctx.videoPreviewManager.getSubscriberCount("obs")).toBe(1);
 
     ws.close();
     await new Promise((r) => setTimeout(r, 50));
@@ -210,16 +210,16 @@ describe("OBS Preview with ndiOutputName", () => {
     createObsDevice("MY-PC (OBS)");
     const cookie = await loginAsAdmin(server.agent, server.ctx.authService);
 
-    server.ctx.previewManager.setSourceAvailable("obs", true, "pipe:0");
+    server.ctx.videoPreviewManager.setSourceAvailable("obs", true, "pipe:0");
     const ws = connectWs("/preview/obs", cookie);
     await waitForOpen(ws);
     await new Promise((r) => setTimeout(r, 50));
 
     // Mark source unavailable (DistroAV disabled)
-    server.ctx.previewManager.setSourceAvailable("obs", false, "pipe:0");
+    server.ctx.videoPreviewManager.setSourceAvailable("obs", false, "pipe:0");
     await new Promise((r) => setTimeout(r, 50));
 
-    expect(server.ctx.previewManager.getActiveStreams()).toBe(0);
+    expect(server.ctx.videoPreviewManager.getActiveStreams()).toBe(0);
 
     ws.close();
     await new Promise((r) => setTimeout(r, 50));
@@ -238,13 +238,13 @@ describe("Preview data fan-out and lifecycle", () => {
   beforeAll(async () => {
     server = await buildTestServer();
     // Initialize the preview manager so gstreamerAvailable = true and pipelines can spawn.
-    (server.ctx.previewManager as unknown as { gstreamerAvailable: boolean }).gstreamerAvailable = true;
+    (server.ctx.videoPreviewManager as unknown as { gstreamerAvailable: boolean }).gstreamerAvailable = true;
 
     // Wrap the fakeSpawn to track all spawned processes
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const originalSpawn = (server.ctx.previewManager as any).spawnFn;
+    const originalSpawn = (server.ctx.videoPreviewManager as any).spawnFn;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (server.ctx.previewManager as any).spawnFn = (cmd: string, args: string[]) => {
+    (server.ctx.videoPreviewManager as any).spawnFn = (cmd: string, args: string[]) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const proc = originalSpawn(cmd, args) as any;
       spawnedProcesses.push({ cmd, args, process: proc });
@@ -282,7 +282,7 @@ describe("Preview data fan-out and lifecycle", () => {
     await waitForOpen(ws);
 
     // Mark source available — triggers pipeline spawn since subscriber already connected
-    server.ctx.previewManager.setSourceAvailable("obs", true, "OBS-NDI");
+    server.ctx.videoPreviewManager.setSourceAvailable("obs", true, "OBS-NDI");
     await new Promise((r) => setTimeout(r, 100));
 
     // Verify pipeline was spawned and tracked
@@ -322,7 +322,7 @@ describe("Preview data fan-out and lifecycle", () => {
     const ws = connectWs("/preview/obs", cookie);
     await waitForOpen(ws);
 
-    server.ctx.previewManager.setSourceAvailable("obs", true, "OBS-NDI");
+    server.ctx.videoPreviewManager.setSourceAvailable("obs", true, "OBS-NDI");
     await new Promise((r) => setTimeout(r, 100));
 
     // OBS spawns 2 processes: video + audio
@@ -361,7 +361,7 @@ describe("Preview data fan-out and lifecycle", () => {
     const ws = connectWs("/preview/camera/cam1", cookie);
     await waitForOpen(ws);
 
-    server.ctx.previewManager.setSourceAvailable("camera-cam1", true, "CAM1-NDI");
+    server.ctx.videoPreviewManager.setSourceAvailable("camera-cam1", true, "CAM1-NDI");
     await new Promise((r) => setTimeout(r, 100));
 
     const gstProcs = spawnedProcesses.filter((e) => e.cmd === "gst-launch-1.0" && e.args[0] !== "--version" && e.process.stdout);
@@ -395,7 +395,7 @@ describe("Preview data fan-out and lifecycle", () => {
     const ws = connectWs("/preview/camera/cam1", cookie);
     await waitForOpen(ws);
 
-    server.ctx.previewManager.setSourceAvailable("camera-cam1", true, "CAM1-NDI");
+    server.ctx.videoPreviewManager.setSourceAvailable("camera-cam1", true, "CAM1-NDI");
     await new Promise((r) => setTimeout(r, 100));
 
     const gstProcs = spawnedProcesses.filter((e) => e.cmd === "gst-launch-1.0" && e.args[0] !== "--version");
@@ -422,7 +422,7 @@ describe("Preview data fan-out and lifecycle", () => {
     const ws = connectWs("/preview/camera/cam1", cookie);
     await waitForOpen(ws);
 
-    server.ctx.previewManager.setSourceAvailable("camera-cam1", true, "CAM1-NDI");
+    server.ctx.videoPreviewManager.setSourceAvailable("camera-cam1", true, "CAM1-NDI");
     await new Promise((r) => setTimeout(r, 100));
 
     const gstProcs = spawnedProcesses.filter((e) => e.cmd === "gst-launch-1.0" && e.args[0] !== "--version");
@@ -432,10 +432,10 @@ describe("Preview data fan-out and lifecycle", () => {
     ws.close();
     await new Promise((r) => setTimeout(r, 100));
 
-    expect(server.ctx.previewManager.getSubscriberCount("camera-cam1")).toBe(0);
+    expect(server.ctx.videoPreviewManager.getSubscriberCount("camera-cam1")).toBe(0);
 
     // After grace period (GRACE_PERIOD_MS = 3000), pipeline is killed
     await new Promise((r) => setTimeout(r, 3100));
-    expect(server.ctx.previewManager.getActiveStreams()).toBe(0);
+    expect(server.ctx.videoPreviewManager.getActiveStreams()).toBe(0);
   }, 10000);
 });

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { EventEmitter } from "events";
-import { PreviewStreamManager, LEVEL_MAX_RESTART_ATTEMPTS, LEVEL_RESTART_DELAY_MS } from "./previewStreamManager.js";
-import type { SpawnFn } from "./previewStreamManager.js";
+import { VideoPreviewManager, LEVEL_MAX_RESTART_ATTEMPTS, LEVEL_RESTART_DELAY_MS } from "./videoPreviewManager.js";
+import type { SpawnFn } from "./videoPreviewManager.js";
 
 vi.mock("../logger.js", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
@@ -74,22 +74,14 @@ function makeMockWs() {
   };
 }
 
-function makeMockAuthService() {
-  return {
-    verifyToken: vi.fn(() => ({ success: true, payload: { sub: "u1" } })),
-  };
-}
-
-describe("PreviewStreamManager — level pipeline lifecycle", () => {
-  let manager: PreviewStreamManager;
+describe("VideoPreviewManager — level pipeline lifecycle", () => {
+  let manager: VideoPreviewManager;
   let spawnFn: ReturnType<typeof vi.fn>;
-  let authService: ReturnType<typeof makeMockAuthService>;
   let processes: MockProcess[];
 
   beforeEach(async () => {
     vi.useFakeTimers();
     processes = [];
-    authService = makeMockAuthService();
 
     spawnFn = vi.fn((cmd: string, args: string[]) => {
       const proc = makeMockProcess();
@@ -103,7 +95,7 @@ describe("PreviewStreamManager — level pipeline lifecycle", () => {
       return proc;
     });
 
-    manager = new PreviewStreamManager(authService as unknown as ConstructorParameters<typeof PreviewStreamManager>[0], spawnFn as unknown as SpawnFn);
+    manager = new VideoPreviewManager(spawnFn as unknown as SpawnFn);
 
     const { execSync } = vi.mocked(await import("child_process"));
     execSync.mockReturnValue(Buffer.from("ok"));
@@ -161,10 +153,7 @@ describe("PreviewStreamManager — level pipeline lifecycle", () => {
       return proc;
     });
 
-    const mgr2 = new PreviewStreamManager(
-      authService as unknown as ConstructorParameters<typeof PreviewStreamManager>[0],
-      spawnFnNoLevel as unknown as SpawnFn,
-    );
+    const mgr2 = new VideoPreviewManager(spawnFnNoLevel as unknown as SpawnFn);
     const initPromise = mgr2.initialize();
     await vi.advanceTimersByTimeAsync(100);
     await initPromise;

@@ -113,6 +113,33 @@ export default [
     },
   },
 
+  // Shared — isomorphic TypeScript (constants, types, utils used by both sides)
+  {
+    files: ["packages/shared/**/*.{ts,tsx}"],
+    languageOptions: {
+      parser: tsParser,
+      parserOptions: {
+        ecmaVersion: "latest",
+        sourceType: "module",
+      },
+      globals: {
+        ...globals.node,
+        ...globals.browser,
+      },
+    },
+    plugins: {
+      "@typescript-eslint": tsPlugin,
+      "unused-imports": unusedImports,
+    },
+    rules: {
+      ...sharedTsRules,
+      // Base rule is superseded by unused-imports/no-unused-vars (with arg patterns);
+      // the base rule also can't see TS type positions, so disable it here.
+      "no-unused-vars": "off",
+      "no-undef": "off",
+    },
+  },
+
   // Disable Prettier-conflicting formatting rules last
   prettierConfig,
 

@@ -7,7 +7,7 @@ import { eventBus } from "../eventBus/eventBus.js";
 import { BUS_CAMERA_STATE_CHANGED, BUS_CAMERA_PRESETS_CHANGED, BUS_CAMERA_DEVICE_CHANGED } from "../eventBus/types.js";
 import { logger } from "../logger.js";
 import { decrypt } from "../crypto.js";
-import type { PreviewStreamManager } from "../services/previewStreamManager.js";
+import type { VideoPreviewManager } from "../services/videoPreviewManager.js";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -64,12 +64,12 @@ export class CameraService {
   private cameras = new Map<string, CameraInstance>();
   private moveSessions = new Map<string, MoveSession>();
   private destroyed = false;
-  private previewManager: PreviewStreamManager | null;
+  private previewManager: VideoPreviewManager | null;
   private viscaFailureCounts = new Map<string, number>();
   private viscaReconnectAttempts = new Map<string, number>();
   private static readonly MAX_RECONNECT_ATTEMPTS = 5;
 
-  constructor(database: Database, previewManager?: PreviewStreamManager) {
+  constructor(database: Database, previewManager?: VideoPreviewManager) {
     this.database = database;
     this.previewManager = previewManager ?? null;
   }

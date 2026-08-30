@@ -2,7 +2,7 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import Database from "better-sqlite3";
 import { applySchema } from "../database/schema.js";
 import { ObsNdiPreviewSource } from "./ObsNdiPreviewSource.js";
-import type { PreviewStreamManager } from "../services/previewStreamManager.js";
+import type { VideoPreviewManager } from "../services/videoPreviewManager.js";
 
 vi.mock("../logger.js", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
@@ -14,8 +14,8 @@ vi.mock("../eventBus/eventBus.js", () => ({
 
 import { eventBus } from "../eventBus/eventBus.js";
 
-function createMockPreviewManager(): PreviewStreamManager {
-  return { setSourceAvailable: vi.fn() } as unknown as PreviewStreamManager;
+function createMockPreviewManager(): VideoPreviewManager {
+  return { setSourceAvailable: vi.fn() } as unknown as VideoPreviewManager;
 }
 
 function createDbWithObsDevice(ndiOutputName?: string): Database.Database {
@@ -31,7 +31,7 @@ function createDbWithObsDevice(ndiOutputName?: string): Database.Database {
 
 describe("ObsNdiPreviewSource", () => {
   let source: ObsNdiPreviewSource;
-  let previewManager: PreviewStreamManager;
+  let previewManager: VideoPreviewManager;
 
   afterEach(() => {
     source?.destroy();

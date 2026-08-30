@@ -38,7 +38,18 @@ const { default: NodeMediaServer } = await import("node-media-server");
 const { spawn } = await import("child_process");
 
 logger.info("Building application…");
-const { httpServer, authService, obsService, relayService, platformService, obsNdiPreviewSource, previewManager, cameraService } = buildApp({
+const {
+  httpServer,
+  authService,
+  obsService,
+  relayService,
+  platformService,
+  obsNdiPreviewSource,
+  videoPreviewManager,
+  audioPreviewManager,
+  audioCaptureService,
+  cameraService,
+} = buildApp({
   database,
   nmsFactory: () =>
     new NodeMediaServer({ rtmp: { port: relayPort, chunk_size: 60000, gop_cache: false, ping: 5, ping_timeout: 3 }, logType: 0 }) as unknown as NmsInstance,
@@ -59,15 +70,19 @@ httpServer.listen(PORT, () => {
   void obsService.connect();
   void relayService.start().catch((error) => logger.warn("Relay start failed (FFmpeg may not be installed)", { error: String(error) }));
   void platformService.validateTokensOnStartup().catch((error) => logger.warn("Token validation failed", { error: String(error) }));
-  void previewManager.initialize().then(() => {
+  void videoPreviewManager.initialize().then(() => {
     void obsNdiPreviewSource.initialize();
     void cameraService.initialize();
   });
 });
 
-// Graceful shutdown
+// Graceful shutdown — tear down the preview transport router-first (stop
+// accepting upgrades), then the managers and capture service, then the rest.
 const shutdown = (): void => {
   logger.info("Shutting down...");
+  audioPreviewManager.destroy();
+  videoPreviewManager.destroy();
+  audioCaptureService.destroy();
   platformService.destroy();
   relayService.stop();
   httpServer.close();

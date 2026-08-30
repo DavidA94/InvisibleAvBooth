@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { PreviewStreamManager, buildMjpegArgs, buildAudioArgs, probeEncoder, checkGstreamerPath } from "./previewStreamManager.js";
-import type { SpawnFn } from "./previewStreamManager.js";
+import { VideoPreviewManager, buildMjpegArgs, buildAudioArgs, probeEncoder, checkGstreamerPath } from "./videoPreviewManager.js";
+import type { SpawnFn } from "./videoPreviewManager.js";
 
 vi.mock("../logger.js", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
@@ -85,12 +85,6 @@ function makeMockWs(readyState = 1): MockWs {
   };
 }
 
-function makeMockAuthService(valid = true) {
-  return {
-    verifyToken: vi.fn(() => (valid ? { success: true, payload: { sub: "u1" } } : { success: false })),
-  };
-}
-
 describe("probeEncoder", () => {
   it("returns qsvh264enc when available", async () => {
     const spawnFn: SpawnFn = vi.fn((cmd, args) => {
@@ -149,20 +143,18 @@ describe("checkGstreamerPath", () => {
   });
 });
 
-describe("PreviewStreamManager", () => {
-  let manager: PreviewStreamManager;
+describe("VideoPreviewManager", () => {
+  let manager: VideoPreviewManager;
   let spawnFn: ReturnType<typeof vi.fn>;
-  let authService: ReturnType<typeof makeMockAuthService>;
   let lastProcess: MockProcess;
 
   beforeEach(() => {
     vi.useFakeTimers();
-    authService = makeMockAuthService();
     spawnFn = vi.fn(() => {
       lastProcess = makeMockProcess();
       return lastProcess;
     });
-    manager = new PreviewStreamManager(authService as unknown as ConstructorParameters<typeof PreviewStreamManager>[0], spawnFn as unknown as SpawnFn);
+    manager = new VideoPreviewManager(spawnFn as unknown as SpawnFn);
   });
 
   afterEach(() => {
