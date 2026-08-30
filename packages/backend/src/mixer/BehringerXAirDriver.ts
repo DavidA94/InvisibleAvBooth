@@ -143,9 +143,14 @@ export class BehringerXAirDriver implements MixerControlInterface {
 
   private sendXremote(): void {
     this.transport.send("/xremote");
-    // The renewal round-trip itself is a liveness signal on a quiet board — the
-    // console echoes subscribed parameters, but even the act of renewing keeps
-    // us alive. We also treat any inbound message as liveness (handleInbound).
+    // Guaranteed periodic liveness (Req 12.2): the X Air does NOT reliably reply
+    // to /xremote on a dead-quiet board (nothing to echo), so on each renewal we
+    // also send /xinfo, which the console ALWAYS answers. Its reply flows through
+    // handleInbound → emitLiveness, keeping an idle-but-healthy board green and
+    // only turning "Controls" red when round-trips genuinely stop. This is the
+    // periodic confirmed round-trip the freshness window is sized around
+    // (CONTROLS_FRESHNESS_MS ≥ 2× XREMOTE_RENEW_MS + margin).
+    this.transport.send("/xinfo");
   }
 
   setMeteringEnabled(enabled: boolean): void {

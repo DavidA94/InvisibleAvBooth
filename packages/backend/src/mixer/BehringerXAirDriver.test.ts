@@ -261,6 +261,15 @@ describe("BehringerXAirDriver", () => {
       transport.inject("/ch/01/mix/fader", [0.5]);
       expect(liveness).toHaveBeenCalled();
     });
+
+    it("emits liveness on an /xinfo reply (idle-board freshness, Req 12.2)", async () => {
+      const { driver, transport } = makeDriver();
+      await driver.connect();
+      const liveness = vi.fn();
+      driver.onLiveness(liveness);
+      transport.inject("/xinfo", ["192.168.1.10", "XR18", "XR18", "1.19"]);
+      expect(liveness).toHaveBeenCalled();
+    });
   });
 
   describe("presets", () => {
@@ -306,9 +315,13 @@ describe("BehringerXAirDriver", () => {
       const { driver, transport } = makeDriver();
       await driver.connect();
       const before = transport.sends.filter((s) => s.address === "/xremote").length;
+      const xinfoBefore = transport.sends.filter((s) => s.address === "/xinfo").length;
       vi.advanceTimersByTime(8000 * 2 + 100);
       const after = transport.sends.filter((s) => s.address === "/xremote").length;
+      const xinfoAfter = transport.sends.filter((s) => s.address === "/xinfo").length;
       expect(after).toBeGreaterThan(before);
+      // Each renewal also sends /xinfo for a guaranteed liveness round-trip (Req 12.2).
+      expect(xinfoAfter).toBeGreaterThan(xinfoBefore);
       driver.disconnect();
       vi.useRealTimers();
     });
