@@ -1,5 +1,7 @@
 # Implementation Tasks — Video Control and Preview
 
+> **⚠️ Historical record — partially superseded.** These tasks are complete. Two later changes mean the delivered system differs from some task wording: (1) the preview transport shipped as **MJPEG** (`jpegenc` → JPEG frames over the WebSocket, `<img>` display), not fMP4/MSE (`mp4mux`, `MediaSource`/`SourceBuffer`); (2) `PreviewStreamManager` was renamed to `VideoPreviewManager` with `/preview/*` upgrade+auth moved into `PreviewUpgradeRouter` (and a new `AudioPreviewManager`) by the `sound-board-control` spec. Read `PreviewStreamManager`/fMP4 references below accordingly.
+
 Tests are part of each task's definition of done. Unit tests follow the unit or component they cover. Integration tests exercise the full path from WebSocket/socket event to service response. Frontend component tests use React Testing Library. Backend E2E tests use the shared harness with in-memory SQLite and fake device clients.
 
 ---

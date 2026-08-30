@@ -6,9 +6,14 @@ This document extends the existing system design with real-time video preview an
 
 This is an extension document — it references and builds on the designs at `.kiro/specs/livestream-control-system/design.md` and `.kiro/specs/multi-platform-streaming/design.md`. Patterns, conventions, and components defined there remain authoritative unless explicitly superseded here.
 
+> **⚠️ Partially superseded — see current implementation.** Two aspects of this document no longer match the shipped system:
+>
+> 1. **Preview transport is MJPEG, not fMP4/MSE.** The delivered implementation streams **MJPEG** — GStreamer `ndisrc → decodebin → videoconvert → jpegenc` producing JPEG frames sent over the binary WebSocket with a 1-byte type prefix (`0x01` = JPEG video frame) and displayed via an `<img>` element (frontend hooks `useObsPreviewStream` / `useMjpegStream`). fMP4, MSE, `MediaSource`/`SourceBuffer`, and `mp4mux` are **not** used. References to fMP4/MSE below are historical. (The original `usePreviewStream.ts` fMP4 hook is superseded by the MJPEG hooks.)
+> 2. **`PreviewStreamManager` has been renamed and split** by the `sound-board-control` spec into: `VideoPreviewManager` (video previews — the renamed class), `PreviewUpgradeRouter` (owns the `/preview/*` WebSocket upgrade + cookie-JWT auth and dispatches by path), and `AudioPreviewManager` (audio-level previews). Where this document says `PreviewStreamManager`, read `VideoPreviewManager` for the video pipeline and `PreviewUpgradeRouter` for the upgrade/auth handling.
+
 ### What This Release Adds
 
-- Preview WebSocket infrastructure (fMP4 over dedicated WebSocket, MSE playback, fan-out)
+- Preview WebSocket infrastructure (MJPEG over dedicated WebSocket, `<img>` display, fan-out) _(originally designed as fMP4/MSE — shipped as MJPEG; see supersession note above)_
 - GStreamer NDI pipeline with hardware encoder auto-detection (QSV, VA-API, NVENC) and software fallback
 - OBS Preview widget (`obs-preview`) — 2×2, live stream/recording preview with audio toggle
 - `CameraService` — manages camera connections, state polling, dead-man's switch
@@ -42,7 +47,7 @@ graph TD
   end
 
   subgraph Backend [packages/backend]
-    PreviewManager[PreviewStreamManager]
+    PreviewManager[VideoPreviewManager — was PreviewStreamManager; upgrade+auth now in PreviewUpgradeRouter]
     ObsNdiSource[ObsNdiPreviewSource — config reader]
     CameraService[CameraService]
     CameraModule[CameraSocketModule]
@@ -58,8 +63,8 @@ graph TD
   end
 
   subgraph GStreamer [GStreamer Processes]
-    ObsGst[gst-launch-1.0: NDI → fMP4 — OBS preview]
-    CamGst[gst-launch-1.0: NDI → fMP4 — Camera preview]
+    ObsGst[gst-launch-1.0: NDI → MJPEG — OBS preview]
+    CamGst[gst-launch-1.0: NDI → MJPEG — Camera preview]
   end
 
   OBS -->|NDI output| ObsGst
@@ -67,8 +72,8 @@ graph TD
   NDICamera -->|NDI video| CamGst
   NDICamera -->|VISCA/IP| ViscaDriver
 
-  ObsGst -->|fMP4 stdout| PreviewManager
-  CamGst -->|fMP4 stdout| PreviewManager
+  ObsGst -->|MJPEG stdout| PreviewManager
+  CamGst -->|MJPEG stdout| PreviewManager
 
   PreviewManager -->|WebSocket /preview/obs| ObsPreviewWidget
   PreviewManager -->|WebSocket /preview/camera/:id| CameraWidget
