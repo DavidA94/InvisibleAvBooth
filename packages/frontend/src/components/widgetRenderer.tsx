@@ -5,6 +5,7 @@ import { ObsWidget } from "./obs/ObsWidget";
 import { LowerThirdWidget } from "./lower-thirds/LowerThirdWidget";
 import { ObsPreviewWidget } from "./obs-preview/ObsPreviewWidget";
 import { CameraWidget } from "./camera/CameraWidget";
+import { SoundBoardWidget } from "./soundboard/SoundBoardWidget";
 
 /**
  * Maps widget IDs to their React component.
@@ -27,6 +28,7 @@ const WIDGET_COMPONENTS: Record<string, () => ReactNode> = {
   "lower-thirds": LowerThirdWidget,
   "obs-preview": ObsPreviewWidgetWrapper,
   camera: CameraWidgetWrapper,
+  soundboard: SoundBoardWidget,
 };
 
 /** Renders the appropriate widget component for a grid cell, or a placeholder for unknown types. */

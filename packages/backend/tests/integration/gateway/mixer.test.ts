@@ -188,15 +188,22 @@ describe("emitInitialState & presets", () => {
 });
 
 describe("Metering lifecycle & presence", () => {
+  const waitUntil = async (predicate: () => boolean, timeoutMs = 1500): Promise<void> => {
+    const start = Date.now();
+    while (!predicate() && Date.now() - start < timeoutMs) {
+      await new Promise((r) => setTimeout(r, 10));
+    }
+  };
+
   it("enables metering when a widget is present and disables when none remain", async () => {
     const mixerId = await createMixer();
     const driver = s.fakeMixer.get(mixerId)!;
     const client = await connectClient();
     client.emit(CTS_MIXER_WIDGET_PRESENT, { mixerId, present: true });
-    await new Promise((r) => setTimeout(r, 30));
+    await waitUntil(() => driver.meteringEnabled());
     expect(driver.meteringEnabled()).toBe(true);
     client.emit(CTS_MIXER_WIDGET_PRESENT, { mixerId, present: false });
-    await new Promise((r) => setTimeout(r, 30));
+    await waitUntil(() => !driver.meteringEnabled());
     expect(driver.meteringEnabled()).toBe(false);
   });
 
@@ -205,10 +212,10 @@ describe("Metering lifecycle & presence", () => {
     const driver = s.fakeMixer.get(mixerId)!;
     const client = await connectClient();
     client.emit(CTS_MIXER_WIDGET_PRESENT, { mixerId, present: true });
-    await new Promise((r) => setTimeout(r, 30));
+    await waitUntil(() => driver.meteringEnabled());
     expect(driver.meteringEnabled()).toBe(true);
     client.close();
-    await new Promise((r) => setTimeout(r, 200));
+    await waitUntil(() => !driver.meteringEnabled());
     expect(driver.meteringEnabled()).toBe(false);
   });
 });
