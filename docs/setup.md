@@ -404,19 +404,47 @@ same-numbered USB slot. Two consumers read the device:
 
 Because routing is per-channel configurable, the **channel→USB-slot mapping**
 entered in the Sound Board device form MUST match the mixer's actual USB send
-routing (set on the console or in X-Air Edit, **not** in this software). The map
-defaults to identity (channel _N_ → slot _N_) but is editable.
+routing (set in X‑Air Edit under **In/Out → USB Sends**, **not** in this
+software — see below). The map defaults to identity (channel _N_ → slot _N_) but
+is editable.
 
 > **Accepted limitation:** the map is validated only for shape, not against the
 > mixer's real routing. If it does not match, the gain window shows a different
 > channel's envelope with no in-product error — mitigated only by this checklist.
 
+#### Where to set the routing in X‑Air Edit
+
+The USB send routing is configured in **X‑Air Edit** (the desktop/tablet app),
+not in this software and not on the mixer's physical surface:
+
+1. Open the **In/Out** menu.
+2. Select **USB Sends** — the 18‑channel block the mixer streams to the computer
+   over USB (this is the exact stream our capture reads).
+3. Each USB send slot has a source. Note which **mixer channel** feeds each
+   **USB slot**, and where the tap-point choice is offered, use the
+   **pre‑processing / pre‑fader (input)** tap so the gain window reflects what the
+   preamp gain affects.
+
+> Exact labels and layout of the **In/Out → USB Sends** page vary by X‑Air Edit
+> version and firmware — confirm against your version and the Behringer X‑Air
+> manual (USB Audio Interface / Routing section). The location above (**In/Out →
+> USB Sends**) is the current menu path.
+
+**Mapping into the device form.** Our form's mapping is **channel → USB slot**.
+Read it off the USB Sends page and invert if needed: if X‑Air Edit shows
+_USB slot 3 ← Channel 1_, then in the form **Channel 1 → slot 3**. Leave the
+identity default (channel _N_ → slot _N_) for any channel whose routing matches.
+
+Verify a slot carries the expected channel by making noise on that channel and
+watching the USB‑send meter in X‑Air Edit (or the mixer's `/meters/2` USB‑in
+meters, indices 18–35).
+
 ### First-run installer checklist (ordered)
 
 1. **Plug in** the mixer's USB cable.
-2. **Set the X Air USB source routing** on the console / in the X-Air Edit app so
-   each channel's post-preamp tap lands on a known USB slot. (Not done in this
-   software.)
+2. **Set the X Air USB source routing** in X‑Air Edit under **In/Out → USB Sends**
+   so each channel's pre‑processing tap lands on a known USB slot. (Not done in
+   this software.)
 3. **Confirm PipeWire enumerates** the device: `pw-cli list-objects Node | grep -i audio`.
 4. **Confirm OBS consumes via PipeWire** (not raw ALSA `hw:`) for its main-mix source.
 5. **Verify a test tone** appears on the expected channel's gain window in the
