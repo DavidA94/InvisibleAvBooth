@@ -30,22 +30,22 @@ All work is committed directly to `main` (no feature branch). `npm run ci` must 
 
 ## Phase 2: Database & Admin Persistence
 
-- [ ] 7. Add `mixer_presets` table (id, mixerId FK CASCADE, name, sortOrder, `payload` JSON, createdAt) to the `applySchema()` `CREATE TABLE IF NOT EXISTS` block — a **new table needs no `migrate*()` function** (those exist only for CHECK-constraint/column alterations on existing tables). Mirrors `camera_presets`. Confirm `device_connections.metadata` reused for mixer config (model, channelCount, features, usbSlotMap — no migration).
+- [x] 7. Add `mixer_presets` table (id, mixerId FK CASCADE, name, sortOrder, `payload` JSON, createdAt) to the `applySchema()` `CREATE TABLE IF NOT EXISTS` block — a **new table needs no `migrate*()` function** (those exist only for CHECK-constraint/column alterations on existing tables). Mirrors `camera_presets`. Confirm `device_connections.metadata` reused for mixer config (model, channelCount, features, usbSlotMap — no migration).
   - _Requirements: 9.6, 10.2_
 
-- [ ] 8. Unit tests for schema — table creation, cascade delete when parent device removed, `sortOrder` ordering.
+- [x] 8. Unit tests for schema — table creation, cascade delete when parent device removed, `sortOrder` ordering.
   - _Requirements: 10_
 
-- [ ] 9. Extend `adminDeviceRoutes` to handle `deviceType = "soundboard"` via a **per-type validator seam** (map `deviceType` → validate fn, avoiding more inline `if` blocks): validate model, host/port, channel count > 0, feature flags, and `usbSlotMap` (when capture enabled); store feature toggles in the **`features` column** and model/channelCount/usbSlotMap in the **`metadata` column** (mixer-specific typed parse on read). Emit `BUS_MIXER_DEVICE_CHANGED` with `action` + `mixerId` on create/update/delete (keyed off the stored `row.deviceType` on PUT/DELETE, matching the existing camera/OBS emit pattern). **Re-run the existing camera/OBS device-CRUD E2E as a regression gate** (the validator seam touches the shared handler). Note: the probe/preset endpoints do NOT live here (see Task 10/11).
+- [x] 9. Extend `adminDeviceRoutes` to handle `deviceType = "soundboard"` via a **per-type validator seam** (map `deviceType` → validate fn, avoiding more inline `if` blocks): validate model, host/port, channel count > 0, feature flags, and `usbSlotMap` (when capture enabled); store feature toggles in the **`features` column** and model/channelCount/usbSlotMap in the **`metadata` column** (mixer-specific typed parse on read). Emit `BUS_MIXER_DEVICE_CHANGED` with `action` + `mixerId` on create/update/delete (keyed off the stored `row.deviceType` on PUT/DELETE, matching the existing camera/OBS emit pattern). **Re-run the existing camera/OBS device-CRUD E2E as a regression gate** (the validator seam touches the shared handler). Note: the probe/preset endpoints do NOT live here (see Task 10/11).
   - _Requirements: 9_
 
-- [ ] 10. Implement the mixer connection **probe** as an **inline route on the `/api/admin/mixers` mount** (mirroring camera `discover`, registered so the literal `probe` segment is not captured as `:mixerId`; NOT in `adminDeviceRoutes`, which mounts at `/api/admin/devices` and cannot serve this path) — `POST /api/admin/mixers/probe`: open a UDP socket to draft host/port, send `/xinfo`, resolve `{ ok, model?, firmware? }` on reply within `MIXER_PROBE_TIMEOUT_MS`, `{ ok: false, reason }` on timeout. ADMIN-only. Unit/E2E with a fake OSC responder (reply vs. silence). (No channel-shrink validation — the admin is trusted; out-of-range preset entries are ignored on apply.)
+- [x] 10. Implement the mixer connection **probe** as an **inline route on the `/api/admin/mixers` mount** (mirroring camera `discover`, registered so the literal `probe` segment is not captured as `:mixerId`; NOT in `adminDeviceRoutes`, which mounts at `/api/admin/devices` and cannot serve this path) — `POST /api/admin/mixers/probe`: open a UDP socket to draft host/port, send `/xinfo`, resolve `{ ok, model?, firmware? }` on reply within `MIXER_PROBE_TIMEOUT_MS`, `{ ok: false, reason }` on timeout. ADMIN-only. Unit/E2E with a fake OSC responder (reply vs. silence). (No channel-shrink validation — the admin is trusted; out-of-range preset entries are ignored on apply.)
   - _Requirements: 9.4_
 
-- [ ] 11. Create `adminMixerPresetRoutes` — a router **mounted at `/api/admin/mixers/:mixerId/presets`** (mirroring `adminPresetRoutes` for cameras): GET/POST/PUT/DELETE presets, reorder (`/order`), and `POST /api/admin/mixers/:mixerId/capture-preset` (inline on the mixers mount). ADMIN-only. Ensure route order so `probe`/`capture-preset` literals don't collide with `:mixerId`.
+- [x] 11. Create `adminMixerPresetRoutes` — a router **mounted at `/api/admin/mixers/:mixerId/presets`** (mirroring `adminPresetRoutes` for cameras): GET/POST/PUT/DELETE presets, reorder (`/order`), and `POST /api/admin/mixers/:mixerId/capture-preset` (inline on the mixers mount). ADMIN-only. Ensure route order so `probe`/`capture-preset` literals don't collide with `:mixerId`.
   - _Requirements: 10.8_
 
-- [ ] 12. Backend E2E (admin) — create/retrieve/edit device + presets; **probe** success (fake replies) vs. failure (timeout); validation errors (invalid host/port, channel count ≤ 0, invalid `usbSlotMap`, duplicate label); 403 sweep for non-admin on mixer routes.
+- [x] 12. Backend E2E (admin) — create/retrieve/edit device + presets; **probe** success (fake replies) vs. failure (timeout); validation errors (invalid host/port, channel count ≤ 0, invalid `usbSlotMap`, duplicate label); 403 sweep for non-admin on mixer routes.
   - _Requirements: 9, 9.5, 10_
 
 ---

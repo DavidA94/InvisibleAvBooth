@@ -38,6 +38,7 @@ const TABLES = [
   "streaming_platforms",
   "oauth_states",
   "camera_presets",
+  "mixer_presets",
 ];
 
 export async function buildTestServer(opts?: { seedKjv?: boolean; seedPlatform?: boolean }): Promise<TestServer> {

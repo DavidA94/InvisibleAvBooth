@@ -40,10 +40,12 @@ import { createKjvRouter } from "./routes/kjvRoutes.js";
 import { createAdminTemplateRouter } from "./routes/adminTemplateRoutes.js";
 import { createTemplateRouter } from "./routes/templateRoutes.js";
 import { createPresetRouter } from "./routes/adminPresetRoutes.js";
+import { createMixerPresetRouter } from "./routes/adminMixerPresetRoutes.js";
+import { probeMixer } from "./mixer/osc/mixerProbe.js";
 import { MetadataTemplateDao } from "./dao/metadataTemplateDao.js";
 import { createPlatformRouter, cleanupStaleOAuthStates } from "./routes/platformRoutes.js";
 import { createOverlayLogRouter } from "./routes/overlayLogRoutes.js";
-import { authenticate, requirePasswordChanged } from "./middleware/auth.js";
+import { authenticate, requirePasswordChanged, requireRole } from "./middleware/auth.js";
 
 export interface AppDependencies {
   database: Database;
@@ -157,6 +159,25 @@ export function buildApp(deps: AppDependencies): AppContext {
     }
     res.json(result.value);
   });
+
+  // ── Mixer (Sound Board) admin routes ────────────────────────────────────────
+  //
+  // Probe is an inline route on the /api/admin/mixers mount (mirrors camera
+  // `discover`), registered before the :mixerId preset router so the literal
+  // `probe` segment is never captured as a :mixerId.
+  const mixerAdminOnly = requireRole(authService, "ADMIN");
+  app.post("/api/admin/mixers/probe", mustBeAuthenticated, mustHaveChangedPassword, mixerAdminOnly, async (req, res) => {
+    const { host, port } = req.body as { host?: string; port?: number };
+    // eslint-disable-next-line eqeqeq -- catch null/undefined but not 0
+    if (!host || port == null) {
+      res.status(400).json({ error: "host and port are required" });
+      return;
+    }
+    const result = await probeMixer(host, Number(port));
+    res.json(result);
+  });
+
+  app.use("/api/admin/mixers/:mixerId/presets", mustBeAuthenticated, mustHaveChangedPassword, createMixerPresetRouter(database, authService));
 
   const gateway = new SocketGateway(httpServer, authService, [
     new ObsModule(

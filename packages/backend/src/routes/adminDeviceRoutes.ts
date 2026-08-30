@@ -7,7 +7,8 @@ import { requireRole } from "../middleware/auth.js";
 import { encrypt, decrypt } from "../crypto.js";
 import { logger } from "../logger.js";
 import { eventBus } from "../eventBus/eventBus.js";
-import { BUS_CAMERA_DEVICE_CHANGED, BUS_OBS_CONFIG_CHANGED } from "../eventBus/types.js";
+import { BUS_CAMERA_DEVICE_CHANGED, BUS_OBS_CONFIG_CHANGED, BUS_MIXER_DEVICE_CHANGED } from "../eventBus/types.js";
+import { DEVICE_VALIDATORS } from "./deviceValidators.js";
 
 interface DeviceRow {
   id: string;
@@ -89,6 +90,16 @@ export function createAdminDeviceRouter(database: Database, authService: AuthSer
       return;
     }
 
+    // Per-type metadata/feature validation via the validator seam (Req 9).
+    const validate = DEVICE_VALIDATORS[deviceType];
+    if (validate) {
+      const validationError = validate({ deviceType, label, host, port, metadata, features });
+      if (validationError) {
+        response.status(400).json({ error: validationError });
+        return;
+      }
+    }
+
     const id = randomBytes(16).toString("hex");
     const createdAt = new Date().toISOString();
     const encryptedPassword = password ? encrypt(password) : null;
@@ -104,6 +115,7 @@ export function createAdminDeviceRouter(database: Database, authService: AuthSer
     const row = database.prepare("SELECT * FROM device_connections WHERE id = ?").get(id) as DeviceRow;
     if (deviceType === "camera-ptz") eventBus.emit(BUS_CAMERA_DEVICE_CHANGED, { action: "created", deviceId: id });
     if (deviceType === "obs") eventBus.emit(BUS_OBS_CONFIG_CHANGED, { action: "created", deviceId: id });
+    if (deviceType === "soundboard") eventBus.emit(BUS_MIXER_DEVICE_CHANGED, { action: "created", mixerId: id });
     response.status(201).json(toPublic(row));
   });
 
@@ -138,6 +150,27 @@ export function createAdminDeviceRouter(database: Database, authService: AuthSer
 
     const encryptedPassword = password ? encrypt(password) : row.encryptedPassword;
 
+    // Per-type validation runs against the EFFECTIVE (merged) values, since PUT
+    // is a partial update. Keyed off the target type (incoming or stored).
+    const effectiveType = deviceType ?? row.deviceType;
+    const validate = DEVICE_VALIDATORS[effectiveType];
+    if (validate) {
+      const effectiveMetadata = (metadata ?? (JSON.parse(row.metadata) as Record<string, string>)) as Record<string, unknown>;
+      const effectiveFeatures = (features ?? (JSON.parse(row.features) as Record<string, boolean>)) as Record<string, unknown>;
+      const validationError = validate({
+        deviceType: effectiveType,
+        label: label ?? row.label,
+        host: host ?? row.host,
+        port: port ?? row.port,
+        metadata: effectiveMetadata,
+        features: effectiveFeatures,
+      });
+      if (validationError) {
+        response.status(400).json({ error: validationError });
+        return;
+      }
+    }
+
     database
       .prepare("UPDATE device_connections SET deviceType=?, label=?, host=?, port=?, encryptedPassword=?, metadata=?, features=?, enabled=? WHERE id=?")
       .run(
@@ -158,6 +191,7 @@ export function createAdminDeviceRouter(database: Database, authService: AuthSer
     const updated = database.prepare("SELECT * FROM device_connections WHERE id = ?").get(row.id) as DeviceRow;
     if (row.deviceType === "camera-ptz") eventBus.emit(BUS_CAMERA_DEVICE_CHANGED, { action: "updated", deviceId: row.id });
     if (row.deviceType === "obs") eventBus.emit(BUS_OBS_CONFIG_CHANGED, { action: "updated", deviceId: row.id });
+    if (row.deviceType === "soundboard") eventBus.emit(BUS_MIXER_DEVICE_CHANGED, { action: "updated", mixerId: row.id });
     response.json(toPublic(updated));
   });
 
@@ -173,6 +207,7 @@ export function createAdminDeviceRouter(database: Database, authService: AuthSer
     logger.info("Device connection deleted", { userId: request.jwtPayload!.sub, context: { deviceId: request.params["id"] } });
     if (row.deviceType === "camera-ptz") eventBus.emit(BUS_CAMERA_DEVICE_CHANGED, { action: "deleted", deviceId: row.id });
     if (row.deviceType === "obs") eventBus.emit(BUS_OBS_CONFIG_CHANGED, { action: "deleted", deviceId: row.id });
+    if (row.deviceType === "soundboard") eventBus.emit(BUS_MIXER_DEVICE_CHANGED, { action: "deleted", mixerId: row.id });
     response.status(204).send();
   });
 

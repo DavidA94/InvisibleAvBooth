@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@invisible-av-booth/shared": "*",
+    "@mxfriend/osc": "3.0.0-alpha.2",
     "bcrypt": "^6.0.0",
     "better-sqlite3": "^12.9.0",
     "cookie-parser": "^1.4.6",

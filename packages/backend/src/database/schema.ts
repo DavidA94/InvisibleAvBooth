@@ -109,6 +109,19 @@ export function applySchema(database: Database): void {
     );
 
     CREATE INDEX IF NOT EXISTS idx_camera_presets_camera ON camera_presets(cameraId);
+
+    CREATE TABLE IF NOT EXISTS mixer_presets (
+      id TEXT PRIMARY KEY NOT NULL,
+      mixerId TEXT NOT NULL REFERENCES device_connections(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      sortOrder INTEGER NOT NULL DEFAULT 0,
+      -- Open OSC address→value map (JSON). v1 holds fader/mute/gain for all
+      -- configured channels; future parameters (e.g. EQ) need no schema change.
+      payload TEXT NOT NULL DEFAULT '{}',
+      createdAt TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_mixer_presets_mixer ON mixer_presets(mixerId);
   `);
 
   migrateMetadataTemplates(database);
