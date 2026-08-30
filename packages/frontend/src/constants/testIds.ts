@@ -310,3 +310,28 @@ export const TEST_ID_PRESET_POSITION_SUMMARY = "position-summary";
 // ── Camera Device Form ─────────────────────────────────────────────────────────
 export const TEST_ID_CAMERA_NDI_SOURCE = "camera-ndi-source";
 export const TEST_ID_DEVICE_FORM_NDI_EXTRA_IPS = "device-form-ndi-extra-ips";
+
+// ── Sound Board Widget ─────────────────────────────────────────────────────────
+export const TEST_ID_SOUNDBOARD_WIDGET = "soundboard-widget";
+export const TEST_ID_SOUNDBOARD_MIXER_SELECT = "soundboard-mixer-select";
+export const TEST_ID_SOUNDBOARD_STRIP_ROW = "soundboard-strip-row";
+export const TEST_ID_SOUNDBOARD_CHANNEL_STRIP = "soundboard-channel-strip";
+export const TEST_ID_SOUNDBOARD_CHANNEL_NAME = "soundboard-channel-name";
+export const TEST_ID_SOUNDBOARD_EMPTY_PLACEHOLDER = "soundboard-empty-placeholder";
+export const TEST_ID_MIXER_VERTICAL_FADER = "mixer-vertical-fader";
+export const TEST_ID_MIXER_CHANNEL_METER = "mixer-channel-meter";
+export const TEST_ID_MIXER_MUTE_BUTTON = "mixer-mute-button";
+export const TEST_ID_MIXER_MUTE_STATUS = "mixer-mute-status";
+export const TEST_ID_MIXER_ADJUST_GAIN_BUTTON = "mixer-adjust-gain-button";
+export const TEST_ID_MIXER_GAIN_MODAL = "mixer-gain-modal";
+export const TEST_ID_MIXER_GAIN_SLIDER = "mixer-gain-slider";
+export const TEST_ID_MIXER_GAIN_SEMICIRCLE = "mixer-gain-semicircle";
+export const TEST_ID_MIXER_ENVELOPE_CANVAS = "mixer-envelope-canvas";
+export const TEST_ID_MIXER_GAIN_UNAVAILABLE_NOTE = "mixer-gain-unavailable-note";
+export const TEST_ID_MIXER_PRESETS_AREA = "mixer-presets-area";
+export const TEST_ID_MIXER_PRESET_BUTTON = "mixer-preset-button";
+export const TEST_ID_MIXER_VIEW_ALL_PRESETS_BUTTON = "mixer-view-all-presets-button";
+export const TEST_ID_MIXER_VIEW_ALL_PRESETS_MODAL = "mixer-view-all-presets-modal";
+export const TEST_ID_MIXER_PAGINATION = "mixer-pagination";
+export const TEST_ID_MIXER_PAGINATION_PREV = "mixer-pagination-prev";
+export const TEST_ID_MIXER_PAGINATION_NEXT = "mixer-pagination-next";

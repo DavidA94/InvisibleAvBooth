@@ -138,22 +138,22 @@ All work is committed directly to `main` (no feature branch). `npm run ci` must 
 
 ## Phase 7: Widget Building Blocks
 
-- [ ] 33. Implement `useHeldControl` hook — suppress-in (`CONTROL_SUPPRESS_MS`, drop during window, apply after), throttle-out (`CONTROL_THROTTLE_MS`), guaranteed final emit on release. Unit tests: during-window drop, after-window apply, final emit, throttle spacing.
+- [x] 33. Implement `useHeldControl` hook — suppress-in (`CONTROL_SUPPRESS_MS`, drop during window, apply after), throttle-out (`CONTROL_THROTTLE_MS`), guaranteed final emit on release. Unit tests: during-window drop, after-window apply, final emit, throttle spacing.
   - _Requirements: 8_
 
-- [ ] 34. Refactor `AudioLevelMeter` to extract a shared **mono** meter (`ChannelLevelMeter`) — lift both the private `MeterBar` AND the **per-channel peak-hold decay logic that currently lives in the parent** into the mono meter; OBS stereo meter then composes two mono meters. Preserve the `--fill-percent` CSS-var inline-style exception. Add a **distinct inactive/−∞ visual** (dimmed "no-signal" state) separate from live silence (Req 5.4). Keep existing OBS `AudioLevelMeter` tests green. Add mono-meter + inactive-state tests.
+- [x] 34. Refactor `AudioLevelMeter` to extract a shared **mono** meter (`ChannelLevelMeter`) — lift both the private `MeterBar` AND the **per-channel peak-hold decay logic that currently lives in the parent** into the mono meter; OBS stereo meter then composes two mono meters. Preserve the `--fill-percent` CSS-var inline-style exception. Add a **distinct inactive/−∞ visual** (dimmed "no-signal" state) separate from live silence (Req 5.4). Keep existing OBS `AudioLevelMeter` tests green. Add mono-meter + inactive-state tests.
   - _Requirements: 5.4, 15.2_
 
-- [ ] 35. Implement `VerticalFader` — vertical **MUI `Slider`** (`@mui/material`, `orientation="vertical"`, as used by the camera zoom control; not `ion-range`) with dB tick `marks` (`FADER_TICKS_DB`), value via `faderFloatToDb`, `useHeldControl`, emits `CTS_MIXER_SET { fader }`. `data-state` incl. an **`unreconciled`** state (read-back exhausted, Req 15.8) with subtle visual, auto-clearing on next confirmed value. Unit tests incl. suppression/throttle + unreconciled set/clear.
+- [x] 35. Implement `VerticalFader` — vertical **MUI `Slider`** (`@mui/material`, `orientation="vertical"`, as used by the camera zoom control; not `ion-range`) with dB tick `marks` (`FADER_TICKS_DB`), value via `faderFloatToDb`, `useHeldControl`, emits `CTS_MIXER_SET { fader }`. `data-state` incl. an **`unreconciled`** state (read-back exhausted, Req 15.8) with subtle visual, auto-clearing on next confirmed value. Unit tests incl. suppression/throttle + unreconciled set/clear.
   - _Requirements: 5.3, 8, 15.8_
 
-- [ ] 36. Implement `MuteButton` — physical-button affordance, "Audio: On"/"Audio: Off" + green/red dot, "Mute" label; `data-state=muted/active`; discrete (bypasses the fader/gain hold model but is NOT optimistic); emits `CTS_MIXER_SET { muted }`. On toggle it enters `data-state="unknown"` / "Audio: Unknown" / yellow dot **immediately** and stays there until the mixer confirms (read-back or `/xremote`), then resolves to the mixer-reported value — never showing an unconfirmed On/Off (Req 6.3/6.6). Also enters the unknown state on read-back exhaustion. Reflects external backend changes to the mixer-reported value. Unit tests: toggle→Unknown→resolve-on-confirm; false On/Off never shown pre-confirm; read-back-exhausted → Unknown; external change reflected.
+- [x] 36. Implement `MuteButton` — physical-button affordance, "Audio: On"/"Audio: Off" + green/red dot, "Mute" label; `data-state=muted/active`; discrete (bypasses the fader/gain hold model but is NOT optimistic); emits `CTS_MIXER_SET { muted }`. On toggle it enters `data-state="unknown"` / "Audio: Unknown" / yellow dot **immediately** and stays there until the mixer confirms (read-back or `/xremote`), then resolves to the mixer-reported value — never showing an unconfirmed On/Off (Req 6.3/6.6). Also enters the unknown state on read-back exhaustion. Reflects external backend changes to the mixer-reported value. Unit tests: toggle→Unknown→resolve-on-confirm; false On/Off never shown pre-confirm; read-back-exhausted → Unknown; external change reflected.
   - _Requirements: 6_
 
-- [ ] 37. Implement `GainSemicircle` — arc fills clockwise 0%=`minDb` → 100%=`maxDb`. Updates from local + backend. Unit tests.
+- [x] 37. Implement `GainSemicircle` — arc fills clockwise 0%=`minDb` → 100%=`maxDb`. Updates from local + backend. Unit tests.
   - _Requirements: 7.2, 7.6_
 
-- [ ] 38. Implement `EnvelopeCanvas` — draw the real post-preamp **envelope** on the dBFS axis (0..−60), plus the `GoodRangeBand` (`GOOD_RANGE_BAND_DBFS`) and the red/blue fades (`RED_FADE_DBFS`/`BLUE_FADE_DBFS`) at their dB positions. The envelope maps dBFS→screen position so it moves vertically when gain changes (driven by the slider). Draw-only, never plays audio; `requestAnimationFrame` with a ring buffer sized to the visible window. Unit tests: band/fade render at the configured dB values; envelope y-position tracks a changing gain value.
+- [x] 38. Implement `EnvelopeCanvas` — draw the real post-preamp **envelope** on the dBFS axis (0..−60), plus the `GoodRangeBand` (`GOOD_RANGE_BAND_DBFS`) and the red/blue fades (`RED_FADE_DBFS`/`BLUE_FADE_DBFS`) at their dB positions. The envelope maps dBFS→screen position so it moves vertically when gain changes (driven by the slider). Draw-only, never plays audio; `requestAnimationFrame` with a ring buffer sized to the visible window. Unit tests: band/fade render at the configured dB values; envelope y-position tracks a changing gain value.
   - _Requirements: 7.4_
 
 ---

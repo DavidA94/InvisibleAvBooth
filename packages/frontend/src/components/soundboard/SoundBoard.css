@@ -1,0 +1,183 @@
+/* Sound Board widget styles.
+ *
+ * Colors reference the theme tokens in variables.css. All sizing is rem-based
+ * (steering §10). The --fill-percent / --peak-percent CSS vars are the documented
+ * inline-style exception for runtime-computed meter heights (code-style §No-Inline-Styles).
+ */
+
+/* ── Channel level meter: inactive / no-signal state (Req 5.4) ─────────────── */
+/* Dimmed treatment, unambiguously different from a live meter reading silence. */
+.audio-meter-inactive {
+  opacity: 0.35;
+  filter: grayscale(0.8);
+}
+
+/* ── Vertical fader ────────────────────────────────────────────────────────── */
+.mixer-vertical-fader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 100%;
+}
+
+.mixer-fader-db {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  margin-top: 0.25rem;
+}
+
+/* Subtle treatment for an unreconciled control (Req 15.8). */
+.mixer-control-unreconciled {
+  outline: 0.125rem dashed var(--color-warning);
+  outline-offset: 0.125rem;
+}
+
+/* ── Mute button ───────────────────────────────────────────────────────────── */
+.mixer-mute {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.mixer-mute-status {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.8125rem;
+}
+
+.mixer-mute-dot {
+  width: 0.625rem;
+  height: 0.625rem;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.mixer-mute-dot-on {
+  background: var(--color-success);
+}
+
+.mixer-mute-dot-off {
+  background: var(--color-danger);
+}
+
+.mixer-mute-dot-unknown {
+  background: var(--color-warning);
+}
+
+.mixer-mute-button {
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  border-radius: 0.375rem;
+  border: 0.0625rem solid var(--color-border);
+  background: var(--color-surface-raised);
+  color: var(--color-text-muted); /* light-grey "Mute" label */
+  cursor: pointer;
+}
+
+.mixer-mute-button[data-state="muted"] {
+  background: var(--color-primary);
+  color: var(--color-text);
+}
+
+/* ── Gain semicircle ───────────────────────────────────────────────────────── */
+.mixer-gain-semicircle {
+  width: 6rem;
+  height: 3.5rem;
+}
+
+.mixer-gain-arc-track {
+  stroke: var(--color-border);
+}
+
+.mixer-gain-arc-fill {
+  stroke: var(--color-primary);
+  transition: stroke-dashoffset 0.1s linear;
+}
+
+.mixer-gain-arc-label {
+  fill: var(--color-text);
+  font-size: 0.75rem;
+}
+
+/* ── Envelope canvas ───────────────────────────────────────────────────────── */
+.mixer-envelope-canvas {
+  display: block;
+  background: var(--color-bg);
+  border-radius: 0.375rem;
+  width: 100%;
+}
+
+/* ── Channel strip / layout ────────────────────────────────────────────────── */
+.soundboard-widget {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  gap: var(--space-widget-inner);
+}
+
+.soundboard-strip-row {
+  display: flex;
+  gap: var(--space-control-gap);
+  flex: 1;
+  min-height: 0;
+}
+
+.soundboard-channel-strip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.375rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.soundboard-channel-name {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.soundboard-fader-meter-row {
+  display: flex;
+  gap: 0.25rem;
+  flex: 1;
+  min-height: 0;
+}
+
+/* ── Presets area ──────────────────────────────────────────────────────────── */
+.mixer-presets-area {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-control-gap);
+  max-height: 5.5rem; /* ~two rows */
+  overflow: hidden;
+}
+
+.mixer-preset-button {
+  min-height: 2.5rem;
+  padding: 0 0.75rem;
+  border-radius: 0.375rem;
+  border: 0.0625rem solid var(--color-border);
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+/* ── Pagination (fixed top/bottom slots, Req 13.6) ─────────────────────────── */
+.mixer-pagination {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  flex: 1;
+  min-width: 0;
+}
+
+.mixer-pagination-slot {
+  min-height: 2.5rem;
+}
