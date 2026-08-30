@@ -7,6 +7,7 @@ import { createPlatformSlice } from "./platformSlice";
 import { createLowerThirdSlice } from "./lowerThirdSlice";
 import { createObsPreviewSlice } from "./obsPreviewSlice";
 import { createCameraSlice } from "./cameraSlice";
+import { createMixerSlice } from "./mixerSlice";
 import type { AuthSlice } from "./authSlice";
 import type { ObsSlice } from "./obsSlice";
 import type { SessionManifestSlice } from "./sessionManifestSlice";
@@ -15,8 +16,17 @@ import type { PlatformSlice } from "./platformSlice";
 import type { LowerThirdSlice } from "./lowerThirdSlice";
 import type { ObsPreviewSlice } from "./obsPreviewSlice";
 import type { CameraSlice } from "./cameraSlice";
+import type { MixerSlice } from "./mixerSlice";
 
-export type AppStore = AuthSlice & ObsSlice & SessionManifestSlice & NotificationSlice & PlatformSlice & LowerThirdSlice & ObsPreviewSlice & CameraSlice;
+export type AppStore = AuthSlice &
+  ObsSlice &
+  SessionManifestSlice &
+  NotificationSlice &
+  PlatformSlice &
+  LowerThirdSlice &
+  ObsPreviewSlice &
+  CameraSlice &
+  MixerSlice;
 
 export const useStore = create<AppStore>()((...args) => ({
   ...createAuthSlice(...args),
@@ -27,4 +37,5 @@ export const useStore = create<AppStore>()((...args) => ({
   ...createLowerThirdSlice(...args),
   ...createObsPreviewSlice(...args),
   ...createCameraSlice(...args),
+  ...createMixerSlice(...args),
 }));

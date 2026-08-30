@@ -10,6 +10,7 @@ import { registerConnectionSocketHandlers } from "./socketModules/connectionSock
 import { registerPlatformSocketHandlers } from "./socketModules/platformSocketModule";
 import { registerLowerThirdSocketHandlers } from "./socketModules/lowerThirdSocketModule";
 import { registerCameraSocketHandlers } from "./socketModules/cameraSocketModule";
+import { registerMixerSocketHandlers } from "./socketModules/mixerSocketModule";
 
 const SocketContext = createContext<Socket | null>(null);
 
@@ -44,6 +45,7 @@ export function SocketProvider({ children }: SocketProviderProps): ReactNode {
     registerPlatformSocketHandlers(newSocket);
     registerLowerThirdSocketHandlers(newSocket);
     registerCameraSocketHandlers(newSocket);
+    registerMixerSocketHandlers(newSocket);
 
     return () => {
       newSocket.disconnect();

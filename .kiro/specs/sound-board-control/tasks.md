@@ -128,10 +128,10 @@ All work is committed directly to `main` (no feature branch). `npm run ci` must 
 
 ## Phase 6: Frontend State & Socket Wiring
 
-- [ ] 31. Add `mixerSlice` (Zustand) — `mixerStates`, `mixerLevels`, setters/appliers. Unit tests.
+- [x] 31. Add `mixerSlice` (Zustand) — `mixerStates`, `mixerLevels`, setters/appliers. Unit tests.
   - _Requirements: 11_
 
-- [ ] 32. Add `mixerSocketModule` (frontend) — wire `STC_MIXER_STATE`/`STC_MIXER_STATE_UPDATE`/`STC_MIXER_LEVELS` to slice; wire `STC_MIXER_ERROR` → `addNotification({ id: errorCode, level: "modal", severity: "error", message, errorCode })` and `STC_MIXER_ERROR_RESOLVED` → `removeNotification(errorCode)` (identical to `obsSocketModule`'s error handling — the `id === errorCode` linkage is what auto-clears the modal); emit `CTS_MIXER_WIDGET_PRESENT { mixerId, present }` on widget mount/unmount (per mixer). Register in `SocketProvider`. Unit tests incl. modal raise + auto-clear.
+- [x] 32. Add `mixerSocketModule` (frontend) — wire `STC_MIXER_STATE`/`STC_MIXER_STATE_UPDATE`/`STC_MIXER_LEVELS` to slice; wire `STC_MIXER_ERROR` → `addNotification({ id: errorCode, level: "modal", severity: "error", message, errorCode })` and `STC_MIXER_ERROR_RESOLVED` → `removeNotification(errorCode)` (identical to `obsSocketModule`'s error handling — the `id === errorCode` linkage is what auto-clears the modal); emit `CTS_MIXER_WIDGET_PRESENT { mixerId, present }` on widget mount/unmount (per mixer). Register in `SocketProvider`. Unit tests incl. modal raise + auto-clear.
   - _Requirements: 11, 12.4, 15.7_
 
 ---
