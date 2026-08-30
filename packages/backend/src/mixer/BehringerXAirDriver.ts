@@ -91,6 +91,7 @@ export class BehringerXAirDriver implements MixerControlInterface {
         faderDb: -Infinity,
         muted: false,
         gainDb: X_AIR_GAIN_RANGE.minDb,
+        unreconciled: false,
       });
     }
   }
@@ -170,7 +171,7 @@ export class BehringerXAirDriver implements MixerControlInterface {
   async setFader(channel: number, level: number): Promise<void> {
     const clamped = Math.max(0, Math.min(1, level));
     this.transport.send(chFader(channel), "f", [clamped]);
-    await this.reconcile(chFader(channel), (values) => {
+    await this.reconcile(chFader(channel), channel, (values) => {
       const value = typeof values[0] === "number" ? values[0] : clamped;
       this.applyFader(channel, value);
     });
@@ -180,7 +181,7 @@ export class BehringerXAirDriver implements MixerControlInterface {
     // INVERTED: muted=true → mix/on 0.
     const on = muted ? 0 : 1;
     this.transport.send(chOn(channel), "i", [on]);
-    await this.reconcile(chOn(channel), (values) => {
+    await this.reconcile(chOn(channel), channel, (values) => {
       const value = typeof values[0] === "number" ? values[0] : on;
       this.applyMute(channel, value === 0);
     });
@@ -195,7 +196,7 @@ export class BehringerXAirDriver implements MixerControlInterface {
     }
     const clamped = Math.max(X_AIR_GAIN_RANGE.minDb, Math.min(X_AIR_GAIN_RANGE.maxDb, gainDb));
     this.transport.send(headampGain(channel), "f", [clamped]);
-    await this.reconcile(headampGain(channel), (values) => {
+    await this.reconcile(headampGain(channel), channel, (values) => {
       const value = typeof values[0] === "number" ? values[0] : clamped;
       this.applyGain(channel, value);
     });
@@ -208,7 +209,7 @@ export class BehringerXAirDriver implements MixerControlInterface {
    * (authoritative). On exhaustion we WARN-log and leave the channel marked
    * unreconciled (the service/UI surfaces this — Req 15.8).
    */
-  private async reconcile(address: string, apply: (values: Array<number | string | Uint8Array>) => void): Promise<void> {
+  private async reconcile(address: string, channel: number, apply: (values: Array<number | string | Uint8Array>) => void): Promise<void> {
     for (let attempt = 0; attempt <= READBACK_MAX_RETRIES; attempt++) {
       const reply = await this.query(address);
       if (reply) {
@@ -218,6 +219,15 @@ export class BehringerXAirDriver implements MixerControlInterface {
       }
     }
     logger.warn("Mixer read-back exhausted", { context: { mixerId: this.config.mixerId, address } });
+    this.markUnreconciled(channel);
+  }
+
+  /** Mark a channel unreconciled (read-back exhausted, Req 15.8) and emit state. */
+  private markUnreconciled(channel: number): void {
+    const state = this.channels.get(channel);
+    if (!state || state.unreconciled) return;
+    state.unreconciled = true;
+    this.emitState(state);
   }
 
   /** Send a query for an address and await one reply within the timeout. */
@@ -316,6 +326,7 @@ export class BehringerXAirDriver implements MixerControlInterface {
     if (!state) return;
     state.fader = float;
     state.faderDb = faderFloatToDb(float);
+    state.unreconciled = false; // a confirmed value clears the unreconciled flag (Req 15.8)
     this.emitState(state);
   }
 
@@ -323,6 +334,7 @@ export class BehringerXAirDriver implements MixerControlInterface {
     const state = this.channels.get(channel);
     if (!state) return;
     state.muted = muted;
+    state.unreconciled = false;
     this.emitState(state);
   }
 
@@ -330,6 +342,7 @@ export class BehringerXAirDriver implements MixerControlInterface {
     const state = this.channels.get(channel);
     if (!state) return;
     state.gainDb = gainDb;
+    state.unreconciled = false;
     this.emitState(state);
   }
 

@@ -105,7 +105,7 @@ export function SoundBoardWidget(): ReactNode {
   const gainState = gainChannel !== null ? channelByIndex(gainChannel) : undefined;
 
   return (
-    <div data-testid={TEST_ID_SOUNDBOARD_WIDGET} ref={containerRef} className="full-height">
+    <div data-testid={TEST_ID_SOUNDBOARD_WIDGET} data-status={connected ? "online" : "offline"} ref={containerRef} className="full-height">
       <WidgetContainer title="Sound Board" connections={connections}>
         <WidgetErrorOverlay isVisible={!connected} message="Mixer offline" actionLabel="" isPending={false}>
           <div className="soundboard-widget">
@@ -139,6 +139,7 @@ export function SoundBoardWidget(): ReactNode {
                       features={state!.capabilities.features}
                       levelDb={levelsForMixer?.[index] ?? LEVEL_AXIS_MIN_DBFS}
                       levelEventsFlowing={stateFresh && levelsForMixer?.[index] !== undefined}
+                      faderUnreconciled={channel.unreconciled ?? false}
                       onFaderChange={(fader) => emitSet(index, { fader })}
                       onMuteToggle={(muted) => emitSet(index, { muted })}
                       onAdjustGain={() => setGainChannel(index)}

@@ -73,7 +73,7 @@ export function ChannelStrip({
         )}
       </div>
 
-      <MuteButton channel={channel.channel} muted={channel.muted} onToggle={onMuteToggle} />
+      <MuteButton channel={channel.channel} muted={channel.muted} unreconciled={channel.unreconciled ?? false} onToggle={onMuteToggle} />
     </div>
   );
 }

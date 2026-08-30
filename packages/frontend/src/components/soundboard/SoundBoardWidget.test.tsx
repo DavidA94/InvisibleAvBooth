@@ -91,6 +91,7 @@ describe("SoundBoardWidget", () => {
     useStore.setState({ mixerStates: { mix1: makeMixer() } });
     render(<SoundBoardWidget />);
     expect(screen.getByTestId(TEST_ID_SOUNDBOARD_WIDGET)).toBeInTheDocument();
+    expect(screen.getByTestId(TEST_ID_SOUNDBOARD_WIDGET).getAttribute("data-status")).toBe("online");
     expect(screen.getByTestId(TEST_ID_SOUNDBOARD_STRIP_ROW)).toBeInTheDocument();
     // Controls indicator shows healthy on fresh state.
     const indicators = screen.getByTestId(TEST_ID_CONNECTION_INDICATORS);
@@ -102,6 +103,7 @@ describe("SoundBoardWidget", () => {
     render(<SoundBoardWidget />);
     const overlay = screen.getByTestId(TEST_ID_WIDGET_ERROR_OVERLAY);
     expect(overlay).toBeInTheDocument();
+    expect(screen.getByTestId(TEST_ID_SOUNDBOARD_WIDGET).getAttribute("data-status")).toBe("offline");
     // Controls indicator shows unhealthy when offline.
     const indicators = screen.getByTestId(TEST_ID_CONNECTION_INDICATORS);
     expect(indicators.querySelector('[data-status="unhealthy"]')).not.toBeNull();

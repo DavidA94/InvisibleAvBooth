@@ -89,6 +89,7 @@ test.describe("Sound Board widget", () => {
 
     await expect(page.getByTestId("soundboard-channel-name-1")).toContainText("Vocals");
     await expect(page.getByTestId("soundboard-channel-name-2")).toContainText("Guitar");
+    await expect(page.getByTestId("soundboard-widget")).toHaveAttribute("data-status", "online");
     // Controls indicator green (healthy) on fresh state.
     await expect(page.locator("[data-testid='connection-indicators'] [data-status='healthy']").first()).toBeVisible();
   });
@@ -150,6 +151,7 @@ test.describe("Sound Board widget", () => {
     await loginAndNavigate(page);
 
     await expect(page.getByTestId("widget-error-overlay")).toBeVisible();
+    await expect(page.getByTestId("soundboard-widget")).toHaveAttribute("data-status", "offline");
     await expect(page.locator("[data-testid='connection-indicators'] [data-status='unhealthy']").first()).toBeVisible();
   });
 

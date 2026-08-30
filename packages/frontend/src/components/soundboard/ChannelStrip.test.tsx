@@ -76,4 +76,22 @@ describe("ChannelStrip", () => {
     screen.getByTestId(`${TEST_ID_MIXER_ADJUST_GAIN_BUTTON}-1`).click();
     expect(onAdjustGain).toHaveBeenCalled();
   });
+
+  it("propagates unreconciled to the fader and mute (Req 15.8 / 6.6)", () => {
+    render(
+      <ChannelStrip
+        channel={{ ...CHANNEL, unreconciled: true }}
+        features={[]}
+        levelDb={-20}
+        levelEventsFlowing={true}
+        faderUnreconciled={true}
+        onFaderChange={vi.fn()}
+        onMuteToggle={vi.fn()}
+        onAdjustGain={vi.fn()}
+      />,
+    );
+    expect(screen.getByTestId(`${TEST_ID_MIXER_VERTICAL_FADER}-1`).getAttribute("data-state")).toBe("unreconciled");
+    // Mute shows the "Audio: Unknown" form of unreconciled.
+    expect(screen.getByTestId(`${TEST_ID_MIXER_MUTE_BUTTON}-1`).getAttribute("data-state")).toBe("unknown");
+  });
 });

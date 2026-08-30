@@ -51,6 +51,12 @@ export interface MixerChannelState {
   muted: boolean;
   /** Preamp gain in dB, within capabilities.gainRange. */
   gainDb: number;
+  /**
+   * true when a set command's read-back was exhausted (Req 15.8) — the value
+   * shown may not be mixer-confirmed. Cleared on the next confirmed value
+   * (read-back success or /xremote push). Optional/absent = reconciled.
+   */
+  unreconciled?: boolean;
 }
 
 export interface MixerPresetSummary {

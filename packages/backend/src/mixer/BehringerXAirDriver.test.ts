@@ -161,8 +161,21 @@ describe("BehringerXAirDriver", () => {
       transport.autoReply = false; // console never replies
       const before = driver.getChannelState(1)?.fader ?? 0;
       await driver.setFader(1, 0.9);
-      // No reply → state unchanged (service/UI surfaces unreconciled separately).
+      // No reply → value unchanged, but the channel is marked unreconciled (Req 15.8).
       expect(driver.getChannelState(1)?.fader).toBe(before);
+      expect(driver.getChannelState(1)?.unreconciled).toBe(true);
+    });
+
+    it("clears unreconciled on the next confirmed value (read-back or external push)", async () => {
+      const { driver, transport } = makeDriver();
+      await driver.connect();
+      transport.autoReply = false;
+      await driver.setFader(1, 0.9); // exhausts → unreconciled
+      expect(driver.getChannelState(1)?.unreconciled).toBe(true);
+      // An external /xremote push confirms a value → clears the flag.
+      transport.inject("/ch/01/mix/fader", [0.6]);
+      expect(driver.getChannelState(1)?.unreconciled).toBe(false);
+      expect(driver.getChannelState(1)?.fader).toBeCloseTo(0.6, 5);
     });
   });
 
