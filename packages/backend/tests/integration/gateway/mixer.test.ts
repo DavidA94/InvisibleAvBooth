@@ -63,9 +63,13 @@ async function createMixer(overrides: Partial<typeof mixerBody> = {}): Promise<s
     .set("Cookie", adminCookie)
     .send({ ...mixerBody, ...overrides });
   expect(res.status).toBe(201);
-  // Give the async hot-reload (driver connect) a tick.
-  await new Promise((r) => setTimeout(r, 20));
-  return res.body.id as string;
+  const mixerId = res.body.id as string;
+  // Deterministically wait for the async hot-reload to register the driver instance.
+  const start = Date.now();
+  while (!s.fakeMixer.get(mixerId) && Date.now() - start < 2000) {
+    await new Promise((r) => setTimeout(r, 5));
+  }
+  return mixerId;
 }
 
 const waitFor = <T>(client: ClientSocket, event: string, timeoutMs = 2000): Promise<T> =>
@@ -77,49 +81,59 @@ const waitFor = <T>(client: ClientSocket, event: string, timeoutMs = 2000): Prom
     });
   });
 
+/** Poll until `predicate` holds (deterministic — no reliance on a fixed sleep). */
+const waitUntil = async (predicate: () => boolean, timeoutMs = 2000): Promise<void> => {
+  const start = Date.now();
+  while (!predicate() && Date.now() - start < timeoutMs) {
+    await new Promise((r) => setTimeout(r, 5));
+  }
+};
+
 describe("Mixer commands → driver forwarding", () => {
   it("forwards a fader command to the driver", async () => {
     const mixerId = await createMixer();
     const client = await connectClient();
-    client.emit(CTS_MIXER_SET, { mixerId, channel: 1, fader: 0.75 });
-    await new Promise((r) => setTimeout(r, 50));
     const driver = s.fakeMixer.get(mixerId)!;
+    client.emit(CTS_MIXER_SET, { mixerId, channel: 1, fader: 0.75 });
+    await waitUntil(() => driver.commands.some((c) => c.op === "fader"));
     expect(driver.commands).toContainEqual({ op: "fader", channel: 1, value: 0.75 });
   });
 
   it("forwards a mute command (interface muted=true)", async () => {
     const mixerId = await createMixer();
     const client = await connectClient();
+    const driver = s.fakeMixer.get(mixerId)!;
     client.emit(CTS_MIXER_SET, { mixerId, channel: 2, muted: true });
-    await new Promise((r) => setTimeout(r, 50));
-    expect(s.fakeMixer.get(mixerId)!.commands).toContainEqual({ op: "mute", channel: 2, value: true });
+    await waitUntil(() => driver.commands.some((c) => c.op === "mute"));
+    expect(driver.commands).toContainEqual({ op: "mute", channel: 2, value: true });
   });
 
   it("forwards a gain command when gain-control is enabled", async () => {
     const mixerId = await createMixer();
     const client = await connectClient();
+    const driver = s.fakeMixer.get(mixerId)!;
     client.emit(CTS_MIXER_SET, { mixerId, channel: 1, gainDb: 24 });
-    await new Promise((r) => setTimeout(r, 50));
-    expect(s.fakeMixer.get(mixerId)!.commands).toContainEqual({ op: "gain", channel: 1, value: 24 });
+    await waitUntil(() => driver.commands.some((c) => c.op === "gain"));
+    expect(driver.commands).toContainEqual({ op: "gain", channel: 1, value: 24 });
   });
 
   it("does NOT forward gain when gain-control is disabled (capability enforcement)", async () => {
     const mixerId = await createMixer({ features: { "gain-control": false, "channel-metering": true, "channel-audio-capture": false } });
     const client = await connectClient();
-    client.emit(CTS_MIXER_SET, { mixerId, channel: 1, gainDb: 24 });
-    await new Promise((r) => setTimeout(r, 50));
-    expect(s.fakeMixer.get(mixerId)!.commands.find((c) => c.op === "gain")).toBeUndefined();
+    const driver = s.fakeMixer.get(mixerId)!;
+    // Also send a fader so we have a positive signal that the message was processed.
+    client.emit(CTS_MIXER_SET, { mixerId, channel: 1, gainDb: 24, fader: 0.3 });
+    await waitUntil(() => driver.commands.some((c) => c.op === "fader"));
+    expect(driver.commands.find((c) => c.op === "gain")).toBeUndefined();
   });
 
   it("each field is a separate command (fader + mute + gain in one message)", async () => {
     const mixerId = await createMixer();
     const client = await connectClient();
+    const driver = s.fakeMixer.get(mixerId)!;
     client.emit(CTS_MIXER_SET, { mixerId, channel: 3, fader: 0.5, muted: false, gainDb: 10 });
-    await new Promise((r) => setTimeout(r, 50));
-    const ops = s.fakeMixer
-      .get(mixerId)!
-      .commands.filter((c) => c.channel === 3)
-      .map((c) => c.op);
+    await waitUntil(() => driver.commands.filter((c) => c.channel === 3).length >= 3);
+    const ops = driver.commands.filter((c) => c.channel === 3).map((c) => c.op);
     expect(ops).toEqual(expect.arrayContaining(["fader", "mute", "gain"]));
   });
 });
@@ -180,21 +194,15 @@ describe("emitInitialState & presets", () => {
 
     const client = await connectClient();
     client.emit(CTS_MIXER_PRESET_ACTIVATE, { mixerId, presetId });
-    await new Promise((r) => setTimeout(r, 50));
-    const commands = s.fakeMixer.get(mixerId)!.commands;
+    const driver = s.fakeMixer.get(mixerId)!;
+    await waitUntil(() => driver.commands.some((c) => c.op === "fader") && driver.commands.some((c) => c.op === "mute"));
+    const commands = driver.commands;
     expect(commands).toContainEqual({ op: "fader", channel: 1, value: 0.8 });
     expect(commands).toContainEqual({ op: "mute", channel: 1, value: true }); // on=0 → muted
   });
 });
 
 describe("Metering lifecycle & presence", () => {
-  const waitUntil = async (predicate: () => boolean, timeoutMs = 1500): Promise<void> => {
-    const start = Date.now();
-    while (!predicate() && Date.now() - start < timeoutMs) {
-      await new Promise((r) => setTimeout(r, 10));
-    }
-  };
-
   it("enables metering when a widget is present and disables when none remain", async () => {
     const mixerId = await createMixer();
     const driver = s.fakeMixer.get(mixerId)!;
@@ -228,9 +236,10 @@ describe("Role enforcement", () => {
     const volCookie = await loginAs(s.agent, s.ctx.authService, "vol1", "pass", "AvVolunteer");
     const volToken = /token=([^;]+)/.exec(volCookie)?.[1] ?? "";
     const client = await connectClient(volToken);
+    const driver = s.fakeMixer.get(mixerId)!;
     client.emit(CTS_MIXER_SET, { mixerId, channel: 1, fader: 0.3 });
-    await new Promise((r) => setTimeout(r, 50));
-    expect(s.fakeMixer.get(mixerId)!.commands).toContainEqual({ op: "fader", channel: 1, value: 0.3 });
+    await waitUntil(() => driver.commands.some((c) => c.op === "fader"));
+    expect(driver.commands).toContainEqual({ op: "fader", channel: 1, value: 0.3 });
   });
 });
 
@@ -240,7 +249,7 @@ describe("Multiple mixers", () => {
     const mixerB = await createMixer({ label: "B" });
     const client = await connectClient();
     client.emit(CTS_MIXER_SET, { mixerId: mixerB, channel: 1, fader: 0.6 });
-    await new Promise((r) => setTimeout(r, 50));
+    await waitUntil(() => s.fakeMixer.get(mixerB)!.commands.some((c) => c.op === "fader"));
     expect(s.fakeMixer.get(mixerB)!.commands).toContainEqual({ op: "fader", channel: 1, value: 0.6 });
     expect(s.fakeMixer.get(mixerA)!.commands.find((c) => c.op === "fader")).toBeUndefined();
   });
@@ -255,8 +264,10 @@ describe("Connection-preserving hot-reload", () => {
       .put(`/api/admin/devices/${mixerId}`)
       .set("Cookie", adminCookie)
       .send({ features: { "gain-control": false, "channel-metering": true, "channel-audio-capture": true } });
-    await new Promise((r) => setTimeout(r, 30));
-    // Same fake driver object → connection was preserved (not torn down/recreated).
+    // A connection-preserving reload does NOT swap the driver instance. There is
+    // no positive "changed" signal to await for a no-op, so poll briefly to let
+    // any (incorrect) reconnect surface, then assert the instance is unchanged.
+    await waitUntil(() => s.fakeMixer.get(mixerId) !== driverBefore, 200);
     expect(s.fakeMixer.get(mixerId)).toBe(driverBefore);
   });
 
@@ -264,8 +275,8 @@ describe("Connection-preserving hot-reload", () => {
     const mixerId = await createMixer();
     const driverBefore = s.fakeMixer.get(mixerId)!;
     await s.agent.put(`/api/admin/devices/${mixerId}`).set("Cookie", adminCookie).send({ host: "10.0.0.5" });
-    await new Promise((r) => setTimeout(r, 30));
     // Factory produces a fresh driver for the same mixerId on reconnect.
+    await waitUntil(() => s.fakeMixer.get(mixerId) !== driverBefore);
     expect(s.fakeMixer.get(mixerId)).not.toBe(driverBefore);
   });
 });
