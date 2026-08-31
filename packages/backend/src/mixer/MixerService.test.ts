@@ -81,6 +81,7 @@ describe("MixerService", () => {
     captureAvailable = true;
     capture = {
       isAvailable: async () => captureAvailable,
+      discoverCaptureNode: async () => (captureAvailable ? { nodeName: "test-node", deviceChannels: 18 } : null),
       startChannelMonitor: () => {},
       stopChannelMonitor: () => {},
       subscribe: () => {

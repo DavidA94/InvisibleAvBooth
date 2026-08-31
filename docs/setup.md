@@ -535,6 +535,60 @@ The wire value for all observed models is a normalized 0.0–1.0 float (linear
 over −12…+60 dB), not raw dB. If a new model disagrees, the same DEBUG logs
 in `handleExternalChange` (the gain regex branch) will reveal the raw value.
 
+### Troubleshooting: "Live Audio View Unavailable" in the gain window
+
+If the gain modal shows **Live Audio View Unavailable** and the backend log shows
+the capture pipeline spawning and immediately exiting
+(`Audio capture pipeline exited … code: null`), the GStreamer `pipewiresrc` is
+not getting the mixer's full multichannel stream.
+
+**Why:** a bare `pipewiresrc` connects to the device's **default** PipeWire
+profile, which is down‑mixed to 1–2 channels. `deinterleave` then only exposes
+`src_0`/`src_1`, so any higher USB slot fails (`not-linked`) and the pipeline
+exits. (This is also why, in OBS's PulseAudio picker, only a couple of channels
+appear "live" and higher channels are silent.)
+
+**Fix (already in the driver):** the capture pipeline must
+
+1. **target the specific node** — the X Air's
+   `alsa_input.usb-BEHRINGER_<model>_…_multichannel-input` (an `Audio/Source`),
+   via `pipewiresrc target-object=<node.name>`; and
+2. **force the full discrete channel count** with an unpositioned mask
+   (`audio/x-raw,channels=<N>,channel-mask=(bitmask)0x0`) so `deinterleave`
+   exposes all N pads.
+
+The backend **auto-discovers** this node at startup (`pw-dump` → first
+`Audio/Source` whose `node.name` contains `multichannel-input` and a
+Behringer/Midas/X‑Air marker) and logs
+`Audio capture node discovered {nodeName, deviceChannels}`. No manual config is
+needed in the normal case.
+
+**If auto-discovery fails on a different model** (you see
+`No X Air multichannel capture node auto-discovered`):
+
+1. List the sources and find the multichannel input node name:
+   ```bash
+   wpctl status                 # under Audio → Sources
+   pw-dump | grep -iE '"node.name"|"media.class"|"audio.channels"' | grep -i multichannel
+   ```
+2. Set it as an override in the Sound Board device metadata:
+   `captureNodeName` = the `node.name` (e.g.
+   `alsa_input.usb-BEHRINGER_XR18_…_multichannel-input`), and
+   `deviceChannels` = the node's `audio.channels` (e.g. `18`).
+3. Sanity‑check the exact pipeline by hand (replace the node name and pad):
+   ```bash
+   gst-launch-1.0 -q pipewiresrc target-object="<node.name>" \
+     ! audio/x-raw,channels=18,channel-mask=(bitmask)0x0 \
+     ! audioconvert ! deinterleave name=d d.src_0 \
+     ! audioconvert ! audioresample ! audio/x-raw,format=S16LE,rate=48000,channels=1 \
+     ! fdsink fd=1 | wc -c
+   ```
+   A steadily growing byte count means the slot streams; `not-negotiated` or
+   `not-linked` means the caps/target are wrong for that model.
+
+Remember OBS must consume the mixer **via PipeWire** (not raw ALSA `hw:`) so both
+OBS and our per‑channel capture can share the device.
+
 ---
 
 ## Running in Development

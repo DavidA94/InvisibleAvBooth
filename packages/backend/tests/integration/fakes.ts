@@ -214,6 +214,7 @@ export function createFakeAudioCapture(): FakeAudioCapture {
 
   const service = {
     isAvailable: async () => available,
+    discoverCaptureNode: async () => (available ? { nodeName: "fake-node", deviceChannels: 18 } : null),
     subscribe(consumer: AudioConsumer) {
       consumers.push(consumer);
       return () => {

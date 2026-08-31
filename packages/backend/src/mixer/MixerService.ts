@@ -77,6 +77,17 @@ export class MixerService {
     this.captureAvailable = await this.capture.isAvailable();
     if (!this.captureAvailable) {
       logger.warn("Audio capture unavailable at runtime — channel-audio-capture will be downgraded", { context: {} });
+    } else {
+      // Warm the PipeWire node auto-discovery cache so the first gain-window open
+      // targets the correct multichannel device without a per-spawn pw-dump.
+      const discovered = await this.capture.discoverCaptureNode();
+      if (discovered) {
+        logger.info("Audio capture node discovered", { context: { nodeName: discovered.nodeName, deviceChannels: discovered.deviceChannels } });
+      } else {
+        logger.warn("No X Air multichannel capture node auto-discovered — set captureNodeName in device config if the gain window is unavailable", {
+          context: {},
+        });
+      }
     }
 
     const rows = this.loadSoundboardRows();

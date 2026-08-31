@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { EventEmitter } from "events";
-import { AudioCaptureService, sampleToDbfs, buildCaptureArgs } from "./AudioCaptureService.js";
-import type { SpawnFn, AudioConsumer } from "./AudioCaptureService.js";
+import { AudioCaptureService, sampleToDbfs, buildCaptureArgs, parsePipeWireCaptureNode } from "./AudioCaptureService.js";
+import type { SpawnFn, AudioConsumer, CaptureTarget } from "./AudioCaptureService.js";
 import type { EnvelopePair } from "@invisible-av-booth/shared";
 
 vi.mock("../logger.js", () => ({
@@ -20,8 +20,8 @@ function makeMockProcess(): MockProcess {
   return proc;
 }
 
-/** identity resolver: slot === channel */
-const identityResolver = (_mixerId: string, channel: number): number => channel;
+/** identity resolver: slot === channel, no node targeting, unknown channel count */
+const identityResolver = (_mixerId: string, channel: number): CaptureTarget => ({ slot: channel, nodeName: "", deviceChannels: 0 });
 
 describe("sampleToDbfs", () => {
   it("maps a zero sample to the axis minimum", () => {
@@ -44,6 +44,51 @@ describe("buildCaptureArgs", () => {
     expect(args).toContain("deinterleave");
     expect(args).toContain("d.src_2"); // slot 3 → pad 2
     expect(args).toContain("fd=1");
+  });
+
+  it("targets the configured PipeWire node and forces the full multichannel stream", () => {
+    const args = buildCaptureArgs(9, "alsa_input.usb-BEHRINGER_XR18_x-00.multichannel-input", 18);
+    // Node targeting so pipewiresrc doesn't grab the down-mixed default.
+    expect(args).toContain("target-object=alsa_input.usb-BEHRINGER_XR18_x-00.multichannel-input");
+    // Full discrete channel negotiation with an unpositioned mask (>8 channels).
+    expect(args).toContain("audio/x-raw,channels=18,channel-mask=(bitmask)0x0");
+    // Slot 9 → pad 8 (only reachable when all 18 pads exist).
+    expect(args).toContain("d.src_8");
+  });
+
+  it("omits targeting/caps for the unconfigured fallback (bare pipewiresrc)", () => {
+    const args = buildCaptureArgs(1);
+    expect(args.some((a) => a.startsWith("target-object="))).toBe(false);
+    expect(args.some((a) => a.includes("channel-mask"))).toBe(false);
+  });
+});
+
+describe("parsePipeWireCaptureNode", () => {
+  const xr18Dump = JSON.stringify([
+    { info: { props: { "media.class": "Audio/Sink", "node.name": "alsa_output.usb-BEHRINGER_XR18_x-00.multichannel-output", "audio.channels": 18 } } },
+    { info: { props: { "media.class": "Audio/Source", "node.name": "alsa_input.pci-0000_00.analog-stereo", "audio.channels": 2 } } },
+    { info: { props: { "media.class": "Audio/Source", "node.name": "alsa_input.usb-BEHRINGER_XR18_x-00.multichannel-input", "audio.channels": 18 } } },
+  ]);
+
+  it("finds the X Air multichannel-input source node and its channel count", () => {
+    const result = parsePipeWireCaptureNode(xr18Dump);
+    expect(result).toEqual({ nodeName: "alsa_input.usb-BEHRINGER_XR18_x-00.multichannel-input", deviceChannels: 18 });
+  });
+
+  it("ignores the multichannel OUTPUT (sink) and picks only the input source", () => {
+    const result = parsePipeWireCaptureNode(xr18Dump);
+    expect(result?.nodeName).toContain("multichannel-input");
+  });
+
+  it("returns null when no X Air capture node is present", () => {
+    const dump = JSON.stringify([
+      { info: { props: { "media.class": "Audio/Source", "node.name": "alsa_input.pci-0000_00.analog-stereo", "audio.channels": 2 } } },
+    ]);
+    expect(parsePipeWireCaptureNode(dump)).toBeNull();
+  });
+
+  it("returns null for unparseable JSON", () => {
+    expect(parsePipeWireCaptureNode("not json")).toBeNull();
   });
 });
 
@@ -95,7 +140,7 @@ describe("AudioCaptureService", () => {
     });
 
     it("selects the USB slot from the resolver, not the channel number", () => {
-      const resolver = vi.fn((_mixerId: string, channel: number) => channel + 10);
+      const resolver = vi.fn((_mixerId: string, channel: number): CaptureTarget => ({ slot: channel + 10, nodeName: "", deviceChannels: 0 }));
       const service = new AudioCaptureService(resolver, spawnFn as unknown as SpawnFn);
       service.subscribe({ id: "c1", channels: [1], onEnvelope: vi.fn() }, "mix1");
       expect(resolver).toHaveBeenCalledWith("mix1", 1);

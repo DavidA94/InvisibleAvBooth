@@ -27,6 +27,7 @@ import type { SpawnFn as PreviewSpawnFn } from "./services/videoPreviewManager.j
 import { AudioPreviewManager } from "./services/audioPreviewManager.js";
 import { PreviewUpgradeRouter } from "./services/previewUpgradeRouter.js";
 import { AudioCaptureService } from "./mixer/AudioCaptureService.js";
+import type { CaptureTarget } from "./mixer/AudioCaptureService.js";
 import { MixerService } from "./mixer/MixerService.js";
 import type { MixerDriverFactory } from "./mixer/MixerService.js";
 import { MixerSocketModule } from "./gateway/modules/mixer/mixerModule.js";
@@ -146,19 +147,28 @@ export function buildApp(deps: AppDependencies): AppContext {
 
   // ── Preview transport + audio capture ───────────────────────────────────────
   //
-  // The USB-slot resolver and channel validator read mixer config from the DB.
-  // A MixerService (added in a later phase) may supply richer runtime state, but
-  // resolving from device_connections keeps the capture layer self-contained.
-  const usbSlotResolver = (mixerId: string, channel: number): number => {
+  // The capture-target resolver and channel validator read mixer config from the
+  // DB. A MixerService (added in a later phase) may supply richer runtime state,
+  // but resolving from device_connections keeps the capture layer self-contained.
+  //
+  // captureNodeName targets the mixer's specific PipeWire node (e.g. the XR18
+  // multichannel-input); without it pipewiresrc grabs the down-mixed default and
+  // per-channel capture fails. deviceChannels is the total discrete USB channel
+  // count (e.g. 18) needed to negotiate the full multichannel stream.
+  const captureTargetResolver = (mixerId: string, channel: number): CaptureTarget => {
     const row = database.prepare("SELECT metadata FROM device_connections WHERE id = ? AND deviceType = 'soundboard'").get(mixerId) as
       { metadata: string } | undefined;
-    if (!row) return channel; // identity fallback
+    if (!row) return { slot: channel, nodeName: "", deviceChannels: 0 }; // identity fallback
     try {
-      const metadata = JSON.parse(row.metadata) as { usbSlotMap?: Record<string, number> };
+      const metadata = JSON.parse(row.metadata) as { usbSlotMap?: Record<string, number>; captureNodeName?: string; deviceChannels?: number };
       const slot = metadata.usbSlotMap?.[String(channel)];
-      return typeof slot === "number" ? slot : channel;
+      return {
+        slot: typeof slot === "number" ? slot : channel,
+        nodeName: typeof metadata.captureNodeName === "string" ? metadata.captureNodeName : "",
+        deviceChannels: typeof metadata.deviceChannels === "number" ? metadata.deviceChannels : 0,
+      };
     } catch {
-      return channel;
+      return { slot: channel, nodeName: "", deviceChannels: 0 };
     }
   };
   const isValidMixerChannel = (mixerId: string, channel: number): boolean => {
@@ -174,7 +184,7 @@ export function buildApp(deps: AppDependencies): AppContext {
     }
   };
 
-  const audioCaptureService = new AudioCaptureService(usbSlotResolver, previewSpawnFn);
+  const audioCaptureService = new AudioCaptureService(captureTargetResolver, previewSpawnFn);
   const videoPreviewManager = new VideoPreviewManager(previewSpawnFn);
   const audioPreviewManager = new AudioPreviewManager(audioCaptureService, isValidMixerChannel);
   const previewUpgradeRouter = new PreviewUpgradeRouter(authService, videoPreviewManager, audioPreviewManager);

@@ -50,8 +50,21 @@ export interface AudioConsumer {
   onEnvelope: (channel: number, pair: EnvelopePair) => void;
 }
 
-/** Resolves a mixer's channel→USB-slot map (from device config). */
-export type UsbSlotResolver = (mixerId: string, channel: number) => number;
+/** Capture-target selection for a mixer channel (from device config). */
+export interface CaptureTarget {
+  /** 1-based USB slot the channel's audio lands on (from the channel→slot map). */
+  slot: number;
+  /**
+   * PipeWire node name to target (e.g. the XR18 multichannel-input node). Empty
+   * → bare pipewiresrc (default source) — legacy/fallback for unconfigured setups.
+   */
+  nodeName: string;
+  /** Total discrete USB channels the device exposes (e.g. 18), for caps negotiation. */
+  deviceChannels: number;
+}
+
+/** Resolves a mixer channel's capture target (slot + PipeWire node + channel count). */
+export type CaptureTargetResolver = (mixerId: string, channel: number) => CaptureTarget;
 
 interface ActiveChannel {
   channel: number;
@@ -70,13 +83,42 @@ export class AudioCaptureService {
   private readonly channelsActive = new Map<number, ActiveChannel>();
   private readonly spawnFn: SpawnFn;
   private available: boolean | null = null; // cached probe result
+  private discovered: { nodeName: string; deviceChannels: number } | null | undefined = undefined; // cached auto-discovery
   private destroyed = false;
 
   constructor(
-    private readonly usbSlotResolver: UsbSlotResolver,
+    private readonly captureTargetResolver: CaptureTargetResolver,
     spawnFn?: SpawnFn,
   ) {
     this.spawnFn = spawnFn ?? ((cmd, args) => spawn(cmd, args));
+  }
+
+  /**
+   * Auto-discover the X Air / Midas multichannel-input PipeWire node so a
+   * volunteer never has to look up node names (AGENTS.md: non-technical user).
+   * Runs `pw-dump`, finds an Audio/Source whose node.name looks like a
+   * Behringer/Midas USB multichannel input, and returns its node.name +
+   * audio.channels. Returns null when none is found (caller falls back to the
+   * configured value, then to bare pipewiresrc). Result is cached.
+   *
+   * WHY node.name (not object.serial): node.name is stable across reconnects and
+   * matches what `pipewiresrc target-object=` accepts; the serial changes each
+   * time the device re-enumerates.
+   */
+  async discoverCaptureNode(): Promise<{ nodeName: string; deviceChannels: number } | null> {
+    if (this.discovered !== undefined) return this.discovered;
+    this.discovered = await new Promise<{ nodeName: string; deviceChannels: number } | null>((resolve) => {
+      try {
+        const proc = this.spawnFn("pw-dump", []);
+        let out = "";
+        proc.stdout?.on("data", (chunk: Buffer) => (out += chunk.toString()));
+        proc.on("error", () => resolve(null));
+        proc.on("close", () => resolve(parsePipeWireCaptureNode(out)));
+      } catch {
+        resolve(null);
+      }
+    });
+    return this.discovered;
   }
 
   /** Probe PipeWire availability (gst-inspect-1.0 pipewiresrc). Cached after first call. */
@@ -141,9 +183,13 @@ export class AudioCaptureService {
 
   private spawnChannel(mixerId: string, active: ActiveChannel): void {
     if (this.destroyed) return;
-    const slot = this.usbSlotResolver(mixerId, active.channel);
-    const args = buildCaptureArgs(slot);
-    logger.info("Audio capture spawning pipeline", { context: { mixerId, channel: active.channel, slot } });
+    const target = this.captureTargetResolver(mixerId, active.channel);
+    // Config wins; otherwise fall back to auto-discovered node/channel-count so a
+    // volunteer needn't configure PipeWire node names by hand.
+    const nodeName = target.nodeName || this.discovered?.nodeName || "";
+    const deviceChannels = target.deviceChannels || this.discovered?.deviceChannels || 0;
+    const args = buildCaptureArgs(target.slot, nodeName, deviceChannels);
+    logger.info("Audio capture spawning pipeline", { context: { mixerId, channel: active.channel, slot: target.slot, nodeName, deviceChannels } });
 
     let proc: ChildProcess;
     try {
@@ -230,6 +276,37 @@ export class AudioCaptureService {
 
 // ── Pure helpers ───────────────────────────────────────────────────────────────
 
+/**
+ * Parse `pw-dump` JSON and find the X Air / Midas multichannel USB capture node.
+ * Matches an Audio/Source whose node.name contains "multichannel-input" and a
+ * Behringer/Midas/X-Air/MR marker. Returns its node.name + audio.channels, or
+ * null when not found or the JSON is unparseable. Pure so it can be unit-tested
+ * against captured pw-dump fixtures without PipeWire.
+ */
+export function parsePipeWireCaptureNode(pwDumpJson: string): { nodeName: string; deviceChannels: number } | null {
+  let data: unknown;
+  try {
+    data = JSON.parse(pwDumpJson);
+  } catch {
+    return null;
+  }
+  if (!Array.isArray(data)) return null;
+  for (const object of data) {
+    const props = (object as { info?: { props?: Record<string, unknown> } })?.info?.props;
+    if (!props) continue;
+    const nodeName = typeof props["node.name"] === "string" ? (props["node.name"] as string) : "";
+    const mediaClass = props["media.class"];
+    if (mediaClass !== "Audio/Source") continue;
+    if (!nodeName.includes("multichannel-input")) continue;
+    const upper = nodeName.toUpperCase();
+    if (!/BEHRINGER|MIDAS|X-?AIR|\bMR\d|\bXR\d/.test(upper)) continue;
+    const channelsRaw = props["audio.channels"];
+    const deviceChannels = typeof channelsRaw === "number" ? channelsRaw : Number(channelsRaw) || 0;
+    return { nodeName, deviceChannels };
+  }
+  return null;
+}
+
 /** Convert a signed 16-bit PCM sample to dBFS. 0 sample → -Infinity → axis min. */
 export function sampleToDbfs(sample: number): number {
   const magnitude = Math.abs(sample) / 32768;
@@ -245,14 +322,35 @@ function clamp(db: number): number {
 }
 
 /**
- * Build the GStreamer capture pipeline for a single USB slot. Selects one
- * deinterleaved channel (the configured USB slot, 0-based src pad), converts to
- * S16LE mono, and writes raw PCM to stdout for envelope decimation.
+ * Build the GStreamer capture pipeline for a single USB slot.
+ *
+ * CRITICAL — device targeting + multichannel negotiation (verified against a real
+ * XR18): a bare `pipewiresrc` connects to the device's DEFAULT profile, which
+ * PipeWire down-mixes to 1–2 channels — so `deinterleave` only exposes src_0/_1
+ * and any higher slot fails with `not-linked`, and the pipeline exits (the
+ * "Live Audio View Unavailable" symptom). We must:
+ *   1. TARGET the specific node via `target-object=<node.name>` (the XR18's
+ *      `alsa_input.usb-BEHRINGER_XR18_..._multichannel-input`), not the default.
+ *   2. FORCE the full discrete channel count with an UNPOSITIONED channel mask
+ *      (`channel-mask=(bitmask)0x0`) — >8-channel raw streams have no standard
+ *      positional mask, and requesting a positioned layout fails to negotiate.
+ * With both, `deinterleave` exposes all N pads and we can pick any USB slot.
+ *
+ * `nodeName` is empty for the identity/legacy fallback (bare pipewiresrc) so tests
+ * and non-configured setups still build a valid pipeline; production supplies the
+ * node from device config.
  */
-export function buildCaptureArgs(usbSlot: number): string[] {
+export function buildCaptureArgs(usbSlot: number, nodeName = "", deviceChannels = 0): string[] {
   const srcPad = Math.max(0, usbSlot - 1); // slots are 1-based in config; deinterleave pads are 0-based
   const args = ["-q"];
-  args.push("pipewiresrc", "!");
+  args.push("pipewiresrc");
+  if (nodeName) args.push(`target-object=${nodeName}`);
+  args.push("!");
+  // Force the full multichannel stream so every USB slot is available on its own
+  // deinterleave pad. An unpositioned mask (0x0) is required for >8 channels.
+  if (deviceChannels > 0) {
+    args.push(`audio/x-raw,channels=${deviceChannels},channel-mask=(bitmask)0x0`, "!");
+  }
   args.push("audioconvert", "!");
   args.push("deinterleave", "name=d");
   args.push(`d.src_${srcPad}`, "!");
