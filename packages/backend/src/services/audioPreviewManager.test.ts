@@ -75,7 +75,7 @@ function makeFakeCapture(): FakeCapture {
       };
     },
     push(channel: number, minDb: number, maxDb: number) {
-      for (const consumer of consumers) consumer.onEnvelope(channel, { minDb, maxDb });
+      for (const consumer of consumers) consumer.onEnvelope(channel, [{ minDb, maxDb }]);
     },
     isAvailable: async () => true,
     destroy: vi.fn(),

@@ -28,15 +28,23 @@ describe("useEnvelopeStream", () => {
     expect(MockWebSocket.instances).toHaveLength(0);
   });
 
-  it("opens a socket when active and exposes decoded envelope frames", () => {
+  it("opens a socket when active and exposes the decoded burst of envelope frames", () => {
     vi.stubGlobal("WebSocket", MockWebSocket as unknown as typeof WebSocket);
     const { result } = renderHook(() => useEnvelopeStream("mix1", 2, true));
     expect(MockWebSocket.instances).toHaveLength(1);
     expect(MockWebSocket.instances[0]!.url).toContain("/preview/mixer/mix1/channel/2");
     act(() => {
-      MockWebSocket.instances[0]!.onmessage?.({ data: encodeEnvelopeFrame([{ minDb: -40, maxDb: -12 }]) });
+      MockWebSocket.instances[0]!.onmessage?.({
+        data: encodeEnvelopeFrame([
+          { minDb: -42, maxDb: -14 },
+          { minDb: -40, maxDb: -12 },
+        ]),
+      });
     });
-    expect(result.current.latest).toEqual({ minDb: -40, maxDb: -12 });
+    expect(result.current.burst).toEqual([
+      { minDb: -42, maxDb: -14 },
+      { minDb: -40, maxDb: -12 },
+    ]);
     expect(result.current.stalled).toBe(false);
   });
 
@@ -63,9 +71,24 @@ describe("useEnvelopeStream", () => {
     expect(result.current.stalled).toBe(false);
   });
 
+  it("does not mark stalled when error/close fire after our own cleanup (StrictMode remount)", () => {
+    // React StrictMode (dev) mounts → cleans up → remounts. Closing the first,
+    // still-CONNECTING socket fires onerror/onclose with "closed before the
+    // connection is established" — that must NOT flip to the stalled slider tier.
+    vi.stubGlobal("WebSocket", MockWebSocket as unknown as typeof WebSocket);
+    const { result, unmount } = renderHook(() => useEnvelopeStream("mix1", 1, true));
+    const socket = MockWebSocket.instances[0]!;
+    unmount(); // our cleanup closes the socket
+    act(() => {
+      socket.onerror?.(); // fired by the browser for the aborted connect
+      socket.onclose?.();
+    });
+    expect(result.current.stalled).toBe(false);
+  });
+
   it("is inert when WebSocket is unavailable (jsdom/SSR guard)", () => {
     vi.stubGlobal("WebSocket", undefined);
     const { result } = renderHook(() => useEnvelopeStream("mix1", 1, true));
-    expect(result.current.latest).toBeNull();
+    expect(result.current.burst).toEqual([]);
   });
 });

@@ -3,6 +3,7 @@ import { EventEmitter } from "events";
 import { AudioCaptureService, sampleToDbfs, buildCaptureArgs, parsePipeWireCaptureNode } from "./AudioCaptureService.js";
 import type { SpawnFn, AudioConsumer, CaptureTarget } from "./AudioCaptureService.js";
 import type { EnvelopePair } from "@invisible-av-booth/shared";
+import { ENVELOPE_BURST_MS } from "@invisible-av-booth/shared";
 
 vi.mock("../logger.js", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
@@ -169,23 +170,28 @@ describe("AudioCaptureService", () => {
       service.destroy();
     });
 
-    it("fans an envelope out to all consumers subscribed to a channel", () => {
+    it("fans a burst out to all consumers subscribed to a channel", () => {
       vi.useFakeTimers();
       const service = new AudioCaptureService(identityResolver, spawnFn as unknown as SpawnFn);
-      const firstPairs: EnvelopePair[] = [];
-      const secondPairs: EnvelopePair[] = [];
-      service.subscribe({ id: "first", channels: [1], onEnvelope: (_c, p) => firstPairs.push(p) }, "mix1");
-      service.subscribe({ id: "second", channels: [1], onEnvelope: (_c, p) => secondPairs.push(p) }, "mix1");
+      const firstBursts: EnvelopePair[][] = [];
+      const secondBursts: EnvelopePair[][] = [];
+      service.subscribe({ id: "first", channels: [1], onEnvelope: (_c, pairs) => firstBursts.push(pairs) }, "mix1");
+      service.subscribe({ id: "second", channels: [1], onEnvelope: (_c, pairs) => secondBursts.push(pairs) }, "mix1");
 
-      // Feed PCM that spans a decimation window so a pair is emitted.
+      // Feed PCM across several decimation windows so pairs accumulate in the burst.
       const proc = processes[0]!;
-      const pcm = Buffer.alloc(200);
-      pcm.writeInt16LE(16384, 0); // ~-6 dBFS peak
-      vi.advanceTimersByTime(30); // exceed WINDOW_MS (~16.7ms)
-      proc.stdout!.emit("data", pcm);
+      for (let i = 0; i < 3; i++) {
+        const pcm = Buffer.alloc(200);
+        pcm.writeInt16LE(16384, 0); // ~-6 dBFS peak
+        vi.advanceTimersByTime(20); // exceed WINDOW_MS (~16.7ms) each iteration
+        proc.stdout!.emit("data", pcm);
+      }
+      // Advance past the burst-flush cadence so the accumulated pairs are emitted.
+      vi.advanceTimersByTime(ENVELOPE_BURST_MS);
 
-      expect(firstPairs.length).toBeGreaterThan(0);
-      expect(secondPairs.length).toBe(firstPairs.length);
+      expect(firstBursts.length).toBeGreaterThan(0);
+      expect(firstBursts[0]!.length).toBeGreaterThan(0);
+      expect(secondBursts.length).toBe(firstBursts.length);
       service.destroy();
       vi.useRealTimers();
     });

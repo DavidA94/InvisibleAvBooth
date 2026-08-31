@@ -28,6 +28,7 @@ import { AudioPreviewManager } from "./services/audioPreviewManager.js";
 import { PreviewUpgradeRouter } from "./services/previewUpgradeRouter.js";
 import { AudioCaptureService } from "./mixer/AudioCaptureService.js";
 import type { CaptureTarget } from "./mixer/AudioCaptureService.js";
+import { resolveCaptureTarget, isChannelInRange } from "./mixer/captureMetadata.js";
 import { MixerService } from "./mixer/MixerService.js";
 import type { MixerDriverFactory } from "./mixer/MixerService.js";
 import { MixerSocketModule } from "./gateway/modules/mixer/mixerModule.js";
@@ -158,30 +159,12 @@ export function buildApp(deps: AppDependencies): AppContext {
   const captureTargetResolver = (mixerId: string, channel: number): CaptureTarget => {
     const row = database.prepare("SELECT metadata FROM device_connections WHERE id = ? AND deviceType = 'soundboard'").get(mixerId) as
       { metadata: string } | undefined;
-    if (!row) return { slot: channel, nodeName: "", deviceChannels: 0 }; // identity fallback
-    try {
-      const metadata = JSON.parse(row.metadata) as { usbSlotMap?: Record<string, number>; captureNodeName?: string; deviceChannels?: number };
-      const slot = metadata.usbSlotMap?.[String(channel)];
-      return {
-        slot: typeof slot === "number" ? slot : channel,
-        nodeName: typeof metadata.captureNodeName === "string" ? metadata.captureNodeName : "",
-        deviceChannels: typeof metadata.deviceChannels === "number" ? metadata.deviceChannels : 0,
-      };
-    } catch {
-      return { slot: channel, nodeName: "", deviceChannels: 0 };
-    }
+    return resolveCaptureTarget(row?.metadata ?? null, channel);
   };
   const isValidMixerChannel = (mixerId: string, channel: number): boolean => {
     const row = database.prepare("SELECT metadata FROM device_connections WHERE id = ? AND deviceType = 'soundboard'").get(mixerId) as
       { metadata: string } | undefined;
-    if (!row) return false;
-    try {
-      const metadata = JSON.parse(row.metadata) as { channelCount?: number };
-      const count = typeof metadata.channelCount === "number" ? metadata.channelCount : 0;
-      return channel >= 1 && channel <= count;
-    } catch {
-      return false;
-    }
+    return isChannelInRange(row?.metadata ?? null, channel);
   };
 
   const audioCaptureService = new AudioCaptureService(captureTargetResolver, previewSpawnFn);

@@ -51,6 +51,18 @@ export const MUTE_CONFIRM_TIMEOUT_MS = 500;
 /** Envelope decimation for the gain window: min/max pairs per second (Req 4.4). */
 export const ENVELOPE_PAIRS_PER_SEC = 60;
 
+/**
+ * Envelope burst cadence. The backend decimates to ENVELOPE_PAIRS_PER_SEC pairs
+ * but FLUSHES them to consumers in bursts every ENVELOPE_BURST_MS as a single
+ * frame (~30 pairs per burst at 60/s and 500ms). One WS message per burst avoids
+ * per-pair send overhead AND per-pair frontend React state churn that would
+ * coalesce and drop pairs. The gain window shows the most recent
+ * ENVELOPE_WINDOW_MS of pairs and repaints on each burst.
+ */
+export const ENVELOPE_BURST_MS = 500;
+/** Total time span shown in the gain-window envelope (a small, "live" window). */
+export const ENVELOPE_WINDOW_MS = 1000;
+
 // ── OSC / subscription cadences (X Air) ──────────────────────────────────────
 
 /** Default OSC/UDP port for the X Air family (X32 uses 10023). */

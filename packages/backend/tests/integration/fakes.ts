@@ -233,8 +233,9 @@ export function createFakeAudioCapture(): FakeAudioCapture {
       available = value;
     },
     pushEnvelope: (channel: number, pair: EnvelopePair) => {
+      // onEnvelope now receives a BURST of pairs; deliver this one as a 1-element burst.
       for (const consumer of consumers) {
-        if (consumer.channels.includes(channel)) consumer.onEnvelope(channel, pair);
+        if (consumer.channels.includes(channel)) consumer.onEnvelope(channel, [pair]);
       }
     },
   };

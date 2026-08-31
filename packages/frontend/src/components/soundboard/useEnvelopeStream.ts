@@ -4,8 +4,9 @@ import type { EnvelopePair } from "@invisible-av-booth/shared";
 import { logger } from "../../logger";
 
 export interface EnvelopeStream {
-  /** The latest decoded envelope pair, or null before any frame arrives. */
-  latest: EnvelopePair | null;
+  /** The most recent BURST of decoded envelope pairs (oldest→newest), or [] before
+   *  any frame. Each WS message is a burst (~ENVELOPE_BURST_MS of pairs). */
+  burst: EnvelopePair[];
   /** True once the stream stalled/crashed while open (Req 15.6 — flip to slider). */
   stalled: boolean;
 }
@@ -21,7 +22,7 @@ export interface EnvelopeStream {
  * and Playwright covers real streaming (Phase 10).
  */
 export function useEnvelopeStream(mixerId: string, channel: number, active: boolean): EnvelopeStream {
-  const [latest, setLatest] = useState<EnvelopePair | null>(null);
+  const [burst, setBurst] = useState<EnvelopePair[]>([]);
   const [stalled, setStalled] = useState(false);
   const socketRef = useRef<WebSocket | null>(null);
 
@@ -45,15 +46,20 @@ export function useEnvelopeStream(mixerId: string, channel: number, active: bool
 
     socket.onmessage = (event: MessageEvent): void => {
       const pairs = decodeEnvelopeFrame(event.data as ArrayBuffer);
-      const last = pairs[pairs.length - 1];
-      if (last) setLatest(last);
+      // Each message is one burst; replace state with it (a new array ref so the
+      // canvas effect appends it exactly once — no per-pair React churn/drop).
+      if (pairs.length > 0) setBurst(pairs);
     };
     socket.onclose = (): void => {
       // An unexpected close while active means capture stopped (crash/unavailable).
+      // A close we initiated (effect cleanup, incl. React StrictMode's mount→
+      // cleanup→remount in dev) must NOT flip to the stalled/slider tier.
       if (!closedByUs) setStalled(true);
     };
     socket.onerror = (): void => {
-      setStalled(true);
+      // Closing a still-CONNECTING socket (our cleanup) fires onerror with
+      // "closed before the connection is established" — that is not a real stall.
+      if (!closedByUs) setStalled(true);
     };
 
     return () => {
@@ -67,5 +73,5 @@ export function useEnvelopeStream(mixerId: string, channel: number, active: bool
     };
   }, [mixerId, channel, active]);
 
-  return { latest, stalled };
+  return { burst, stalled };
 }

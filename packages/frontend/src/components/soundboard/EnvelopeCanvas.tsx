@@ -7,6 +7,7 @@ import {
   RED_FADE_DBFS,
   BLUE_FADE_DBFS,
   ENVELOPE_PAIRS_PER_SEC,
+  ENVELOPE_WINDOW_MS,
 } from "@invisible-av-booth/shared";
 import type { EnvelopePair } from "@invisible-av-booth/shared";
 import { TEST_ID_MIXER_ENVELOPE_CANVAS } from "../../constants/testIds";
@@ -27,13 +28,12 @@ export function bandRect(band: { topDb: number; bottomDb: number }, height: numb
   return { top: dbfsToY(band.topDb, height), bottom: dbfsToY(band.bottomDb, height) };
 }
 
-/** Number of envelope pairs to retain (a few seconds of the visible window). */
-const RING_SECONDS = 4;
-const RING_CAPACITY = ENVELOPE_PAIRS_PER_SEC * RING_SECONDS;
+/** Visible scrolling window: the last ENVELOPE_WINDOW_MS of decimated pairs. */
+const RING_CAPACITY = Math.round((ENVELOPE_PAIRS_PER_SEC * ENVELOPE_WINDOW_MS) / 1000);
 
 interface EnvelopeCanvasProps {
-  /** Latest envelope pair to append (post-preamp min/max dBFS). */
-  pair: EnvelopePair | null;
+  /** Latest BURST of envelope pairs to append (post-preamp min/max dBFS). */
+  burst: EnvelopePair[];
   /** Height in pixels (bounded by the parent's GAIN_WINDOW_MAX_HEIGHT_REM). */
   height: number;
   /** Width in pixels. */
@@ -49,18 +49,18 @@ interface EnvelopeCanvasProps {
  * plays audio. Uses requestAnimationFrame with a ring buffer sized to the
  * visible window.
  */
-export function EnvelopeCanvas({ pair, height, width }: EnvelopeCanvasProps): ReactNode {
+export function EnvelopeCanvas({ burst, height, width }: EnvelopeCanvasProps): ReactNode {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const ringRef = useRef<EnvelopePair[]>([]);
   const rafRef = useRef<number | null>(null);
 
-  // Append incoming pairs to the ring buffer (bounded).
+  // Append the incoming burst to the ring buffer (bounded to the visible window).
   useEffect(() => {
-    if (!pair) return;
+    if (burst.length === 0) return;
     const ring = ringRef.current;
-    ring.push(pair);
+    ring.push(...burst);
     if (ring.length > RING_CAPACITY) ring.splice(0, ring.length - RING_CAPACITY);
-  }, [pair]);
+  }, [burst]);
 
   useEffect(() => {
     const draw = (): void => {
@@ -108,15 +108,19 @@ export function drawEnvelope(context: CanvasRenderingContext2D, ring: EnvelopePa
   context.fillStyle = "rgba(39, 174, 96, 0.25)";
   context.fillRect(0, good.top, width, good.bottom - good.top);
 
-  // Envelope trace (min/max band per column, newest at the right edge).
-  if (ring.length > 0) {
-    const step = width / RING_CAPACITY;
-    context.fillStyle = "rgba(245, 245, 245, 0.85)";
-    ring.forEach((envelopePair, index) => {
-      const x = index * step;
-      const yMax = dbfsToY(envelopePair.maxDb, height);
-      const yMin = dbfsToY(envelopePair.minDb, height);
-      context.fillRect(x, yMax, Math.max(1, step), Math.max(1, yMin - yMax));
-    });
+  // Envelope trace: a SINGLE waveform line following the per-window peak (max)
+  // level — nothing filled below it. The line maps dBFS→y, so raising gain lifts
+  // it toward 0 dBFS. Spread across the FULL width (newest at the right) so it
+  // always fills the canvas rather than starting mid-way while the ring fills.
+  if (ring.length > 1) {
+    const step = width / (ring.length - 1);
+    context.beginPath();
+    context.moveTo(0, dbfsToY(ring[0]!.maxDb, height));
+    for (let index = 1; index < ring.length; index++) {
+      context.lineTo(index * step, dbfsToY(ring[index]!.maxDb, height));
+    }
+    context.strokeStyle = "rgba(245, 245, 245, 0.95)";
+    context.lineWidth = 1.5;
+    context.stroke();
   }
 }

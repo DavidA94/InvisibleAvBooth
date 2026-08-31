@@ -55,6 +55,7 @@ export class AudioPreviewManager {
   handleUpgrade(request: IncomingMessage, socket: Duplex, head: Buffer, _user: AuthUser): void {
     const parsed = parseMixerChannelPath(request.url ?? "");
     if (!parsed) {
+      logger.warn("Audio preview upgrade rejected — malformed path", { context: { url: request.url } });
       // Malformed path → 404-equivalent close after upgrade so the client sees a code.
       this.wss.handleUpgrade(request, socket, head, (ws) => ws.close(CLOSE_MALFORMED_PATH, "Malformed mixer preview path"));
       return;
@@ -62,10 +63,12 @@ export class AudioPreviewManager {
 
     const { mixerId, channel } = parsed;
     if (!this.isValidChannel(mixerId, channel)) {
+      logger.warn("Audio preview upgrade rejected — unknown mixer/channel", { context: { mixerId, channel } });
       this.wss.handleUpgrade(request, socket, head, (ws) => ws.close(CLOSE_UNKNOWN_CHANNEL, "Unknown mixer or channel"));
       return;
     }
 
+    logger.debug("Audio preview upgrade accepted", { context: { mixerId, channel } });
     this.wss.handleUpgrade(request, socket, head, (ws) => this.handleConnection(ws, mixerId, channel));
   }
 
@@ -79,9 +82,9 @@ export class AudioPreviewManager {
     const consumer: AudioConsumer = {
       id: `audio-preview-${this.nextConsumerId++}`,
       channels: [channel],
-      onEnvelope: (envelopeChannel, pair) => {
+      onEnvelope: (envelopeChannel, pairs) => {
         if (envelopeChannel !== channel) return;
-        this.forward(ws, pair);
+        this.forward(ws, pairs);
       },
     };
     const unsubscribe = this.capture.subscribe(consumer, mixerId);
@@ -98,9 +101,10 @@ export class AudioPreviewManager {
     });
   }
 
-  private forward(ws: WebSocket, pair: EnvelopePair): void {
+  private forward(ws: WebSocket, pairs: EnvelopePair[]): void {
     if (ws.readyState !== WebSocket.OPEN) return;
-    ws.send(encodeEnvelopeFrame([pair]));
+    if (pairs.length === 0) return;
+    ws.send(encodeEnvelopeFrame(pairs));
   }
 
   private pingAll(): void {

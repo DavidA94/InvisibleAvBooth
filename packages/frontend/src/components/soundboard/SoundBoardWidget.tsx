@@ -80,7 +80,11 @@ export function SoundBoardWidget(): ReactNode {
     };
   }, [socket, mixerId]);
 
-  // Freshness: mark fresh whenever state/levels for this mixer change; expire after the window.
+  // Controls freshness: driven by control STATE changes only. Level frames arrive
+  // at ~25fps and must NOT drive this effect — depending on levelsForMixer here
+  // re-ran the effect (new object each frame), resetting the timer every frame and
+  // triggering "Maximum update depth exceeded". Meter liveness is derived
+  // separately from level presence below.
   const [stateFresh, setStateFresh] = useState(false);
   const levelsForMixer = mixerId ? mixerLevels[mixerId] : undefined;
   useEffect(() => {
@@ -88,7 +92,7 @@ export function SoundBoardWidget(): ReactNode {
     setStateFresh(true);
     const timer = setTimeout(() => setStateFresh(false), CONTROLS_FRESHNESS_MS);
     return () => clearTimeout(timer);
-  }, [state, levelsForMixer]);
+  }, [state]);
 
   // Pagination.
   const channelCount = state?.channelCount ?? 0;
@@ -153,7 +157,7 @@ export function SoundBoardWidget(): ReactNode {
                         channel={channel}
                         features={state!.capabilities.features}
                         levelDb={levelsForMixer?.[index] ?? LEVEL_AXIS_MIN_DBFS}
-                        levelEventsFlowing={stateFresh && levelsForMixer?.[index] !== undefined}
+                        levelEventsFlowing={levelsForMixer?.[index] !== undefined}
                         faderUnreconciled={channel.unreconciled ?? false}
                         showNameRow={anyNameOnPage}
                         onFaderChange={(fader) => emitSet(index, { fader })}

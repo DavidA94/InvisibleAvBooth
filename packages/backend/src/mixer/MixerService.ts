@@ -24,7 +24,7 @@ import type { Database } from "better-sqlite3";
 import type { MixerModel, MixerState, MixerCommand, MixerCapabilities, MixerChannelState, MixerFeature, MixerPresetPayload } from "@invisible-av-booth/shared";
 import type { MixerControlInterface, MixerDriverConfig, ChannelMonitorSink } from "./MixerControlInterface.js";
 import { createMixerDriver } from "./MixerControlInterface.js";
-import type { AudioCaptureService, AudioConsumer } from "./AudioCaptureService.js";
+import type { AudioCaptureService } from "./AudioCaptureService.js";
 import { eventBus } from "../eventBus/eventBus.js";
 import { BUS_MIXER_STATE_CHANGED, BUS_MIXER_LEVELS, BUS_MIXER_DEVICE_CHANGED } from "../eventBus/types.js";
 import { listMixerPresetSummaries } from "../routes/adminMixerPresetRoutes.js";
@@ -177,24 +177,24 @@ export class MixerService {
   }
 
   /**
-   * Adapt AudioCaptureService.subscribe into the driver's ChannelMonitorSink.
-   * In practice the gain-window monitor runs via the /preview/mixer WS endpoint
-   * (which subscribes to AudioCaptureService directly), so driver.startChannelMonitor
-   * is a secondary path — but the driver still needs a sink to delegate to.
+   * The driver's ChannelMonitorSink. The gain-window envelope is driven SOLELY by
+   * the `/preview/mixer` WS, which subscribes to AudioCaptureService directly. We
+   * deliberately make this a NO-OP: previously it created a SECOND capture
+   * subscription for the same channel (with a no-op onEnvelope), so opening the
+   * gain modal produced two subscribers whose start/stop ordering could drive the
+   * per-channel refCount to 0 mid-startup — killing the GStreamer pipeline
+   * (SIGTERM → exit code null) before any frame reached the socket, i.e. the
+   * "Live Audio View Unavailable" symptom with a double-spawn in the logs.
+   *
+   * AudioCaptureService is the single owner of capture lifecycle (architecture
+   * §3); the WS consumer is the single subscriber for the gain window. A future
+   * consumer (e.g. multitrack recording) subscribes to AudioCaptureService
+   * directly rather than through this sink, so nothing depends on this path.
    */
-  private buildMonitorSink(mixerId: string): ChannelMonitorSink {
-    const active = new Map<number, () => void>();
+  private buildMonitorSink(_mixerId: string): ChannelMonitorSink {
     return {
-      startChannelMonitor: (id: string, channel: number): void => {
-        if (active.has(channel)) return;
-        const consumer: AudioConsumer = { id: `mixer-driver-${id}-${channel}`, channels: [channel], onEnvelope: () => {} };
-        const unsubscribe = this.capture.subscribe(consumer, id);
-        active.set(channel, unsubscribe);
-      },
-      stopChannelMonitor: (_id: string, channel: number): void => {
-        active.get(channel)?.();
-        active.delete(channel);
-      },
+      startChannelMonitor: (): void => {},
+      stopChannelMonitor: (): void => {},
     };
   }
 

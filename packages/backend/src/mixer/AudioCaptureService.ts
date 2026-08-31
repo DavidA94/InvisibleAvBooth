@@ -34,7 +34,7 @@
 
 import { type ChildProcess, spawn } from "child_process";
 import type { EnvelopePair } from "@invisible-av-booth/shared";
-import { ENVELOPE_PAIRS_PER_SEC, LEVEL_AXIS_MIN_DBFS, LEVEL_AXIS_MAX_DBFS, PREVIEW_AUDIO_SAMPLE_RATE } from "@invisible-av-booth/shared";
+import { ENVELOPE_PAIRS_PER_SEC, ENVELOPE_BURST_MS, LEVEL_AXIS_MIN_DBFS, LEVEL_AXIS_MAX_DBFS, PREVIEW_AUDIO_SAMPLE_RATE } from "@invisible-av-booth/shared";
 import { logger } from "../logger.js";
 
 export interface SpawnFn {
@@ -46,8 +46,13 @@ export interface AudioConsumer {
   id: string;
   /** 1-based mixer channel numbers this consumer wants. */
   channels: number[];
-  /** Called with each decimated envelope pair for a monitored channel. */
-  onEnvelope: (channel: number, pair: EnvelopePair) => void;
+  /**
+   * Called with a BURST of decimated envelope pairs (oldest→newest) for a
+   * monitored channel, flushed on a fixed cadence (ENVELOPE_BURST_MS). Batching
+   * avoids per-pair WS sends and, crucially, per-pair React state updates on the
+   * frontend that would coalesce and DROP intermediate pairs.
+   */
+  onEnvelope: (channel: number, pairs: EnvelopePair[]) => void;
 }
 
 /** Capture-target selection for a mixer channel (from device config). */
@@ -74,6 +79,9 @@ interface ActiveChannel {
   windowMin: number;
   windowMax: number;
   windowStart: number;
+  // Pairs accumulated since the last burst flush, and the flush timer.
+  burst: EnvelopePair[];
+  flushTimer: ReturnType<typeof setInterval> | null;
 }
 
 const WINDOW_MS = 1000 / ENVELOPE_PAIRS_PER_SEC;
@@ -162,12 +170,23 @@ export class AudioCaptureService {
   private addChannelRef(mixerId: string, channel: number): void {
     let active = this.channelsActive.get(channel);
     if (!active) {
-      active = { channel, refCount: 0, process: null, windowMin: LEVEL_AXIS_MAX_DBFS, windowMax: LEVEL_AXIS_MIN_DBFS, windowStart: Date.now() };
+      active = {
+        channel,
+        refCount: 0,
+        process: null,
+        windowMin: LEVEL_AXIS_MAX_DBFS,
+        windowMax: LEVEL_AXIS_MIN_DBFS,
+        windowStart: Date.now(),
+        burst: [],
+        flushTimer: null,
+      };
       this.channelsActive.set(channel, active);
     }
     active.refCount++;
     if (active.refCount === 1) {
       this.spawnChannel(mixerId, active);
+      // Flush accumulated pairs to consumers as one burst on a fixed cadence.
+      active.flushTimer = setInterval(() => this.flushBurst(active!), ENVELOPE_BURST_MS);
     }
   }
 
@@ -176,9 +195,19 @@ export class AudioCaptureService {
     if (!active) return;
     active.refCount--;
     if (active.refCount <= 0) {
+      if (active.flushTimer) clearInterval(active.flushTimer);
+      active.flushTimer = null;
       this.killChannel(active);
       this.channelsActive.delete(channel);
     }
+  }
+
+  /** Emit the accumulated pairs (if any) as a single burst, then clear the buffer. */
+  private flushBurst(active: ActiveChannel): void {
+    if (active.burst.length === 0) return;
+    const pairs = active.burst;
+    active.burst = [];
+    this.emitEnvelope(active.channel, pairs);
   }
 
   private spawnChannel(mixerId: string, active: ActiveChannel): void {
@@ -241,17 +270,17 @@ export class AudioCaptureService {
     }
     const now = Date.now();
     if (now - active.windowStart >= WINDOW_MS) {
-      const pair: EnvelopePair = { minDb: clamp(active.windowMin), maxDb: clamp(active.windowMax) };
-      this.emitEnvelope(active.channel, pair);
+      // Accumulate into the burst buffer; the flush timer emits it as one frame.
+      active.burst.push({ minDb: clamp(active.windowMin), maxDb: clamp(active.windowMax) });
       active.windowMin = LEVEL_AXIS_MAX_DBFS;
       active.windowMax = LEVEL_AXIS_MIN_DBFS;
       active.windowStart = now;
     }
   }
 
-  private emitEnvelope(channel: number, pair: EnvelopePair): void {
+  private emitEnvelope(channel: number, pairs: EnvelopePair[]): void {
     for (const consumer of this.consumers.values()) {
-      if (consumer.channels.includes(channel)) consumer.onEnvelope(channel, pair);
+      if (consumer.channels.includes(channel)) consumer.onEnvelope(channel, pairs);
     }
   }
 
@@ -267,6 +296,8 @@ export class AudioCaptureService {
   destroy(): void {
     this.destroyed = true;
     for (const active of this.channelsActive.values()) {
+      if (active.flushTimer) clearInterval(active.flushTimer);
+      active.flushTimer = null;
       this.killChannel(active);
     }
     this.channelsActive.clear();

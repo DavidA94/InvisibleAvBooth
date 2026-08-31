@@ -56,7 +56,7 @@ export function GainModal({
   useEffect(() => setDisplayGain(gainDb), [gainDb]);
 
   const windowTier = isOpen && captureAvailable;
-  const { latest, stalled } = useEnvelopeStream(mixerId, channel, windowTier);
+  const { burst, stalled } = useEnvelopeStream(mixerId, channel, windowTier);
   const showEnvelope = windowTier && !stalled;
 
   // Monitor lifecycle: start on open (window tier), stop on close/unmount.
@@ -82,7 +82,7 @@ export function GainModal({
       }
     >
       <div className="mixer-gain-modal-body">
-        {showEnvelope && <EnvelopeCanvas pair={latest} width={ENVELOPE_WIDTH_PX} height={heightPx} />}
+        {showEnvelope && <EnvelopeCanvas burst={burst} width={ENVELOPE_WIDTH_PX} height={heightPx} />}
         {windowTier && stalled && (
           <p className="mixer-gain-unavailable-note" data-testid={TEST_ID_MIXER_GAIN_UNAVAILABLE_NOTE}>
             Live audio view unavailable — basic gain control shown.
