@@ -58,6 +58,8 @@ export class MixerService {
   private readonly driverFactory: MixerDriverFactory;
   private destroyed = false;
   private deviceChangedHandler: ((payload: { action: "created" | "updated" | "deleted"; mixerId: string }) => void) | null = null;
+  /** Runtime PipeWire capture availability (Req 4.7) — downgrades channel-audio-capture when false. */
+  private captureAvailable = true;
 
   constructor(
     private readonly database: Database,
@@ -68,6 +70,15 @@ export class MixerService {
   }
 
   async initialize(): Promise<void> {
+    // Runtime capture availability (Req 4.7 / 15.1): if PipeWire / pipewiresrc is
+    // unavailable, channel-audio-capture is downgraded in the broadcast
+    // capabilities so the gain modal falls back to the slider tier instead of
+    // opening a monitor that never produces frames.
+    this.captureAvailable = await this.capture.isAvailable();
+    if (!this.captureAvailable) {
+      logger.warn("Audio capture unavailable at runtime — channel-audio-capture will be downgraded", { context: {} });
+    }
+
     const rows = this.loadSoundboardRows();
     for (const row of rows) {
       await this.createInstance(row.id, row.host, row.port, row.metadata, row.features);
@@ -189,7 +200,12 @@ export class MixerService {
   }
 
   private buildState(instance: MixerInstance): MixerState {
-    const capabilities: MixerCapabilities = instance.driver.getCapabilities();
+    const raw: MixerCapabilities = instance.driver.getCapabilities();
+    // Runtime downgrade (Req 4.7): strip channel-audio-capture when PipeWire is
+    // unavailable, so the frontend picks the slider tier rather than opening a
+    // dead monitor. Admin intent (the stored feature) is preserved in the DB.
+    const features = this.captureAvailable ? raw.features : raw.features.filter((feature) => feature !== "channel-audio-capture");
+    const capabilities: MixerCapabilities = { features, gainRange: raw.gainRange };
     return {
       mixerId: instance.mixerId,
       connected: instance.driver.isConnected(),

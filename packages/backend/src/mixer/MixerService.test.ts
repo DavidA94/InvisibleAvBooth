@@ -68,6 +68,7 @@ describe("MixerService", () => {
   let database: DatabaseType;
   let capture: AudioCaptureService;
   let captureCalls: { start: number; stop: number };
+  let captureAvailable: boolean;
   let factory: MixerDriverFactory;
   let drivers: Map<string, ReturnType<typeof makeFakeDriver>>;
   let service: MixerService;
@@ -77,7 +78,9 @@ describe("MixerService", () => {
     database.pragma("foreign_keys = ON");
     applySchema(database);
     captureCalls = { start: 0, stop: 0 };
+    captureAvailable = true;
     capture = {
+      isAvailable: async () => captureAvailable,
       startChannelMonitor: () => {},
       stopChannelMonitor: () => {},
       subscribe: () => {
@@ -126,6 +129,23 @@ describe("MixerService", () => {
   it("getMixerState returns null for an unknown mixer", async () => {
     await service.initialize();
     expect(service.getMixerState("nope")).toBeNull();
+  });
+
+  it("keeps channel-audio-capture in capabilities when capture is available", async () => {
+    insertMixer(database, "m1", { features: { "gain-control": true, "channel-audio-capture": true } });
+    captureAvailable = true;
+    await service.initialize();
+    expect(service.getMixerState("m1")?.capabilities.features).toContain("channel-audio-capture");
+  });
+
+  it("downgrades channel-audio-capture when capture is unavailable at runtime (Req 4.7)", async () => {
+    insertMixer(database, "m1", { features: { "gain-control": true, "channel-audio-capture": true } });
+    captureAvailable = false;
+    await service.initialize();
+    const features = service.getMixerState("m1")!.capabilities.features;
+    expect(features).not.toContain("channel-audio-capture");
+    // Other features are unaffected by the downgrade.
+    expect(features).toContain("gain-control");
   });
 
   it("setChannel routes each field to the driver and enforces gain capability", async () => {
