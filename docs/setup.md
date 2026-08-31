@@ -500,6 +500,41 @@ always‑on colour change, greyed out).
 
 The XR18 verified value (little‑endian count) is the current default.
 
+### Troubleshooting: gain reads −12 dB / changes have no effect
+
+If the Sound Board shows the **minimum gain (−12 dB)** for every channel and
+moving the gain slider does nothing — while X‑Air Edit shows the real value
+(e.g. +21 dB) — the headamp **OSC address** is wrong for this device model.
+
+The X Air/X32 family uses slightly different address formats for the preamp
+(headamp) gain:
+
+| Family | Address example (ch 1) | Index base | Digit padding |
+| ------ | ---------------------- | ---------- | ------------- |
+| X Air  | `/headamp/01/gain`     | 1‑based    | 2‑digit       |
+| X32    | `/headamp/000/gain`    | 0‑based    | 3‑digit       |
+
+The console **silently ignores** an address it doesn't recognize — no error, no
+reply, so the query returns nothing (gain stays at the −12 init default) and
+the set is dropped (read‑back exhaust WARNs appear in the log).
+
+**If you bring up a different model and gain doesn't work:**
+
+1. Run the backend with `LOG_LEVEL=debug`.
+2. Open the Sound Board and move the gain slider. Look for
+   `Mixer read‑back exhausted` WARN lines — they include the full
+   `address` field (e.g. `/headamp/01/gain`).
+3. Cross‑reference with the model's parameter list (usually in the firmware
+   zip's `parameters.txt` or a community reference like `xair‑api‑python`).
+4. Adjust the `headampGain()` address builder in
+   `packages/backend/src/mixer/BehringerXAirDriver.ts` — change the padding
+   function (`pad2` vs `pad3`) and the index base (channel number vs
+   channel − 1).
+
+The wire value for all observed models is a normalized 0.0–1.0 float (linear
+over −12…+60 dB), not raw dB. If a new model disagrees, the same DEBUG logs
+in `handleExternalChange` (the gain regex branch) will reveal the raw value.
+
 ---
 
 ## Running in Development

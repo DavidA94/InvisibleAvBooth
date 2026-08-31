@@ -130,14 +130,15 @@ describe("BehringerXAirDriver", () => {
       expect(write?.values[0]).toBe(1);
     });
 
-    it("setGain writes /headamp/NNN/gain as a NORMALIZED 0–1 float and round-trips dB", async () => {
+    it("setGain writes /headamp/NN/gain as a NORMALIZED 0–1 float and round-trips dB", async () => {
       const { driver, transport } = makeDriver();
       await driver.connect();
       transport.sends.length = 0;
       // The console reports back the same normalized value it received.
-      transport.seed("/headamp/000/gain", [1 / 3]);
+      // X Air headamp address is 2-digit + 1-based: channel 1 → /headamp/01.
+      transport.seed("/headamp/01/gain", [1 / 3]);
       await driver.setGain(1, 12); // 12 dB in [-12, 60] → (12+12)/72 = 0.3333 on the wire
-      const write = transport.sends.find((s) => s.address === "/headamp/000/gain" && s.types === "f");
+      const write = transport.sends.find((s) => s.address === "/headamp/01/gain" && s.types === "f");
       expect(write?.values[0]).toBeCloseTo(1 / 3, 5);
       // Read-back (normalized) is converted back to dB for state.
       expect(driver.getChannelState(1)?.gainDb).toBeCloseTo(12, 3);
@@ -146,7 +147,7 @@ describe("BehringerXAirDriver", () => {
     it("applies an external gain push (normalized wire → dB)", async () => {
       const { driver, transport } = makeDriver();
       await driver.connect();
-      transport.inject("/headamp/000/gain", [1]); // 1.0 → +60 dB (max)
+      transport.inject("/headamp/01/gain", [1]); // 1.0 → +60 dB (max), channel 1 (1-based)
       expect(driver.getChannelState(1)?.gainDb).toBeCloseTo(60, 3);
     });
   });
@@ -296,15 +297,15 @@ describe("BehringerXAirDriver", () => {
       await driver.connect();
       transport.seed("/ch/01/mix/fader", [0.7]);
       transport.seed("/ch/01/mix/on", [1]);
-      transport.seed("/headamp/000/gain", [10]);
+      transport.seed("/headamp/01/gain", [10]);
       transport.seed("/ch/02/mix/fader", [0.3]);
       transport.seed("/ch/02/mix/on", [0]);
-      transport.seed("/headamp/001/gain", [20]);
+      transport.seed("/headamp/02/gain", [20]);
 
       const payload = await driver.capturePreset();
       expect(payload["/ch/01/mix/fader"]).toBe(0.7);
       expect(payload["/ch/01/mix/on"]).toBe(1);
-      expect(payload["/headamp/000/gain"]).toBe(10);
+      expect(payload["/headamp/01/gain"]).toBe(10);
       expect(payload["/ch/02/mix/on"]).toBe(0);
     });
 
@@ -320,10 +321,10 @@ describe("BehringerXAirDriver", () => {
       const { driver, transport } = makeDriver({ channelCount: 1 });
       await driver.connect();
       transport.sends.length = 0;
-      await driver.activatePreset({ "/ch/01/mix/fader": 0.8, "/ch/01/mix/on": 0, "/headamp/000/gain": 5 });
+      await driver.activatePreset({ "/ch/01/mix/fader": 0.8, "/ch/01/mix/on": 0, "/headamp/01/gain": 5 });
       expect(transport.sends.find((s) => s.address === "/ch/01/mix/fader" && s.types === "f")?.values[0]).toBe(0.8);
       expect(transport.sends.find((s) => s.address === "/ch/01/mix/on" && s.types === "i")?.values[0]).toBe(0);
-      expect(transport.sends.find((s) => s.address === "/headamp/000/gain" && s.types === "f")?.values[0]).toBe(5);
+      expect(transport.sends.find((s) => s.address === "/headamp/01/gain" && s.types === "f")?.values[0]).toBe(5);
     });
   });
 

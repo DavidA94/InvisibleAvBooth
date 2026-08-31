@@ -44,12 +44,17 @@ const X_AIR_GAIN_RANGE = { minDb: -12, maxDb: 60 } as const;
 // ── Address builders ─────────────────────────────────────────────────────────
 
 const pad2 = (channel: number): string => String(channel).padStart(2, "0");
-const pad3 = (index: number): string => String(index).padStart(3, "0");
 
 const chFader = (channel: number): string => `/ch/${pad2(channel)}/mix/fader`;
 const chOn = (channel: number): string => `/ch/${pad2(channel)}/mix/on`; // 1 = unmuted (INVERTED)
 const chName = (channel: number): string => `/ch/${pad2(channel)}/config/name`;
-const headampGain = (channel: number): string => `/headamp/${pad3(channel - 1)}/gain`; // headamp index is 0-based
+// X Air headamp (preamp) gain address. IMPORTANT: X Air is NOT X32 here — X32
+// uses a 0-based 3-digit index (/headamp/000), but X Air uses a 1-based 2-digit
+// index (/headamp/01 = channel 1), verified against the XR18 (which silently
+// ignores /headamp/000 — no query/set reply) and the xair-api reference
+// (`/headamp/{index+1 zfill 2}`). The value on the wire is a normalized 0..1
+// float (linear over -12..+60 dB), not raw dB.
+const headampGain = (channel: number): string => `/headamp/${pad2(channel)}/gain`;
 
 // X Air /meters subscription: the command takes a STRING (the meter bank
 // ADDRESS, e.g. "/meters/1") and an INT rate factor — NOT an int bank number.
@@ -337,8 +342,9 @@ export class BehringerXAirDriver implements MixerControlInterface {
     }
     const gainMatch = /^\/headamp\/(\d+)\/gain$/.exec(address);
     if (gainMatch && typeof values[0] === "number") {
-      // Wire value is normalized 0.0–1.0 → convert to dB (headamp index is 0-based).
-      this.applyGain(Number(gainMatch[1]) + 1, gainFloatToDb(values[0], X_AIR_GAIN_RANGE.minDb, X_AIR_GAIN_RANGE.maxDb));
+      // Address index is 1-based on X Air (/headamp/01 = channel 1). Wire value
+      // is normalized 0.0–1.0 → convert to dB.
+      this.applyGain(Number(gainMatch[1]), gainFloatToDb(values[0], X_AIR_GAIN_RANGE.minDb, X_AIR_GAIN_RANGE.maxDb));
       return;
     }
   }
