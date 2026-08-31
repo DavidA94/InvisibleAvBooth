@@ -129,49 +129,57 @@ export function SoundBoardWidget(): ReactNode {
               </div>
             ) : (
               <div className="soundboard-strip-row" data-testid={TEST_ID_SOUNDBOARD_STRIP_ROW}>
-                {visibleChannels.map((index) => {
-                  const channel = channelByIndex(index);
-                  if (!channel) return null;
-                  return (
-                    <ChannelStrip
-                      key={index}
-                      channel={channel}
-                      features={state!.capabilities.features}
-                      levelDb={levelsForMixer?.[index] ?? LEVEL_AXIS_MIN_DBFS}
-                      levelEventsFlowing={stateFresh && levelsForMixer?.[index] !== undefined}
-                      faderUnreconciled={channel.unreconciled ?? false}
-                      onFaderChange={(fader) => emitSet(index, { fader })}
-                      onMuteToggle={(muted) => emitSet(index, { muted })}
-                      onAdjustGain={() => setGainChannel(index)}
-                    />
-                  );
-                })}
+                {(() => {
+                  // If ANY visible channel has a name, reserve the name row on every
+                  // strip so the controls stay vertically aligned across the page.
+                  const anyNameOnPage = visibleChannels.some((index) => (channelByIndex(index)?.name ?? "").trim().length > 0);
+                  return visibleChannels.map((index) => {
+                    const channel = channelByIndex(index);
+                    if (!channel) return null;
+                    return (
+                      <ChannelStrip
+                        key={index}
+                        channel={channel}
+                        features={state!.capabilities.features}
+                        levelDb={levelsForMixer?.[index] ?? LEVEL_AXIS_MIN_DBFS}
+                        levelEventsFlowing={stateFresh && levelsForMixer?.[index] !== undefined}
+                        faderUnreconciled={channel.unreconciled ?? false}
+                        showNameRow={anyNameOnPage}
+                        onFaderChange={(fader) => emitSet(index, { fader })}
+                        onMuteToggle={(muted) => emitSet(index, { muted })}
+                        onAdjustGain={() => setGainChannel(index)}
+                      />
+                    );
+                  });
+                })()}
 
                 {layout.paginated && (
                   <div className="mixer-pagination" data-testid={TEST_ID_MIXER_PAGINATION}>
-                    {/* Previous-range button anchored TOP; empty slot reserved when absent (Req 13.6). */}
-                    <div className="mixer-pagination-slot">
-                      {page > 0 && (
-                        <button
-                          type="button"
-                          className="mixer-preset-button"
-                          data-testid={TEST_ID_MIXER_PAGINATION_PREV}
-                          onClick={() => setPage((p) => Math.max(0, p - 1))}
-                        >
-                          {rangeLabel(page - 1, layout.perPage, channelCount)}
-                        </button>
-                      )}
-                    </div>
-                    {/* Next-range button anchored BOTTOM. */}
-                    <div className="mixer-pagination-slot">
+                    {/* Top half: the NEXT-range button anchored to its BOTTOM, so it sits
+                        just above the center line. Empty (reserved) on the last page. */}
+                    <div className="mixer-pagination-slot mixer-pagination-slot-top">
                       {page < layout.pageCount - 1 && (
                         <button
                           type="button"
-                          className="mixer-preset-button"
+                          className="mixer-preset-button mixer-pagination-button"
                           data-testid={TEST_ID_MIXER_PAGINATION_NEXT}
                           onClick={() => setPage((p) => Math.min(layout.pageCount - 1, p + 1))}
                         >
-                          {rangeLabel(page + 1, layout.perPage, channelCount)}
+                          <span aria-hidden="true">▶</span> {rangeLabel(page + 1, layout.perPage, channelCount)}
+                        </button>
+                      )}
+                    </div>
+                    {/* Bottom half: the PREVIOUS-range button anchored to its TOP, so it sits
+                        just below the center line. Empty (reserved) on the first page. */}
+                    <div className="mixer-pagination-slot mixer-pagination-slot-bottom">
+                      {page > 0 && (
+                        <button
+                          type="button"
+                          className="mixer-preset-button mixer-pagination-button"
+                          data-testid={TEST_ID_MIXER_PAGINATION_PREV}
+                          onClick={() => setPage((p) => Math.max(0, p - 1))}
+                        >
+                          <span aria-hidden="true">◀</span> {rangeLabel(page - 1, layout.perPage, channelCount)}
                         </button>
                       )}
                     </div>

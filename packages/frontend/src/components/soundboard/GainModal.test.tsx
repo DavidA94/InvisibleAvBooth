@@ -66,6 +66,13 @@ describe("GainModal", () => {
     expect(screen.getByTestId(TEST_ID_MIXER_GAIN_MODAL).textContent).toContain("Gain for Channel 3 (Speaker)");
   });
 
+  it("omits the empty parens when the channel has no name", () => {
+    render(<GainModal {...baseProps} channelName="" captureAvailable={false} onMonitorStart={vi.fn()} onMonitorStop={vi.fn()} />);
+    const text = screen.getByTestId(TEST_ID_MIXER_GAIN_MODAL).textContent ?? "";
+    expect(text).toContain("Gain for Channel 3");
+    expect(text).not.toContain("()");
+  });
+
   it("slider-only tier (no capture): no envelope canvas, no monitor request", () => {
     const onMonitorStart = vi.fn();
     render(<GainModal {...baseProps} captureAvailable={false} onMonitorStart={onMonitorStart} onMonitorStop={vi.fn()} />);

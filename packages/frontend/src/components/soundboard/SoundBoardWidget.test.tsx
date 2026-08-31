@@ -237,13 +237,14 @@ describe("SoundBoardWidget", () => {
     // Always exactly two fixed slot containers, regardless of how many buttons show.
     const slots = pager.querySelectorAll(".mixer-pagination-slot");
     expect(slots).toHaveLength(2);
-    // First page: top slot (prev) is empty, bottom slot (next) holds the button.
-    expect(slots[0]!.querySelector("button")).toBeNull();
-    expect(slots[1]!.querySelector("button")).not.toBeNull();
-    // Middle page (page 1 of 3): both slots hold a button, each in its fixed position.
+    // First page: top slot holds NEXT (anchored to its bottom, near center);
+    // bottom slot (PREV) is empty/reserved.
+    expect(slots[0]!.querySelector("button")).not.toBeNull(); // next at bottom of top half
+    expect(slots[1]!.querySelector("button")).toBeNull(); // prev reserved (first page)
+    // Middle page (page 1 of 3): both slots hold a button, each in its fixed half.
     fireEvent.click(screen.getByTestId(TEST_ID_MIXER_PAGINATION_NEXT));
     const midSlots = screen.getByTestId(TEST_ID_MIXER_PAGINATION).querySelectorAll(".mixer-pagination-slot");
-    expect(midSlots[0]!.querySelector("button")).not.toBeNull(); // prev at top
-    expect(midSlots[1]!.querySelector("button")).not.toBeNull(); // next at bottom
+    expect(midSlots[0]!.querySelector("button")).not.toBeNull(); // next in top half
+    expect(midSlots[1]!.querySelector("button")).not.toBeNull(); // prev in bottom half
   });
 });

@@ -76,9 +76,7 @@ export function GainModal({
       size="large"
       header={
         <div className="mixer-gain-modal-header" data-testid={TEST_ID_MIXER_GAIN_MODAL}>
-          <span>
-            Gain for Channel {channel} ({channelName})
-          </span>
+          <span>{channelName.trim() ? `Gain for Channel ${channel} (${channelName})` : `Gain for Channel ${channel}`}</span>
           <GainSemicircle gainDb={displayGain} minDb={minDb} maxDb={maxDb} />
         </div>
       }

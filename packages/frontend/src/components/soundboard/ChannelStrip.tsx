@@ -20,6 +20,13 @@ interface ChannelStripProps {
   levelEventsFlowing: boolean;
   /** Whether this channel's fader is unreconciled (read-back exhausted). */
   faderUnreconciled?: boolean;
+  /**
+   * Whether the name row should be reserved. When ANY channel on the visible page
+   * has a name, all strips reserve the row so their controls stay vertically
+   * aligned (Req 6-adjacent polish). When false (no names on the page), the row
+   * takes no space.
+   */
+  showNameRow?: boolean;
   onFaderChange: (fader: number) => void;
   onMuteToggle: (muted: boolean) => void;
   onAdjustGain: () => void;
@@ -38,6 +45,7 @@ export function ChannelStrip({
   levelDb,
   levelEventsFlowing,
   faderUnreconciled = false,
+  showNameRow = true,
   onFaderChange,
   onMuteToggle,
   onAdjustGain,
@@ -47,9 +55,11 @@ export function ChannelStrip({
 
   return (
     <div className="soundboard-channel-strip" data-testid={`${TEST_ID_SOUNDBOARD_CHANNEL_STRIP}-${channel.channel}`}>
-      <span className="soundboard-channel-name" data-testid={`${TEST_ID_SOUNDBOARD_CHANNEL_NAME}-${channel.channel}`}>
-        {channel.name}
-      </span>
+      {showNameRow && (
+        <span className="soundboard-channel-name" data-testid={`${TEST_ID_SOUNDBOARD_CHANNEL_NAME}-${channel.channel}`}>
+          {channel.name}
+        </span>
+      )}
 
       {hasGain && (
         <button

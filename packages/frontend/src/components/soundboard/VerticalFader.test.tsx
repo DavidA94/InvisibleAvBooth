@@ -16,8 +16,9 @@ describe("VerticalFader", () => {
   it("shows data-state=unreconciled when the prop is set (Req 15.8)", () => {
     render(<VerticalFader channel={2} fader={0.5} unreconciled onFaderChange={vi.fn()} />);
     const fader = screen.getByTestId(`${TEST_ID_MIXER_VERTICAL_FADER}-2`);
+    // The unreconciled signal is exposed via data-state for tests/assertions; the
+    // former outline-box treatment was removed (it overlapped neighbouring controls).
     expect(fader.getAttribute("data-state")).toBe("unreconciled");
-    expect(fader.className).toContain("mixer-control-unreconciled");
   });
 
   it("clears the unreconciled state when the prop flips back", () => {
