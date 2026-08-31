@@ -467,6 +467,39 @@ hardware supports. Use **Test Connection** to probe the mixer (`/xinfo`). When
 `channel-audio-capture` is on, fill in the channel→USB-slot mapping to match your
 routing.
 
+### Troubleshooting: channel level meters stay empty / grey
+
+If the Sound Board control values (faders, mute, gain, names) sync correctly but
+the per-channel **level meters never move** — while the official X‑Air Edit app
+_does_ show levels — the mixer is streaming meter frames but the driver is not
+decoding them. The most common cause is the **`/meters` blob endianness**.
+
+The X Air `/meters/1` reply is a binary blob: a 32‑bit **count** header followed
+by that many signed 16‑bit samples (1/256 dB each). Community documentation
+conflicts on the count header's byte order — Patrick‑Gilles Maillot's X32 notes
+describe it as **big‑endian**, but a real **Behringer XR18** sends the count
+**little‑endian** (header bytes `28 00 00 00` = 40 samples). If the driver reads
+the count with the wrong endianness it computes an absurd sample count, rejects
+the whole blob, and emits zero levels — the meters render empty (and, before the
+always‑on colour change, greyed out).
+
+**If you bring up a different X Air / X32‑family device and the meters stay empty:**
+
+1. Run the backend with `LOG_LEVEL=debug` and open the Sound Board.
+2. Look for the meter blob header bytes in the debug log (a temporary
+   `logger.debug` in `BehringerXAirDriver.handleMeterBlob` /
+   `meterDecode.decodeMeterBlob` can dump `Array.from(blob.slice(0, 8))`).
+3. For a 40‑sample bank‑1 blob the count is `40` (`0x28`). If the header reads
+   `28 00 00 00`, the count is **little‑endian**; if it reads `00 00 00 28`, it
+   is **big‑endian**.
+4. Set the endianness accordingly in `decodeMeterBlob`
+   (`packages/backend/src/mixer/osc/meterDecode.ts`): the `view.getUint32(0, …)`
+   flag is `true` for little‑endian, `false` for big‑endian. The **sample**
+   int16s have been little‑endian on every device observed so far, so normally
+   only the count header flag needs changing.
+
+The XR18 verified value (little‑endian count) is the current default.
+
 ---
 
 ## Running in Development

@@ -75,11 +75,11 @@ function makeDriver(overrides?: Partial<MixerDriverConfig>): { driver: Behringer
   return { driver: new BehringerXAirDriver(config, fakeCapture), transport };
 }
 
-/** Build a /meters blob: 32-bit BE count + int16 LE samples (dB*256). */
+/** Build a /meters blob: 32-bit LE count + int16 LE samples (dB*256). */
 function meterBlob(dbValues: number[]): Uint8Array {
   const buffer = new ArrayBuffer(4 + dbValues.length * 2);
   const view = new DataView(buffer);
-  view.setUint32(0, dbValues.length, false);
+  view.setUint32(0, dbValues.length, true);
   dbValues.forEach((db, index) => view.setInt16(4 + index * 2, Math.round(db * 256), true));
   return new Uint8Array(buffer);
 }

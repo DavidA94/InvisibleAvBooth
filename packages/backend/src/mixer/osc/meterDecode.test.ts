@@ -3,11 +3,11 @@ import * as fc from "fast-check";
 import { decodeMeterBlob, clampLevelDb } from "./meterDecode.js";
 import { NOISE_FLOOR_DBFS, LEVEL_AXIS_MIN_DBFS, LEVEL_AXIS_MAX_DBFS } from "@invisible-av-booth/shared";
 
-/** Build a /meters blob: 32-bit BE count + int16 LE samples. */
+/** Build a /meters blob: 32-bit LE count + int16 LE samples (matches XR18 hardware). */
 function buildBlob(int16Values: number[]): Uint8Array {
   const buffer = new ArrayBuffer(4 + int16Values.length * 2);
   const view = new DataView(buffer);
-  view.setUint32(0, int16Values.length, false);
+  view.setUint32(0, int16Values.length, true);
   int16Values.forEach((value, index) => view.setInt16(4 + index * 2, value, true));
   return new Uint8Array(buffer);
 }
@@ -20,7 +20,7 @@ describe("decodeMeterBlob", () => {
   it("returns [] when the declared count exceeds available samples", () => {
     const buffer = new ArrayBuffer(4 + 2); // header says many, only 1 sample present
     const view = new DataView(buffer);
-    view.setUint32(0, 100, false);
+    view.setUint32(0, 100, true);
     expect(decodeMeterBlob(new Uint8Array(buffer))).toEqual([]);
   });
 
