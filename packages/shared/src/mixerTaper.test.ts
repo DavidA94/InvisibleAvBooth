@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import * as fc from "fast-check";
-import { faderFloatToDb, faderDbToFloat, FADER_TICKS_DB } from "./mixerTaper";
+import { faderFloatToDb, faderDbToFloat, FADER_TICKS_DB, gainDbToFloat, gainFloatToDb } from "./mixerTaper";
 
 describe("mixerTaper", () => {
   describe("endpoints", () => {
@@ -97,6 +97,46 @@ describe("mixerTaper", () => {
         expect(float).toBeGreaterThanOrEqual(0);
         expect(float).toBeLessThanOrEqual(1);
       }
+    });
+  });
+
+  describe("gainDbToFloat / gainFloatToDb (normalized wire encoding)", () => {
+    const MIN = -12;
+    const MAX = 60;
+
+    it("maps minDb → 0.0 and maxDb → 1.0", () => {
+      expect(gainDbToFloat(MIN, MIN, MAX)).toBe(0);
+      expect(gainDbToFloat(MAX, MIN, MAX)).toBe(1);
+    });
+
+    it("maps the midpoint (24 dB) to ~0.5", () => {
+      expect(gainDbToFloat(24, MIN, MAX)).toBeCloseTo(0.5, 5);
+    });
+
+    it("inverts: gainFloatToDb(0/0.5/1) → minDb / midpoint / maxDb", () => {
+      expect(gainFloatToDb(0, MIN, MAX)).toBeCloseTo(MIN, 5);
+      expect(gainFloatToDb(0.5, MIN, MAX)).toBeCloseTo(24, 5);
+      expect(gainFloatToDb(1, MIN, MAX)).toBeCloseTo(MAX, 5);
+    });
+
+    it("round-trips dB → float → dB across the range", () => {
+      fc.assert(
+        fc.property(fc.double({ min: MIN, max: MAX, noNaN: true }), (db) => {
+          const back = gainFloatToDb(gainDbToFloat(db, MIN, MAX), MIN, MAX);
+          expect(back).toBeCloseTo(db, 5);
+        }),
+      );
+    });
+
+    it("clamps out-of-range dB and float", () => {
+      expect(gainDbToFloat(100, MIN, MAX)).toBe(1);
+      expect(gainDbToFloat(-100, MIN, MAX)).toBe(0);
+      expect(gainFloatToDb(2, MIN, MAX)).toBeCloseTo(MAX, 5);
+      expect(gainFloatToDb(-1, MIN, MAX)).toBeCloseTo(MIN, 5);
+    });
+
+    it("returns 0 for a degenerate range", () => {
+      expect(gainDbToFloat(5, 10, 10)).toBe(0);
     });
   });
 });

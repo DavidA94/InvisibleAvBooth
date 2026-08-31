@@ -23,6 +23,8 @@
 import type { MixerCapabilities, MixerChannelState, MixerChannelLevel, MixerFeature, MixerPresetPayload } from "@invisible-av-booth/shared";
 import {
   faderFloatToDb,
+  gainDbToFloat,
+  gainFloatToDb,
   XREMOTE_RENEW_MS,
   METERS_RENEW_MS,
   METERS_BANK_CHANNEL_PREFADER,
@@ -200,10 +202,13 @@ export class BehringerXAirDriver implements MixerControlInterface {
       return;
     }
     const clamped = Math.max(X_AIR_GAIN_RANGE.minDb, Math.min(X_AIR_GAIN_RANGE.maxDb, gainDb));
-    this.transport.send(headampGain(channel), "f", [clamped]);
+    // The X Air expects a NORMALIZED 0.0–1.0 float on the wire (not raw dB).
+    const wire = gainDbToFloat(clamped, X_AIR_GAIN_RANGE.minDb, X_AIR_GAIN_RANGE.maxDb);
+    this.transport.send(headampGain(channel), "f", [wire]);
     await this.reconcile(headampGain(channel), channel, (values) => {
-      const value = typeof values[0] === "number" ? values[0] : clamped;
-      this.applyGain(channel, value);
+      // The reply is the mixer's normalized value → convert back to dB (authoritative).
+      const replyFloat = typeof values[0] === "number" ? values[0] : wire;
+      this.applyGain(channel, gainFloatToDb(replyFloat, X_AIR_GAIN_RANGE.minDb, X_AIR_GAIN_RANGE.maxDb));
     });
   }
 
@@ -223,7 +228,9 @@ export class BehringerXAirDriver implements MixerControlInterface {
         return;
       }
     }
-    logger.warn("Mixer read-back exhausted", { context: { mixerId: this.config.mixerId, address } });
+    logger.warn("Mixer read-back exhausted — channel marked unreconciled (surfaces as Unknown)", {
+      context: { mixerId: this.config.mixerId, address, channel, retries: READBACK_MAX_RETRIES, timeoutMs: READBACK_TIMEOUT_MS },
+    });
     this.markUnreconciled(channel);
   }
 
@@ -319,7 +326,8 @@ export class BehringerXAirDriver implements MixerControlInterface {
     }
     const gainMatch = /^\/headamp\/(\d+)\/gain$/.exec(address);
     if (gainMatch && typeof values[0] === "number") {
-      this.applyGain(Number(gainMatch[1]) + 1, values[0]); // headamp index is 0-based
+      // Wire value is normalized 0.0–1.0 → convert to dB (headamp index is 0-based).
+      this.applyGain(Number(gainMatch[1]) + 1, gainFloatToDb(values[0], X_AIR_GAIN_RANGE.minDb, X_AIR_GAIN_RANGE.maxDb));
       return;
     }
   }

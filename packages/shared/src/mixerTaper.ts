@@ -58,3 +58,29 @@ export function faderDbToFloat(db: number): number {
  * -Infinity renders as "-inf". Reflects the console taper (0 dB near 75% travel).
  */
 export const FADER_TICKS_DB: number[] = [10, 5, 0, -5, -10, -20, -30, -50, -Infinity];
+
+// ── Headamp (preamp) gain conversion ─────────────────────────────────────────
+//
+// GOTCHA (verified against the X Air OSC protocol + behringer.world forum
+// threads): /headamp/NNN/gain is a NORMALIZED 0.0–1.0 float on the wire, NOT the
+// raw dB value — exactly like the fader. The XR18 MIDAS preamps span -12…+60 dB
+// (72 dB), mapped LINEARLY: 0.0 → -12 dB, 1.0 → +60 dB. Sending the raw dB (e.g.
+// 24.0) makes the console clamp to 1.0 (+60 dB) and the official app show a
+// different value — which is exactly the bug this fixes. The dB range is passed
+// in from the model-declared gainRange so a future model with a different span
+// still maps correctly.
+
+/** Convert a gain in dB to the normalized 0.0–1.0 OSC wire value (linear). */
+export function gainDbToFloat(gainDb: number, minDb: number, maxDb: number): number {
+  if (maxDb <= minDb) return 0;
+  const float = (gainDb - minDb) / (maxDb - minDb);
+  if (float < 0) return 0;
+  if (float > 1) return 1;
+  return float;
+}
+
+/** Convert a normalized 0.0–1.0 OSC wire value back to gain in dB (linear). */
+export function gainFloatToDb(float: number, minDb: number, maxDb: number): number {
+  const clamped = float < 0 ? 0 : float > 1 ? 1 : float;
+  return minDb + clamped * (maxDb - minDb);
+}

@@ -130,13 +130,24 @@ describe("BehringerXAirDriver", () => {
       expect(write?.values[0]).toBe(1);
     });
 
-    it("setGain writes /headamp/NNN/gain with a zero-based zero-padded index", async () => {
+    it("setGain writes /headamp/NNN/gain as a NORMALIZED 0–1 float and round-trips dB", async () => {
       const { driver, transport } = makeDriver();
       await driver.connect();
       transport.sends.length = 0;
-      await driver.setGain(1, 12);
+      // The console reports back the same normalized value it received.
+      transport.seed("/headamp/000/gain", [1 / 3]);
+      await driver.setGain(1, 12); // 12 dB in [-12, 60] → (12+12)/72 = 0.3333 on the wire
       const write = transport.sends.find((s) => s.address === "/headamp/000/gain" && s.types === "f");
-      expect(write?.values[0]).toBe(12);
+      expect(write?.values[0]).toBeCloseTo(1 / 3, 5);
+      // Read-back (normalized) is converted back to dB for state.
+      expect(driver.getChannelState(1)?.gainDb).toBeCloseTo(12, 3);
+    });
+
+    it("applies an external gain push (normalized wire → dB)", async () => {
+      const { driver, transport } = makeDriver();
+      await driver.connect();
+      transport.inject("/headamp/000/gain", [1]); // 1.0 → +60 dB (max)
+      expect(driver.getChannelState(1)?.gainDb).toBeCloseTo(60, 3);
     });
   });
 

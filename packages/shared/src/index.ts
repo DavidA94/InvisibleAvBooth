@@ -58,7 +58,7 @@ export type {
 } from "./types/mixer.js";
 
 // Mixer fader taper
-export { faderFloatToDb, faderDbToFloat, FADER_TICKS_DB } from "./mixerTaper.js";
+export { faderFloatToDb, faderDbToFloat, FADER_TICKS_DB, gainDbToFloat, gainFloatToDb } from "./mixerTaper.js";
 
 // Envelope codec (gain-window binary frames)
 export { encodeEnvelopeFrame, decodeEnvelopeFrame } from "./envelopeCodec.js";
