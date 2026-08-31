@@ -302,3 +302,94 @@ If any of these prove inaccurate against real hardware during implementation, th
 6. IF the capture pipeline dies while a gain modal is open (GStreamer/PipeWire process crash), THE gain modal SHALL detect the envelope stream stopping, flip live to the slider tier (Req 7.4) with a calm inline note, and SHALL NOT leave a frozen/stale envelope that could be misread as live. The capture layer SHALL attempt teardown/respawn so a subsequent open works.
 7. THE Backend SHALL monitor the **mixer's own capture path** (its USB device presence in PipeWire, the capture pipeline, and its subscriptions) and attempt automatic recovery when a fault is detected (respawn/re-subscribe/reconnect). `AudioCaptureService` SHALL be the single owner of capture-pipeline respawn (the gain-modal stall detection in Req 15.6 reacts by flipping tiers but does not independently respawn, so two owners never race). IF automatic recovery is not possible, THE system SHALL raise a **catastrophic-tier modal** (steering §4 — `NotificationLevel: "modal"`, the same tier as `OBS_UNREACHABLE`, NOT a dismissible banner) via a **named raise event** (`BUS_MIXER_CAPTURE_PATH_LOST` → `stc:`), and SHALL **auto-clear** it via a **named resolution event** (`BUS_MIXER_CAPTURE_PATH_RESTORED`) when the path recovers — the same raise/resolution contract as `OBS_UNREACHABLE`, so the modal can never be left un-clearable. **Scope:** this covers the mixer's capture-path health only; it does **not** claim to guarantee the audio reaching the livestream/recording (that path is OBS → PipeWire → main-LR, which this system does not own — stream connectivity/platform health is already covered by the streaming service, and silent-but-connected outgoing audio is an OBS-level concern out of scope here). This honest scoping avoids giving false confidence that a green mixer widget means the stream has audio.
 8. WHEN a fader or gain control's read-back is exhausted (Req 2.7/15.5), THE widget SHALL represent that control as **unreconciled** via a `data-state` value (e.g., `data-state="unreconciled"`) and a subtle visual treatment, rather than silently presenting the unconfirmed local value as authoritative. The unreconciled state SHALL clear automatically on the next confirmed value (read-back success or `/xremote` push). (Mute uses the explicit "Audio: Unknown" yellow-dot form of this, Req 6.6.)
+
+---
+
+## Appendix A: Archived — Live Audio View / Gain Window (removed for now)
+
+**Status:** REMOVED from the shipping product (frontend UI) as of the popover-gain
+change. The general-purpose backend capture layer is **kept but currently unused**
+(see below and `architecture.md`). This appendix preserves the design, the
+debugging trail, and the decision so the feature can be revived deliberately.
+
+**Reference commit (last-known-good, feature fully working end-to-end on a real
+Behringer XR18):** `0ea204d` (`0ea204d4ebe5cf4b843ce6e7d15e7918886d5a67`). Check
+out that commit to see the complete implementation and tests before this
+appendix's removal.
+
+### What the feature was
+
+Requirements 4 and 7 described a per-channel **gain window**: opening the gain
+modal streamed a live, decimated **post-preamp audio envelope** (min/max dBFS
+pairs) from the mixer's USB interface over PipeWire, rendered on a fixed dBFS
+axis with a good-range band and red/blue fades, so an operator could set preamp
+gain against the actual signal. Capability-driven (`channel-audio-capture`), with
+a slider-only fallback tier when capture was unavailable or stalled.
+
+### Why it was removed (for now)
+
+Getting the visualization to read as intended proved complex and not worth the
+cost right now:
+
+- A per-peak **level line** on a dBFS axis is the correct tool for _setting gain_,
+  but it reads as "mostly up near the peak, dropping toward −∞ in gaps" — it does
+  not look like the symmetric up/down **waveform** users intuitively expect.
+- Making it look like a waveform (symmetric around a center line) is a different
+  visualization that no longer maps cleanly to "is my gain in the good range,"
+  conflicting with the good-range-band design.
+- Data pacing/latency tuning (per-pair vs. burst, window length, refresh cadence)
+  did not converge on something that felt both live and readable within the time
+  budget.
+
+Given the AGENTS.md priority order (ease of use and clarity first), a simpler,
+unambiguous gain control is a better fit for a non-technical volunteer than a
+live envelope that is easy to misread.
+
+### Work done during the attempt (debugging trail worth keeping)
+
+All of the following were validated against real hardware and are captured in
+`0ea204d`:
+
+- **`/meters` metering:** X Air `/meters` subscription is `("/meters", "si",
+["/meters/1", rate])` (string bank address + int rate), and the blob's count
+  header is **little-endian** on the XR18 (samples were already LE). Documented in
+  `docs/setup.md` (meter troubleshooting).
+- **Headamp gain:** X Air address is `/headamp/NN/gain` (2-digit, **1-based**),
+  not X32's `/headamp/000` (3-digit, 0-based); the wire value is a normalized
+  0.0–1.0 linear float over −12…+60 dB. Documented in `docs/setup.md` (gain
+  troubleshooting) and the provenance table above.
+- **PipeWire multichannel capture:** `pipewiresrc` must `target-object=<node>`
+  the X Air `…multichannel-input` node and force the full channel count with an
+  unpositioned channel mask (`channel-mask=(bitmask)0x0`), or it grabs a
+  down-mixed default. Auto-discovery via `pw-dump`. Documented in `docs/setup.md`.
+- **Single-owner capture + WS lifecycle, freshness/level decoupling, burst
+  batching** — see the `0ea204d` commit message.
+
+### What replaced it
+
+The gain control is now a **popover** opened from the channel's gain button
+(same interaction family as the widget status-indicator popovers): a horizontal
+gain slider (max 400px wide) with a smaller gain **semicircle to the left** (no
+numeric value printed inside the semicircle) and the current dB value shown in
+the popover while adjusting. Gain is an **AvPowerUser+** feature — hidden/disabled
+for AvVolunteer on the frontend and rejected in `cts:mixer:set` on the backend.
+Mute and fader remain AvVolunteer+.
+
+### What was kept vs. removed
+
+- **Removed (frontend):** the envelope canvas, the envelope WebSocket hook, the
+  gain modal's window tier / capture-available branching, and the monitor
+  start/stop emits.
+- **Kept (backend, now unused):** `AudioCaptureService` (multichannel PipeWire
+  capture + envelope decimation + auto-discovery), `AudioPreviewManager` and the
+  `/preview/mixer/*` WebSocket, and the `channel-audio-capture` capability +
+  `usbSlotMap`/`deviceChannels` device config. These are general-purpose and were
+  designed for a future multitrack-recording consumer; they are retained rather
+  than deleted. See `architecture.md` for the "currently unused" note pointing
+  back here.
+
+### Reviving the feature
+
+Start from `0ea204d` for the working reference, and resolve the visualization
+question first (level line vs. waveform, and pacing) before re-wiring the
+frontend to the retained backend capture layer.
