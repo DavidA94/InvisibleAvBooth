@@ -244,7 +244,14 @@ describe("BehringerXAirDriver", () => {
       transport.sends.length = 0;
       expect(transport.sends.find((s) => s.address === "/meters")).toBeUndefined();
       driver.setMeteringEnabled(true);
-      expect(transport.sends.find((s) => s.address === "/meters")).toBeDefined();
+      const sub = transport.sends.find((s) => s.address === "/meters");
+      expect(sub).toBeDefined();
+      // The X Air /meters command takes a STRING bank address + INT rate factor
+      // ("si"), NOT a bare int bank. Sending the wrong shape means the console
+      // never streams meter frames (regression guard for the live-tested bug).
+      expect(sub?.types).toBe("si");
+      expect(sub?.values[0]).toBe("/meters/1");
+      expect(typeof sub?.values[1]).toBe("number");
       driver.setMeteringEnabled(false);
     });
 

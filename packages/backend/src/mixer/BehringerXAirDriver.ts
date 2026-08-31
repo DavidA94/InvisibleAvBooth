@@ -28,6 +28,7 @@ import {
   XREMOTE_RENEW_MS,
   METERS_RENEW_MS,
   METERS_BANK_CHANNEL_PREFADER,
+  METERS_RATE_FACTOR,
   READBACK_TIMEOUT_MS,
   READBACK_MAX_RETRIES,
 } from "@invisible-av-booth/shared";
@@ -50,7 +51,16 @@ const chOn = (channel: number): string => `/ch/${pad2(channel)}/mix/on`; // 1 = 
 const chName = (channel: number): string => `/ch/${pad2(channel)}/config/name`;
 const headampGain = (channel: number): string => `/headamp/${pad3(channel - 1)}/gain`; // headamp index is 0-based
 
-const metersSubscribe = (bank: number): { address: string; args: [number] } => ({ address: "/meters", args: [bank] });
+// X Air /meters subscription: the command takes a STRING (the meter bank
+// ADDRESS, e.g. "/meters/1") and an INT rate factor — NOT an int bank number.
+// Sending the wrong shape means the console never establishes a streaming
+// subscription (meter frames then only appear coincidentally, tied to other
+// traffic). See METERS_RATE_FACTOR for the rate meaning.
+const metersSubscribe = (bank: number, rateFactor: number): { address: string; types: string; args: [string, number] } => ({
+  address: "/meters",
+  types: "si",
+  args: [`/meters/${bank}`, rateFactor],
+});
 
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -169,8 +179,8 @@ export class BehringerXAirDriver implements MixerControlInterface {
 
   private subscribeMeters(): void {
     // Bank 1, indices 0–15 = per-channel PRE-FADER input (always-visible meter).
-    const { address, args } = metersSubscribe(METERS_BANK_CHANNEL_PREFADER);
-    this.transport.send(address, "i", args);
+    const { address, types, args } = metersSubscribe(METERS_BANK_CHANNEL_PREFADER, METERS_RATE_FACTOR);
+    this.transport.send(address, types, args);
   }
 
   // ── Commands (with capability enforcement + read-back reconciliation) ────────

@@ -74,6 +74,20 @@ export const METERS_BANK_PREAMP_IN = 2;
 export const METERS_CHANNEL_INDEX_BASE = 0; // channels occupy indices 0..15 in both banks
 export const NOISE_FLOOR_DBFS = -90;
 
+/**
+ * Meter subscription update-rate factor (X Air /meters second argument).
+ *
+ * The X Air/X32 `/meters` command takes a STRING (the meter bank address, e.g.
+ * "/meters/1") and an INT rate factor. The console emits one meter frame every
+ * `factor` internal ticks (~1/50 s each). `1` ≈ 50 fps; we use `2` (~25 fps),
+ * which is smooth to the eye and easily keeps up with peak-hold while roughly
+ * halving UDP traffic vs. every frame. Once subscribed the console streams
+ * continuously until the ~10 s subscription window lapses, so it must be renewed
+ * (see METERS_RENEW_MS). This is why a WRONG subscription format shows updates
+ * only coincidentally (e.g. tied to other traffic) rather than as a live stream.
+ */
+export const METERS_RATE_FACTOR = 2;
+
 /** Connection probe (Req 9.4): send /xinfo, await a reply within this window. */
 export const MIXER_PROBE_TIMEOUT_MS = 800;
 

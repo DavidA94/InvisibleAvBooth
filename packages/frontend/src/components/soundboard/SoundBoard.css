@@ -189,10 +189,13 @@
 /* The per-channel level meter beside the fader needs an intrinsic width + full
    height — otherwise the shared .audio-meter-track (width:100%) collapses to 0
    inside the flex row and the meter is invisible. It normally lives inside the
-   OBS .audio-meter-container (fixed 1.25rem width); the Sound Board renders the
-   mono meter directly, so we size its wrapper here. */
+   OBS .audio-meter-container, whose two bars each end up ~0.375rem wide (1.25rem
+   container minus padding/gap, split across two). The Sound Board renders ONE
+   mono meter directly, so we size the wrapper to that same single-bar width so
+   the two meters look identical (same width + same colour zones — the gradient
+   is shared). */
 .soundboard-fader-meter-row .audio-meter-bar-wrapper {
-  width: 1.25rem;
+  width: 0.375rem;
   height: 100%;
   flex: 0 0 auto;
 }
