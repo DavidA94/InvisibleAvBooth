@@ -22,15 +22,14 @@
 }
 
 /* The MUI vertical slider needs an explicit-height container to lay out ticks.
-   The tick labels render to the RIGHT of the slider, so we reserve equal left/
-   right padding to keep the slider itself visually centered in the strip (rather
-   than jammed against the left edge). */
+   MUI places the dB mark labels on the left of the track natively; no extra
+   padding is added here so the fader sits flush and the level meter beside it
+   isn't pushed off the strip. */
 .mixer-fader-track {
   flex: 1;
   min-height: 8rem;
   display: flex;
   justify-content: center;
-  padding: 0 1.75rem;
 }
 
 .mixer-fader-db {
@@ -198,6 +197,16 @@
   width: 0.375rem;
   height: 100%;
   flex: 0 0 auto;
+}
+
+/* The Sound Board channel meter always shows its colour zones (green/yellow/red),
+   regardless of whether level frames are currently flowing — a channel meter that
+   greys out when idle is misleading for a volunteer watching audio (AGENTS.md
+   audio-priority). We override the shared .audio-meter-inactive dimming here only;
+   the OBS meter keeps its inactive treatment (Req 5.4 inactive-vs-silence). */
+.soundboard-fader-meter-row .audio-meter-inactive {
+  opacity: 1;
+  filter: none;
 }
 
 /* ── Presets area ──────────────────────────────────────────────────────────── */

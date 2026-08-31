@@ -28,10 +28,12 @@ const MARKS = FADER_TICKS_DB.map((db) => ({
 }));
 
 /**
- * Legible mark-label styling for the vertical slider. MUI renders vertical-slider
- * mark labels to the right of the track in a low-contrast default color; we pull
- * them tight against the track and use the primary text token so the dB scale is
- * readable on the dark theme (steering §9 contrast).
+ * Legible mark-label styling for the vertical slider. MUI places vertical-slider
+ * mark labels on the LEFT of the track by default — we keep that (an earlier
+ * override that floated them RIGHT made MUI reserve ~44px of layout width on the
+ * right, which pushed the adjacent level meter off the strip). We only restyle
+ * color/size for dark-theme legibility (steering §9 contrast) and leave MUI's
+ * native positioning so the marks and labels stay aligned.
  */
 const SLIDER_SX = {
   color: "var(--color-primary)",
@@ -39,7 +41,6 @@ const SLIDER_SX = {
   "& .MuiSlider-markLabel": {
     color: "var(--color-text)",
     fontSize: "0.6875rem",
-    left: "1.25rem", // sit just off the track, not floated far right
   },
   "& .MuiSlider-mark": {
     backgroundColor: "var(--color-text-muted)",
