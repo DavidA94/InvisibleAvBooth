@@ -168,6 +168,7 @@ export class BehringerXAirDriver implements MixerControlInterface {
   setMeteringEnabled(enabled: boolean): void {
     if (enabled === this.metering) return;
     this.metering = enabled;
+    logger.debug("Mixer metering toggled", { context: { mixerId: this.config.mixerId, enabled } });
     if (enabled) {
       this.subscribeMeters();
       this.metersTimer = setInterval(() => this.subscribeMeters(), METERS_RENEW_MS);

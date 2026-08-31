@@ -45,8 +45,10 @@ vi.mock("react-select", () => ({
 // useSocket returns a fake socket so emits don't throw. Uses vi.hoisted so the
 // hoisted mock factory can reference the mutable emit spy.
 const mockEmit = vi.hoisted(() => vi.fn());
+const mockOn = vi.hoisted(() => vi.fn());
+const mockOff = vi.hoisted(() => vi.fn());
 vi.mock("../../providers/SocketProvider", () => ({
-  useSocket: () => ({ emit: mockEmit }),
+  useSocket: () => ({ emit: mockEmit, on: mockOn, off: mockOff }),
 }));
 
 // ResizeObserver isn't in jsdom — stub the hook to a fixed width (fits all channels here).

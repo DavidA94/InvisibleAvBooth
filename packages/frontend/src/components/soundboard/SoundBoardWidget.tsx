@@ -61,10 +61,21 @@ export function SoundBoardWidget(): ReactNode {
   const mixerId = state?.mixerId ?? "";
 
   // Widget-presence lifecycle (Req 12.4): tell the backend which mixer is shown.
+  // The backend tracks presence PER CONNECTION and clears it on disconnect, so we
+  // must (re)send on every socket "connect" — not just on mount. socket.io reuses
+  // the same Socket instance across reconnects, so a mount-only emit would be lost
+  // after a backend restart/reconnect and metering would never re-enable until a
+  // full page refresh (observed in the field). Re-emitting on "connect" makes the
+  // meter recover automatically like the rest of the state.
   useEffect(() => {
     if (!socket || !mixerId) return;
-    socket.emit(CTS_MIXER_WIDGET_PRESENT, { mixerId, present: true });
+    const announcePresent = (): void => {
+      socket.emit(CTS_MIXER_WIDGET_PRESENT, { mixerId, present: true });
+    };
+    announcePresent(); // in case we're already connected
+    socket.on("connect", announcePresent);
     return () => {
+      socket.off("connect", announcePresent);
       socket.emit(CTS_MIXER_WIDGET_PRESENT, { mixerId, present: false });
     };
   }, [socket, mixerId]);
