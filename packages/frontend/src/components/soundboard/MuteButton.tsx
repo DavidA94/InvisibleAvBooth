@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { MUTE_CONFIRM_TIMEOUT_MS } from "@invisible-av-booth/shared";
 import { TEST_ID_MIXER_MUTE_BUTTON, TEST_ID_MIXER_MUTE_STATUS } from "../../constants/testIds";
+import { logger } from "../../logger";
 
 interface MuteButtonProps {
   channel: number;
@@ -71,7 +72,13 @@ export function MuteButton({ channel, muted, unreconciled = false, onToggle }: M
 
     clearTimer();
     timerRef.current = setTimeout(() => {
-      // No confirmed value within the window → fall back to Unknown.
+      // No confirmed value within the window → fall back to Unknown. Log it so a
+      // channel that keeps flipping to Unknown is traceable in the unified log
+      // (source: "frontend"), distinguishing a UI confirm-timeout from a backend
+      // read-back exhaustion (which the driver WARN-logs separately).
+      logger.warn("Mute confirm timed out — channel showing Unknown", {
+        context: { channel, commanded, timeoutMs: MUTE_CONFIRM_TIMEOUT_MS },
+      });
       setConfirmTimedOut(true);
       timerRef.current = null;
     }, MUTE_CONFIRM_TIMEOUT_MS);
@@ -82,7 +89,7 @@ export function MuteButton({ channel, muted, unreconciled = false, onToggle }: M
   const effectiveMuted = optimisticMuted ?? muted;
   const display: MuteDisplay = confirmTimedOut || unreconciled ? "unknown" : effectiveMuted ? "off" : "on";
 
-  const statusText = display === "on" ? "Audio: On" : display === "off" ? "Audio: Off" : "Audio: Unknown";
+  const statusText = display === "on" ? "Audio: On" : display === "off" ? "Audio: Off" : "Unknown";
   const dataState = display === "unknown" ? "unknown" : effectiveMuted ? "muted" : "active";
 
   return (

@@ -18,19 +18,34 @@
   flex-direction: column;
   align-items: center;
   height: 100%;
+  min-height: 0;
+}
+
+/* The MUI vertical slider needs an explicit-height container to lay out ticks.
+   The tick labels render to the RIGHT of the slider, so we reserve equal left/
+   right padding to keep the slider itself visually centered in the strip (rather
+   than jammed against the left edge). */
+.mixer-fader-track {
+  flex: 1;
+  min-height: 8rem;
+  display: flex;
+  justify-content: center;
+  padding: 0 1.75rem;
 }
 
 .mixer-fader-db {
-  font-size: 0.75rem;
-  color: var(--color-text-muted);
-  margin-top: 0.25rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-text);
+  margin-top: 0.5rem;
 }
 
 /* Subtle treatment for an unreconciled control (Req 15.8). */
-.mixer-control-unreconciled {
-  outline: 0.125rem dashed var(--color-warning);
-  outline-offset: 0.125rem;
-}
+/* Unreconciled control (Req 15.8). We intentionally do NOT draw an outline box
+   here — it overlapped neighbouring controls. The "unknown" signal is conveyed
+   by the blinking yellow mute dot (see .mixer-mute-dot-unknown, which reuses the
+   shared `pulse` status animation) and, for the fader, its dB value going stale;
+   no bordering treatment is applied. */
 
 /* ── Mute button ───────────────────────────────────────────────────────────── */
 .mixer-mute {
@@ -45,6 +60,7 @@
   align-items: center;
   gap: 0.375rem;
   font-size: 0.8125rem;
+  white-space: nowrap; /* keep the status on a single line */
 }
 
 .mixer-mute-dot {
@@ -64,6 +80,8 @@
 
 .mixer-mute-dot-unknown {
   background: var(--color-warning);
+  /* Reuse the shared status `pulse` animation (as .widget-dot-unhealthy does). */
+  animation: pulse 1.5s infinite;
 }
 
 .mixer-mute-button {
@@ -106,7 +124,11 @@
   display: block;
   background: var(--color-bg);
   border-radius: 0.375rem;
-  width: 100%;
+  /* NO width:100% — the canvas must display at its backing-store (width/height
+     attribute) size so the drawing coordinates map 1:1 to CSS pixels. A width:100%
+     here collapsed to 0 inside the shrink-to-fit, center-aligned modal body,
+     which is why the preview appeared to have no width. */
+  border: 0.0625rem solid var(--color-border);
 }
 
 /* ── Channel strip / layout ────────────────────────────────────────────────── */
@@ -119,16 +141,19 @@
 
 .soundboard-strip-row {
   display: flex;
-  gap: var(--space-control-gap);
+  gap: 0.75rem;
   flex: 1;
   min-height: 0;
+  /* Breathing room so the first/last strip's fader doesn't touch or overflow the
+     widget edge. */
+  padding: 0 0.5rem;
 }
 
 .soundboard-channel-strip {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.375rem;
+  gap: 0.625rem; /* vertical rhythm between name, gain button, fader, value, mute */
   flex: 1;
   min-width: 0;
 }
@@ -141,13 +166,35 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   max-width: 100%;
+  /* Reserve a consistent row height so strips stay aligned when only some
+     channels on the page have names (the row is omitted entirely when no
+     visible channel has a name). Extra bottom margin separates the label from
+     the Adjust Gain button below it. */
+  min-height: 1.25rem;
+  line-height: 1.25rem;
+  margin-bottom: 0.375rem;
 }
 
 .soundboard-fader-meter-row {
   display: flex;
-  gap: 0.25rem;
+  gap: 0.375rem;
   flex: 1;
-  min-height: 0;
+  min-height: 8rem;
+  align-items: stretch;
+  justify-content: center;
+  /* Space above the fader/meter row (below the Adjust Gain button). */
+  margin-top: 0.5rem;
+}
+
+/* The per-channel level meter beside the fader needs an intrinsic width + full
+   height — otherwise the shared .audio-meter-track (width:100%) collapses to 0
+   inside the flex row and the meter is invisible. It normally lives inside the
+   OBS .audio-meter-container (fixed 1.25rem width); the Sound Board renders the
+   mono meter directly, so we size its wrapper here. */
+.soundboard-fader-meter-row .audio-meter-bar-wrapper {
+  width: 1.25rem;
+  height: 100%;
+  flex: 0 0 auto;
 }
 
 /* ── Presets area ──────────────────────────────────────────────────────────── */
@@ -173,13 +220,49 @@
 .mixer-pagination {
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
   flex: 1;
   min-width: 0;
 }
 
+/* Two equal halves. The next-range button sits at the BOTTOM of the top half and
+   the previous-range button at the TOP of the bottom half, so both buttons meet
+   near the center line. Each half reserves its space so a visible button never
+   moves between first/middle/last pages (Req 13.6). */
 .mixer-pagination-slot {
+  flex: 1;
   min-height: 2.5rem;
+  min-width: 0;
+  display: flex;
+}
+
+.mixer-pagination-slot-top {
+  align-items: flex-end; /* next button hugs the center from above */
+  justify-content: center;
+  /* Space between the two buttons at the center line. */
+  padding-bottom: 0.375rem;
+}
+
+.mixer-pagination-slot-bottom {
+  align-items: flex-start; /* prev button hugs the center from below */
+  justify-content: center;
+  padding-top: 0.375rem;
+}
+
+.mixer-pagination-button {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 0.25rem;
+  /* Fit within the single strip column: fill its width, wrap the range label,
+     and never overflow the allocated column space. */
+  width: 100%;
+  max-width: 100%;
+  min-height: 0;
+  padding: 0.375rem 0.5rem;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: left;
+  font-size: 0.6875rem;
+  line-height: 1.15;
 }
 
 /* ── Widget assembly extras ────────────────────────────────────────────────── */
@@ -216,8 +299,13 @@
 .mixer-gain-modal-body {
   display: flex;
   flex-direction: column;
-  gap: var(--space-control-gap);
+  gap: 1.25rem; /* space between envelope, slider, value, and audio state */
   align-items: center;
+  /* Match the envelope canvas backing-store width (320px = 20rem) so the slider
+     and envelope line up and the body doesn't collapse. */
+  width: 20rem;
+  max-width: 100%;
+  margin: 0 auto;
 }
 
 .mixer-gain-slider {

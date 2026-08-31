@@ -3,6 +3,10 @@ import { render, screen, fireEvent, act } from "@testing-library/react";
 import { MuteButton } from "./MuteButton";
 import { TEST_ID_MIXER_MUTE_BUTTON, TEST_ID_MIXER_MUTE_STATUS } from "../../constants/testIds";
 
+vi.mock("../../logger", () => ({
+  logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+}));
+
 const btn = (channel: number): string => `${TEST_ID_MIXER_MUTE_BUTTON}-${channel}`;
 const status = (channel: number): string => `${TEST_ID_MIXER_MUTE_STATUS}-${channel}`;
 
@@ -56,13 +60,15 @@ describe("MuteButton", () => {
     act(() => {
       vi.advanceTimersByTime(600); // past the confirm window with no backend update
     });
-    expect(screen.getByTestId(status(1)).textContent).toContain("Audio: Unknown");
+    expect(screen.getByTestId(status(1)).textContent).toContain("Unknown");
+    expect(screen.getByTestId(status(1)).textContent).not.toContain("Audio:"); // short label, one line
     expect(screen.getByTestId(btn(1)).getAttribute("data-state")).toBe("unknown");
   });
 
   it("shows Unknown immediately when read-back is exhausted (unreconciled prop)", () => {
     render(<MuteButton channel={3} muted={false} unreconciled onToggle={vi.fn()} />);
-    expect(screen.getByTestId(status(3)).textContent).toContain("Audio: Unknown");
+    expect(screen.getByTestId(status(3)).textContent).toContain("Unknown");
+    expect(screen.getByTestId(status(3)).textContent).not.toContain("Audio:");
     expect(screen.getByTestId(btn(3)).getAttribute("data-state")).toBe("unknown");
   });
 
