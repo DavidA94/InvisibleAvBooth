@@ -56,8 +56,9 @@ export function GainSemicircle({ gainDb, minDb, maxDb }: GainSemicircleProps): R
       className="mixer-gain-semicircle"
       viewBox="0 0 100 84"
       role="img"
-      aria-label={`Gain ${gainDb.toFixed(0)} dB`}
+      aria-label={`Gain ${gainDb.toFixed(1)} dB`}
     >
+      <text x="50%" y="60%" textAnchor="middle" dominantBaseline="middle" fill="white" fontSize="1.2rem">{gainDb.toFixed(1)}</text>
       <path d={ARC_PATH} className="mixer-gain-arc-track" fill="none" strokeWidth={8} />
       <path d={ARC_PATH} className="mixer-gain-arc-fill" fill="none" strokeWidth={8} strokeDasharray={CIRCUMFERENCE} strokeDashoffset={dashOffset} />
     </svg>
