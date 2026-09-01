@@ -40,8 +40,11 @@ describe("GainSemicircle", () => {
     expect(fraction).toBeCloseTo(0.5, 2);
   });
 
-  it("shows the gain value as text", () => {
+  it("exposes the gain value via aria-label (no numeric text printed inside the arc)", () => {
     render(<GainSemicircle gainDb={12} minDb={-12} maxDb={60} />);
-    expect(screen.getByText("12 dB")).toBeInTheDocument();
+    // The value is not drawn inside the semicircle (shown in the popover instead),
+    // but remains accessible via the SVG's aria-label.
+    expect(screen.queryByText("12 dB")).toBeNull();
+    expect(screen.getByLabelText("Gain 12 dB")).toBeInTheDocument();
   });
 });

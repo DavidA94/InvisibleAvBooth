@@ -4,6 +4,7 @@ import { authLoginSuccess } from "../fixtures/payloads/auth";
 import { TEST_ID_LOGIN_USERNAME, TEST_ID_LOGIN_PASSWORD, TEST_ID_LOGIN_SUBMIT } from "../../src/constants/testIds";
 
 const volunteerLogin = authLoginSuccess({ role: "AvVolunteer" });
+const powerUserLogin = authLoginSuccess({ role: "AvPowerUser" });
 
 function mixerState(overrides: Record<string, unknown> = {}) {
   return {
@@ -130,18 +131,27 @@ test.describe("Sound Board widget", () => {
     await expect(page.getByText("Applied: Singers")).toBeVisible();
   });
 
-  test("Adjust Gain opens the gain modal (slider tier, no capture)", async ({ page }) => {
+  test("Adjust Gain opens the gain popover (AvPowerUser+)", async ({ page }) => {
+    await routeAuthLogin(page, powerUserLogin);
+    await routeAuthCheck(page, powerUserLogin);
+    await setupDashboard(page);
+    await setupSocket(page);
+    await loginAndNavigate(page);
+
+    await page.getByTestId("mixer-adjust-gain-button-1").click();
+    // The IonPopover renders a gain-value readout and a slider.
+    await expect(page.getByTestId("mixer-gain-value").first()).toBeVisible();
+    await expect(page.getByTestId("mixer-gain-slider").first()).toBeVisible();
+  });
+
+  test("Adjust Gain button is hidden for AvVolunteer (AvPowerUser+ gate)", async ({ page }) => {
     await routeAuthLogin(page, volunteerLogin);
     await routeAuthCheck(page, volunteerLogin);
     await setupDashboard(page);
     await setupSocket(page);
     await loginAndNavigate(page);
 
-    await page.getByTestId("mixer-adjust-gain-button-1").click();
-    await expect(page.getByTestId("mixer-gain-modal")).toBeVisible();
-    await expect(page.getByTestId("mixer-gain-modal")).toContainText("Gain for Channel 1 (Vocals)");
-    // Slider tier — no envelope canvas since capture is disabled.
-    await expect(page.getByTestId("mixer-envelope-canvas")).toHaveCount(0);
+    await expect(page.getByTestId("mixer-adjust-gain-button-1")).toHaveCount(0);
   });
 
   test("shows the offline scrim and a red Controls indicator when the mixer is disconnected", async ({ page }) => {

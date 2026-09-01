@@ -50,6 +50,9 @@ export class MixerSocketModule implements SocketModule {
     const { socket, jwtPayload } = auth;
     // Live operation is AvVolunteer and above (Req 9.5). Below that, ignore commands.
     const canOperate = jwtPayload.role === "AvVolunteer" || jwtPayload.role === "AvPowerUser" || jwtPayload.role === "ADMIN";
+    // Gain is an AvPowerUser+ feature (spec Appendix A): the frontend hides the
+    // Adjust Gain control for AvVolunteer; this is the server-side enforcement.
+    const canAdjustGain = jwtPayload.role === "AvPowerUser" || jwtPayload.role === "ADMIN";
 
     // Per-socket, per-mixer widget-presence counts, so a crashed tablet cannot
     // leak a metering subscription: the disconnect handler decrements everything
@@ -58,8 +61,17 @@ export class MixerSocketModule implements SocketModule {
 
     socket.on(CTS_MIXER_SET, async (command: MixerCommand) => {
       if (!canOperate || !command || typeof command.mixerId !== "string") return;
-      logger.debug("Mixer set", { userId: jwtPayload.sub, context: { mixerId: command.mixerId, channel: command.channel } });
-      await this.mixerService.setChannel(command.mixerId, command);
+      // Reject gain from non-power-users (defense-in-depth for the AvPowerUser+
+      // gain feature); still honor any fader/mute in the same command.
+      let effective = command;
+      if (command.gainDb !== undefined && !canAdjustGain) {
+        logger.warn("Rejecting gain from non-power-user", { userId: jwtPayload.sub, context: { mixerId: command.mixerId, channel: command.channel } });
+        const { gainDb: _gainDb, ...rest } = command;
+        effective = rest;
+        if (effective.fader === undefined && effective.muted === undefined) return; // nothing left to apply
+      }
+      logger.debug("Mixer set", { userId: jwtPayload.sub, context: { mixerId: effective.mixerId, channel: effective.channel } });
+      await this.mixerService.setChannel(effective.mixerId, effective);
     });
 
     socket.on(CTS_MIXER_PRESET_ACTIVATE, async (payload: { mixerId: string; presetId: string }) => {

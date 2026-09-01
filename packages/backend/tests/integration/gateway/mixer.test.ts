@@ -136,6 +136,18 @@ describe("Mixer commands → driver forwarding", () => {
     const ops = driver.commands.filter((c) => c.channel === 3).map((c) => c.op);
     expect(ops).toEqual(expect.arrayContaining(["fader", "mute", "gain"]));
   });
+
+  it("rejects gain from an AvVolunteer but still applies fader/mute (AvPowerUser+ gain gate)", async () => {
+    const mixerId = await createMixer();
+    const volunteerCookie = await loginAs(s.agent, s.ctx.authService, "vol", "pw-vol-123", "AvVolunteer");
+    const volunteerToken = /token=([^;]+)/.exec(volunteerCookie)?.[1] ?? "";
+    const client = await connectClient(volunteerToken);
+    const driver = s.fakeMixer.get(mixerId)!;
+    client.emit(CTS_MIXER_SET, { mixerId, channel: 2, fader: 0.4, gainDb: 24 });
+    // Fader (allowed) is a positive signal the message was processed.
+    await waitUntil(() => driver.commands.some((c) => c.op === "fader" && c.channel === 2));
+    expect(driver.commands.find((c) => c.op === "gain")).toBeUndefined();
+  });
 });
 
 describe("Read-back reconciliation & external changes", () => {

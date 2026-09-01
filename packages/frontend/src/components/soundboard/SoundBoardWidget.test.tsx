@@ -1,6 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import "../../test/ionicMocks";
-import { render, screen, fireEvent, act } from "@testing-library/react";
+import { render, screen, fireEvent, act, cleanup } from "@testing-library/react";
 import { SoundBoardWidget, deriveControlsStatus } from "./SoundBoardWidget";
 import { useStore } from "../../store";
 import type { MixerState } from "@invisible-av-booth/shared";
@@ -12,11 +12,15 @@ import {
   TEST_ID_CONNECTION_INDICATORS,
   TEST_ID_MIXER_PRESET_BUTTON,
   TEST_ID_MIXER_ADJUST_GAIN_BUTTON,
-  TEST_ID_MIXER_GAIN_MODAL,
   TEST_ID_MIXER_PAGINATION,
   TEST_ID_MIXER_PAGINATION_PREV,
   TEST_ID_MIXER_PAGINATION_NEXT,
 } from "../../constants/testIds";
+
+// Unmount rendered trees between tests so stale DOM/components don't leak (this
+// suite has no global RTL auto-cleanup). Without this, a prior test's gain slider
+// lingers and getAllByRole("slider") can target the stale one.
+afterEach(() => cleanup());
 
 // react-select → native select in jsdom.
 vi.mock("react-select", () => ({
@@ -49,6 +53,11 @@ const mockOn = vi.hoisted(() => vi.fn());
 const mockOff = vi.hoisted(() => vi.fn());
 vi.mock("../../providers/SocketProvider", () => ({
   useSocket: () => ({ emit: mockEmit, on: mockOn, off: mockOff }),
+}));
+
+// ChannelStrip reads useAuth for the AvPowerUser+ gain gate; default to AvPowerUser.
+vi.mock("../../hooks/useAuth", () => ({
+  useAuth: () => ({ user: { id: "u1", username: "pu", role: "AvPowerUser" }, isRole: () => true }),
 }));
 
 // ResizeObserver isn't in jsdom — stub the hook to a fixed width (fits all channels here).
@@ -148,49 +157,43 @@ describe("SoundBoardWidget", () => {
     expect(notifications.some((n) => n.level === "toast" && n.message.includes("Singers"))).toBe(true);
   });
 
-  it("opens the gain modal from a channel's Adjust Gain button (gain-control on)", () => {
-    useStore.setState({ mixerStates: { mix1: makeMixer({ capabilities: { features: ["gain-control"], gainRange: { minDb: -12, maxDb: 60 } } }) } });
-    render(<SoundBoardWidget />);
-    fireEvent.click(screen.getByTestId(`${TEST_ID_MIXER_ADJUST_GAIN_BUTTON}-1`));
-    expect(screen.getByTestId(TEST_ID_MIXER_GAIN_MODAL)).toBeInTheDocument();
-  });
-
-  it("emits a gain change from the gain modal slider", () => {
-    mockEmit.mockClear();
-    useStore.setState({ mixerStates: { mix1: makeMixer({ capabilities: { features: ["gain-control"], gainRange: { minDb: -12, maxDb: 60 } } }) } });
-    render(<SoundBoardWidget />);
-    fireEvent.click(screen.getByTestId(`${TEST_ID_MIXER_ADJUST_GAIN_BUTTON}-1`));
-    // The gain modal's MUI slider is the only slider in the modal.
-    const modalSlider = screen.getAllByRole("slider").find((el) => el.closest('[data-testid="mixer-gain-slider"]'));
-    expect(modalSlider).toBeDefined();
-    fireEvent.change(modalSlider!, { target: { value: "24" } });
-    const setEvents = mockEmit.mock.calls.filter((c) => c[0] === "cts:mixer:set").map((c) => c[1] as { gainDb?: number });
-    expect(setEvents.some((e) => e.gainDb !== undefined)).toBe(true);
-  });
-
-  it("opens the gain window (capture) and emits a monitor request", () => {
-    class MockWebSocket {
-      static instances: MockWebSocket[] = [];
-      onmessage = null;
-      onclose = null;
-      onerror = null;
-      binaryType = "arraybuffer";
-      readyState = 1;
-      close = vi.fn();
-      constructor() {
-        MockWebSocket.instances.push(this);
-      }
-    }
-    vi.stubGlobal("WebSocket", MockWebSocket as unknown as typeof WebSocket);
+  it("opens the gain popover from a channel's Adjust Gain button (gain-control on, AvPowerUser+)", () => {
     useStore.setState({
-      mixerStates: { mix1: makeMixer({ capabilities: { features: ["gain-control", "channel-audio-capture"], gainRange: { minDb: -12, maxDb: 60 } } }) },
+      mixerStates: {
+        mix1: makeMixer({
+          channelCount: 1,
+          channels: [{ channel: 1, name: "Ch 1", fader: 0.5, faderDb: -10, muted: false, gainDb: 0 }],
+          capabilities: { features: ["gain-control"], gainRange: { minDb: -12, maxDb: 60 } },
+        }),
+      },
     });
     render(<SoundBoardWidget />);
     fireEvent.click(screen.getByTestId(`${TEST_ID_MIXER_ADJUST_GAIN_BUTTON}-1`));
-    expect(screen.getByTestId(TEST_ID_MIXER_GAIN_MODAL)).toBeInTheDocument();
-    // A monitor WS opens for the window tier.
-    expect(MockWebSocket.instances.length).toBeGreaterThan(0);
-    vi.unstubAllGlobals();
+    // The popover renders the live gain value readout.
+    expect(screen.getByTestId("mixer-gain-value")).toBeInTheDocument();
+  });
+
+  it("emits a gain change from the gain popover slider", () => {
+    mockEmit.mockClear();
+    useStore.setState({
+      mixerStates: {
+        mix1: makeMixer({
+          channelCount: 1,
+          channels: [{ channel: 1, name: "Ch 1", fader: 0.5, faderDb: -10, muted: false, gainDb: 0 }],
+          capabilities: { features: ["gain-control"], gainRange: { minDb: -12, maxDb: 60 } },
+        }),
+      },
+    });
+    const { container } = render(<SoundBoardWidget />);
+    fireEvent.click(screen.getByTestId(`${TEST_ID_MIXER_ADJUST_GAIN_BUTTON}-1`));
+    // Query within THIS render's container so a lingering prior render can't be hit.
+    const gainSlider = Array.from(
+      container.querySelectorAll('[data-testid="mixer-gain-slider"] input[type="range"], [data-testid="mixer-gain-slider"] input'),
+    ).find((el) => el instanceof HTMLInputElement) as HTMLInputElement | undefined;
+    expect(gainSlider).toBeDefined();
+    fireEvent.change(gainSlider!, { target: { value: "24" } });
+    const setEvents = mockEmit.mock.calls.filter((c) => c[0] === "cts:mixer:set").map((c) => c[1] as { gainDb?: number });
+    expect(setEvents.some((e) => e.gainDb !== undefined)).toBe(true);
   });
 
   it("emits a fader change and a mute toggle via the socket", () => {

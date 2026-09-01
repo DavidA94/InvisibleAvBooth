@@ -8,18 +8,9 @@ import { WidgetErrorOverlay } from "../WidgetErrorOverlay";
 import { useStore } from "../../store";
 import { useSocket } from "../../providers/SocketProvider";
 import { useResizeObserver } from "../../hooks/useResizeObserver";
-import {
-  CTS_MIXER_SET,
-  CTS_MIXER_PRESET_ACTIVATE,
-  CTS_MIXER_MONITOR_START,
-  CTS_MIXER_MONITOR_STOP,
-  CTS_MIXER_WIDGET_PRESENT,
-  CONTROLS_FRESHNESS_MS,
-  LEVEL_AXIS_MIN_DBFS,
-} from "@invisible-av-booth/shared";
+import { CTS_MIXER_SET, CTS_MIXER_PRESET_ACTIVATE, CTS_MIXER_WIDGET_PRESENT, CONTROLS_FRESHNESS_MS, LEVEL_AXIS_MIN_DBFS } from "@invisible-av-booth/shared";
 import type { MixerChannelState } from "@invisible-av-booth/shared";
 import { ChannelStrip } from "./ChannelStrip";
-import { GainModal } from "./GainModal";
 import { PresetsArea } from "./PresetsArea";
 import { computePaginationLayout, channelsForPage, rangeLabel } from "./pagination";
 import {
@@ -101,23 +92,17 @@ export function SoundBoardWidget(): ReactNode {
   useEffect(() => setPage(0), [mixerId, layout.perPage]);
   const visibleChannels = layout.paginated ? channelsForPage(page, layout.perPage, channelCount) : channelsForPage(0, channelCount || 1, channelCount);
 
-  // Gain modal.
-  const [gainChannel, setGainChannel] = useState<number | null>(null);
-
   const emitSet = (channel: number, fields: { fader?: number; muted?: boolean; gainDb?: number }): void => {
     if (socket && mixerId) socket.emit(CTS_MIXER_SET, { mixerId, channel, ...fields });
   };
 
   const connected = state?.connected ?? false;
   const connections: ConnectionStatus[] = [{ label: "Controls", status: deriveControlsStatus(connected, stateFresh) }];
-  const captureAvailable = state?.capabilities.features.includes("channel-audio-capture") ?? false;
 
   const channelByIndex = (index: number): MixerChannelState | undefined => state?.channels.find((c) => c.channel === index);
 
   const mixerOptions = mixers.map((m) => ({ value: m.mixerId, label: m.mixerId }));
   const selectedOption = mixerOptions.find((o) => o.value === mixerId) ?? null;
-
-  const gainState = gainChannel !== null ? channelByIndex(gainChannel) : undefined;
 
   return (
     <div data-testid={TEST_ID_SOUNDBOARD_WIDGET} data-status={connected ? "online" : "offline"} ref={containerRef} className="full-height">
@@ -156,13 +141,15 @@ export function SoundBoardWidget(): ReactNode {
                         key={index}
                         channel={channel}
                         features={state!.capabilities.features}
+                        gainMinDb={state!.capabilities.gainRange.minDb}
+                        gainMaxDb={state!.capabilities.gainRange.maxDb}
                         levelDb={levelsForMixer?.[index] ?? LEVEL_AXIS_MIN_DBFS}
                         levelEventsFlowing={levelsForMixer?.[index] !== undefined}
                         faderUnreconciled={channel.unreconciled ?? false}
                         showNameRow={anyNameOnPage}
                         onFaderChange={(fader) => emitSet(index, { fader })}
                         onMuteToggle={(muted) => emitSet(index, { muted })}
-                        onAdjustGain={() => setGainChannel(index)}
+                        onGainChange={(gainDb) => emitSet(index, { gainDb })}
                       />
                     );
                   });
@@ -217,23 +204,6 @@ export function SoundBoardWidget(): ReactNode {
           </div>
         </WidgetErrorOverlay>
       </WidgetContainer>
-
-      {gainState && (
-        <GainModal
-          isOpen={gainChannel !== null}
-          mixerId={mixerId}
-          channel={gainState.channel}
-          channelName={gainState.name}
-          gainDb={gainState.gainDb}
-          minDb={state!.capabilities.gainRange.minDb}
-          maxDb={state!.capabilities.gainRange.maxDb}
-          captureAvailable={captureAvailable}
-          onClose={() => setGainChannel(null)}
-          onGainChange={(gainDb) => emitSet(gainState.channel, { gainDb })}
-          onMonitorStart={() => socket?.emit(CTS_MIXER_MONITOR_START, { mixerId, channel: gainState.channel })}
-          onMonitorStop={() => socket?.emit(CTS_MIXER_MONITOR_STOP, { mixerId, channel: gainState.channel })}
-        />
-      )}
     </div>
   );
 }

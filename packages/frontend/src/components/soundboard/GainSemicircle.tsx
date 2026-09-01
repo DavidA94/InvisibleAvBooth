@@ -23,7 +23,8 @@ const CIRCUMFERENCE = Math.PI * RADIUS; // half-circle arc length
  * Knob-style gain arc (Req 7.2). Fills clockwise from empty (gain at model
  * minimum) to full (gain at model maximum). For the X Air: 0% = -12 dB,
  * 100% = +60 dB. Reflects whatever gain value it's given, whether the change
- * originated from the slider or a backend update.
+ * originated from the slider or a backend update. The numeric value is NOT drawn
+ * inside the arc — it is shown separately in the gain popover while adjusting.
  */
 export function GainSemicircle({ gainDb, minDb, maxDb }: GainSemicircleProps): ReactNode {
   const fraction = gainToFraction(gainDb, minDb, maxDb);
@@ -43,9 +44,6 @@ export function GainSemicircle({ gainDb, minDb, maxDb }: GainSemicircleProps): R
     >
       <path d={arcPath} className="mixer-gain-arc-track" fill="none" strokeWidth={8} />
       <path d={arcPath} className="mixer-gain-arc-fill" fill="none" strokeWidth={8} strokeDasharray={CIRCUMFERENCE} strokeDashoffset={dashOffset} />
-      <text x={CENTER} y={CENTER - 8} textAnchor="middle" className="mixer-gain-arc-label">
-        {gainDb.toFixed(0)} dB
-      </text>
     </svg>
   );
 }
