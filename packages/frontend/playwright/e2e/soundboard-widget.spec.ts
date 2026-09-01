@@ -140,7 +140,7 @@ test.describe("Sound Board widget", () => {
 
     await page.getByTestId("mixer-adjust-gain-button-1").click();
     // The IonPopover renders a gain-value readout and a slider.
-    await expect(page.getByTestId("mixer-gain-value").first()).toBeVisible();
+    await expect(page.getByTestId("mixer-gain-slider").first()).toBeVisible();
     await expect(page.getByTestId("mixer-gain-slider").first()).toBeVisible();
   });
 

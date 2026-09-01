@@ -20,12 +20,15 @@ interface HorizontalGainSliderProps {
  * throttle-out and emits gain in dB.
  */
 export function HorizontalGainSlider({ gainDb, minDb, maxDb, onGainChange, onValue }: HorizontalGainSliderProps): ReactNode {
-  const held = useHeldControl(gainDb, onGainChange);
+  // Round to 1 decimal place to eliminate floating-point noise from the
+  // normalized-float→dB wire conversion (e.g. 20.9999999... → 21.0).
+  const roundedGainDb = Math.round(gainDb * 10) / 10;
+  const held = useHeldControl(roundedGainDb, onGainChange);
 
   useEffect(() => {
-    held.onBackendValue(gainDb);
+    held.onBackendValue(roundedGainDb);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gainDb]);
+  }, [roundedGainDb]);
 
   useEffect(() => {
     onValue?.(held.value);

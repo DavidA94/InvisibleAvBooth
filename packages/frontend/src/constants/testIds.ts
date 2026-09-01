@@ -324,7 +324,6 @@ export const TEST_ID_MIXER_MUTE_BUTTON = "mixer-mute-button";
 export const TEST_ID_MIXER_MUTE_STATUS = "mixer-mute-status";
 export const TEST_ID_MIXER_ADJUST_GAIN_BUTTON = "mixer-adjust-gain-button";
 export const TEST_ID_MIXER_GAIN_POPOVER = "mixer-gain-popover";
-export const TEST_ID_MIXER_GAIN_VALUE = "mixer-gain-value";
 export const TEST_ID_MIXER_GAIN_SLIDER = "mixer-gain-slider";
 export const TEST_ID_MIXER_GAIN_SEMICIRCLE = "mixer-gain-semicircle";
 export const TEST_ID_MIXER_PRESETS_AREA = "mixer-presets-area";

@@ -82,7 +82,7 @@ describe("ChannelStrip", () => {
     renderStrip(["gain-control"]);
     screen.getByTestId(`${TEST_ID_MIXER_ADJUST_GAIN_BUTTON}-1`).click();
     // The mocked IonPopover renders its children; the live gain value appears.
-    expect(screen.getByTestId("mixer-gain-value")).toBeInTheDocument();
+    expect(screen.getByTestId("mixer-gain-slider")).toBeInTheDocument();
   });
 
   it("propagates unreconciled to the fader and mute (Req 15.8 / 6.6)", () => {

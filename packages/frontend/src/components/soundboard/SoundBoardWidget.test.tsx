@@ -170,7 +170,7 @@ describe("SoundBoardWidget", () => {
     render(<SoundBoardWidget />);
     fireEvent.click(screen.getByTestId(`${TEST_ID_MIXER_ADJUST_GAIN_BUTTON}-1`));
     // The popover renders the live gain value readout.
-    expect(screen.getByTestId("mixer-gain-value")).toBeInTheDocument();
+    expect(screen.getByTestId("mixer-gain-slider")).toBeInTheDocument();
   });
 
   it("emits a gain change from the gain popover slider", () => {

@@ -102,8 +102,8 @@
 /* Small arc for the gain popover — sits to the LEFT of the slider, no numeric
    printed inside it (the value is shown in the popover). */
 .mixer-gain-semicircle {
-  width: 4rem;
-  height: 2.25rem;
+  width: 3rem;
+  /* Height is determined by the viewBox aspect ratio (100:84 for the 80% arc). */
   flex: 0 0 auto;
 }
 
@@ -286,6 +286,10 @@
 }
 
 /* ── Gain popover ──────────────────────────────────────────────────────────── */
+.mixer-gain-ion-popover {
+  --width: auto;
+}
+
 .mixer-gain-popover {
   /* Bounded to 400px (the popover requirement); shrinks on narrow screens. */
   width: 25rem;
@@ -316,15 +320,9 @@
   min-width: 0;
 }
 
-.mixer-gain-value {
-  font-size: 0.9375rem;
-  font-weight: 700;
-  color: var(--color-text);
-}
-
 .mixer-gain-slider {
   width: 100%;
-  padding: 0 0.5rem;
+  padding-right: 1.5rem;
 }
 
 /* View-all presets modal reuses the presets area style but scrolls vertically. */
