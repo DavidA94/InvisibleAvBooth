@@ -24,11 +24,7 @@ import type { NmsFactory, SpawnFn } from "./services/relayService.js";
 import { StreamingPlatformService } from "./services/streamingPlatformService.js";
 import { VideoPreviewManager } from "./services/videoPreviewManager.js";
 import type { SpawnFn as PreviewSpawnFn } from "./services/videoPreviewManager.js";
-import { AudioPreviewManager } from "./services/audioPreviewManager.js";
 import { PreviewUpgradeRouter } from "./services/previewUpgradeRouter.js";
-import { AudioCaptureService } from "./mixer/AudioCaptureService.js";
-import type { CaptureTarget } from "./mixer/AudioCaptureService.js";
-import { resolveCaptureTarget, isChannelInRange } from "./mixer/captureMetadata.js";
 import { MixerService } from "./mixer/MixerService.js";
 import type { MixerDriverFactory } from "./mixer/MixerService.js";
 import { MixerSocketModule } from "./gateway/modules/mixer/mixerModule.js";
@@ -82,9 +78,7 @@ export interface AppContext {
   lowerThirdService: LowerThirdService;
   cameraService: CameraService;
   videoPreviewManager: VideoPreviewManager;
-  audioPreviewManager: AudioPreviewManager;
   previewUpgradeRouter: PreviewUpgradeRouter;
-  audioCaptureService: AudioCaptureService;
   mixerService: MixerService;
   obsNdiPreviewSource: ObsNdiPreviewSource;
   gateway: SocketGateway;
@@ -146,34 +140,12 @@ export function buildApp(deps: AppDependencies): AppContext {
   const onPlatformChanged = (): void => platformServiceRef?.reloadPlatforms();
   app.use("/api", mustBeAuthenticated, mustHaveChangedPassword, createPlatformRouter(database, authService, onPlatformChanged));
 
-  // ── Preview transport + audio capture ───────────────────────────────────────
-  //
-  // The capture-target resolver and channel validator read mixer config from the
-  // DB. A MixerService (added in a later phase) may supply richer runtime state,
-  // but resolving from device_connections keeps the capture layer self-contained.
-  //
-  // captureNodeName targets the mixer's specific PipeWire node (e.g. the XR18
-  // multichannel-input); without it pipewiresrc grabs the down-mixed default and
-  // per-channel capture fails. deviceChannels is the total discrete USB channel
-  // count (e.g. 18) needed to negotiate the full multichannel stream.
-  const captureTargetResolver = (mixerId: string, channel: number): CaptureTarget => {
-    const row = database.prepare("SELECT metadata FROM device_connections WHERE id = ? AND deviceType = 'soundboard'").get(mixerId) as
-      { metadata: string } | undefined;
-    return resolveCaptureTarget(row?.metadata ?? null, channel);
-  };
-  const isValidMixerChannel = (mixerId: string, channel: number): boolean => {
-    const row = database.prepare("SELECT metadata FROM device_connections WHERE id = ? AND deviceType = 'soundboard'").get(mixerId) as
-      { metadata: string } | undefined;
-    return isChannelInRange(row?.metadata ?? null, channel);
-  };
-
-  const audioCaptureService = new AudioCaptureService(captureTargetResolver, previewSpawnFn);
+  // ── Preview transport (video) ───────────────────────────────────────────────
   const videoPreviewManager = new VideoPreviewManager(previewSpawnFn);
-  const audioPreviewManager = new AudioPreviewManager(audioCaptureService, isValidMixerChannel);
-  const previewUpgradeRouter = new PreviewUpgradeRouter(authService, videoPreviewManager, audioPreviewManager);
+  const previewUpgradeRouter = new PreviewUpgradeRouter(authService, videoPreviewManager);
   const obsNdiPreviewSource = new ObsNdiPreviewSource(database, videoPreviewManager);
   const cameraService = new CameraService(database, videoPreviewManager);
-  const mixerService = new MixerService(database, audioCaptureService, mixerDriverFactory);
+  const mixerService = new MixerService(database, mixerDriverFactory);
 
   // Preset routes need cameraService for position capture
   app.use("/api/admin/cameras/:cameraId/presets", mustBeAuthenticated, mustHaveChangedPassword, createPresetRouter(database, authService, cameraService));
@@ -262,9 +234,7 @@ export function buildApp(deps: AppDependencies): AppContext {
     lowerThirdService,
     cameraService,
     videoPreviewManager,
-    audioPreviewManager,
     previewUpgradeRouter,
-    audioCaptureService,
     mixerService,
     obsNdiPreviewSource,
     gateway,

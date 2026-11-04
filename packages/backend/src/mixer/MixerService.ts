@@ -12,30 +12,25 @@
  * and emits the mixer-reported value, which we broadcast. Live channel state is
  * NOT persisted — only device config and presets are (Req 11.1).
  *
- * CAPTURE-PATH HEALTH (Req 15.7): this service watches the mixer's OWN capture
- * path and raises a catastrophic modal via BUS_MIXER_CAPTURE_PATH_LOST when
- * recovery is impossible, auto-clearing via BUS_MIXER_CAPTURE_PATH_RESTORED.
- * AudioCaptureService is the single owner of capture-pipeline respawn. This does
- * NOT claim to guarantee the audio reaching the livestream (that path is
- * OBS→PipeWire→main-LR, out of scope — honest scoping avoids false confidence).
+ * NOTE: the PipeWire audio-capture layer (gain-window live-audio view) was
+ * removed — see `sound-board-control` spec Appendix A. Metering (per-channel
+ * level bars via OSC /meters) is a separate, retained feature.
  */
 
 import type { Database } from "better-sqlite3";
 import type { MixerModel, MixerState, MixerCommand, MixerCapabilities, MixerChannelState, MixerFeature, MixerPresetPayload } from "@invisible-av-booth/shared";
-import type { MixerControlInterface, MixerDriverConfig, ChannelMonitorSink } from "./MixerControlInterface.js";
+import type { MixerControlInterface, MixerDriverConfig } from "./MixerControlInterface.js";
 import { createMixerDriver } from "./MixerControlInterface.js";
-import type { AudioCaptureService } from "./AudioCaptureService.js";
 import { eventBus } from "../eventBus/eventBus.js";
 import { BUS_MIXER_STATE_CHANGED, BUS_MIXER_LEVELS, BUS_MIXER_DEVICE_CHANGED } from "../eventBus/types.js";
 import { listMixerPresetSummaries } from "../routes/adminMixerPresetRoutes.js";
 import { logger } from "../logger.js";
 
-export type MixerDriverFactory = (model: MixerModel, config: MixerDriverConfig, capture: ChannelMonitorSink) => Promise<MixerControlInterface>;
+export type MixerDriverFactory = (model: MixerModel, config: MixerDriverConfig) => Promise<MixerControlInterface>;
 
 interface MixerMetadata {
   model: MixerModel;
   channelCount: number;
-  usbSlotMap?: Record<string, number>;
 }
 
 interface MixerInstance {
@@ -51,45 +46,22 @@ interface MixerInstance {
   unsubscribes: Array<() => void>;
 }
 
-const MIXER_FEATURES: MixerFeature[] = ["gain-control", "channel-metering", "channel-audio-capture"];
+const MIXER_FEATURES: MixerFeature[] = ["gain-control", "channel-metering"];
 
 export class MixerService {
   private readonly instances = new Map<string, MixerInstance>();
   private readonly driverFactory: MixerDriverFactory;
   private destroyed = false;
   private deviceChangedHandler: ((payload: { action: "created" | "updated" | "deleted"; mixerId: string }) => void) | null = null;
-  /** Runtime PipeWire capture availability (Req 4.7) — downgrades channel-audio-capture when false. */
-  private captureAvailable = true;
 
   constructor(
     private readonly database: Database,
-    private readonly capture: AudioCaptureService,
     driverFactory?: MixerDriverFactory,
   ) {
     this.driverFactory = driverFactory ?? createMixerDriver;
   }
 
   async initialize(): Promise<void> {
-    // Runtime capture availability (Req 4.7 / 15.1): if PipeWire / pipewiresrc is
-    // unavailable, channel-audio-capture is downgraded in the broadcast
-    // capabilities so the gain modal falls back to the slider tier instead of
-    // opening a monitor that never produces frames.
-    this.captureAvailable = await this.capture.isAvailable();
-    if (!this.captureAvailable) {
-      logger.warn("Audio capture unavailable at runtime — channel-audio-capture will be downgraded", { context: {} });
-    } else {
-      // Warm the PipeWire node auto-discovery cache so the first gain-window open
-      // targets the correct multichannel device without a per-spawn pw-dump.
-      const discovered = await this.capture.discoverCaptureNode();
-      if (discovered) {
-        logger.info("Audio capture node discovered", { context: { nodeName: discovered.nodeName, deviceChannels: discovered.deviceChannels } });
-      } else {
-        logger.warn("No X Air multichannel capture node auto-discovered — set captureNodeName in device config if the gain window is unavailable", {
-          context: {},
-        });
-      }
-    }
-
     const rows = this.loadSoundboardRows();
     for (const row of rows) {
       await this.createInstance(row.id, row.host, row.port, row.metadata, row.features);
@@ -127,12 +99,11 @@ export class MixerService {
   /** Parse a soundboard row's metadata + features columns into typed config. */
   private parseConfig(metadataJson: string, featuresJson: string): { metadata: MixerMetadata; features: MixerFeature[] } | null {
     try {
-      const metadataRaw = JSON.parse(metadataJson) as { model?: string; channelCount?: number | string; usbSlotMap?: Record<string, number> };
+      const metadataRaw = JSON.parse(metadataJson) as { model?: string; channelCount?: number | string };
       const featuresRaw = JSON.parse(featuresJson) as Record<string, boolean>;
       const channelCount = typeof metadataRaw.channelCount === "string" ? Number(metadataRaw.channelCount) : metadataRaw.channelCount;
       if (metadataRaw.model !== "behringer-xair" || typeof channelCount !== "number" || channelCount <= 0) return null;
       const metadata: MixerMetadata = { model: "behringer-xair", channelCount };
-      if (metadataRaw.usbSlotMap) metadata.usbSlotMap = metadataRaw.usbSlotMap;
       const features = MIXER_FEATURES.filter((feature) => featuresRaw[feature] === true);
       return { metadata, features };
     } catch {
@@ -142,8 +113,7 @@ export class MixerService {
 
   private async createInstance(mixerId: string, host: string, port: number, metadata: MixerMetadata, features: MixerFeature[]): Promise<void> {
     const config: MixerDriverConfig = { mixerId, host, port, channelCount: metadata.channelCount, features };
-    const monitorSink = this.buildMonitorSink(mixerId);
-    const driver = await this.driverFactory(metadata.model, config, monitorSink);
+    const driver = await this.driverFactory(metadata.model, config);
 
     const instance: MixerInstance = {
       mixerId,
@@ -176,28 +146,6 @@ export class MixerService {
     this.broadcastState(mixerId);
   }
 
-  /**
-   * The driver's ChannelMonitorSink. The gain-window envelope is driven SOLELY by
-   * the `/preview/mixer` WS, which subscribes to AudioCaptureService directly. We
-   * deliberately make this a NO-OP: previously it created a SECOND capture
-   * subscription for the same channel (with a no-op onEnvelope), so opening the
-   * gain modal produced two subscribers whose start/stop ordering could drive the
-   * per-channel refCount to 0 mid-startup — killing the GStreamer pipeline
-   * (SIGTERM → exit code null) before any frame reached the socket, i.e. the
-   * "Live Audio View Unavailable" symptom with a double-spawn in the logs.
-   *
-   * AudioCaptureService is the single owner of capture lifecycle (architecture
-   * §3); the WS consumer is the single subscriber for the gain window. A future
-   * consumer (e.g. multitrack recording) subscribes to AudioCaptureService
-   * directly rather than through this sink, so nothing depends on this path.
-   */
-  private buildMonitorSink(_mixerId: string): ChannelMonitorSink {
-    return {
-      startChannelMonitor: (): void => {},
-      stopChannelMonitor: (): void => {},
-    };
-  }
-
   // ── State ────────────────────────────────────────────────────────────────────
 
   getMixerState(mixerId: string): MixerState | null {
@@ -211,12 +159,7 @@ export class MixerService {
   }
 
   private buildState(instance: MixerInstance): MixerState {
-    const raw: MixerCapabilities = instance.driver.getCapabilities();
-    // Runtime downgrade (Req 4.7): strip channel-audio-capture when PipeWire is
-    // unavailable, so the frontend picks the slider tier rather than opening a
-    // dead monitor. Admin intent (the stored feature) is preserved in the DB.
-    const features = this.captureAvailable ? raw.features : raw.features.filter((feature) => feature !== "channel-audio-capture");
-    const capabilities: MixerCapabilities = { features, gainRange: raw.gainRange };
+    const capabilities: MixerCapabilities = instance.driver.getCapabilities();
     return {
       mixerId: instance.mixerId,
       connected: instance.driver.isConnected(),
@@ -286,14 +229,6 @@ export class MixerService {
       instance.presenceCount = Math.max(0, instance.presenceCount - 1);
       if (instance.presenceCount === 0) instance.driver.setMeteringEnabled(false);
     }
-  }
-
-  startChannelMonitor(mixerId: string, channel: number): void {
-    this.instances.get(mixerId)?.driver.startChannelMonitor(channel);
-  }
-
-  stopChannelMonitor(mixerId: string, channel: number): void {
-    this.instances.get(mixerId)?.driver.stopChannelMonitor(channel);
   }
 
   // ── Hot-reload (Req 9.7/9.8) ─────────────────────────────────────────────────

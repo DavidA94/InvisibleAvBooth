@@ -75,14 +75,6 @@ describe("SoundBoardDeviceForm", () => {
     expect(check.isDirty()).toBe(false);
   });
 
-  it("shows the USB-slot mapping editor when channel-audio-capture is enabled", () => {
-    render(<SoundBoardDeviceForm device={null} onSaved={noop} onDeleted={noop} registerDirtyCheck={noop} />);
-    // Feature toggles render as checkboxes (ionicMocks). Enable capture.
-    const captureToggle = screen.getByText("channel-audio-capture").closest("label")!.querySelector("input")!;
-    act(() => fireEvent.click(captureToggle));
-    expect(screen.getByText("Channel → USB Slot Mapping")).toBeInTheDocument();
-  });
-
   it("toggles gain-control off and on", () => {
     render(<SoundBoardDeviceForm device={null} onSaved={noop} onDeleted={noop} registerDirtyCheck={noop} />);
     const gainToggle = screen.getByText("gain-control").closest("label")!.querySelector("input")!;
@@ -91,36 +83,26 @@ describe("SoundBoardDeviceForm", () => {
     expect(gainToggle).toBeInTheDocument();
   });
 
-  it("edits a USB slot value after enabling capture", () => {
+  it("does not offer the removed channel-audio-capture feature", () => {
     render(<SoundBoardDeviceForm device={null} onSaved={noop} onDeleted={noop} registerDirtyCheck={noop} />);
-    const captureToggle = screen.getByText("channel-audio-capture").closest("label")!.querySelector("input")!;
-    act(() => fireEvent.click(captureToggle));
-    const slotInputs = Array.from(document.querySelectorAll('input[type="number"]'));
-    // The last number inputs are the USB slots; edit the first one.
-    const slotInput = slotInputs[slotInputs.length - 8] ?? slotInputs[slotInputs.length - 1]!;
-    act(() => fireEvent.input(slotInput, { target: { value: "5" } }));
-    expect((slotInput as HTMLInputElement).value).toBe("5");
+    expect(screen.queryByText("channel-audio-capture")).toBeNull();
+    expect(screen.queryByText("Channel → USB Slot Mapping")).toBeNull();
   });
 
-  it("reopens an existing device with features + usbSlotMap round-tripped", () => {
+  it("reopens an existing device with features round-tripped", () => {
     const device: DeviceRecord = {
       id: "m1",
       deviceType: "soundboard",
       label: "Main Mixer",
       host: "127.0.0.1",
       port: 10024,
-      metadata: { model: "behringer-xair", channelCount: "4", usbSlotMap: JSON.stringify({ "1": 2, "2": 3, "3": 4, "4": 5 }) },
-      features: { "gain-control": true, "channel-metering": true, "channel-audio-capture": true },
+      metadata: { model: "behringer-xair", channelCount: "4" },
+      features: { "gain-control": true, "channel-metering": true },
       enabled: true,
       createdAt: "",
     };
     render(<SoundBoardDeviceForm device={device} onSaved={noop} onDeleted={noop} registerDirtyCheck={noop} />);
     expect(screen.getByText("Edit Main Mixer")).toBeInTheDocument();
-    // USB mapping editor shown (capture enabled) with channel 1 → slot 2 round-tripped.
-    expect(screen.getByText("Channel → USB Slot Mapping")).toBeInTheDocument();
-    const slotInputs = document.querySelectorAll('input[type="number"]');
-    // At least one input holds the value "2" (channel 1's mapped slot).
-    expect(Array.from(slotInputs).some((i) => (i as HTMLInputElement).value === "2")).toBe(true);
   });
 
   it("renders a probe success result", async () => {
@@ -199,7 +181,7 @@ describe("SoundBoardDeviceForm", () => {
       host: "127.0.0.1",
       port: 10024,
       metadata: { model: "behringer-xair", channelCount: "4" },
-      features: { "gain-control": true, "channel-metering": true, "channel-audio-capture": false },
+      features: { "gain-control": true, "channel-metering": true },
       enabled: true,
       createdAt: "",
     };
@@ -217,7 +199,7 @@ describe("SoundBoardDeviceForm", () => {
       host: "127.0.0.1",
       port: 10024,
       metadata: { model: "behringer-xair", channelCount: "4" },
-      features: { "gain-control": true, "channel-metering": true, "channel-audio-capture": false },
+      features: { "gain-control": true, "channel-metering": true },
       enabled: true,
       createdAt: "",
     };
@@ -230,7 +212,7 @@ describe("SoundBoardDeviceForm", () => {
     });
   });
 
-  it("serializes usbSlotMap on save when capture is enabled", async () => {
+  it("serializes mixer metadata on save (no usbSlotMap — capture removed)", async () => {
     let savedBody: Record<string, unknown> | null = null;
     const captureFetch = vi.fn(async (_url: string, opts?: { method?: string; body?: string }) => {
       if (opts?.method === "POST" && opts.body) savedBody = JSON.parse(opts.body) as Record<string, unknown>;
@@ -240,12 +222,11 @@ describe("SoundBoardDeviceForm", () => {
     render(<SoundBoardDeviceForm device={null} onSaved={noop} onDeleted={noop} registerDirtyCheck={noop} />);
     fireEvent.input(screen.getByTestId(TEST_ID_DEVICE_FORM_LABEL), { target: { value: "Mixer" } });
     fireEvent.input(screen.getByTestId(TEST_ID_DEVICE_FORM_HOST), { target: { value: "127.0.0.1" } });
-    const captureToggle = screen.getByText("channel-audio-capture").closest("label")!.querySelector("input")!;
-    act(() => fireEvent.click(captureToggle));
     fireEvent.click(screen.getByTestId(TEST_ID_DEVICE_FORM_SAVE));
     await waitFor(() => expect(savedBody).not.toBeNull());
     const metadata = (savedBody as unknown as { metadata: Record<string, string> }).metadata;
-    expect(metadata["usbSlotMap"]).toBeDefined();
+    expect(metadata["channelCount"]).toBeDefined();
+    expect(metadata["usbSlotMap"]).toBeUndefined();
   });
 
   it("deletes an existing device after confirmation", async () => {
@@ -257,7 +238,7 @@ describe("SoundBoardDeviceForm", () => {
       host: "127.0.0.1",
       port: 10024,
       metadata: { model: "behringer-xair", channelCount: "4" },
-      features: { "gain-control": true, "channel-metering": true, "channel-audio-capture": false },
+      features: { "gain-control": true, "channel-metering": true },
       enabled: true,
       createdAt: "",
     };

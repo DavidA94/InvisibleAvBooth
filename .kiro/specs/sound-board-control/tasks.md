@@ -1,6 +1,13 @@
 # Implementation Tasks — Sound Board Control
 
-Tests are part of each task's definition of done (steering `testing.md`) — a feature task is not complete until its associated test task passes. Unit/component tests (Vitest + RTL) follow the unit they cover; property-based tests use fast-check in the same file. Backend E2E tests use the shared `buildTestServer()` harness with in-memory SQLite and fakes (`createFakeMixer()`, `createFakeAudioCapture()`). Frontend E2E uses Playwright with mocked HTTP + WebSocket. No live mixer or audio hardware is available — everything is mocked at the abstraction boundary.
+> **⚠️ Note:** Tasks covering the **audio capture layer** and the **gain-window
+> live-audio view** (e.g. `AudioCaptureService`, `AudioPreviewManager`, the
+> envelope codec/canvas, `channel-audio-capture`, the channel→USB-slot mapping)
+> describe work that was later **removed** as intentionally unimplemented — see
+> `requirements.md` Appendix A (recoverable at commit `0ea204d`). They are left
+> checked here as a historical record of what was built.
+
+Tests are part of each task's definition of done (steering `testing.md`) — a feature task is not complete until its associated test task passes. Unit/component tests (Vitest + RTL) follow the unit they cover; property-based tests use fast-check in the same file. Backend E2E tests use the shared `buildTestServer()` harness with in-memory SQLite and fakes (`createFakeMixer()`). Frontend E2E uses Playwright with mocked HTTP + WebSocket. No live mixer or audio hardware is available — everything is mocked at the abstraction boundary.
 
 All work is committed directly to `main` (no feature branch). `npm run ci` must pass before any commit. Mark tasks complete in this file before committing.
 

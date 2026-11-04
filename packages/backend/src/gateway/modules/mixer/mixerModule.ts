@@ -2,30 +2,22 @@ import type { Server } from "socket.io";
 import type { SocketModule, AuthenticatedSocket } from "../socketModule.js";
 import type { MixerService } from "../../../mixer/MixerService.js";
 import { eventBus } from "../../../eventBus/eventBus.js";
-import { BUS_MIXER_STATE_CHANGED, BUS_MIXER_LEVELS, BUS_MIXER_CAPTURE_PATH_LOST, BUS_MIXER_CAPTURE_PATH_RESTORED } from "../../../eventBus/types.js";
+import { BUS_MIXER_STATE_CHANGED, BUS_MIXER_LEVELS } from "../../../eventBus/types.js";
 import {
   STC_MIXER_STATE,
   STC_MIXER_STATE_UPDATE,
   STC_MIXER_LEVELS,
-  STC_MIXER_ERROR,
-  STC_MIXER_ERROR_RESOLVED,
   CTS_MIXER_SET,
   CTS_MIXER_PRESET_ACTIVATE,
-  CTS_MIXER_MONITOR_START,
-  CTS_MIXER_MONITOR_STOP,
   CTS_MIXER_WIDGET_PRESENT,
 } from "@invisible-av-booth/shared";
 import type { MixerCommand } from "@invisible-av-booth/shared";
 import { logger } from "../../../logger.js";
 
-/** The errorCode that ties the capture-path modal raise to its resolution. */
-export const MIXER_CAPTURE_PATH_LOST_CODE = "MIXER_CAPTURE_PATH_LOST";
-
 /**
  * MixerSocketModule — bridges the mixer domain to Socket.io (SocketModule pattern,
- * steering §7). Broadcasts bus state/levels; handles per-socket commands
- * (AvVolunteer+); raises/clears the catastrophic capture-path modal exactly like
- * obsModule's OBS_UNREACHABLE (id === errorCode auto-clears it).
+ * steering §7). Broadcasts bus state/levels and handles per-socket commands
+ * (AvVolunteer+; gain is AvPowerUser+).
  */
 export class MixerSocketModule implements SocketModule {
   constructor(private readonly mixerService: MixerService) {}
@@ -36,13 +28,6 @@ export class MixerSocketModule implements SocketModule {
     });
     eventBus.subscribe(BUS_MIXER_LEVELS, (payload) => {
       io.emit(STC_MIXER_LEVELS, payload);
-    });
-    // Catastrophic capture-path fault → frontend modal (level: "modal").
-    eventBus.subscribe(BUS_MIXER_CAPTURE_PATH_LOST, ({ mixerId, reason }) => {
-      io.emit(STC_MIXER_ERROR, { errorCode: MIXER_CAPTURE_PATH_LOST_CODE, mixerId, message: reason, level: "modal" });
-    });
-    eventBus.subscribe(BUS_MIXER_CAPTURE_PATH_RESTORED, () => {
-      io.emit(STC_MIXER_ERROR_RESOLVED, { errorCode: MIXER_CAPTURE_PATH_LOST_CODE });
     });
   }
 
@@ -78,16 +63,6 @@ export class MixerSocketModule implements SocketModule {
       if (!canOperate || !payload?.mixerId || !payload?.presetId) return;
       logger.info("Mixer preset activate", { userId: jwtPayload.sub, context: { mixerId: payload.mixerId, presetId: payload.presetId } });
       await this.mixerService.activatePreset(payload.mixerId, payload.presetId);
-    });
-
-    socket.on(CTS_MIXER_MONITOR_START, (payload: { mixerId: string; channel: number }) => {
-      if (!canOperate || !payload?.mixerId) return;
-      this.mixerService.startChannelMonitor(payload.mixerId, payload.channel);
-    });
-
-    socket.on(CTS_MIXER_MONITOR_STOP, (payload: { mixerId: string; channel: number }) => {
-      if (!canOperate || !payload?.mixerId) return;
-      this.mixerService.stopChannelMonitor(payload.mixerId, payload.channel);
     });
 
     socket.on(CTS_MIXER_WIDGET_PRESENT, (payload: { mixerId: string; present: boolean }) => {

@@ -3,8 +3,6 @@ import { io as ioClient } from "socket.io-client";
 import type { Socket as ClientSocket } from "socket.io-client";
 import { buildTestServer, resetServer, destroyServer, loginAsAdmin, loginAs } from "../harness.js";
 import type { TestServer } from "../harness.js";
-import { eventBus } from "../../../src/eventBus/eventBus.js";
-import { BUS_MIXER_CAPTURE_PATH_LOST, BUS_MIXER_CAPTURE_PATH_RESTORED } from "../../../src/eventBus/types.js";
 import {
   CTS_MIXER_SET,
   CTS_MIXER_PRESET_ACTIVATE,
@@ -13,8 +11,6 @@ import {
   STC_MIXER_STATE,
   STC_MIXER_STATE_UPDATE,
   STC_MIXER_LEVELS,
-  STC_MIXER_ERROR,
-  STC_MIXER_ERROR_RESOLVED,
 } from "@invisible-av-booth/shared";
 import type { MixerState } from "@invisible-av-booth/shared";
 
@@ -29,7 +25,7 @@ const mixerBody = {
   host: "127.0.0.1",
   port: 10024,
   metadata: { model: "behringer-xair", channelCount: 4 },
-  features: { "gain-control": true, "channel-metering": true, "channel-audio-capture": true },
+  features: { "gain-control": true, "channel-metering": true },
 };
 
 beforeAll(async () => {
@@ -118,7 +114,7 @@ describe("Mixer commands → driver forwarding", () => {
   });
 
   it("does NOT forward gain when gain-control is disabled (capability enforcement)", async () => {
-    const mixerId = await createMixer({ features: { "gain-control": false, "channel-metering": true, "channel-audio-capture": false } });
+    const mixerId = await createMixer({ features: { "gain-control": false, "channel-metering": true } });
     const client = await connectClient();
     const driver = s.fakeMixer.get(mixerId)!;
     // Also send a fader so we have a positive signal that the message was processed.
@@ -275,7 +271,7 @@ describe("Connection-preserving hot-reload", () => {
     await s.agent
       .put(`/api/admin/devices/${mixerId}`)
       .set("Cookie", adminCookie)
-      .send({ features: { "gain-control": false, "channel-metering": true, "channel-audio-capture": true } });
+      .send({ features: { "gain-control": false, "channel-metering": true } });
     // A connection-preserving reload does NOT swap the driver instance. There is
     // no positive "changed" signal to await for a no-op, so poll briefly to let
     // any (incorrect) reconnect surface, then assert the instance is unchanged.
@@ -290,23 +286,5 @@ describe("Connection-preserving hot-reload", () => {
     // Factory produces a fresh driver for the same mixerId on reconnect.
     await waitUntil(() => s.fakeMixer.get(mixerId) !== driverBefore);
     expect(s.fakeMixer.get(mixerId)).not.toBe(driverBefore);
-  });
-});
-
-describe("Capture-path catastrophic modal (Req 15.7)", () => {
-  it("raises STC_MIXER_ERROR (modal) on capture-path lost and clears on restored", async () => {
-    const mixerId = await createMixer();
-    const client = await connectClient();
-
-    const errorPromise = waitFor<{ errorCode: string; level: string }>(client, STC_MIXER_ERROR);
-    eventBus.emit(BUS_MIXER_CAPTURE_PATH_LOST, { mixerId, reason: "USB device lost" });
-    const error = await errorPromise;
-    expect(error.errorCode).toBe("MIXER_CAPTURE_PATH_LOST");
-    expect(error.level).toBe("modal");
-
-    const resolvedPromise = waitFor<{ errorCode: string }>(client, STC_MIXER_ERROR_RESOLVED);
-    eventBus.emit(BUS_MIXER_CAPTURE_PATH_RESTORED, { mixerId });
-    const resolved = await resolvedPromise;
-    expect(resolved.errorCode).toBe("MIXER_CAPTURE_PATH_LOST");
   });
 });

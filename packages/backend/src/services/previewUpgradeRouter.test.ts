@@ -45,25 +45,22 @@ describe("parseCookieHeader", () => {
 
 describe("PreviewUpgradeRouter", () => {
   let video: { handleUpgrade: ReturnType<typeof vi.fn> };
-  let audio: { handleUpgrade: ReturnType<typeof vi.fn> };
 
   beforeEach(() => {
     video = { handleUpgrade: vi.fn() };
-    audio = { handleUpgrade: vi.fn() };
   });
 
   it("ignores non-preview upgrade paths (leaves them for Socket.io)", () => {
-    const router = new PreviewUpgradeRouter(makeAuth(true) as never, video as never, audio as never);
+    const router = new PreviewUpgradeRouter(makeAuth(true) as never, video as never);
     const cap = captureUpgradeHandler();
     router.registerUpgrade(cap.server as never);
     const { socket } = cap.invoke("/socket.io/?EIO=4", "token=ok");
     expect(socket.destroy).not.toHaveBeenCalled();
     expect(video.handleUpgrade).not.toHaveBeenCalled();
-    expect(audio.handleUpgrade).not.toHaveBeenCalled();
   });
 
   it("401s when no token cookie is present", () => {
-    const router = new PreviewUpgradeRouter(makeAuth(true) as never, video as never, audio as never);
+    const router = new PreviewUpgradeRouter(makeAuth(true) as never, video as never);
     const cap = captureUpgradeHandler();
     router.registerUpgrade(cap.server as never);
     const { socket } = cap.invoke("/preview/obs");
@@ -72,7 +69,7 @@ describe("PreviewUpgradeRouter", () => {
   });
 
   it("401s when the token is invalid", () => {
-    const router = new PreviewUpgradeRouter(makeAuth(false) as never, video as never, audio as never);
+    const router = new PreviewUpgradeRouter(makeAuth(false) as never, video as never);
     const cap = captureUpgradeHandler();
     router.registerUpgrade(cap.server as never);
     const { socket } = cap.invoke("/preview/obs", "token=bad");
@@ -81,34 +78,33 @@ describe("PreviewUpgradeRouter", () => {
   });
 
   it("dispatches /preview/obs to the video manager with the verified user", () => {
-    const router = new PreviewUpgradeRouter(makeAuth(true) as never, video as never, audio as never);
+    const router = new PreviewUpgradeRouter(makeAuth(true) as never, video as never);
     const cap = captureUpgradeHandler();
     router.registerUpgrade(cap.server as never);
     cap.invoke("/preview/obs", "token=ok");
     expect(video.handleUpgrade).toHaveBeenCalledTimes(1);
     expect(video.handleUpgrade.mock.calls[0]![3]).toEqual({ id: "u1", username: "admin", role: "ADMIN" });
-    expect(audio.handleUpgrade).not.toHaveBeenCalled();
   });
 
   it("dispatches /preview/camera/:id to the video manager", () => {
-    const router = new PreviewUpgradeRouter(makeAuth(true) as never, video as never, audio as never);
+    const router = new PreviewUpgradeRouter(makeAuth(true) as never, video as never);
     const cap = captureUpgradeHandler();
     router.registerUpgrade(cap.server as never);
     cap.invoke("/preview/camera/cam1", "token=ok");
     expect(video.handleUpgrade).toHaveBeenCalledTimes(1);
   });
 
-  it("dispatches /preview/mixer/* to the audio manager", () => {
-    const router = new PreviewUpgradeRouter(makeAuth(true) as never, video as never, audio as never);
+  it("404s a /preview/mixer/* path (mixer audio preview was removed)", () => {
+    const router = new PreviewUpgradeRouter(makeAuth(true) as never, video as never);
     const cap = captureUpgradeHandler();
     router.registerUpgrade(cap.server as never);
-    cap.invoke("/preview/mixer/mix1/channel/2", "token=ok");
-    expect(audio.handleUpgrade).toHaveBeenCalledTimes(1);
+    const { socket } = cap.invoke("/preview/mixer/mix1/channel/2", "token=ok");
+    expect(socket.write).toHaveBeenCalledWith(expect.stringContaining("404"));
     expect(video.handleUpgrade).not.toHaveBeenCalled();
   });
 
   it("404s an authenticated but unmatched preview path", () => {
-    const router = new PreviewUpgradeRouter(makeAuth(true) as never, video as never, audio as never);
+    const router = new PreviewUpgradeRouter(makeAuth(true) as never, video as never);
     const cap = captureUpgradeHandler();
     router.registerUpgrade(cap.server as never);
     const { socket } = cap.invoke("/preview/bogus/path", "token=ok");

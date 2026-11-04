@@ -4,8 +4,7 @@ import type { Database as DatabaseType } from "better-sqlite3";
 import { applySchema } from "../database/schema.js";
 import { MixerService } from "./MixerService.js";
 import type { MixerDriverFactory } from "./MixerService.js";
-import type { MixerControlInterface, MixerDriverConfig, ChannelMonitorSink } from "./MixerControlInterface.js";
-import type { AudioCaptureService } from "./AudioCaptureService.js";
+import type { MixerControlInterface, MixerDriverConfig } from "./MixerControlInterface.js";
 import { eventBus } from "../eventBus/eventBus.js";
 import { BUS_MIXER_DEVICE_CHANGED } from "../eventBus/types.js";
 
@@ -14,7 +13,7 @@ vi.mock("../logger.js", () => ({
 }));
 
 /** A minimal fake driver capturing calls, produced by a factory we can inspect. */
-function makeFakeDriver(config: MixerDriverConfig, capture: ChannelMonitorSink): MixerControlInterface & { metering: boolean; connectCount: number } {
+function makeFakeDriver(config: MixerDriverConfig): MixerControlInterface & { metering: boolean; connectCount: number } {
   const driver = {
     metering: false,
     connectCount: 0,
@@ -38,8 +37,6 @@ function makeFakeDriver(config: MixerDriverConfig, capture: ChannelMonitorSink):
     }),
     onStateChange: () => () => {},
     onLiveness: () => () => {},
-    startChannelMonitor: vi.fn((channel: number) => capture.startChannelMonitor(config.mixerId, channel)),
-    stopChannelMonitor: vi.fn((channel: number) => capture.stopChannelMonitor(config.mixerId, channel)),
   };
   return driver;
 }
@@ -66,9 +63,6 @@ function insertMixer(
 
 describe("MixerService", () => {
   let database: DatabaseType;
-  let capture: AudioCaptureService;
-  let captureCalls: { start: number; stop: number };
-  let captureAvailable: boolean;
   let factory: MixerDriverFactory;
   let drivers: Map<string, ReturnType<typeof makeFakeDriver>>;
   let service: MixerService;
@@ -77,27 +71,13 @@ describe("MixerService", () => {
     database = new Database(":memory:");
     database.pragma("foreign_keys = ON");
     applySchema(database);
-    captureCalls = { start: 0, stop: 0 };
-    captureAvailable = true;
-    capture = {
-      isAvailable: async () => captureAvailable,
-      discoverCaptureNode: async () => (captureAvailable ? { nodeName: "test-node", deviceChannels: 18 } : null),
-      startChannelMonitor: () => {},
-      stopChannelMonitor: () => {},
-      subscribe: () => {
-        captureCalls.start++;
-        return () => {
-          captureCalls.stop++;
-        };
-      },
-    } as unknown as AudioCaptureService;
     drivers = new Map();
-    factory = async (_model, config, sink) => {
-      const driver = makeFakeDriver(config, sink);
+    factory = async (_model, config) => {
+      const driver = makeFakeDriver(config);
       drivers.set(config.mixerId, driver);
       return driver;
     };
-    service = new MixerService(database, capture, factory);
+    service = new MixerService(database, factory);
   });
 
   afterEach(() => {
@@ -130,23 +110,6 @@ describe("MixerService", () => {
   it("getMixerState returns null for an unknown mixer", async () => {
     await service.initialize();
     expect(service.getMixerState("nope")).toBeNull();
-  });
-
-  it("keeps channel-audio-capture in capabilities when capture is available", async () => {
-    insertMixer(database, "m1", { features: { "gain-control": true, "channel-audio-capture": true } });
-    captureAvailable = true;
-    await service.initialize();
-    expect(service.getMixerState("m1")?.capabilities.features).toContain("channel-audio-capture");
-  });
-
-  it("downgrades channel-audio-capture when capture is unavailable at runtime (Req 4.7)", async () => {
-    insertMixer(database, "m1", { features: { "gain-control": true, "channel-audio-capture": true } });
-    captureAvailable = false;
-    await service.initialize();
-    const features = service.getMixerState("m1")!.capabilities.features;
-    expect(features).not.toContain("channel-audio-capture");
-    // Other features are unaffected by the downgrade.
-    expect(features).toContain("gain-control");
   });
 
   it("setChannel routes each field to the driver and enforces gain capability", async () => {
@@ -203,15 +166,6 @@ describe("MixerService", () => {
     // Extra decrement is clamped (no negative).
     service.setWidgetPresence("m1", false);
     expect(driver.metering).toBe(false);
-  });
-
-  it("start/stopChannelMonitor delegate to the driver", async () => {
-    insertMixer(database, "m1", { features: { "gain-control": true, "channel-audio-capture": true } });
-    await service.initialize();
-    service.startChannelMonitor("m1", 2);
-    service.stopChannelMonitor("m1", 2);
-    expect(drivers.get("m1")!.startChannelMonitor).toHaveBeenCalledWith(2);
-    expect(drivers.get("m1")!.stopChannelMonitor).toHaveBeenCalledWith(2);
   });
 
   describe("hot-reload", () => {

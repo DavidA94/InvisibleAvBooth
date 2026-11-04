@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { BehringerXAirDriver } from "./BehringerXAirDriver.js";
-import type { OscTransport, ChannelMonitorSink, MixerDriverConfig } from "./MixerControlInterface.js";
+import type { OscTransport, MixerDriverConfig } from "./MixerControlInterface.js";
 import type { MixerChannelLevel } from "@invisible-av-booth/shared";
 
 // ── Fake OSC transport ───────────────────────────────────────────────────────
@@ -56,11 +56,6 @@ class FakeTransport implements OscTransport {
   }
 }
 
-const fakeCapture: ChannelMonitorSink = {
-  startChannelMonitor: vi.fn(),
-  stopChannelMonitor: vi.fn(),
-};
-
 function makeDriver(overrides?: Partial<MixerDriverConfig>): { driver: BehringerXAirDriver; transport: FakeTransport } {
   const transport = new FakeTransport();
   const config: MixerDriverConfig = {
@@ -68,11 +63,11 @@ function makeDriver(overrides?: Partial<MixerDriverConfig>): { driver: Behringer
     host: "127.0.0.1",
     port: 10024,
     channelCount: 4,
-    features: ["gain-control", "channel-metering", "channel-audio-capture"],
+    features: ["gain-control", "channel-metering"],
     transport,
     ...overrides,
   };
-  return { driver: new BehringerXAirDriver(config, fakeCapture), transport };
+  return { driver: new BehringerXAirDriver(config), transport };
 }
 
 /** Build a /meters blob: 32-bit LE count + int16 LE samples (dB*256). */
@@ -198,20 +193,6 @@ describe("BehringerXAirDriver", () => {
       transport.sends.length = 0;
       await driver.setGain(1, 30);
       expect(transport.sends.find((s) => s.address.startsWith("/headamp"))).toBeUndefined();
-    });
-
-    it("ignores startChannelMonitor when channel-audio-capture is not declared", async () => {
-      const { driver } = makeDriver({ features: ["gain-control"] });
-      await driver.connect();
-      driver.startChannelMonitor(1);
-      expect(fakeCapture.startChannelMonitor).not.toHaveBeenCalled();
-    });
-
-    it("delegates startChannelMonitor to the capture sink when capable", async () => {
-      const { driver } = makeDriver();
-      await driver.connect();
-      driver.startChannelMonitor(3);
-      expect(fakeCapture.startChannelMonitor).toHaveBeenCalledWith("mix1", 3);
     });
   });
 

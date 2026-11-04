@@ -57,8 +57,6 @@ export const STC_MIXER_ERROR_RESOLVED = "stc:mixer:error:resolved" as const; // 
 
 export const CTS_MIXER_SET = "cts:mixer:set" as const; // { mixerId, channel, fader?/muted?/gainDb? }
 export const CTS_MIXER_PRESET_ACTIVATE = "cts:mixer:preset:activate" as const; // { mixerId, presetId }
-export const CTS_MIXER_MONITOR_START = "cts:mixer:monitor:start" as const; // { mixerId, channel }
-export const CTS_MIXER_MONITOR_STOP = "cts:mixer:monitor:stop" as const; // { mixerId, channel }
 export const CTS_MIXER_WIDGET_PRESENT = "cts:mixer:widget:present" as const; // { mixerId, present } — per-mixer metering lifecycle
 
 // ── Lower Thirds: Client → Server ─────────────────────────────────────────────

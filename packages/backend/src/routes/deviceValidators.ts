@@ -24,15 +24,16 @@ export interface DeviceValidationInput {
 /** Returns an error message string if invalid, or null if valid. */
 export type DeviceValidator = (input: DeviceValidationInput) => string | null;
 
-const MIXER_FEATURES: MixerFeature[] = ["gain-control", "channel-metering", "channel-audio-capture"];
+const MIXER_FEATURES: MixerFeature[] = ["gain-control", "channel-metering"];
 
 /**
  * Validate a soundboard (mixer) device (Req 9.2/9.6):
  * - model must be the only supported value
  * - channelCount must be a positive integer
  * - feature flags, when present, must be booleans over the known feature set
- * - usbSlotMap, when channel-audio-capture is enabled, must map channel→slot
- *   with positive-integer slots (defaults to identity, but is editable)
+ *
+ * NOTE: the channel→USB-slot mapping and the channel-audio-capture feature were
+ * removed (unused) — see `sound-board-control` spec Appendix A.
  */
 export const validateSoundboard: DeviceValidator = (input) => {
   const metadata = (input.metadata ?? {}) as Record<string, unknown>;
@@ -59,36 +60,8 @@ export const validateSoundboard: DeviceValidator = (input) => {
     }
   }
 
-  const captureEnabled = features["channel-audio-capture"] === true;
-  if (captureEnabled) {
-    const rawMap = metadata["usbSlotMap"];
-    if (rawMap !== undefined && rawMap !== null) {
-      const map = typeof rawMap === "string" ? safeParse(rawMap) : rawMap;
-      if (typeof map !== "object" || map === null || Array.isArray(map)) {
-        return "usbSlotMap must be an object mapping channel number to USB slot";
-      }
-      for (const [channel, slot] of Object.entries(map as Record<string, unknown>)) {
-        if (!/^\d+$/.test(channel)) {
-          return `usbSlotMap keys must be channel numbers, got "${channel}"`;
-        }
-        const slotNumber = typeof slot === "string" ? Number(slot) : slot;
-        if (typeof slotNumber !== "number" || !Number.isInteger(slotNumber) || slotNumber <= 0) {
-          return `usbSlotMap slot for channel ${channel} must be a positive integer`;
-        }
-      }
-    }
-  }
-
   return null;
 };
-
-function safeParse(value: string): unknown {
-  try {
-    return JSON.parse(value);
-  } catch {
-    return undefined;
-  }
-}
 
 /** Registry of per-type validators. Types without an entry use generic checks only. */
 export const DEVICE_VALIDATORS: Record<string, DeviceValidator> = {

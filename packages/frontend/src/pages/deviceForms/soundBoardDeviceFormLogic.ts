@@ -2,15 +2,18 @@ import type { MixerFeature, MixerModel } from "@invisible-av-booth/shared";
 import { OSC_PORT_DEFAULT } from "@invisible-av-booth/shared";
 import type { DeviceRecord } from "./deviceTypeRegistry";
 
-export const MIXER_FEATURES: MixerFeature[] = ["gain-control", "channel-metering", "channel-audio-capture"];
+export const MIXER_FEATURES: MixerFeature[] = ["gain-control", "channel-metering"];
 
 export const MIXER_MODEL_OPTIONS: Array<{ value: MixerModel; label: string }> = [{ value: "behringer-xair", label: "Behringer X Air" }];
 
 /**
  * Form state kept as strings for inputs. Feature toggles live in `features`
- * (Record<string, boolean>). Numeric metadata (channelCount) and the usbSlotMap
- * (Record<string, number>) are held as strings/objects here and serialized to
- * STRINGS at the DeviceRecord.metadata boundary (which is Record<string,string>).
+ * (Record<string, boolean>). Numeric metadata (channelCount) is held as a string
+ * here and serialized at the DeviceRecord.metadata boundary (Record<string,string>).
+ *
+ * NOTE: the channel→USB-slot mapping was intentionally removed (it was never used
+ * by a shipping feature) — see `sound-board-control` spec Appendix A. The capture
+ * layer, if revived, assumes identity routing (USB slot N = channel N).
  */
 export interface SoundBoardFormState {
   label: string;
@@ -19,20 +22,11 @@ export interface SoundBoardFormState {
   port: string;
   channelCount: string;
   features: Record<MixerFeature, boolean>;
-  /** channel number (string) → USB slot number (string). */
-  usbSlotMap: Record<string, string>;
   enabled: boolean;
 }
 
 function defaultFeatures(): Record<MixerFeature, boolean> {
-  return { "gain-control": true, "channel-metering": true, "channel-audio-capture": false };
-}
-
-/** Identity map channel N → slot N for `count` channels. */
-export function identityUsbSlotMap(count: number): Record<string, string> {
-  const map: Record<string, string> = {};
-  for (let channel = 1; channel <= count; channel++) map[String(channel)] = String(channel);
-  return map;
+  return { "gain-control": true, "channel-metering": true };
 }
 
 export function buildInitialState(device: DeviceRecord | null): SoundBoardFormState {
@@ -42,18 +36,7 @@ export function buildInitialState(device: DeviceRecord | null): SoundBoardFormSt
     const features = {
       "gain-control": device.features["gain-control"] ?? false,
       "channel-metering": device.features["channel-metering"] ?? false,
-      "channel-audio-capture": device.features["channel-audio-capture"] ?? false,
     };
-    let usbSlotMap: Record<string, string> = identityUsbSlotMap(Number(channelCount) || 0);
-    const rawMap = metadata["usbSlotMap"];
-    if (rawMap) {
-      try {
-        const parsed = JSON.parse(rawMap) as Record<string, number>;
-        usbSlotMap = Object.fromEntries(Object.entries(parsed).map(([k, v]) => [k, String(v)]));
-      } catch {
-        // fall back to identity
-      }
-    }
     return {
       label: device.label,
       model: (metadata["model"] as MixerModel) ?? "behringer-xair",
@@ -61,7 +44,6 @@ export function buildInitialState(device: DeviceRecord | null): SoundBoardFormSt
       port: String(device.port),
       channelCount: String(channelCount),
       features,
-      usbSlotMap,
       enabled: device.enabled,
     };
   }
@@ -72,27 +54,19 @@ export function buildInitialState(device: DeviceRecord | null): SoundBoardFormSt
     port: String(OSC_PORT_DEFAULT),
     channelCount: "8",
     features: defaultFeatures(),
-    usbSlotMap: identityUsbSlotMap(8),
     enabled: true,
   };
 }
 
 /**
  * Serialize the form's metadata for the DeviceRecord.metadata boundary
- * (Record<string,string>): model as-is, channelCount as a string, and — WHEN
- * channel-audio-capture is enabled — usbSlotMap JSON-encoded with numeric slots.
+ * (Record<string,string>): model as-is and channelCount as a string.
  */
 export function serializeMetadata(form: SoundBoardFormState): Record<string, string> {
-  const metadata: Record<string, string> = {
+  return {
     model: form.model,
     channelCount: String(Number(form.channelCount)),
   };
-  if (form.features["channel-audio-capture"]) {
-    const numericMap: Record<string, number> = {};
-    for (const [channel, slot] of Object.entries(form.usbSlotMap)) numericMap[channel] = Number(slot);
-    metadata["usbSlotMap"] = JSON.stringify(numericMap);
-  }
-  return metadata;
 }
 
 /** The `features` object (Record<string, boolean>) sent in the request body. */
@@ -108,12 +82,6 @@ export function validate(form: SoundBoardFormState): string | null {
   if (!Number.isInteger(port) || port <= 0) return "Port must be a positive integer";
   const channelCount = Number(form.channelCount);
   if (!Number.isInteger(channelCount) || channelCount <= 0) return "Channel count must be a positive integer";
-  if (form.features["channel-audio-capture"]) {
-    for (const [channel, slot] of Object.entries(form.usbSlotMap)) {
-      const slotNumber = Number(slot);
-      if (!Number.isInteger(slotNumber) || slotNumber <= 0) return `USB slot for channel ${channel} must be a positive integer`;
-    }
-  }
   return null;
 }
 
@@ -125,7 +93,6 @@ export function isFormDirty(current: SoundBoardFormState, initial: SoundBoardFor
     current.port !== initial.port ||
     current.channelCount !== initial.channelCount ||
     current.enabled !== initial.enabled ||
-    JSON.stringify(current.features) !== JSON.stringify(initial.features) ||
-    JSON.stringify(current.usbSlotMap) !== JSON.stringify(initial.usbSlotMap)
+    JSON.stringify(current.features) !== JSON.stringify(initial.features)
   );
 }

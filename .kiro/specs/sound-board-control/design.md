@@ -2,6 +2,16 @@
 
 ## Overview
 
+> **⚠️ Partially removed.** The **audio capture layer** and the **gain-window
+> live-audio view** described in this document (`AudioCaptureService`,
+> `AudioPreviewManager`, the `/preview/mixer/*` WebSocket, the envelope codec, the
+> `channel-audio-capture` capability, and the channel→USB-slot mapping) were
+> **removed** as intentionally unimplemented — see `requirements.md` Appendix A
+> (recoverable at commit `0ea204d`). Gain is now a simple popover slider, and the
+> rest of this design (HAL, OSC driver, faders/mute/metering/gain/presets, admin
+> device type) remains accurate. Sections below that describe capture/envelope are
+> retained for historical/revival reference only.
+
 This document extends the system design with **audio mixer control**: a Mixer Hardware Abstraction Layer (HAL), a Behringer X Air OSC driver, a multi-consumer audio capture layer, a capability-driven Sound Board widget (faders, mute, per-channel metering, gain control with a gain window, board presets), and an admin mixer device type with preset authoring.
 
 This is an extension document — it references and builds on:

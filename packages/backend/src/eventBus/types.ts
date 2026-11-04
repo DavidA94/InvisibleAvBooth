@@ -58,7 +58,3 @@ export const BUS_MIXER_STATE_CHANGED = "bus:mixer:state:changed" as const;
 export const BUS_MIXER_LEVELS = "bus:mixer:levels" as const;
 /** Emitted when a mixer device is created, updated, or deleted in admin (hot-reload). */
 export const BUS_MIXER_DEVICE_CHANGED = "bus:mixer:device:changed" as const;
-/** Catastrophic capture-path fault (Req 15.7) — raises a frontend modal. */
-export const BUS_MIXER_CAPTURE_PATH_LOST = "bus:mixer:capture:lost" as const;
-/** Capture-path recovery (Req 15.7) — auto-clears the modal raised by the LOST event. */
-export const BUS_MIXER_CAPTURE_PATH_RESTORED = "bus:mixer:capture:restored" as const;

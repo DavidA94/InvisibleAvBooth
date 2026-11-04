@@ -14,22 +14,6 @@
 export const LEVEL_AXIS_MAX_DBFS = 0;
 export const LEVEL_AXIS_MIN_DBFS = -60;
 
-/** Gain window LEVEL axis max height (easy to change per Req 7.4.1). ~400px at 16px root. */
-export const GAIN_WINDOW_MAX_HEIGHT_REM = 25;
-
-// ── Gain-staging target band and danger fades (dBFS) ─────────────────────────
-//
-// Sensible broadcast defaults from standard gain-staging guidance — tune freely.
-// Sources: the widely-cited "-18 dBFS is the new 0 dBu" reference level; a safe
-// zone of roughly -10..-20 dBFS; peaks kept below ~-6 dBFS; 0 dBFS = hard clip;
-// interfaces like Audient's Smartgain target ~-12 dBFS peaks. We center the
-// "good" band on the -18 dBFS average target, extend its top to -8 so typical
-// peaks land at the band's upper edge; -6..0 is "approaching clip" (red);
-// -40..-60 is "approaching the noise floor" (blue).
-export const GOOD_RANGE_BAND_DBFS = { topDb: -8, bottomDb: -18 };
-export const RED_FADE_DBFS = { topDb: 0, bottomDb: -6 }; // darkest at 0 (clip)
-export const BLUE_FADE_DBFS = { topDb: -40, bottomDb: -60 }; // darkest at -60 (noise)
-
 // ── Interaction hold model (Req 8) ───────────────────────────────────────────
 //
 // Inbound-suppression window: for this long after the last local change to a
@@ -48,21 +32,6 @@ export const CONTROL_THROTTLE_MS = 50;
 // command. Read-back exhaustion (Req 6.6) still forces Unknown regardless.
 export const MUTE_CONFIRM_TIMEOUT_MS = 500;
 
-/** Envelope decimation for the gain window: min/max pairs per second (Req 4.4). */
-export const ENVELOPE_PAIRS_PER_SEC = 60;
-
-/**
- * Envelope burst cadence. The backend decimates to ENVELOPE_PAIRS_PER_SEC pairs
- * but FLUSHES them to consumers in bursts every ENVELOPE_BURST_MS as a single
- * frame (~30 pairs per burst at 60/s and 500ms). One WS message per burst avoids
- * per-pair send overhead AND per-pair frontend React state churn that would
- * coalesce and drop pairs. The gain window shows the most recent
- * ENVELOPE_WINDOW_MS of pairs and repaints on each burst.
- */
-export const ENVELOPE_BURST_MS = 500;
-/** Total time span shown in the gain-window envelope (a small, "live" window). */
-export const ENVELOPE_WINDOW_MS = 1000;
-
 // ── OSC / subscription cadences (X Air) ──────────────────────────────────────
 
 /** Default OSC/UDP port for the X Air family (X32 uses 10023). */
@@ -76,14 +45,11 @@ export const METERS_RENEW_MS = 1000;
 //
 // Verified against Patrick-Gilles Maillot's X32/X-Air OSC meter-bank table.
 //   Bank 1, indices 0–15 = per-channel PRE-FADER input (always-visible meter, Req 5.4).
-//   Bank 2, indices 0–15 = post-preamp / pre-processing (gain-window envelope tap, Req 4.5);
-//                indices 18–35 = 18× USB-in (setup verification of USB routing).
-// Blob format: leading 32-bit BIG-endian count of int16 samples; each sample a
-// 16-bit SIGNED LITTLE-endian integer at 1/256 dB (value / 256 = dB); values
-// below NOISE_FLOOR_DBFS are treated as -inf.
+// Blob format: leading 32-bit LITTLE-endian count of int16 samples (verified on
+// XR18); each sample a 16-bit SIGNED LITTLE-endian integer at 1/256 dB
+// (value / 256 = dB); values below NOISE_FLOOR_DBFS are treated as -inf.
 export const METERS_BANK_CHANNEL_PREFADER = 1;
-export const METERS_BANK_PREAMP_IN = 2;
-export const METERS_CHANNEL_INDEX_BASE = 0; // channels occupy indices 0..15 in both banks
+export const METERS_CHANNEL_INDEX_BASE = 0; // channels occupy indices 0..15
 export const NOISE_FLOOR_DBFS = -90;
 
 /**

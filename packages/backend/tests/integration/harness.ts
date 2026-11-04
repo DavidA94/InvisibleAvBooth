@@ -112,9 +112,7 @@ export function destroyServer(server: TestServer): void {
   server.ctx.cameraService.destroy();
   server.ctx.mixerService.destroy();
   server.ctx.obsNdiPreviewSource.destroy();
-  server.ctx.audioPreviewManager.destroy();
   server.ctx.videoPreviewManager.destroy();
-  server.ctx.audioCaptureService.destroy();
   server.ctx.relayService.stop();
   server.ctx.httpServer.close();
   eventBus.removeAllListeners();

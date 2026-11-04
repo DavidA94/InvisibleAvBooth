@@ -28,19 +28,6 @@ export interface OscTransport {
   close(): void;
 }
 
-/**
- * The subset of AudioCaptureService the driver needs to satisfy
- * startChannelMonitor/stopChannelMonitor (Req 2.8 / Req 8-in-Req-4). Defined
- * here as a narrow interface so the driver does not depend on the full capture
- * service (built in Phase 4) and can be tested with a stub.
- */
-export interface ChannelMonitorSink {
-  /** Begin monitoring a channel's isolated audio (subscribe a consumer). */
-  startChannelMonitor(mixerId: string, channel: number): void;
-  /** Stop monitoring a channel (unsubscribe; teardown when no consumers remain). */
-  stopChannelMonitor(mixerId: string, channel: number): void;
-}
-
 export interface MixerDriverConfig {
   mixerId: string;
   host: string;
@@ -81,10 +68,6 @@ export interface MixerControlInterface {
 
   /** Emitted when any confirmed round-trip occurs (renewal reply, read-back, push) — feeds the "Controls" freshness indicator (Req 12.2). */
   onLiveness(listener: () => void): () => void;
-
-  /** Isolated audio monitoring intent — driver delegates to the capture layer. */
-  startChannelMonitor(channel: number): void;
-  stopChannelMonitor(channel: number): void;
 }
 
 /**
@@ -92,11 +75,11 @@ export interface MixerControlInterface {
  * the concrete driver to keep this module dependency-light. The only model in
  * this release is "behringer-xair".
  */
-export async function createMixerDriver(model: MixerModel, config: MixerDriverConfig, capture: ChannelMonitorSink): Promise<MixerControlInterface> {
+export async function createMixerDriver(model: MixerModel, config: MixerDriverConfig): Promise<MixerControlInterface> {
   switch (model) {
     case "behringer-xair": {
       const { BehringerXAirDriver } = await import("./BehringerXAirDriver.js");
-      return new BehringerXAirDriver(config, capture);
+      return new BehringerXAirDriver(config);
     }
     default: {
       // Exhaustiveness guard — a new model must add a case here.

@@ -183,7 +183,7 @@ export class VideoPreviewManager {
    * Handle a preview upgrade for a VIDEO path. The PreviewUpgradeRouter has
    * already verified the cookie JWT and matched the path; `user` is the
    * authenticated user (unused by video previews today but part of the
-   * media-handler contract shared with AudioPreviewManager).
+   * media-handler contract).
    */
   handleUpgrade(request: IncomingMessage, socket: Duplex, head: Buffer, _user: AuthUser): void {
     const url = request.url ?? "";

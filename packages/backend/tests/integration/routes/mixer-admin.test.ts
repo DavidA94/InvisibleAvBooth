@@ -33,7 +33,7 @@ const baseMixer = {
   host: "127.0.0.1",
   port: 10024,
   metadata: { model: "behringer-xair", channelCount: 8 },
-  features: { "gain-control": true, "channel-metering": true, "channel-audio-capture": false },
+  features: { "gain-control": true, "channel-metering": true },
 };
 
 describe("Mixer admin — device CRUD & validation", () => {
@@ -84,31 +84,14 @@ describe("Mixer admin — device CRUD & validation", () => {
     expect(res.body.error).toContain("bogus");
   });
 
-  it("rejects an invalid usbSlotMap when capture is enabled", async () => {
+  it("rejects the removed channel-audio-capture feature", async () => {
     const cookie = await loginAsAdmin(s.agent, s.ctx.authService);
     const res = await s.agent
       .post("/api/admin/devices")
       .set("Cookie", cookie)
-      .send({
-        ...baseMixer,
-        features: { "channel-audio-capture": true },
-        metadata: { model: "behringer-xair", channelCount: 8, usbSlotMap: { "1": 0 } },
-      });
+      .send({ ...baseMixer, features: { "channel-audio-capture": true } });
     expect(res.status).toBe(400);
-    expect(res.body.error).toContain("usbSlotMap");
-  });
-
-  it("accepts a valid usbSlotMap when capture is enabled", async () => {
-    const cookie = await loginAsAdmin(s.agent, s.ctx.authService);
-    const res = await s.agent
-      .post("/api/admin/devices")
-      .set("Cookie", cookie)
-      .send({
-        ...baseMixer,
-        features: { "channel-audio-capture": true },
-        metadata: { model: "behringer-xair", channelCount: 8, usbSlotMap: { "1": 1, "2": 3 } },
-      });
-    expect(res.status).toBe(201);
+    expect(res.body.error).toContain("channel-audio-capture");
   });
 
   it("update re-validates merged values", async () => {

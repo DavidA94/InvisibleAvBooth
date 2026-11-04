@@ -24,7 +24,6 @@ import {
   validate,
   serializeMetadata,
   serializeFeatures,
-  identityUsbSlotMap,
   MIXER_FEATURES,
   MIXER_MODEL_OPTIONS,
 } from "./soundBoardDeviceFormLogic";
@@ -77,20 +76,7 @@ export function SoundBoardDeviceForm({ device, onSaved, onDeleted, registerDirty
   }, []);
 
   const toggleFeature = useCallback((feature: MixerFeature, checked: boolean) => {
-    setForm((prev) => {
-      const features = { ...prev.features, [feature]: checked };
-      // When enabling capture, ensure the slot map has an entry per channel (identity default).
-      let usbSlotMap = prev.usbSlotMap;
-      if (feature === "channel-audio-capture" && checked) {
-        const count = Number(prev.channelCount) || 0;
-        usbSlotMap = { ...identityUsbSlotMap(count), ...prev.usbSlotMap };
-      }
-      return { ...prev, features, usbSlotMap };
-    });
-  }, []);
-
-  const setSlot = useCallback((channel: number, slot: string) => {
-    setForm((prev) => ({ ...prev, usbSlotMap: { ...prev.usbSlotMap, [String(channel)]: slot } }));
+    setForm((prev) => ({ ...prev, features: { ...prev.features, [feature]: checked } }));
   }, []);
 
   const handleProbe = async (): Promise<void> => {
@@ -181,8 +167,6 @@ export function SoundBoardDeviceForm({ device, onSaved, onDeleted, registerDirty
     if (r.ok) setPresets((await r.json()) as PresetRow[]);
   }, [device]);
 
-  const channelCount = Number(form.channelCount) || 0;
-  const captureEnabled = form.features["channel-audio-capture"];
   const selectedModel = MIXER_MODEL_OPTIONS.find((o) => o.value === form.model) ?? MIXER_MODEL_OPTIONS[0]!;
   const canSave = !!form.label && !!form.host;
 
@@ -269,27 +253,6 @@ export function SoundBoardDeviceForm({ device, onSaved, onDeleted, registerDirty
           {feature}
         </label>
       ))}
-
-      {captureEnabled && channelCount > 0 && (
-        <>
-          <h4 className="text-muted section-heading-margin">Channel → USB Slot Mapping</h4>
-          <p className="text-muted text-secondary text-small">Which USB input slot carries each channel&apos;s post-preamp tap (defaults to identity).</p>
-          {Array.from({ length: channelCount }, (_, index) => index + 1).map((channel) => (
-            <div key={channel} className="layout-row gap-standard soundboard-usb-slot-row">
-              <span className="soundboard-usb-slot-label">Channel {channel}</span>
-              <IonInput
-                label="USB slot"
-                labelPlacement="stacked"
-                fill="outline"
-                type="number"
-                value={form.usbSlotMap[String(channel)] ?? String(channel)}
-                onIonInput={(e) => setSlot(channel, e.detail.value ?? String(channel))}
-                className="input-port"
-              />
-            </div>
-          ))}
-        </>
-      )}
 
       {isEdit && (
         <>

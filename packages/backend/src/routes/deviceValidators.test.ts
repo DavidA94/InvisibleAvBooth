@@ -8,7 +8,7 @@ describe("validateSoundboard", () => {
     host: "127.0.0.1",
     port: 10024,
     metadata: { model: "behringer-xair", channelCount: 8 },
-    features: { "gain-control": true, "channel-metering": true, "channel-audio-capture": false },
+    features: { "gain-control": true, "channel-metering": true },
   };
 
   it("accepts a valid mixer config", () => {
@@ -35,58 +35,13 @@ describe("validateSoundboard", () => {
     expect(validateSoundboard({ ...valid, features: { "bogus-feature": true } })).toContain("bogus-feature");
   });
 
+  it("rejects the removed channel-audio-capture feature as unknown", () => {
+    // The capture layer was removed (spec Appendix A); the feature is no longer valid.
+    expect(validateSoundboard({ ...valid, features: { "channel-audio-capture": true } })).toContain("channel-audio-capture");
+  });
+
   it("rejects a non-boolean feature value", () => {
     expect(validateSoundboard({ ...valid, features: { "gain-control": "yes" as unknown as boolean } })).toContain("boolean");
-  });
-
-  it("requires usbSlotMap slots to be positive integers when capture enabled", () => {
-    expect(
-      validateSoundboard({
-        ...valid,
-        features: { "channel-audio-capture": true },
-        metadata: { model: "behringer-xair", channelCount: 8, usbSlotMap: { "1": 0 } },
-      }),
-    ).toContain("usbSlotMap");
-  });
-
-  it("requires usbSlotMap keys to be channel numbers", () => {
-    expect(
-      validateSoundboard({
-        ...valid,
-        features: { "channel-audio-capture": true },
-        metadata: { model: "behringer-xair", channelCount: 8, usbSlotMap: { abc: 2 } },
-      }),
-    ).toContain("channel numbers");
-  });
-
-  it("accepts a valid usbSlotMap and numeric-string slots", () => {
-    expect(
-      validateSoundboard({
-        ...valid,
-        features: { "channel-audio-capture": true },
-        metadata: { model: "behringer-xair", channelCount: 8, usbSlotMap: { "1": 1, "2": "3" } },
-      }),
-    ).toBeNull();
-  });
-
-  it("ignores usbSlotMap when capture is disabled", () => {
-    expect(
-      validateSoundboard({
-        ...valid,
-        features: { "channel-audio-capture": false },
-        metadata: { model: "behringer-xair", channelCount: 8, usbSlotMap: { "1": 0 } },
-      }),
-    ).toBeNull();
-  });
-
-  it("rejects a usbSlotMap that is not an object", () => {
-    expect(
-      validateSoundboard({
-        ...valid,
-        features: { "channel-audio-capture": true },
-        metadata: { model: "behringer-xair", channelCount: 8, usbSlotMap: "nope" },
-      }),
-    ).toContain("usbSlotMap");
   });
 
   it("is registered in DEVICE_VALIDATORS under soundboard", () => {

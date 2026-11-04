@@ -32,7 +32,6 @@ export class PreviewUpgradeRouter {
   constructor(
     private readonly authService: AuthService,
     private readonly videoPreviewManager: PreviewMediaHandler,
-    private readonly audioPreviewManager: PreviewMediaHandler,
   ) {}
 
   /** Register the `server.on("upgrade")` handler for `/preview/*`. */
@@ -57,11 +56,7 @@ export class PreviewUpgradeRouter {
       }
       const user: AuthUser = { id: result.value.sub, username: result.value.username, role: result.value.role };
 
-      // Dispatch by path. Audio (mixer) first, then video (obs/camera), else 404.
-      if (url.startsWith("/preview/mixer/")) {
-        this.audioPreviewManager.handleUpgrade(request, socket, head, user);
-        return;
-      }
+      // Dispatch by path to the video media handler, else 404.
       if (url.startsWith("/preview/obs") || url.startsWith("/preview/camera/")) {
         this.videoPreviewManager.handleUpgrade(request, socket, head, user);
         return;

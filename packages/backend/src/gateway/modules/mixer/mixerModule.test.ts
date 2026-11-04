@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { MixerSocketModule, MIXER_CAPTURE_PATH_LOST_CODE } from "./mixerModule.js";
+import { MixerSocketModule } from "./mixerModule.js";
 import type { MixerService } from "../../../mixer/MixerService.js";
 import type { AuthenticatedSocket } from "../socketModule.js";
 import type { JwtPayload } from "../../../services/authService.js";
 import { eventBus } from "../../../eventBus/eventBus.js";
-import { BUS_MIXER_CAPTURE_PATH_LOST, BUS_MIXER_CAPTURE_PATH_RESTORED, BUS_MIXER_STATE_CHANGED, BUS_MIXER_LEVELS } from "../../../eventBus/types.js";
-import { CTS_MIXER_SET, CTS_MIXER_WIDGET_PRESENT, STC_MIXER_ERROR, STC_MIXER_ERROR_RESOLVED, STC_MIXER_STATE } from "@invisible-av-booth/shared";
+import { BUS_MIXER_STATE_CHANGED, BUS_MIXER_LEVELS } from "../../../eventBus/types.js";
+import { CTS_MIXER_SET, CTS_MIXER_WIDGET_PRESENT, STC_MIXER_STATE } from "@invisible-av-booth/shared";
 
 vi.mock("../../../logger.js", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
@@ -69,18 +69,6 @@ describe("MixerSocketModule", () => {
   });
 
   describe("register (bus → stc)", () => {
-    it("raises STC_MIXER_ERROR (modal) on capture-path lost and clears on restored", () => {
-      const io = makeIo();
-      module.register(io as never);
-      eventBus.emit(BUS_MIXER_CAPTURE_PATH_LOST, { mixerId: "m1", reason: "lost" });
-      eventBus.emit(BUS_MIXER_CAPTURE_PATH_RESTORED, { mixerId: "m1" });
-      const error = io.emitted.find((e) => e.event === STC_MIXER_ERROR)!;
-      expect((error.payload as { errorCode: string; level: string }).errorCode).toBe(MIXER_CAPTURE_PATH_LOST_CODE);
-      expect((error.payload as { level: string }).level).toBe("modal");
-      const resolved = io.emitted.find((e) => e.event === STC_MIXER_ERROR_RESOLVED)!;
-      expect((resolved.payload as { errorCode: string }).errorCode).toBe(MIXER_CAPTURE_PATH_LOST_CODE);
-    });
-
     it("forwards state and levels bus events", () => {
       const io = makeIo();
       module.register(io as never);

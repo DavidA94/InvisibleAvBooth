@@ -377,16 +377,24 @@ Mute and fader remain AvVolunteer+.
 
 ### What was kept vs. removed
 
+**Update (full removal).** Initially only the frontend UI was removed while the
+backend capture layer was retained-but-unused. It has since been **fully
+removed** as well (nothing consumed it):
+
 - **Removed (frontend):** the envelope canvas, the envelope WebSocket hook, the
   gain modal's window tier / capture-available branching, and the monitor
   start/stop emits.
-- **Kept (backend, now unused):** `AudioCaptureService` (multichannel PipeWire
-  capture + envelope decimation + auto-discovery), `AudioPreviewManager` and the
-  `/preview/mixer/*` WebSocket, and the `channel-audio-capture` capability +
-  `usbSlotMap`/`deviceChannels` device config. These are general-purpose and were
-  designed for a future multitrack-recording consumer; they are retained rather
-  than deleted. See `architecture.md` for the "currently unused" note pointing
-  back here.
+- **Removed (backend):** `AudioCaptureService`, `AudioPreviewManager`, the
+  `/preview/mixer/*` WebSocket (`PreviewUpgradeRouter` is now video-only), the
+  `channel-audio-capture` capability, the `CTS_MIXER_MONITOR_*` events, the
+  `BUS_MIXER_CAPTURE_PATH_*` events, the `ChannelMonitorSink` / driver
+  `startChannelMonitor`, the envelope codec + `EnvelopePair`, the gain-window /
+  envelope / fade constants, and the channel→USB-slot mapping (`usbSlotMap`)
+  across the device form, validators, and metadata parsing.
+- **Kept:** per-channel **metering** (OSC `/meters`, level bars), gain control,
+  faders, mute, presets — all unaffected.
+
+Everything above is recoverable from git history at reference commit `0ea204d`.
 
 ### Reviving the feature
 

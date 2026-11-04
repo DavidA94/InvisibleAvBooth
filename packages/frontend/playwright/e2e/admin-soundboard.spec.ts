@@ -23,7 +23,7 @@ const MIXER_DEVICE = {
   host: "127.0.0.1",
   port: 10024,
   metadata: { model: "behringer-xair", channelCount: "4" },
-  features: { "gain-control": true, "channel-metering": true, "channel-audio-capture": false },
+  features: { "gain-control": true, "channel-metering": true },
   enabled: true,
   createdAt: "2026-01-01",
 };

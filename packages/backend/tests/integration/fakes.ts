@@ -191,68 +191,6 @@ export function createFakeSpawn(): SpawnFn {
   });
 }
 
-// ── Fake AudioCaptureService ─────────────────────────────────────────────────
-//
-// A no-op capture that records subscriptions and can push EnvelopePairs on
-// demand. Reports availability via a settable flag so tests exercise both the
-// capable and downgraded paths without hardware.
-
-import type { AudioCaptureService, AudioConsumer } from "../../src/mixer/AudioCaptureService.js";
-import type { AudioPreviewManager } from "../../src/services/audioPreviewManager.js";
-import type { EnvelopePair } from "@invisible-av-booth/shared";
-
-export interface FakeAudioCapture {
-  service: AudioCaptureService;
-  consumers: AudioConsumer[];
-  setAvailable: (value: boolean) => void;
-  pushEnvelope: (channel: number, pair: EnvelopePair) => void;
-}
-
-export function createFakeAudioCapture(): FakeAudioCapture {
-  const consumers: AudioConsumer[] = [];
-  let available = true;
-
-  const service = {
-    isAvailable: async () => available,
-    discoverCaptureNode: async () => (available ? { nodeName: "fake-node", deviceChannels: 18 } : null),
-    subscribe(consumer: AudioConsumer) {
-      consumers.push(consumer);
-      return () => {
-        const index = consumers.indexOf(consumer);
-        if (index >= 0) consumers.splice(index, 1);
-      };
-    },
-    getActiveChannelCount: () => consumers.length,
-    destroy: vi.fn(),
-  } as unknown as AudioCaptureService;
-
-  return {
-    service,
-    consumers,
-    setAvailable: (value: boolean) => {
-      available = value;
-    },
-    pushEnvelope: (channel: number, pair: EnvelopePair) => {
-      // onEnvelope now receives a BURST of pairs; deliver this one as a 1-element burst.
-      for (const consumer of consumers) {
-        if (consumer.channels.includes(channel)) consumer.onEnvelope(channel, [pair]);
-      }
-    },
-  };
-}
-
-// ── Fake AudioPreviewManager ──────────────────────────────────────────────────
-//
-// A no-op audio preview manager for wiring buildApp without a real WebSocket
-// server. handleUpgrade/destroy are inert.
-
-export function createFakeAudioPreviewManager(): AudioPreviewManager {
-  return {
-    handleUpgrade: vi.fn(),
-    destroy: vi.fn(),
-  } as unknown as AudioPreviewManager;
-}
-
 // ── Fake Mixer driver ─────────────────────────────────────────────────────────
 //
 // A fake MixerControlInterface injected via buildApp's mixerDriverFactory. It
@@ -261,7 +199,7 @@ export function createFakeAudioPreviewManager(): AudioPreviewManager {
 // unsolicited external push (physical console / app), and can emit meter levels.
 // No OSC, no UDP, no hardware.
 
-import type { MixerControlInterface, MixerDriverConfig, ChannelMonitorSink } from "../../src/mixer/MixerControlInterface.js";
+import type { MixerControlInterface, MixerDriverConfig } from "../../src/mixer/MixerControlInterface.js";
 import type { MixerModel, MixerCapabilities, MixerChannelState, MixerChannelLevel, MixerPresetPayload } from "@invisible-av-booth/shared";
 import { faderFloatToDb } from "@invisible-av-booth/shared";
 
@@ -280,7 +218,7 @@ export interface FakeMixerDriver extends MixerControlInterface {
 }
 
 export interface FakeMixerRegistry {
-  factory: (model: MixerModel, config: MixerDriverConfig, capture: ChannelMonitorSink) => Promise<MixerControlInterface>;
+  factory: (model: MixerModel, config: MixerDriverConfig) => Promise<MixerControlInterface>;
   /** Get the fake driver for a mixerId after initialize(). */
   get: (mixerId: string) => FakeMixerDriver | undefined;
 }
@@ -289,7 +227,7 @@ export interface FakeMixerRegistry {
 export function createFakeMixer(): FakeMixerRegistry {
   const drivers = new Map<string, FakeMixerDriver>();
 
-  const factory = async (_model: MixerModel, config: MixerDriverConfig, capture: ChannelMonitorSink): Promise<MixerControlInterface> => {
+  const factory = async (_model: MixerModel, config: MixerDriverConfig): Promise<MixerControlInterface> => {
     const channels = new Map<number, MixerChannelState>();
     for (let channel = 1; channel <= config.channelCount; channel++) {
       channels.set(channel, { channel, name: `Ch ${channel}`, fader: 0, faderDb: -Infinity, muted: false, gainDb: -12 });
@@ -424,12 +362,6 @@ export function createFakeMixer(): FakeMixerRegistry {
       onLiveness: (listener) => {
         livenessListeners.add(listener);
         return () => livenessListeners.delete(listener);
-      },
-      startChannelMonitor: (channel) => {
-        capture.startChannelMonitor(config.mixerId, channel);
-      },
-      stopChannelMonitor: (channel) => {
-        capture.stopChannelMonitor(config.mixerId, channel);
       },
     };
 

@@ -32,7 +32,7 @@ import {
   READBACK_TIMEOUT_MS,
   READBACK_MAX_RETRIES,
 } from "@invisible-av-booth/shared";
-import type { MixerControlInterface, MixerDriverConfig, ChannelMonitorSink, OscTransport } from "./MixerControlInterface.js";
+import type { MixerControlInterface, MixerDriverConfig, OscTransport } from "./MixerControlInterface.js";
 import { UdpOscTransport } from "./UdpOscTransport.js";
 import { decodeMeterBlob, clampLevelDb } from "./osc/meterDecode.js";
 import { logger } from "../logger.js";
@@ -92,10 +92,7 @@ export class BehringerXAirDriver implements MixerControlInterface {
   // Pending read-back waiters keyed by OSC address → resolver(value).
   private readonly pendingReadbacks = new Map<string, (values: Array<number | string | Uint8Array>) => void>();
 
-  constructor(
-    private readonly config: MixerDriverConfig,
-    private readonly capture: ChannelMonitorSink,
-  ) {
+  constructor(private readonly config: MixerDriverConfig) {
     this.channelCount = config.channelCount;
     this.features = [...config.features];
     this.transport = config.transport ?? new UdpOscTransport(config.host, config.port, config.mixerId);
@@ -497,19 +494,5 @@ export class BehringerXAirDriver implements MixerControlInterface {
   onLiveness(listener: () => void): () => void {
     this.livenessListeners.add(listener);
     return () => this.livenessListeners.delete(listener);
-  }
-
-  // ── Isolated audio monitoring (delegated to the capture layer) ─────────────────
-
-  startChannelMonitor(channel: number): void {
-    if (!this.features.includes("channel-audio-capture")) {
-      logger.warn("Ignoring startChannelMonitor — device lacks channel-audio-capture", { context: { mixerId: this.config.mixerId, channel } });
-      return;
-    }
-    this.capture.startChannelMonitor(this.config.mixerId, channel);
-  }
-
-  stopChannelMonitor(channel: number): void {
-    this.capture.stopChannelMonitor(this.config.mixerId, channel);
   }
 }

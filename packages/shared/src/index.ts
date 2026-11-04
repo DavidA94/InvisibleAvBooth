@@ -53,15 +53,11 @@ export type {
   MixerPresetSummary,
   MixerPresetPayload,
   MixerChannelLevel,
-  EnvelopePair,
   MixerCommand,
 } from "./types/mixer.js";
 
 // Mixer fader taper
 export { faderFloatToDb, faderDbToFloat, FADER_TICKS_DB, gainDbToFloat, gainFloatToDb, gainDbToSlider, gainSliderToDb } from "./mixerTaper.js";
-
-// Envelope codec (gain-window binary frames)
-export { encodeEnvelopeFrame, decodeEnvelopeFrame } from "./envelopeCodec.js";
 
 // Lower-Third Types
 export type {

@@ -16,8 +16,6 @@ import {
   STC_MIXER_ERROR_RESOLVED,
   CTS_MIXER_SET,
   CTS_MIXER_PRESET_ACTIVATE,
-  CTS_MIXER_MONITOR_START,
-  CTS_MIXER_MONITOR_STOP,
   CTS_MIXER_WIDGET_PRESENT,
 } from "./socketEvents";
 
@@ -40,8 +38,6 @@ describe("socketEvents", () => {
   it("mixer client-to-server events use cts: prefix", () => {
     expect(CTS_MIXER_SET).toMatch(/^cts:/);
     expect(CTS_MIXER_PRESET_ACTIVATE).toMatch(/^cts:/);
-    expect(CTS_MIXER_MONITOR_START).toMatch(/^cts:/);
-    expect(CTS_MIXER_MONITOR_STOP).toMatch(/^cts:/);
     expect(CTS_MIXER_WIDGET_PRESENT).toMatch(/^cts:/);
   });
 
@@ -71,8 +67,6 @@ describe("socketEvents", () => {
       STC_MIXER_ERROR_RESOLVED,
       CTS_MIXER_SET,
       CTS_MIXER_PRESET_ACTIVATE,
-      CTS_MIXER_MONITOR_START,
-      CTS_MIXER_MONITOR_STOP,
       CTS_MIXER_WIDGET_PRESENT,
     ];
     expect(new Set(allEvents).size).toBe(allEvents.length);

@@ -17,15 +17,19 @@ export type MixerModel = "behringer-xair";
  * NOTE: "fader" and "mute" are CORE — always present, never toggled — so they
  * are intentionally NOT in this list (Req 6.7). A mixer without faders/mutes is
  * not a supported concept.
+ *
+ * NOTE: "channel-audio-capture" (the gain-window live-audio view / PipeWire
+ * capture layer) was removed — see `sound-board-control` spec Appendix A. It is
+ * recoverable from git history if a future feature (e.g. multitrack recording)
+ * needs it.
  */
-export type MixerFeature = "gain-control" | "channel-metering" | "channel-audio-capture";
+export type MixerFeature = "gain-control" | "channel-metering";
 
 export interface MixerCapabilities {
   /**
    * Runtime wire form (driver → frontend): the enabled-feature list, derived
-   * from the stored `features` column (Record<string, boolean>) minus any
-   * runtime downgrades (e.g., PipeWire unavailable downgrades
-   * "channel-audio-capture"). The widget renders controls purely from this list.
+   * from the stored `features` column (Record<string, boolean>). The widget
+   * renders controls purely from this list.
    */
   features: MixerFeature[];
   /** Model-declared preamp gain range in dB. X Air: { minDb: -12, maxDb: 60 }. */
@@ -87,12 +91,6 @@ export interface MixerChannelLevel {
   channel: number;
   /** dBFS, clamped to LEVEL_AXIS_MIN_DBFS..LEVEL_AXIS_MAX_DBFS. */
   levelDb: number;
-}
-
-/** One decimated envelope frame for the gain window (min/max in dBFS). */
-export interface EnvelopePair {
-  minDb: number;
-  maxDb: number;
 }
 
 /**
