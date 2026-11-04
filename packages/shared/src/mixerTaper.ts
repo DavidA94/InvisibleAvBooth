@@ -84,3 +84,59 @@ export function gainFloatToDb(float: number, minDb: number, maxDb: number): numb
   const clamped = float < 0 ? 0 : float > 1 ? 1 : float;
   return minDb + clamped * (maxDb - minDb);
 }
+
+// ── Gain slider taper (UI only — wire encoding stays linear) ─────────────────
+//
+// A linear -12..+60 dB slider puts almost all useful gain settings in a tiny
+// portion of the travel. Standard mixing consoles use a log law: small physical
+// movement at the low end covers a large dB range, and the middle-to-upper range
+// is stretched for fine control. We use a 3-segment piecewise that places:
+//
+//   travel [0.00, 0.25] → -12 to   0 dB  (quick sweep through low end)
+//   travel [0.25, 0.75] →   0 to +36 dB  (fine control in the typical range)
+//   travel [0.75, 1.00] → +36 to +60 dB  (coarser at the top)
+//
+// This is UI-only. The wire encoding (gainDbToFloat / gainFloatToDb) is still
+// the linear 0.0–1.0 float that the console expects.
+//
+// Breakpoints (verified continuous at boundaries):
+//   dB(0.25) = 0  → segment 1: dB = 48·pos − 12       (slope 48)
+//   dB(0.75) = 36 → segment 2: dB = 72·pos − 18       (slope 72)
+//                   segment 3: dB = 96·pos − 12        (slope 96) (wait — see below)
+//
+// Solving for exact slopes from the breakpoints:
+//   Seg 1: maps [0,0.25] → [-12,0]:  slope = 12/0.25 = 48,   intercept = -12
+//   Seg 2: maps [0.25,0.75] → [0,36]: slope = 36/0.50 = 72,  intercept = 0 − 72×0.25 = -18
+//   Seg 3: maps [0.75,1.0] → [36,60]: slope = 24/0.25 = 96,  intercept = 36 − 96×0.75 = -36
+
+/**
+ * Convert a preamp gain in dB to a normalized slider position (0.0–1.0).
+ * Applies the piecewise log-like taper so fine control sits in the middle of
+ * travel. gainDb is expected in [-12, +60] for the X Air; clamps at both ends.
+ */
+export function gainDbToSlider(gainDb: number): number {
+  const db = gainDb < -12 ? -12 : gainDb > 60 ? 60 : gainDb;
+  let pos: number;
+  if (db >= 36)
+    pos = (db + 36) / 96; // seg 3: [36,60] → [0.75,1.0]
+  else if (db >= 0)
+    pos = (db + 18) / 72; // seg 2: [0,36]  → [0.25,0.75]
+  else pos = (db + 12) / 48; // seg 1: [-12,0] → [0.00,0.25]
+  return pos < 0 ? 0 : pos > 1 ? 1 : pos;
+}
+
+/**
+ * Convert a normalized slider position (0.0–1.0) back to gain in dB.
+ * Inverse of gainDbToSlider.
+ */
+export function gainSliderToDb(pos: number): number {
+  const p = pos < 0 ? 0 : pos > 1 ? 1 : pos;
+  let db: number;
+  if (p >= 0.75)
+    db = p * 96 - 36; // seg 3
+  else if (p >= 0.25)
+    db = p * 72 - 18; // seg 2
+  else db = p * 48 - 12; // seg 1
+  // Round to 1 decimal to avoid floating-point noise from the taper arithmetic.
+  return Math.round(db * 10) / 10;
+}

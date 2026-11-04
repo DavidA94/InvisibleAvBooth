@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import * as fc from "fast-check";
-import { faderFloatToDb, faderDbToFloat, FADER_TICKS_DB, gainDbToFloat, gainFloatToDb } from "./mixerTaper";
+import { faderFloatToDb, faderDbToFloat, FADER_TICKS_DB, gainDbToFloat, gainFloatToDb, gainDbToSlider, gainSliderToDb } from "./mixerTaper";
 
 describe("mixerTaper", () => {
   describe("endpoints", () => {
@@ -138,5 +138,32 @@ describe("mixerTaper", () => {
     it("returns 0 for a degenerate range", () => {
       expect(gainDbToFloat(5, 10, 10)).toBe(0);
     });
+  });
+});
+
+describe("gainDbToSlider / gainSliderToDb (UI taper)", () => {
+  it("maps segment breakpoints to exact slider positions", () => {
+    expect(gainDbToSlider(-12)).toBeCloseTo(0, 5); // min → 0
+    expect(gainDbToSlider(0)).toBeCloseTo(0.25, 5); // seg1/seg2 boundary
+    expect(gainDbToSlider(36)).toBeCloseTo(0.75, 5); // seg2/seg3 boundary
+    expect(gainDbToSlider(60)).toBeCloseTo(1, 5); // max → 1
+  });
+
+  it("inverse: gainSliderToDb round-trips through gainDbToSlider", () => {
+    for (const db of [-12, -6, 0, 12, 24, 36, 48, 60]) {
+      expect(gainSliderToDb(gainDbToSlider(db))).toBeCloseTo(db, 1);
+    }
+  });
+
+  it("the middle half of travel covers 0–36 dB (fine-control zone)", () => {
+    expect(gainSliderToDb(0.25)).toBeCloseTo(0, 1);
+    expect(gainSliderToDb(0.75)).toBeCloseTo(36, 1);
+  });
+
+  it("clamps out-of-range inputs", () => {
+    expect(gainDbToSlider(-100)).toBe(0);
+    expect(gainDbToSlider(100)).toBe(1);
+    expect(gainSliderToDb(-0.5)).toBeCloseTo(-12, 1);
+    expect(gainSliderToDb(1.5)).toBeCloseTo(60, 1);
   });
 });
