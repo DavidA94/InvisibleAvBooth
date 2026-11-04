@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { ReactNode } from "react";
 import { IonInput, IonButton, IonSpinner, IonText } from "@ionic/react";
 import { Modal } from "../Modal";
+import { SoundBoardWidget } from "./SoundBoardWidget";
 import type { MixerPresetPayload } from "@invisible-av-booth/shared";
 import { TEST_ID_PRESET_NAME_INPUT, TEST_ID_PRESET_SAVE_BUTTON, TEST_ID_PRESET_CANCEL_BUTTON, TEST_ID_PRESET_POSITION_SUMMARY } from "../../constants/testIds";
 
@@ -13,12 +14,12 @@ interface PresetConfigModalProps {
 }
 
 /**
- * Preset authoring modal for the Sound Board (Req 10.8). Captures the current
- * board via the capture-preset endpoint (which reads back all settable values
- * with bounded retry and fails on unconfirmed channels), shows a summary of what
- * was captured, and saves the snapshot as a named preset. The live "control the
- * draft board before save" affordance is exercised end-to-end in Playwright; the
- * unit-tested core is the capture → summary → save flow.
+ * Preset authoring modal for the Sound Board (Req 10.8). Mirrors the Camera
+ * preset flow: it embeds the SAME live Sound Board widget the volunteer dashboard
+ * uses (pinned to this mixer via `forceSelectedId`), so the admin dials in the
+ * board live — faders, mute, gain — then "Capture current board" snapshots the
+ * current state via the capture-preset endpoint (read-back with bounded retry,
+ * fails on unconfirmed channels) and saves it as a named preset.
  */
 export function PresetConfigModal({ open, mixerId, onClose, onSaved }: PresetConfigModalProps): ReactNode {
   const [name, setName] = useState("");
@@ -104,6 +105,12 @@ export function PresetConfigModal({ open, mixerId, onClose, onSaved }: PresetCon
           onIonInput={(e) => setName(e.detail.value ?? "")}
           clearInput
         />
+
+        {/* The same live Sound Board widget the volunteer dashboard uses, pinned to
+            this mixer. The admin adjusts the real board here, then captures it. */}
+        <div className="soundboard-preset-live">
+          <SoundBoardWidget enabled={open} forceSelectedId={mixerId} />
+        </div>
 
         <IonButton size="small" fill="outline" disabled={capturing} onClick={() => void handleCapture()}>
           {capturing ? <IonSpinner name="crescent" /> : "Capture current board"}

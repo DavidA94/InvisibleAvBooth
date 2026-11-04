@@ -4,6 +4,13 @@ import "../../test/ionicMocks";
 import { PresetConfigModal } from "./PresetConfigModal";
 import { TEST_ID_PRESET_NAME_INPUT, TEST_ID_PRESET_SAVE_BUTTON, TEST_ID_PRESET_CANCEL_BUTTON, TEST_ID_PRESET_POSITION_SUMMARY } from "../../constants/testIds";
 
+// The embedded live widget is covered by its own tests; stub it here so this
+// suite stays focused on the capture → summary → save flow (mirrors how the
+// camera preset test does not re-exercise the full CameraWidget).
+vi.mock("./SoundBoardWidget", () => ({
+  SoundBoardWidget: () => <div data-testid="soundboard-widget-stub" />,
+}));
+
 function makeFetch(handlers: Record<string, { ok: boolean; body: unknown }>): typeof fetch {
   return vi.fn(async (url: string) => {
     for (const [pattern, response] of Object.entries(handlers)) {

@@ -5,6 +5,15 @@
  * inline-style exception for runtime-computed meter heights (code-style §No-Inline-Styles).
  */
 
+/* ── Preset authoring: embedded live widget ───────────────────────────────── */
+/* The admin preset modal embeds the full Sound Board widget (same as the
+   dashboard) so the board can be dialed in live before capture. Give it a
+   bounded height so the modal stays a sensible size. */
+.soundboard-preset-live {
+  height: 24rem;
+  margin-top: 0.75rem;
+}
+
 /* ── Channel level meter: inactive / no-signal state (Req 5.4) ─────────────── */
 /* Dimmed treatment, unambiguously different from a live meter reading silence. */
 .audio-meter-inactive {

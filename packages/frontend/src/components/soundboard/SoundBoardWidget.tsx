@@ -34,7 +34,14 @@ export function deriveControlsStatus(connected: boolean, stateFresh: boolean): C
   return stateFresh ? "healthy" : "unhealthy";
 }
 
-export function SoundBoardWidget(): ReactNode {
+interface SoundBoardWidgetProps {
+  /** When false, the widget suppresses its socket activity (widget-present / metering). */
+  enabled?: boolean;
+  /** Force selection of a specific mixer (used in the admin preset-authoring modal). */
+  forceSelectedId?: string;
+}
+
+export function SoundBoardWidget({ enabled = true, forceSelectedId }: SoundBoardWidgetProps = {}): ReactNode {
   const mixerStates = useStore((s) => s.mixerStates);
   const mixerLevels = useStore((s) => s.mixerLevels);
   const socket = useSocket();
@@ -43,10 +50,11 @@ export function SoundBoardWidget(): ReactNode {
   const width = useResizeObserver(containerRef);
 
   const mixers = useMemo(() => Object.values(mixerStates), [mixerStates]);
-  const [selectedId, setSelectedId] = useState<string>("");
+  const [selectedId, setSelectedId] = useState<string>(forceSelectedId ?? "");
   useEffect(() => {
-    if (!selectedId && mixers.length > 0) setSelectedId(mixers[0]!.mixerId);
-  }, [mixers, selectedId]);
+    if (forceSelectedId) setSelectedId(forceSelectedId);
+    else if (!selectedId && mixers.length > 0) setSelectedId(mixers[0]!.mixerId);
+  }, [mixers, selectedId, forceSelectedId]);
 
   const state = selectedId ? (mixerStates[selectedId] ?? null) : (mixers[0] ?? null);
   const mixerId = state?.mixerId ?? "";
@@ -59,7 +67,7 @@ export function SoundBoardWidget(): ReactNode {
   // full page refresh (observed in the field). Re-emitting on "connect" makes the
   // meter recover automatically like the rest of the state.
   useEffect(() => {
-    if (!socket || !mixerId) return;
+    if (!enabled || !socket || !mixerId) return;
     const announcePresent = (): void => {
       socket.emit(CTS_MIXER_WIDGET_PRESENT, { mixerId, present: true });
     };
@@ -69,7 +77,7 @@ export function SoundBoardWidget(): ReactNode {
       socket.off("connect", announcePresent);
       socket.emit(CTS_MIXER_WIDGET_PRESENT, { mixerId, present: false });
     };
-  }, [socket, mixerId]);
+  }, [enabled, socket, mixerId]);
 
   // Controls freshness: driven by control STATE changes only. Level frames arrive
   // at ~25fps and must NOT drive this effect — depending on levelsForMixer here
@@ -109,7 +117,7 @@ export function SoundBoardWidget(): ReactNode {
       <WidgetContainer title="Sound Board" connections={connections}>
         <WidgetErrorOverlay isVisible={!connected} message="Mixer offline" actionLabel="" isPending={false}>
           <div className="soundboard-widget">
-            {mixers.length > 1 && (
+            {!forceSelectedId && mixers.length > 1 && (
               <div className="soundboard-mixer-select">
                 <Select
                   data-testid={TEST_ID_SOUNDBOARD_MIXER_SELECT}
