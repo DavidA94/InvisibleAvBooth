@@ -7,6 +7,7 @@ import { VerticalFader } from "./VerticalFader";
 import { MuteButton } from "./MuteButton";
 import { ChannelLevelMeter } from "./ChannelLevelMeter";
 import { GainPopover } from "./GainPopover";
+import { GainSemicircle } from "./GainSemicircle";
 import {
   TEST_ID_SOUNDBOARD_CHANNEL_STRIP,
   TEST_ID_SOUNDBOARD_CHANNEL_NAME,
@@ -105,7 +106,13 @@ export function ChannelStrip({
             data-testid={`${TEST_ID_MIXER_ADJUST_GAIN_BUTTON}-${channel.channel}`}
             onClick={() => setGainOpen(true)}
           >
-            Adjust Gain
+            {/* Live gain preview: the value sits inside the arc (like the popover
+                semicircle), so the current gain is visible before opening it.
+                Decorative inside the button. */}
+            <span className="mixer-adjust-gain-preview" aria-hidden="true">
+              <GainSemicircle gainDb={channel.gainDb} minDb={gainMinDb} maxDb={gainMaxDb} />
+            </span>
+            <span className="mixer-adjust-gain-label">Gain</span>
           </button>
           <GainPopover
             isOpen={gainOpen}

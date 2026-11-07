@@ -5,6 +5,8 @@ interface GainSemicircleProps {
   gainDb: number;
   minDb: number;
   maxDb: number;
+  /** Draw the numeric dB inside the arc. Default true; false for a compact icon. */
+  showValue?: boolean;
 }
 
 /** Fraction (0..1) of the arc to fill for a gain value within [minDb, maxDb]. */
@@ -45,7 +47,7 @@ const ARC_PATH = `M ${sx.toFixed(2)} ${sy.toFixed(2)} A ${RADIUS} ${RADIUS} 0 1 
  * (full = max). For the X Air: 0% = -12 dB, 100% = +60 dB. The numeric value is
  * shown via the MUI Slider tooltip on hover/tap, not inside the arc itself.
  */
-export function GainSemicircle({ gainDb, minDb, maxDb }: GainSemicircleProps): ReactNode {
+export function GainSemicircle({ gainDb, minDb, maxDb, showValue = true }: GainSemicircleProps): ReactNode {
   const fraction = gainToFraction(gainDb, minDb, maxDb);
   const dashOffset = CIRCUMFERENCE * (1 - fraction);
 
@@ -58,9 +60,11 @@ export function GainSemicircle({ gainDb, minDb, maxDb }: GainSemicircleProps): R
       role="img"
       aria-label={`Gain ${gainDb.toFixed(1)} dB`}
     >
-      <text x="50%" y="60%" textAnchor="middle" dominantBaseline="middle" className="mixer-gain-arc-value">
-        {gainDb.toFixed(1)}
-      </text>
+      {showValue && (
+        <text x="50%" y="60%" textAnchor="middle" dominantBaseline="middle" className="mixer-gain-arc-value">
+          {gainDb.toFixed(1)}
+        </text>
+      )}
       <path d={ARC_PATH} className="mixer-gain-arc-track" fill="none" strokeWidth={8} />
       <path d={ARC_PATH} className="mixer-gain-arc-fill" fill="none" strokeWidth={8} strokeDasharray={CIRCUMFERENCE} strokeDashoffset={dashOffset} />
     </svg>
