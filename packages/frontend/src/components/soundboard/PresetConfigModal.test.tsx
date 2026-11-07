@@ -94,4 +94,27 @@ describe("PresetConfigModal", () => {
     fireEvent.click(screen.getByText("Capture current board"));
     await waitFor(() => expect(screen.getByText(/Network error while capturing/)).toBeInTheDocument());
   });
+
+  it("edits an existing preset: pre-fills the name and PUTs a rename without re-capture", async () => {
+    const onSaved = vi.fn();
+    const calls: Array<{ url: string; method: string; body: unknown }> = [];
+    const fetchSpy = vi.fn(async (url: string, opts?: { method?: string; body?: string }) => {
+      calls.push({ url, method: opts?.method ?? "GET", body: opts?.body ? JSON.parse(opts.body) : undefined });
+      return { ok: true, json: async () => ({ id: "p1" }) } as Response;
+    });
+    vi.stubGlobal("fetch", fetchSpy as unknown as typeof fetch);
+
+    render(<PresetConfigModal open={true} mixerId="m1" editingPreset={{ id: "p1", name: "Singers" }} onClose={vi.fn()} onSaved={onSaved} />);
+    // Name is pre-filled from the existing preset; Save is enabled without a re-capture.
+    expect((screen.getByTestId(TEST_ID_PRESET_NAME_INPUT) as HTMLInputElement).value).toBe("Singers");
+    fireEvent.input(screen.getByTestId(TEST_ID_PRESET_NAME_INPUT), { target: { value: "Choir" } });
+    fireEvent.click(screen.getByTestId(TEST_ID_PRESET_SAVE_BUTTON));
+
+    await waitFor(() => expect(onSaved).toHaveBeenCalled());
+    const put = calls.find((c) => c.method === "PUT");
+    expect(put?.url).toContain("/presets/p1");
+    expect((put?.body as { name: string }).name).toBe("Choir");
+    // Rename-only: no payload re-captured, so none is sent (preserves the snapshot).
+    expect((put?.body as { payload?: unknown }).payload).toBeUndefined();
+  });
 });

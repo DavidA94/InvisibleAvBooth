@@ -47,6 +47,8 @@ export function SoundBoardDeviceForm({ device, onSaved, onDeleted, registerDirty
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [presets, setPresets] = useState<PresetRow[]>([]);
   const [presetModalOpen, setPresetModalOpen] = useState(false);
+  const [editingPreset, setEditingPreset] = useState<{ id: string; name: string } | null>(null);
+  const [presetDeleteId, setPresetDeleteId] = useState<string | null>(null);
 
   const formRef = useRef(form);
   formRef.current = form;
@@ -167,6 +169,17 @@ export function SoundBoardDeviceForm({ device, onSaved, onDeleted, registerDirty
     if (r.ok) setPresets((await r.json()) as PresetRow[]);
   }, [device]);
 
+  const handleDeletePreset = useCallback(async (): Promise<void> => {
+    if (!device || !presetDeleteId) return;
+    try {
+      const r = await fetch(`/api/admin/mixers/${device.id}/presets/${presetDeleteId}`, { method: "DELETE", credentials: "include" });
+      if (r.ok) setPresets((prev) => prev.filter((p) => p.id !== presetDeleteId));
+    } catch {
+      /* ignore */
+    }
+    setPresetDeleteId(null);
+  }, [device, presetDeleteId]);
+
   const selectedModel = MIXER_MODEL_OPTIONS.find((o) => o.value === form.model) ?? MIXER_MODEL_OPTIONS[0]!;
   const canSave = !!form.label && !!form.host;
 
@@ -261,9 +274,30 @@ export function SoundBoardDeviceForm({ device, onSaved, onDeleted, registerDirty
           {presets.map((preset) => (
             <IonItem key={preset.id} lines="inset">
               <IonLabel>{preset.name}</IonLabel>
+              <IonButton
+                slot="end"
+                size="small"
+                fill="clear"
+                onClick={() => {
+                  setEditingPreset({ id: preset.id, name: preset.name });
+                  setPresetModalOpen(true);
+                }}
+              >
+                Edit
+              </IonButton>
+              <IonButton slot="end" size="small" fill="clear" color="danger" onClick={() => setPresetDeleteId(preset.id)}>
+                Delete
+              </IonButton>
             </IonItem>
           ))}
-          <IonButton size="small" fill="outline" onClick={() => setPresetModalOpen(true)}>
+          <IonButton
+            size="small"
+            fill="outline"
+            onClick={() => {
+              setEditingPreset(null);
+              setPresetModalOpen(true);
+            }}
+          >
             Add Preset
           </IonButton>
         </>
@@ -308,13 +342,29 @@ export function SoundBoardDeviceForm({ device, onSaved, onDeleted, registerDirty
         <PresetConfigModal
           open={presetModalOpen}
           mixerId={device.id}
-          onClose={() => setPresetModalOpen(false)}
+          editingPreset={editingPreset}
+          onClose={() => {
+            setPresetModalOpen(false);
+            setEditingPreset(null);
+          }}
           onSaved={() => {
             setPresetModalOpen(false);
+            setEditingPreset(null);
             void reloadPresets();
           }}
         />
       )}
+
+      <ConfirmationModal
+        isOpen={!!presetDeleteId}
+        title="Delete Preset"
+        body={`Delete preset "${presets.find((p) => p.id === presetDeleteId)?.name ?? ""}"? This cannot be undone.`}
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        confirmVariant="danger"
+        onConfirm={() => void handleDeletePreset()}
+        onCancel={() => setPresetDeleteId(null)}
+      />
     </div>
   );
 }

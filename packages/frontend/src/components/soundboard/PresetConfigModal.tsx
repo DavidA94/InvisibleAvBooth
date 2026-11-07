@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { ReactNode } from "react";
 import { IonInput, IonButton, IonSpinner, IonText } from "@ionic/react";
 import { Modal } from "../Modal";
@@ -6,9 +6,17 @@ import { SoundBoardWidget } from "./SoundBoardWidget";
 import type { MixerPresetPayload } from "@invisible-av-booth/shared";
 import { TEST_ID_PRESET_NAME_INPUT, TEST_ID_PRESET_SAVE_BUTTON, TEST_ID_PRESET_CANCEL_BUTTON, TEST_ID_PRESET_POSITION_SUMMARY } from "../../constants/testIds";
 
+/** The existing preset being edited (rename and/or re-capture), or null to create. */
+export interface EditingPreset {
+  id: string;
+  name: string;
+}
+
 interface PresetConfigModalProps {
   open: boolean;
   mixerId: string;
+  /** When set, the modal edits this preset (PUT) instead of creating (POST). */
+  editingPreset?: EditingPreset | null;
   onClose: () => void;
   onSaved: () => void;
 }
@@ -21,12 +29,21 @@ interface PresetConfigModalProps {
  * current state via the capture-preset endpoint (read-back with bounded retry,
  * fails on unconfirmed channels) and saves it as a named preset.
  */
-export function PresetConfigModal({ open, mixerId, onClose, onSaved }: PresetConfigModalProps): ReactNode {
+export function PresetConfigModal({ open, mixerId, editingPreset = null, onClose, onSaved }: PresetConfigModalProps): ReactNode {
   const [name, setName] = useState("");
   const [payload, setPayload] = useState<MixerPresetPayload | null>(null);
   const [capturing, setCapturing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  // Sync the name field when (re)opening — pre-filled when editing, blank for new.
+  useEffect(() => {
+    if (open) {
+      setName(editingPreset?.name ?? "");
+      setPayload(null);
+      setError("");
+    }
+  }, [open, editingPreset]);
 
   const reset = (): void => {
     setName("");
@@ -53,15 +70,23 @@ export function PresetConfigModal({ open, mixerId, onClose, onSaved }: PresetCon
   };
 
   const handleSave = async (): Promise<void> => {
-    if (!name.trim() || !payload) return;
+    // Create needs a captured payload; editing can be a rename-only (no re-capture).
+    if (!name.trim()) return;
+    if (!editingPreset && !payload) return;
     setSaving(true);
     setError("");
     try {
-      const response = await fetch(`/api/admin/mixers/${mixerId}/presets`, {
-        method: "POST",
+      const url = editingPreset ? `/api/admin/mixers/${mixerId}/presets/${editingPreset.id}` : `/api/admin/mixers/${mixerId}/presets`;
+      const method = editingPreset ? "PUT" : "POST";
+      // On edit, only send payload when the admin re-captured the board, so a
+      // rename-only edit preserves the stored snapshot.
+      const body: { name: string; payload?: MixerPresetPayload } = { name };
+      if (payload) body.payload = payload;
+      const response = await fetch(url, {
+        method,
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ name, payload }),
+        body: JSON.stringify(body),
       });
       if (response.ok) {
         reset();
@@ -93,7 +118,7 @@ export function PresetConfigModal({ open, mixerId, onClose, onSaved }: PresetCon
         onClose();
       }}
       size="large"
-      header="Author Preset"
+      header={editingPreset ? `Edit Preset: ${editingPreset.name}` : "Author Preset"}
     >
       <div className="form-layout">
         <IonInput
@@ -113,13 +138,16 @@ export function PresetConfigModal({ open, mixerId, onClose, onSaved }: PresetCon
         </div>
 
         <IonButton size="small" fill="outline" disabled={capturing} onClick={() => void handleCapture()}>
-          {capturing ? <IonSpinner name="crescent" /> : "Capture current board"}
+          {capturing ? <IonSpinner name="crescent" /> : editingPreset ? "Re-capture current board" : "Capture current board"}
         </IonButton>
 
         {payload && (
           <p className="text-muted text-secondary" data-testid={TEST_ID_PRESET_POSITION_SUMMARY}>
             {capturedChannels} channel{capturedChannels === 1 ? "" : "s"} captured: faders, mutes, gain.
           </p>
+        )}
+        {editingPreset && !payload && (
+          <p className="text-muted text-secondary text-small">Editing the name only keeps the saved board snapshot. Re-capture to update it.</p>
         )}
 
         {error && (
@@ -129,7 +157,11 @@ export function PresetConfigModal({ open, mixerId, onClose, onSaved }: PresetCon
         )}
 
         <div className="layout-row gap-standard margin-top-standard">
-          <IonButton data-testid={TEST_ID_PRESET_SAVE_BUTTON} disabled={saving || !name.trim() || !payload} onClick={() => void handleSave()}>
+          <IonButton
+            data-testid={TEST_ID_PRESET_SAVE_BUTTON}
+            disabled={saving || !name.trim() || (!editingPreset && !payload)}
+            onClick={() => void handleSave()}
+          >
             {saving ? <IonSpinner name="crescent" /> : "Save Preset"}
           </IonButton>
           <IonButton

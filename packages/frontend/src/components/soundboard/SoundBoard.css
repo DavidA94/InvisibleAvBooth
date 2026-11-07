@@ -10,7 +10,6 @@
    dashboard) so the board can be dialed in live before capture. Give it a
    bounded height so the modal stays a sensible size. */
 .soundboard-preset-live {
-  height: 24rem;
   margin-top: 0.75rem;
 }
 
@@ -329,7 +328,7 @@
 /* Inline semicircle inside the gain button (the dB value renders inside the arc,
    like the popover; overrides the popover's larger size). */
 .mixer-adjust-gain-button .mixer-gain-semicircle {
-  width: 2.5rem;
+  width: 2rem;
 }
 
 .mixer-adjust-gain-label {
