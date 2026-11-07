@@ -30,10 +30,18 @@ export function HorizontalGainSlider({ gainDb, minDb: _minDb, maxDb: _maxDb, onG
   const positionToDb = (pos: number): number => gainSliderToDb(pos);
   const dbToPosition = (db: number): number => gainDbToSlider(db);
 
-  const held = useHeldControl(dbToPosition(roundedGainDb), (pos) => onGainChange(positionToDb(pos)));
+  // The X Air's finest preamp-gain granularity is 0.5 dB, so snap every commanded
+  // value to the nearest half-dB. This keeps the UI, the wire value, and the
+  // console in lockstep — a sub-0.5 UI value could never be matched by the mixer.
+  const snapHalfDb = (db: number): number => Math.round(db * 2) / 2;
+  // Convert a slider position to its SNAPPED position (so the thumb visually
+  // steps in 0.5 dB increments rather than gliding continuously).
+  const snapPosition = (pos: number): number => dbToPosition(snapHalfDb(positionToDb(pos)));
+
+  const held = useHeldControl(dbToPosition(snapHalfDb(roundedGainDb)), (pos) => onGainChange(snapHalfDb(positionToDb(pos))));
 
   useEffect(() => {
-    held.onBackendValue(dbToPosition(roundedGainDb));
+    held.onBackendValue(dbToPosition(snapHalfDb(roundedGainDb)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roundedGainDb]);
 
@@ -47,13 +55,13 @@ export function HorizontalGainSlider({ gainDb, minDb: _minDb, maxDb: _maxDb, onG
       <Slider
         size="medium"
         valueLabelDisplay="auto"
-        valueLabelFormat={(pos) => `${gainSliderToDb(pos).toFixed(1)} dB`}
+        valueLabelFormat={(pos) => `${snapHalfDb(gainSliderToDb(pos)).toFixed(1)} dB`}
         min={0}
         max={1}
         step={0.001}
         value={held.value}
-        onChange={(_, next) => held.onLocalChange(next as number)}
-        onChangeCommitted={(_, next) => held.onRelease(next as number)}
+        onChange={(_, next) => held.onLocalChange(snapPosition(next as number))}
+        onChangeCommitted={(_, next) => held.onRelease(snapPosition(next as number))}
         aria-label="Preamp gain"
       />
     </div>

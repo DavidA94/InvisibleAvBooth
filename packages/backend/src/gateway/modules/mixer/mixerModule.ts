@@ -10,8 +10,9 @@ import {
   CTS_MIXER_SET,
   CTS_MIXER_PRESET_ACTIVATE,
   CTS_MIXER_WIDGET_PRESENT,
+  METERS_BROADCAST_INTERVAL_MS,
 } from "@invisible-av-booth/shared";
-import type { MixerCommand } from "@invisible-av-booth/shared";
+import type { MixerCommand, MixerChannelLevel } from "@invisible-av-booth/shared";
 import { logger } from "../../../logger.js";
 
 /**
@@ -22,13 +23,89 @@ import { logger } from "../../../logger.js";
 export class MixerSocketModule implements SocketModule {
   constructor(private readonly mixerService: MixerService) {}
 
+  // ── Meter broadcast throttle (steering §5 "as soon as possible", bounded) ────
+  //
+  // The X Air pushes meter frames at ~25 fps and the driver emits one
+  // BUS_MIXER_LEVELS per frame. Forwarding each straight to `io.emit` floods
+  // every connected tablet with frames it cannot visually distinguish. Meters
+  // are "latest value wins", so we COALESCE per mixer (keep only the newest
+  // frame) and flush at most every METERS_BROADCAST_INTERVAL_MS.
+  //
+  // Leading-edge + trailing-flush: the first frame after an idle gap goes out
+  // immediately (meters feel instant when metering starts), then any frames
+  // arriving within the window are collapsed and the latest is flushed when the
+  // window closes. The timer is self-stopping when nothing is pending, so an
+  // idle board leaves no running interval.
+  private io: Server | null = null;
+  /** Latest un-flushed level frame per mixerId (older frames are discarded). */
+  private readonly pendingLevels = new Map<string, MixerChannelLevel[]>();
+  /** mixerId → timestamp (ms) of the last emit, for leading-edge decisions. */
+  private readonly lastEmitAt = new Map<string, number>();
+  private flushTimer: ReturnType<typeof setInterval> | null = null;
+
   register(io: Server): void {
+    this.io = io;
     eventBus.subscribe(BUS_MIXER_STATE_CHANGED, ({ state }) => {
       io.emit(STC_MIXER_STATE_UPDATE, state);
     });
-    eventBus.subscribe(BUS_MIXER_LEVELS, (payload) => {
-      io.emit(STC_MIXER_LEVELS, payload);
+    eventBus.subscribe(BUS_MIXER_LEVELS, ({ mixerId, levels }) => {
+      this.enqueueLevels(mixerId, levels);
     });
+  }
+
+  /**
+   * Accept a level frame. If the mixer's broadcast window is open (idle long
+   * enough), emit immediately (leading edge); otherwise stash the latest frame
+   * and ensure the trailing flush timer is running.
+   */
+  private enqueueLevels(mixerId: string, levels: MixerChannelLevel[]): void {
+    if (!this.io) return;
+    const now = Date.now();
+    const last = this.lastEmitAt.get(mixerId) ?? 0;
+    if (now - last >= METERS_BROADCAST_INTERVAL_MS) {
+      this.emitLevels(mixerId, levels, now);
+      return;
+    }
+    // Within the window: keep only the newest frame and arm the trailing flush.
+    this.pendingLevels.set(mixerId, levels);
+    this.ensureFlushTimer();
+  }
+
+  private emitLevels(mixerId: string, levels: MixerChannelLevel[], now: number): void {
+    this.lastEmitAt.set(mixerId, now);
+    this.io?.emit(STC_MIXER_LEVELS, { mixerId, levels });
+  }
+
+  private ensureFlushTimer(): void {
+    if (this.flushTimer) return;
+    this.flushTimer = setInterval(() => this.flushPending(), METERS_BROADCAST_INTERVAL_MS);
+  }
+
+  /** Emit any pending frames whose window has closed; stop the timer when idle. */
+  private flushPending(): void {
+    const now = Date.now();
+    for (const [mixerId, levels] of this.pendingLevels) {
+      const last = this.lastEmitAt.get(mixerId) ?? 0;
+      if (now - last >= METERS_BROADCAST_INTERVAL_MS) {
+        this.emitLevels(mixerId, levels, now);
+        this.pendingLevels.delete(mixerId);
+      }
+    }
+    // Self-stop: no outstanding frames → no reason to keep ticking.
+    if (this.pendingLevels.size === 0 && this.flushTimer) {
+      clearInterval(this.flushTimer);
+      this.flushTimer = null;
+    }
+  }
+
+  /** Stop the flush timer and drop buffered frames (teardown / test cleanup). */
+  dispose(): void {
+    if (this.flushTimer) {
+      clearInterval(this.flushTimer);
+      this.flushTimer = null;
+    }
+    this.pendingLevels.clear();
+    this.lastEmitAt.clear();
   }
 
   registerSocket(auth: AuthenticatedSocket): void {

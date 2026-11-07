@@ -200,6 +200,23 @@ export function buildApp(deps: AppDependencies): AppContext {
     }
   });
 
+  // Apply a stored preset to the live board (ADMIN-only). Lets an admin LOAD a
+  // preset as the starting point for editing (Req: "Load" button) rather than
+  // dialing the board in from scratch. Reuses MixerService.activatePreset (the
+  // same path the volunteer preset buttons use), so there is one applypreset
+  // code path. Registered inline before the :mixerId preset router, like
+  // capture-preset, so the literal segment does not collide with :presetId CRUD.
+  app.post("/api/admin/mixers/:mixerId/presets/:presetId/apply", mustBeAuthenticated, mustHaveChangedPassword, mixerAdminOnly, async (req, res) => {
+    const mixerId = req.params["mixerId"] as string;
+    const presetId = req.params["presetId"] as string;
+    const result = await mixerService.activatePreset(mixerId, presetId);
+    if (result.ok) {
+      res.json({ ok: true });
+    } else {
+      res.status(409).json({ ok: false, error: result.error });
+    }
+  });
+
   app.use("/api/admin/mixers/:mixerId/presets", mustBeAuthenticated, mustHaveChangedPassword, createMixerPresetRouter(database, authService));
 
   const gateway = new SocketGateway(httpServer, authService, [

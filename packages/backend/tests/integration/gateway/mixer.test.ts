@@ -208,6 +208,37 @@ describe("emitInitialState & presets", () => {
     expect(commands).toContainEqual({ op: "fader", channel: 1, value: 0.8 });
     expect(commands).toContainEqual({ op: "mute", channel: 1, value: true }); // on=0 → muted
   });
+
+  it("admin apply-preset loads the stored preset onto the live board", async () => {
+    const mixerId = await createMixer();
+    const presetRes = await s.agent
+      .post(`/api/admin/mixers/${mixerId}/presets`)
+      .set("Cookie", adminCookie)
+      .send({ name: "Start Point", payload: { "/ch/02/mix/fader": 0.6, "/ch/02/mix/on": 1 } });
+    const presetId = presetRes.body.id;
+
+    const driver = s.fakeMixer.get(mixerId)!;
+    const applyRes = await s.agent.post(`/api/admin/mixers/${mixerId}/presets/${presetId as string}/apply`).set("Cookie", adminCookie);
+    expect(applyRes.status).toBe(200);
+    expect(applyRes.body.ok).toBe(true);
+    expect(driver.commands).toContainEqual({ op: "fader", channel: 2, value: 0.6 });
+    expect(driver.commands).toContainEqual({ op: "mute", channel: 2, value: false }); // on=1 → unmuted
+  });
+
+  it("admin apply-preset returns 409 for an unknown preset", async () => {
+    const mixerId = await createMixer();
+    const res = await s.agent.post(`/api/admin/mixers/${mixerId}/presets/does-not-exist/apply`).set("Cookie", adminCookie);
+    expect(res.status).toBe(409);
+    expect(res.body.ok).toBe(false);
+  });
+
+  it("non-admin cannot apply a preset (403)", async () => {
+    const mixerId = await createMixer();
+    const presetRes = await s.agent.post(`/api/admin/mixers/${mixerId}/presets`).set("Cookie", adminCookie).send({ name: "P", payload: {} });
+    const volCookie = await loginAs(s.agent, s.ctx.authService, "volapply", "pass", "AvVolunteer");
+    const res = await s.agent.post(`/api/admin/mixers/${mixerId}/presets/${presetRes.body.id as string}/apply`).set("Cookie", volCookie);
+    expect(res.status).toBe(403);
+  });
 });
 
 describe("Metering lifecycle & presence", () => {

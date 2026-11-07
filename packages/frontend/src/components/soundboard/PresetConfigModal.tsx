@@ -4,7 +4,13 @@ import { IonInput, IonButton, IonSpinner, IonText } from "@ionic/react";
 import { Modal } from "../Modal";
 import { SoundBoardWidget } from "./SoundBoardWidget";
 import type { MixerPresetPayload } from "@invisible-av-booth/shared";
-import { TEST_ID_PRESET_NAME_INPUT, TEST_ID_PRESET_SAVE_BUTTON, TEST_ID_PRESET_CANCEL_BUTTON, TEST_ID_PRESET_POSITION_SUMMARY } from "../../constants/testIds";
+import {
+  TEST_ID_PRESET_NAME_INPUT,
+  TEST_ID_PRESET_SAVE_BUTTON,
+  TEST_ID_PRESET_CANCEL_BUTTON,
+  TEST_ID_PRESET_POSITION_SUMMARY,
+  TEST_ID_PRESET_LOAD_BUTTON,
+} from "../../constants/testIds";
 
 /** The existing preset being edited (rename and/or re-capture), or null to create. */
 export interface EditingPreset {
@@ -34,6 +40,7 @@ export function PresetConfigModal({ open, mixerId, editingPreset = null, onClose
   const [payload, setPayload] = useState<MixerPresetPayload | null>(null);
   const [capturing, setCapturing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   // Sync the name field when (re)opening — pre-filled when editing, blank for new.
@@ -49,6 +56,31 @@ export function PresetConfigModal({ open, mixerId, editingPreset = null, onClose
     setName("");
     setPayload(null);
     setError("");
+  };
+
+  // Load (apply) the preset being edited onto the live board so the admin starts
+  // from a KNOWN point and adjusts, instead of dialing everything in from scratch.
+  // Only offered when editing an existing preset (a new one has nothing to load).
+  // The live SoundBoardWidget reflects the applied values via the normal state
+  // broadcast, so there is no local payload to track here.
+  const handleLoad = async (): Promise<void> => {
+    if (!editingPreset) return;
+    setLoading(true);
+    setError("");
+    try {
+      const response = await fetch(`/api/admin/mixers/${mixerId}/presets/${editingPreset.id}/apply`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!response.ok) {
+        const data = (await response.json()) as { error?: string };
+        setError(data.error ?? "Load failed");
+      }
+    } catch {
+      setError("Network error while loading");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleCapture = async (): Promise<void> => {
@@ -137,9 +169,16 @@ export function PresetConfigModal({ open, mixerId, editingPreset = null, onClose
           <SoundBoardWidget enabled={open} forceSelectedId={mixerId} />
         </div>
 
-        <IonButton size="small" fill="outline" disabled={capturing} onClick={() => void handleCapture()}>
-          {capturing ? <IonSpinner name="crescent" /> : editingPreset ? "Re-capture current board" : "Capture current board"}
-        </IonButton>
+        <div className="layout-row gap-standard">
+          {editingPreset && (
+            <IonButton data-testid={TEST_ID_PRESET_LOAD_BUTTON} size="small" fill="outline" disabled={loading || capturing} onClick={() => void handleLoad()}>
+              {loading ? <IonSpinner name="crescent" /> : "Load preset onto board"}
+            </IonButton>
+          )}
+          <IonButton size="small" fill="outline" disabled={capturing || loading} onClick={() => void handleCapture()}>
+            {capturing ? <IonSpinner name="crescent" /> : editingPreset ? "Re-capture current board" : "Capture current board"}
+          </IonButton>
+        </div>
 
         {payload && (
           <p className="text-muted text-secondary" data-testid={TEST_ID_PRESET_POSITION_SUMMARY}>

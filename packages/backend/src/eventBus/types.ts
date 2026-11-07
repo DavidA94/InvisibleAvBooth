@@ -54,7 +54,12 @@ export const BUS_TEMPLATES_CHANGED = "bus:templates:changed" as const;
 
 /** Emitted when a mixer's channel state changes (command reconcile or external /xremote push). */
 export const BUS_MIXER_STATE_CHANGED = "bus:mixer:state:changed" as const;
-/** Emitted with per-channel meter levels (throttled) while metering is enabled. */
+/**
+ * Emitted per meter frame while metering is enabled (~25 fps from the X Air).
+ * NOT throttled here — the MixerSocketModule coalesces per mixer and caps the
+ * server→browser broadcast rate (METERS_BROADCAST_MAX_HZ) so clients are not
+ * flooded. Internal bus subscribers get every frame.
+ */
 export const BUS_MIXER_LEVELS = "bus:mixer:levels" as const;
 /** Emitted when a mixer device is created, updated, or deleted in admin (hot-reload). */
 export const BUS_MIXER_DEVICE_CHANGED = "bus:mixer:device:changed" as const;

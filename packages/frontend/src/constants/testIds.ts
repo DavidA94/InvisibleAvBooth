@@ -303,6 +303,7 @@ export const TEST_ID_PRESET_ACTIVATE_BUTTON = "preset-activate-button";
 export const TEST_ID_PRESET_SAVE_BUTTON = "preset-save-button";
 export const TEST_ID_PRESET_CANCEL_BUTTON = "preset-cancel-button";
 export const TEST_ID_PRESET_NAME_INPUT = "preset-name-input";
+export const TEST_ID_PRESET_LOAD_BUTTON = "preset-load-button";
 export const TEST_ID_PRESET_STORE_ON_CAMERA_TOGGLE = "store-on-camera-toggle";
 export const TEST_ID_PRESET_SLOT_INPUT = "preset-slot-input";
 export const TEST_ID_PRESET_POSITION_SUMMARY = "position-summary";

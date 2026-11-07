@@ -12,26 +12,41 @@ describe("useHeldControl", () => {
     expect(result.current.value).toBe(0.5);
   });
 
-  it("drops a backend value that arrives within the suppression window", () => {
+  it("drops a backend value that arrives within the settle window", () => {
     const emit = vi.fn();
     const { result } = renderHook(() => useHeldControl(0.5, emit));
-    act(() => result.current.onLocalChange(0.8)); // starts the 300ms window
+    act(() => result.current.onLocalChange(0.8)); // starts the settle window
     act(() => {
-      vi.advanceTimersByTime(100); // still inside window
-      result.current.onBackendValue(0.2);
+      vi.advanceTimersByTime(100); // still inside the window
+      result.current.onBackendValue(0.2); // pre-command straggler → dropped
     });
-    expect(result.current.value).toBe(0.8); // backend value dropped
+    expect(result.current.value).toBe(0.8);
   });
 
-  it("applies a backend value that arrives after the suppression window", () => {
+  it("accepts the mixer's value after the settle window even if it is rounded differently", () => {
     const emit = vi.fn();
     const { result } = renderHook(() => useHeldControl(0.5, emit));
-    act(() => result.current.onLocalChange(0.8));
+    act(() => result.current.onLocalChange(0.8)); // we command 0.8
     act(() => {
-      vi.advanceTimersByTime(350); // past the 300ms window
-      result.current.onBackendValue(0.2);
+      vi.advanceTimersByTime(300); // past the 250ms settle window
+      // The X Air settles at a slightly different value than commanded — it is
+      // authoritative and must be shown (no exact-match required).
+      result.current.onBackendValue(0.81);
     });
-    expect(result.current.value).toBe(0.2);
+    expect(result.current.value).toBe(0.81);
+  });
+
+  it("keeps accepting backend values after the window (genuine external changes)", () => {
+    const emit = vi.fn();
+    const { result } = renderHook(() => useHeldControl(0.5, emit));
+    act(() => result.current.onRelease(0.9));
+    act(() => {
+      vi.advanceTimersByTime(300);
+      result.current.onBackendValue(0.9); // mixer confirms
+    });
+    expect(result.current.value).toBe(0.9);
+    act(() => result.current.onBackendValue(0.3)); // later physical-console move
+    expect(result.current.value).toBe(0.3);
   });
 
   it("emits immediately on the first local change", () => {

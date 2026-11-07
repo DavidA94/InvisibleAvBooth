@@ -31,6 +31,8 @@ import {
   METERS_RATE_FACTOR,
   READBACK_TIMEOUT_MS,
   READBACK_MAX_RETRIES,
+  COMMAND_DEBOUNCE_MS,
+  SELF_ECHO_GUARD_MS,
 } from "@invisible-av-booth/shared";
 import type { MixerControlInterface, MixerDriverConfig, OscTransport } from "./MixerControlInterface.js";
 import { UdpOscTransport } from "./UdpOscTransport.js";
@@ -70,6 +72,21 @@ const metersSubscribe = (bank: number, rateFactor: number): { address: string; t
 
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
+/**
+ * A coalesced pending write for one OSC address. `send` pushes the raw value to
+ * the wire (fire-and-forget, so the console tracks live slider motion); `apply`
+ * reconciles the mixer-reported read-back into channel state. Only the LATEST
+ * pending write per address is kept — a burst of slider updates collapses to one
+ * settled confirmation (see pendingWrites).
+ */
+interface PendingWrite {
+  channel: number;
+  /** Write the latest desired value to the wire (fire-and-forget). */
+  send: () => void;
+  /** Reconcile the mixer-reported read-back values into channel state. */
+  apply: (values: Array<number | string | Uint8Array>) => void;
+}
+
 // ── Driver ───────────────────────────────────────────────────────────────────
 
 export class BehringerXAirDriver implements MixerControlInterface {
@@ -92,6 +109,38 @@ export class BehringerXAirDriver implements MixerControlInterface {
 
   // Pending read-back waiters keyed by OSC address → resolver(value).
   private readonly pendingReadbacks = new Map<string, (values: Array<number | string | Uint8Array>) => void>();
+
+  // Per-address reconcile epoch. A fader drag issues many sets to the SAME
+  // address in quick succession; each starts its own reconcile. Because the X
+  // Air's reply carries no correlation id and UDP replies can arrive late or out
+  // of order, an older query's reply could otherwise be applied as if it answered
+  // the newest command — the UI then visibly jumps to a stale value and snaps
+  // back when the correct reply lands. We stamp each reconcile with the current
+  // epoch for its address and bump it on every new set; a reply only applies if
+  // its epoch is still current, so superseded (stale) replies are dropped.
+  private readonly reconcileEpoch = new Map<string, number>();
+
+  // Per-address coalescing writer. When the UI drags a slider it sends many sets
+  // for the SAME address in a burst. We want the mixer to track the live motion
+  // (so we still WRITE each value, fire-and-forget), but we only want ONE
+  // read-back confirmation to travel back to the clients once the value SETTLES
+  // — not a replay of every intermediate value (the live "backed-up messages"
+  // symptom). So per address we keep only the LATEST desired write + its apply
+  // callback and run a single reconcile worker: it writes the newest value,
+  // reconciles once, and if newer sets arrived meanwhile it repeats with only
+  // the newest — collapsing a burst of N sets into a single settled confirmation.
+  private readonly pendingWrites = new Map<string, PendingWrite>();
+  /** Per-address debounce timer — only the quiet (final) value of a burst reconciles. */
+  private readonly writeDebounce = new Map<string, ReturnType<typeof setTimeout>>();
+  /** Per-address callers awaiting the next debounced reconcile (burst → one settle). */
+  private readonly writeWaiters = new Map<string, Array<() => void>>();
+  // Per-address "we are driving this" expiry (epoch ms). While we are writing a
+  // control, the X Air echoes OUR OWN writes back over /xremote — those are not
+  // external changes and must NOT be broadcast as intermediate values (that is
+  // the live "slider replays its own drag" bug). The authoritative confirmation
+  // is the single debounced read-back; /xremote echoes for a self-driven address
+  // are dropped until this expiry, after which genuine external moves flow again.
+  private readonly selfWriteUntil = new Map<string, number>();
 
   constructor(private readonly config: MixerDriverConfig) {
     this.channelCount = config.channelCount;
@@ -144,6 +193,16 @@ export class BehringerXAirDriver implements MixerControlInterface {
     this.transport.close();
     this.connected = false;
     this.pendingReadbacks.clear();
+    // Cancel any pending debounced reconciles and release awaiting callers so a
+    // disconnect mid-drag cannot leak a timer or leave a setX() promise hanging.
+    for (const timer of this.writeDebounce.values()) clearTimeout(timer);
+    this.writeDebounce.clear();
+    this.pendingWrites.clear();
+    this.selfWriteUntil.clear();
+    for (const waiters of this.writeWaiters.values()) {
+      for (const resolve of waiters) resolve();
+    }
+    this.writeWaiters.clear();
   }
 
   isConnected(): boolean {
@@ -191,20 +250,28 @@ export class BehringerXAirDriver implements MixerControlInterface {
 
   async setFader(channel: number, level: number): Promise<void> {
     const clamped = Math.max(0, Math.min(1, level));
-    this.transport.send(chFader(channel), "f", [clamped]);
-    await this.reconcile(chFader(channel), channel, (values) => {
-      const value = typeof values[0] === "number" ? values[0] : clamped;
-      this.applyFader(channel, value);
+    const address = chFader(channel);
+    await this.coalesceSet(address, {
+      channel,
+      send: () => this.transport.send(address, "f", [clamped]),
+      apply: (values) => {
+        const value = typeof values[0] === "number" ? values[0] : clamped;
+        this.applyFader(channel, value);
+      },
     });
   }
 
   async setMute(channel: number, muted: boolean): Promise<void> {
     // INVERTED: muted=true → mix/on 0.
     const on = muted ? 0 : 1;
-    this.transport.send(chOn(channel), "i", [on]);
-    await this.reconcile(chOn(channel), channel, (values) => {
-      const value = typeof values[0] === "number" ? values[0] : on;
-      this.applyMute(channel, value === 0);
+    const address = chOn(channel);
+    await this.coalesceSet(address, {
+      channel,
+      send: () => this.transport.send(address, "i", [on]),
+      apply: (values) => {
+        const value = typeof values[0] === "number" ? values[0] : on;
+        this.applyMute(channel, value === 0);
+      },
     });
   }
 
@@ -218,12 +285,111 @@ export class BehringerXAirDriver implements MixerControlInterface {
     const clamped = Math.max(X_AIR_GAIN_RANGE.minDb, Math.min(X_AIR_GAIN_RANGE.maxDb, gainDb));
     // The X Air expects a NORMALIZED 0.0–1.0 float on the wire (not raw dB).
     const wire = gainDbToFloat(clamped, X_AIR_GAIN_RANGE.minDb, X_AIR_GAIN_RANGE.maxDb);
-    this.transport.send(headampGain(channel), "f", [wire]);
-    await this.reconcile(headampGain(channel), channel, (values) => {
-      // The reply is the mixer's normalized value → convert back to dB (authoritative).
-      const replyFloat = typeof values[0] === "number" ? values[0] : wire;
-      this.applyGain(channel, gainFloatToDb(replyFloat, X_AIR_GAIN_RANGE.minDb, X_AIR_GAIN_RANGE.maxDb));
+    const address = headampGain(channel);
+    await this.coalesceSet(address, {
+      channel,
+      send: () => this.transport.send(address, "f", [wire]),
+      apply: (values) => {
+        // The reply is the mixer's normalized value → convert back to dB (authoritative).
+        const replyFloat = typeof values[0] === "number" ? values[0] : wire;
+        this.applyGain(channel, gainFloatToDb(replyFloat, X_AIR_GAIN_RANGE.minDb, X_AIR_GAIN_RANGE.maxDb));
+      },
     });
+  }
+
+  /**
+   * Coalesce rapid writes to one OSC address into a SINGLE settled read-back,
+   * using a debounce so the collapse is deterministic regardless of timing.
+   *
+   * The problem the previous (race-based) version had: it only coalesced writes
+   * that happened to be queued when a reconcile finished. When each read-back
+   * took longer than the gap between sets, a drag's intermediate values leaked
+   * through one at a time and were REPLAYED to the clients seconds later — the
+   * slider visibly re-ran its own drag history (observed live).
+   *
+   * Debounced model: every set WRITES its value to the wire immediately (cheap,
+   * fire-and-forget, so the physical console still tracks the live motion) and
+   * records itself as the latest pending write. The READ-BACK (the thing that
+   * produces a downstream confirmation) is deferred until the burst goes quiet
+   * for COMMAND_DEBOUNCE_MS. Each new set resets that timer. So a drag of N sets
+   * results in N cheap writes but exactly ONE reconcile — of the value the slider
+   * SETTLED on — and therefore one confirmation to the clients. The public `setX`
+   * promise resolves when that single reconcile completes.
+   *
+   * Self-echo guard: the X Air echoes OUR OWN writes back over /xremote, which
+   * would otherwise be broadcast as "external changes" (the intermediate replay
+   * the user still saw after debouncing the read-back). coalesceSet marks the
+   * address as self-driven so those echoes are dropped in handleExternalChange
+   * until shortly after the settled reconcile.
+   */
+  private coalesceSet(address: string, write: PendingWrite): Promise<void> {
+    // Mark self-driven so /xremote echoes of our own writes are not re-broadcast.
+    this.markSelfWrite(address);
+    // Write the latest value now so the console tracks the live slider motion.
+    write.send();
+    this.pendingWrites.set(address, write);
+
+    // Caller resolves when the debounced reconcile for this address next settles.
+    const waiter = new Promise<void>((resolve) => {
+      const list = this.writeWaiters.get(address) ?? [];
+      list.push(resolve);
+      this.writeWaiters.set(address, list);
+    });
+
+    // (Re)arm the debounce: only the final, quiet value triggers a reconcile.
+    const existing = this.writeDebounce.get(address);
+    if (existing) clearTimeout(existing);
+    this.writeDebounce.set(
+      address,
+      setTimeout(() => {
+        this.writeDebounce.delete(address);
+        void this.runReconcile(address);
+      }, COMMAND_DEBOUNCE_MS),
+    );
+
+    return waiter;
+  }
+
+  /** Extend the self-driven window for an address (drops its /xremote echoes). */
+  private markSelfWrite(address: string): void {
+    this.selfWriteUntil.set(address, Date.now() + COMMAND_DEBOUNCE_MS + SELF_ECHO_GUARD_MS);
+  }
+
+  /** True while we are driving this address — its /xremote echoes are our own. */
+  private isSelfWriting(address: string): boolean {
+    const until = this.selfWriteUntil.get(address);
+    if (until === undefined) return false;
+    if (Date.now() >= until) {
+      this.selfWriteUntil.delete(address);
+      return false;
+    }
+    return true;
+  }
+
+  /** Reconcile the latest pending write for an address once, then wake waiters. */
+  private async runReconcile(address: string): Promise<void> {
+    const pending = this.pendingWrites.get(address);
+    this.pendingWrites.delete(address);
+    try {
+      // The value was already written in coalesceSet; here we only read it back
+      // and reconcile (the mixer is authoritative, including its own rounding).
+      const confirmed = pending ? await this.reconcile(address, pending.channel, pending.apply) : false;
+      if (confirmed) {
+        // Keep absorbing trailing /xremote echoes for a beat after the confirmed
+        // read-back, then let genuine external changes through again.
+        this.markSelfWrite(address);
+      } else {
+        // No confirmation (exhausted/superseded) — stop suppressing so a genuine
+        // late external push can inform us instead of being silently dropped.
+        this.selfWriteUntil.delete(address);
+      }
+    } finally {
+      const waiters = this.writeWaiters.get(address);
+      if (waiters) {
+        this.writeWaiters.delete(address);
+        for (const resolve of waiters) resolve();
+      }
+    }
   }
 
   /**
@@ -233,19 +399,33 @@ export class BehringerXAirDriver implements MixerControlInterface {
    * (authoritative). On exhaustion we WARN-log and leave the channel marked
    * unreconciled (the service/UI surfaces this — Req 15.8).
    */
-  private async reconcile(address: string, channel: number, apply: (values: Array<number | string | Uint8Array>) => void): Promise<void> {
+  private async reconcile(address: string, channel: number, apply: (values: Array<number | string | Uint8Array>) => void): Promise<boolean> {
+    // Supersede any in-flight reconcile for this address: bump the epoch so a
+    // late reply to the previous query is recognized as stale and dropped
+    // (prevents the "jump to old value then snap back" artifact during a drag).
+    const epoch = (this.reconcileEpoch.get(address) ?? 0) + 1;
+    this.reconcileEpoch.set(address, epoch);
+
     for (let attempt = 0; attempt <= READBACK_MAX_RETRIES; attempt++) {
       const reply = await this.query(address);
+      // A newer set for this address started while we were waiting — abandon
+      // this reconcile entirely. The newest reconcile owns the channel's value;
+      // applying our (older) reply would regress it.
+      if (this.reconcileEpoch.get(address) !== epoch) return false;
       if (reply) {
         apply(reply);
         this.emitLiveness();
-        return;
+        return true; // confirmed by the mixer
       }
     }
+    // Only the current epoch may mark the channel unreconciled — a superseded
+    // reconcile must not stamp Unknown over a value the newer one is confirming.
+    if (this.reconcileEpoch.get(address) !== epoch) return false;
     logger.warn("Mixer read-back exhausted — channel marked unreconciled (surfaces as Unknown)", {
       context: { mixerId: this.config.mixerId, address, channel, retries: READBACK_MAX_RETRIES, timeoutMs: READBACK_TIMEOUT_MS },
     });
     this.markUnreconciled(channel);
+    return false; // no confirmation — do NOT keep suppressing external pushes
   }
 
   /** Mark a channel unreconciled (read-back exhausted, Req 15.8) and emit state. */
@@ -258,6 +438,17 @@ export class BehringerXAirDriver implements MixerControlInterface {
 
   /** Send a query for an address and await one reply within the timeout. */
   private query(address: string): Promise<Array<number | string | Uint8Array> | null> {
+    // If a previous query for this address is still waiting, cancel it: resolve
+    // it as null so its reconcile loop settles immediately instead of lingering
+    // and potentially consuming THIS query's reply. The map holds one waiter per
+    // address, so without this the old resolver would simply be dropped on the
+    // floor and only time out later — delaying the stale path we are closing.
+    const previous = this.pendingReadbacks.get(address);
+    if (previous) {
+      this.pendingReadbacks.delete(address);
+      previous([]); // empty values → treated as "no usable reply" by callers
+    }
+
     return new Promise((resolve) => {
       let settled = false;
       const timer = setTimeout(() => {
@@ -271,7 +462,9 @@ export class BehringerXAirDriver implements MixerControlInterface {
         if (settled) return;
         settled = true;
         clearTimeout(timer);
-        resolve(values);
+        // An empty array is the cancellation signal from a superseding query —
+        // surface it as a non-reply so the (now stale) reconcile does not apply it.
+        resolve(values.length === 0 ? null : values);
       };
       this.pendingReadbacks.set(address, resolver);
       // Querying an address (sending it with no args) asks the console to reply
@@ -323,6 +516,13 @@ export class BehringerXAirDriver implements MixerControlInterface {
   }
 
   private handleExternalChange(address: string, values: Array<number | string | Uint8Array>): void {
+    // Drop our OWN write-echoes: while we are driving an address the X Air echoes
+    // every value we send back over /xremote. Broadcasting those as external
+    // changes is exactly the "slider replays its own drag" artifact — the single
+    // debounced read-back is the authoritative confirmation. Name/color are never
+    // self-written here, so they are unaffected.
+    if (this.isSelfWriting(address)) return;
+
     const faderMatch = /^\/ch\/(\d+)\/mix\/fader$/.exec(address);
     if (faderMatch && typeof values[0] === "number") {
       this.applyFader(Number(faderMatch[1]), values[0]);

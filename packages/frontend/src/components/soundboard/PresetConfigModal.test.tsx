@@ -2,7 +2,13 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import "../../test/ionicMocks";
 import { PresetConfigModal } from "./PresetConfigModal";
-import { TEST_ID_PRESET_NAME_INPUT, TEST_ID_PRESET_SAVE_BUTTON, TEST_ID_PRESET_CANCEL_BUTTON, TEST_ID_PRESET_POSITION_SUMMARY } from "../../constants/testIds";
+import {
+  TEST_ID_PRESET_NAME_INPUT,
+  TEST_ID_PRESET_SAVE_BUTTON,
+  TEST_ID_PRESET_CANCEL_BUTTON,
+  TEST_ID_PRESET_POSITION_SUMMARY,
+  TEST_ID_PRESET_LOAD_BUTTON,
+} from "../../constants/testIds";
 
 // The embedded live widget is covered by its own tests; stub it here so this
 // suite stays focused on the capture → summary → save flow (mirrors how the
@@ -116,5 +122,31 @@ describe("PresetConfigModal", () => {
     expect((put?.body as { name: string }).name).toBe("Choir");
     // Rename-only: no payload re-captured, so none is sent (preserves the snapshot).
     expect((put?.body as { payload?: unknown }).payload).toBeUndefined();
+  });
+
+  it("does not offer the Load button when creating a new preset", () => {
+    render(<PresetConfigModal open={true} mixerId="m1" onClose={vi.fn()} onSaved={vi.fn()} />);
+    expect(screen.queryByTestId(TEST_ID_PRESET_LOAD_BUTTON)).toBeNull();
+  });
+
+  it("Load applies the editing preset to the mixer (POST .../apply)", async () => {
+    const calls: Array<{ url: string; method: string }> = [];
+    const fetchSpy = vi.fn(async (url: string, opts?: { method?: string }) => {
+      calls.push({ url, method: opts?.method ?? "GET" });
+      return { ok: true, json: async () => ({ ok: true }) } as Response;
+    });
+    vi.stubGlobal("fetch", fetchSpy as unknown as typeof fetch);
+
+    render(<PresetConfigModal open={true} mixerId="m1" editingPreset={{ id: "p1", name: "Singers" }} onClose={vi.fn()} onSaved={vi.fn()} />);
+    fireEvent.click(screen.getByTestId(TEST_ID_PRESET_LOAD_BUTTON));
+
+    await waitFor(() => expect(calls.some((c) => c.method === "POST" && c.url.includes("/presets/p1/apply"))).toBe(true));
+  });
+
+  it("shows an error when Load fails", async () => {
+    vi.stubGlobal("fetch", makeFetch({ "/apply": { ok: false, body: { error: "Mixer not found" } } }));
+    render(<PresetConfigModal open={true} mixerId="m1" editingPreset={{ id: "p1", name: "Singers" }} onClose={vi.fn()} onSaved={vi.fn()} />);
+    fireEvent.click(screen.getByTestId(TEST_ID_PRESET_LOAD_BUTTON));
+    await waitFor(() => expect(screen.getByText(/Mixer not found/)).toBeInTheDocument());
   });
 });

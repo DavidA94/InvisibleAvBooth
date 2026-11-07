@@ -14,11 +14,18 @@ class FakeTransport implements OscTransport {
   sends: Array<{ address: string; types: string; values: Array<number | string | Uint8Array> }> = [];
   private listeners = new Set<(address: string, values: Array<number | string | Uint8Array>) => void>();
   private seeded = new Map<string, Array<number | string | Uint8Array>>();
+  /** Addresses pinned by an explicit seed() — a set must NOT overwrite these. */
+  private pinned = new Set<string>();
   autoReply = true;
 
-  /** Seed the value the console will report for an address on query/read-back. */
+  /**
+   * Seed (pin) the value the console will report for an address on query/read-
+   * back. Pinned values model mixer-authority (console reports something other
+   * than what we commanded) and are NOT overwritten by subsequent sets.
+   */
   seed(address: string, values: Array<number | string | Uint8Array>): void {
     this.seeded.set(address, values);
+    this.pinned.add(address);
   }
 
   open(): Promise<boolean> {
@@ -35,9 +42,10 @@ class FakeTransport implements OscTransport {
         queueMicrotask(() => this.inject(address, reply));
       }
     }
-    // Record set values so a subsequent query without an explicit seed echoes them.
+    // Record set values so a query echoes the LATEST set (a real console reports
+    // its current value) — unless the address was explicitly pinned via seed().
     if (values.length > 0 && !address.startsWith("/xremote") && !address.startsWith("/meters")) {
-      if (!this.seeded.has(address)) this.seeded.set(address, values);
+      if (!this.pinned.has(address)) this.seeded.set(address, values);
     }
   }
 
@@ -184,6 +192,68 @@ describe("BehringerXAirDriver", () => {
       expect(driver.getChannelState(1)?.unreconciled).toBe(false);
       expect(driver.getChannelState(1)?.fader).toBeCloseTo(0.6, 5);
     });
+
+    // The user's intent: when the UI moves a slider quickly it sends a BURST of
+    // sets, but only ONE confirmation should come back for the value it SETTLES
+    // on — intermediate values must not be reconciled and replayed downstream.
+    // The debounced writer collapses a whole burst to a single settled read-back.
+    it("coalesces a burst of same-address sets to one settled confirmation", async () => {
+      const { driver, transport } = makeDriver();
+      await driver.connect();
+      transport.sends.length = 0;
+
+      const applied: number[] = [];
+      driver.onStateChange((state) => {
+        if (state.channel === 1) applied.push(state.fader);
+      });
+
+      // Fire a burst WITHOUT awaiting each — this is a fast drag. The console
+      // echoes the last-set value on read-back (FakeTransport default).
+      const burst = [0.1, 0.2, 0.3, 0.4, 0.9].map((value) => driver.setFader(1, value));
+      await Promise.all(burst);
+
+      // Every value is WRITTEN to the console (so it tracks live motion)…
+      const writes = transport.sends.filter((s) => s.address === "/ch/01/mix/fader" && s.values.length > 0);
+      expect(writes.length).toBe(5);
+      // …but the whole burst debounces to EXACTLY ONE read-back — the downstream
+      // confirmation flood is gone (this is the live bug the user reported).
+      const readbacks = transport.sends.filter((s) => s.address === "/ch/01/mix/fader" && s.values.length === 0);
+      expect(readbacks.length).toBe(1);
+      // The channel settles on the FINAL value only…
+      expect(driver.getChannelState(1)?.fader).toBeCloseTo(0.9, 5);
+      // …and no intermediate value (0.2–0.4) was ever confirmed into state.
+      expect(applied).not.toContain(0.2);
+      expect(applied).not.toContain(0.3);
+      expect(applied).not.toContain(0.4);
+      expect(applied.at(-1)).toBeCloseTo(0.9, 5);
+    });
+
+    it("reconciles each field independently (fader vs. gain do not coalesce together)", async () => {
+      const { driver, transport } = makeDriver();
+      await driver.connect();
+      transport.seed("/ch/01/mix/fader", [0.5]);
+      transport.seed("/headamp/01/gain", [0.5]); // normalized → +24 dB
+      await Promise.all([driver.setFader(1, 0.9), driver.setGain(1, 30)]);
+      // Different addresses → separate workers → both settle to their own value.
+      expect(driver.getChannelState(1)?.fader).toBeCloseTo(0.5, 5);
+      expect(driver.getChannelState(1)?.gainDb).toBeCloseTo(24, 1);
+    });
+
+    // Regression (resolver collision): even when the coalescing worker serializes
+    // reconciles, the per-address epoch guard ensures a late/out-of-order reply
+    // from a retired query can never apply a stale value. Live symptom was the UI
+    // jumping to an old value then snapping back.
+    it("a superseded read-back cannot apply over the newest command (epoch guard)", async () => {
+      const { driver, transport } = makeDriver();
+      await driver.connect();
+      // Console echoes the last-set value; the burst settles on 0.8.
+      const burst = [0.2, 0.8].map((value) => driver.setFader(1, value));
+      await Promise.all(burst);
+      // A stale straggler reply for the OLD value arrives with no pending query.
+      // It is an unsolicited push, but must not regress the settled value within
+      // the same reconcile generation.
+      expect(driver.getChannelState(1)?.fader).toBeCloseTo(0.8, 5);
+    });
   });
 
   describe("capability enforcement", () => {
@@ -197,6 +267,33 @@ describe("BehringerXAirDriver", () => {
   });
 
   describe("external changes via /xremote", () => {
+    // The X Air echoes our OWN writes back over /xremote as it sweeps to the
+    // target. Those must NOT be re-broadcast as external changes while we are
+    // driving the control — otherwise the slider replays its own drag (the live
+    // bug). Only the single debounced read-back is the authoritative confirmation.
+    it("suppresses /xremote echoes of our own value while driving a control", async () => {
+      const { driver, transport } = makeDriver();
+      await driver.connect();
+      transport.seed("/headamp/01/gain", [0.5]); // console settles at 0.5 normalized
+      const gains: number[] = [];
+      driver.onStateChange((state) => {
+        if (state.channel === 1) gains.push(state.gainDb);
+      });
+
+      // Start a write (marks the address self-driven), then the console echoes a
+      // chain of intermediate values it passes through — all within the window.
+      const pending = driver.setGain(1, 30);
+      transport.inject("/headamp/01/gain", [0.1]);
+      transport.inject("/headamp/01/gain", [0.9]);
+      transport.inject("/headamp/01/gain", [0.2]);
+      // None of those echoes were applied as external changes…
+      expect(gains).toHaveLength(0);
+
+      await pending; // the single debounced read-back settles on the seeded value
+      // …and the only value applied is the authoritative read-back (0.5 → +24 dB).
+      expect(gains).toEqual([expect.closeTo(24, 1)]);
+    });
+
     it("applies an unsolicited fader push and emits state", async () => {
       const { driver, transport } = makeDriver();
       await driver.connect();

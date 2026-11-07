@@ -16,13 +16,46 @@ export const LEVEL_AXIS_MIN_DBFS = -60;
 
 // ── Interaction hold model (Req 8) ───────────────────────────────────────────
 //
-// Inbound-suppression window: for this long after the last local change to a
-// fader/gain control, incoming backend updates for that control are ignored
-// (dropped, not queued) so the control never jumps back mid-adjustment.
-export const CONTROL_SUPPRESS_MS = 300;
+// Inbound settle window (revised — replaces both the old fixed CONTROL_SUPPRESS_MS
+// window and the short-lived confirmation-match approach). After the UI commands
+// a fader/gain value it drops inbound backend values for only this long — just
+// enough to flush pre-command stragglers that would otherwise make the control
+// jump to a stale value — then ACCEPTS the next backend value unconditionally.
+//
+// WHY unconditional-after-window (not confirmation-match): the mixer is
+// authoritative and the X Air rounds to its own grid (command 2.5 dB, the
+// console settles at 2.6 dB). An exact-match confirmation may NEVER arrive, so
+// waiting for one would hide the mixer's true value behind a stale local value
+// until a backstop fired — the same jump bug relocated. Instead we trust the
+// backend's guarantee that it only broadcasts reads POST-DATING the latest write
+// (coalescing worker + per-address epoch), so the first value after this window
+// is the mixer's genuine (possibly rounded) answer and must be shown.
+//
+// Sized to the backend read-back timeout (READBACK_TIMEOUT_MS = 250) — the
+// earliest a genuine answer can arrive — so the window closes right as the real
+// value shows up: stragglers filtered, true value not.
+export const CONTROL_SETTLE_MS = 250;
 // Outbound throttle: emit at most this often while dragging, plus a guaranteed
 // final emit on release.
 export const CONTROL_THROTTLE_MS = 50;
+
+// Backend read-back debounce: while a fader/gain is being dragged the UI sends a
+// burst of sets (~every CONTROL_THROTTLE_MS). Each is WRITTEN to the console
+// immediately, but the read-back (which produces a downstream confirmation) is
+// deferred until the burst goes quiet for this long — so the whole drag yields
+// ONE confirmation of the SETTLED value, never a replay of the intermediate
+// values. Must be comfortably larger than CONTROL_THROTTLE_MS (so mid-drag sets
+// keep resetting it) yet small enough to feel immediate after release.
+export const COMMAND_DEBOUNCE_MS = 120;
+
+// How long AFTER the last self-write (and after the settled read-back) we keep
+// dropping the X Air's /xremote echoes of our own value. The console streams the
+// values it sweeps through as it ramps to our target, and those echoes can lag
+// behind the write by a round-trip or more under load; this guard absorbs that
+// tail so a drag never re-broadcasts its own intermediate values as "external
+// changes". Kept modest so a genuine physical-console move right after we let go
+// is still reflected promptly.
+export const SELF_ECHO_GUARD_MS = 400;
 
 // Mute-confirm window (Req 6, revised): mute is a discrete toggle, so the UI
 // OPTIMISTICALLY shows the commanded On/Off immediately (we trust the command
@@ -65,6 +98,25 @@ export const NOISE_FLOOR_DBFS = -90;
  * only coincidentally (e.g. tied to other traffic) rather than as a live stream.
  */
 export const METERS_RATE_FACTOR = 2;
+
+/**
+ * Server→browser meter BROADCAST cap (Hz).
+ *
+ * The X Air pushes meter frames at ~25 fps (METERS_RATE_FACTOR = 2) and the
+ * driver emits one BUS_MIXER_LEVELS per frame. Forwarding each straight to
+ * `io.emit` means ~25 Socket.io messages/sec PER MIXER, fanned out to EVERY
+ * connected client — the tablet(s) spend real main-thread time parsing frames
+ * they can't visually distinguish. Meters are "latest value wins", so the
+ * MixerSocketModule coalesces per mixer and flushes at most this often, keeping
+ * peak-hold visually smooth while cutting socket traffic ~50%. 12 Hz (~83 ms)
+ * is above the ~10 Hz flicker-fusion threshold for a moving bar yet well under
+ * the source rate. Raise toward 25 for smoother meters at higher client cost;
+ * lower toward 8 to further unburden weak tablets. Changing this is safe — it
+ * only affects visual cadence, never command/state correctness.
+ */
+export const METERS_BROADCAST_MAX_HZ = 12;
+/** Derived flush interval for the broadcast cap, in ms. */
+export const METERS_BROADCAST_INTERVAL_MS = Math.round(1000 / METERS_BROADCAST_MAX_HZ);
 
 /** Connection probe (Req 9.4): send /xinfo, await a reply within this window. */
 export const MIXER_PROBE_TIMEOUT_MS = 800;

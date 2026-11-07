@@ -105,6 +105,8 @@ graph TD
 
 **OSC is fire-and-forget; the mixer is authoritative via read-back.** UDP has no ACK, and the console can be changed from the physical surface or the Behringer app. We therefore (a) subscribe with `/xremote` so external changes push to us, and (b) after any command, query the address and broadcast the mixer-reported value. The UI is optimistic locally (suppression window) but reconciles to the mixer. This is the audio-correctness guarantee.
 
+**Rapid slider moves coalesce to one settled read-back.** When the UI moves a fader/gain quickly it emits a burst of sets for the SAME OSC address. We must not reconcile-and-broadcast every intermediate value — that replays stale values downstream and backs up the socket (observed live). Per address the driver keeps only the LATEST desired write and runs a single reconcile worker: it writes the newest value, reconciles once, and if newer sets arrived meanwhile it repeats with only the newest. A burst of N sets collapses to ONE confirmation for the value the slider settles on. The public `setX` contract (resolve when reconciled) is preserved via per-address waiters. Each field (fader/mute/gain) is a distinct address → an independent worker, so they never block one another. Belt-and-braces: a per-address reconcile **epoch** still drops any late/out-of-order read-back reply from a retired query, so even a straggler cannot apply a stale value. This is also why the server→browser meter broadcast is capped (`METERS_BROADCAST_MAX_HZ`) — meter fan-out congestion was what delayed and reordered these replies in the first place.
+
 **One USB device, one owner (PipeWire), many consumers.** A raw ALSA `hw:` device is exclusive-open. PipeWire owns the XR18 and fans it out, so OBS (main mix) and our capture (per-channel pre-fader) coexist without conflict. "Processed vs. pre-processed" is not a software fork — they are different USB channel indices in the same stream, selected by mixer-side routing. We build only the _consumer_ (`pipewiresrc` → `deinterleave`), and document the routing + ownership as prerequisites.
 
 **Backend computes the envelope, not the frontend.** For the gain window we send a decimated **min/max envelope** (~60 pairs/s), not PCM. This bounds bandwidth to a trivial amount, avoids a choppy/"stammered" graph, and the frontend never needs to decode or play audio — it just draws. This is the "faster option" the user chose.
@@ -232,7 +234,7 @@ export const RED_FADE_DBFS = { topDb: 0, bottomDb: -6 }; // darkest at 0 (clip)
 export const BLUE_FADE_DBFS = { topDb: -40, bottomDb: -60 }; // darkest at -60 (noise)
 
 /** Interaction hold model. */
-export const CONTROL_SUPPRESS_MS = 300; // inbound-suppression window after last local change
+export const CONTROL_SETTLE_MS = 250; // drop pre-command stragglers this long, then accept the mixer's (authoritative, possibly rounded) value
 export const CONTROL_THROTTLE_MS = 50; // outbound throttle while dragging
 
 /** Envelope decimation for the gain window. */
@@ -242,6 +244,16 @@ export const ENVELOPE_PAIRS_PER_SEC = 60;
 export const OSC_PORT_DEFAULT = 10024;
 export const XREMOTE_RENEW_MS = 8000; // console drops after ~10s
 export const METERS_RENEW_MS = 1000;
+
+/**
+ * Server→browser meter BROADCAST cap. The X Air pushes meter frames at ~25 fps
+ * and the driver emits one BUS_MIXER_LEVELS per frame; forwarding each straight
+ * to `io.emit` floods every connected tablet. Meters are "latest value wins",
+ * so MixerSocketModule coalesces per mixer (leading-edge + trailing flush) and
+ * caps the broadcast at METERS_BROADCAST_MAX_HZ. Purely visual cadence — never
+ * affects command/state correctness. See constants/mixer.ts for full rationale.
+ */
+export const METERS_BROADCAST_MAX_HZ = 12;
 
 /**
  * /meters bank selection (X Air, verified against Patrick-Gilles Maillot's OSC doc).
@@ -399,6 +411,8 @@ CREATE INDEX idx_mixer_presets_mixer ON mixer_presets(mixerId);
 The table is kept separate from `device_connections` (rather than nesting presets in the `metadata` blob) for the same reasons as `camera_presets`: an **independent CRUD lifecycle** (create/rename/reorder/delete without rewriting the device row), **cascade delete** when the device is removed, and avoiding read-modify-write churn on the JSON blob every time a preset changes.
 
 **No channel-shrink guard.** An earlier draft denormalized a `maxChannelReferenced` column to block reducing `channelCount` below a channel a preset referenced. This has been **removed**: per the project's trust model, the admin is trusted to author presets and channel counts correctly, and any resulting mismatch is manually recoverable. A preset that references a now-out-of-range channel simply has that entry ignored on apply (the driver only writes addresses for configured channels).
+
+**Load-to-edit (apply a preset as a starting point).** The preset authoring modal (editing an existing preset) offers a **Load** button that applies the stored preset to the live board via `POST /api/admin/mixers/:mixerId/presets/:presetId/apply` — so the admin edits from a KNOWN starting point and tweaks, instead of dialing every channel in from scratch. The endpoint is ADMIN-only and reuses `MixerService.activatePreset` (the exact path the volunteer preset buttons use), so there is one apply-preset code path. It is registered inline on the `/api/admin/mixers` mount before the `:presetId` CRUD router (like `capture-preset`) so the literal `apply` segment does not collide. The embedded live Sound Board widget reflects the applied values via the normal state broadcast; the admin then adjusts and re-captures.
 
 ---
 
@@ -669,9 +683,12 @@ The frontend socket module (`mixerSocketModule.ts`) wires `STC_MIXER_STATE`/`STC
 ```typescript
 /**
  * Local-authority hold for a continuous control.
- * - While interacting AND for CONTROL_SUPPRESS_MS (300ms) after the last local change,
- *   incoming backend values are IGNORED (dropped, not queued) so the control never
- *   jumps back mid-adjustment.
+ * - While interacting AND for CONTROL_SETTLE_MS (250ms) after the last local change,
+ *   incoming backend values are DROPPED (pre-command stragglers) so the control
+ *   never jumps to a stale value mid/just-after adjustment.
+ * - After the settle window the next backend value is ACCEPTED UNCONDITIONALLY —
+ *   the mixer is authoritative and the X Air rounds to its own grid, so we must
+ *   show its value even when it differs from what we commanded (no exact-match).
  * - Outbound emits are throttled to CONTROL_THROTTLE_MS (~50ms) while dragging, with a
  *   GUARANTEED final emit on release (exact released value).
  * Returns { value, onBackendValue, onLocalChange, onRelease }.
