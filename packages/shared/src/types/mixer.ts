@@ -56,6 +56,13 @@ export interface MixerChannelState {
   /** Preamp gain in dB, within capabilities.gainRange. */
   gainDb: number;
   /**
+   * Channel scribble-strip color index from the X Air (`/ch/NN/config/color`,
+   * 0–15). 0 = OFF (no color); 1–7 = Red/Green/Yellow/Blue/Magenta/Cyan/White;
+   * 8–15 = the same hues in "inverted" scribble style. The UI mirrors the hue so
+   * channel strips match the physical console. Absent until first read.
+   */
+  color?: number;
+  /**
    * true when a set command's read-back was exhausted (Req 15.8) — the value
    * shown may not be mixer-confirmed. Cleared on the next confirmed value
    * (read-back success or /xremote push). Optional/absent = reconciled.

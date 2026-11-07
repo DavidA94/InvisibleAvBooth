@@ -48,6 +48,7 @@ const pad2 = (channel: number): string => String(channel).padStart(2, "0");
 const chFader = (channel: number): string => `/ch/${pad2(channel)}/mix/fader`;
 const chOn = (channel: number): string => `/ch/${pad2(channel)}/mix/on`; // 1 = unmuted (INVERTED)
 const chName = (channel: number): string => `/ch/${pad2(channel)}/config/name`;
+const chColor = (channel: number): string => `/ch/${pad2(channel)}/config/color`; // int 0–15 scribble color
 // X Air headamp (preamp) gain address. IMPORTANT: X Air is NOT X32 here — X32
 // uses a 0-based 3-digit index (/headamp/000), but X Air uses a 1-based 2-digit
 // index (/headamp/01 = channel 1), verified against the XR18 (which silently
@@ -337,6 +338,11 @@ export class BehringerXAirDriver implements MixerControlInterface {
       this.applyName(Number(nameMatch[1]), values[0]);
       return;
     }
+    const colorMatch = /^\/ch\/(\d+)\/config\/color$/.exec(address);
+    if (colorMatch && typeof values[0] === "number") {
+      this.applyColor(Number(colorMatch[1]), values[0]);
+      return;
+    }
     const gainMatch = /^\/headamp\/(\d+)\/gain$/.exec(address);
     if (gainMatch && typeof values[0] === "number") {
       // Address index is 1-based on X Air (/headamp/01 = channel 1). Wire value
@@ -380,6 +386,13 @@ export class BehringerXAirDriver implements MixerControlInterface {
     this.emitState(state);
   }
 
+  private applyColor(channel: number, color: number): void {
+    const state = this.channels.get(channel);
+    if (!state) return;
+    state.color = color;
+    this.emitState(state);
+  }
+
   private emitState(state: MixerChannelState): void {
     const snapshot: MixerChannelState = { ...state };
     for (const listener of this.stateListeners) listener(snapshot);
@@ -407,6 +420,7 @@ export class BehringerXAirDriver implements MixerControlInterface {
       this.transport.send(chFader(channel));
       this.transport.send(chOn(channel));
       this.transport.send(chName(channel));
+      this.transport.send(chColor(channel));
       if (this.features.includes("gain-control")) this.transport.send(headampGain(channel));
       // Small stagger to avoid flooding the console's UDP buffer.
       await sleep(2);

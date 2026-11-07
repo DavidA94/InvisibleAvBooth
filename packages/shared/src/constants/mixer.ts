@@ -81,3 +81,42 @@ export const READBACK_MAX_RETRIES = 3;
  * or a healthy board flaps red mid-sermon (Req 12.2). 18000 = ~2×8000 + 2000.
  */
 export const CONTROLS_FRESHNESS_MS = 18000;
+
+// ── Channel scribble-strip colors (X Air /ch/NN/config/color, 0–15) ──────────
+//
+// The X Air stores a per-channel color as an int 0–15 (verified against the
+// X-Air OSC wiki). It encodes BOTH the hue AND the scribble-strip style:
+//   0–7   = colored text/accent on a dark background (the "outline" look)
+//   8–15  = the same hues "inverted": a SOLID colored background with dark text
+// Index 0 (and 8) = OFF (no color). Hex values read clearly on the dark theme
+// while matching the console's color names.
+export const MIXER_COLOR_HEX: Record<number, string> = {
+  1: "#E74C3C", // RD red
+  2: "#2ECC71", // GN green
+  3: "#F1C40F", // YE yellow
+  4: "#3498DB", // BL blue
+  5: "#E056B4", // MG magenta
+  6: "#1ABC9C", // CY cyan
+  7: "#ECF0F1", // WH white
+};
+
+/** The resolved scribble-strip color + style for a channel. */
+export interface MixerColor {
+  /** CSS hex for the hue. */
+  hex: string;
+  /** true = solid colored background (inverted scribble, index 8–15); false = outline/accent. */
+  inverted: boolean;
+}
+
+/**
+ * Resolve an X Air channel color index (0–15) into a hue + style, or null when
+ * the channel has no color (OFF / absent). The hue repeats every 8; indices
+ * 8–15 are the "inverted" (solid-background) variants of 0–7.
+ */
+export function resolveMixerColor(color: number | undefined): MixerColor | null {
+  if (color === undefined) return null;
+  const hue = ((color % 8) + 8) % 8; // normalize into 0..7
+  const hex = MIXER_COLOR_HEX[hue];
+  if (!hex) return null; // OFF (hue 0)
+  return { hex, inverted: color >= 8 };
+}

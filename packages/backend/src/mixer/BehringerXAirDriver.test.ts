@@ -217,6 +217,15 @@ describe("BehringerXAirDriver", () => {
       expect(driver.getChannelState(3)?.muted).toBe(true);
       expect(driver.getChannelState(3)?.name).toBe("Vocals");
     });
+
+    it("applies an unsolicited channel color push and queries color on connect", async () => {
+      const { driver, transport } = makeDriver();
+      await driver.connect();
+      // Color is primed on connect via refreshAllChannels.
+      expect(transport.sends.some((s) => s.address === "/ch/01/config/color")).toBe(true);
+      transport.inject("/ch/02/config/color", [4]); // 4 = BL (blue)
+      expect(driver.getChannelState(2)?.color).toBe(4);
+    });
   });
 
   describe("metering", () => {

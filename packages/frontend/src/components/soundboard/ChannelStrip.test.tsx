@@ -103,4 +103,49 @@ describe("ChannelStrip", () => {
     expect(screen.getByTestId(`${TEST_ID_MIXER_VERTICAL_FADER}-1`).getAttribute("data-state")).toBe("unreconciled");
     expect(screen.getByTestId(`${TEST_ID_MIXER_MUTE_BUTTON}-1`).getAttribute("data-state")).toBe("unknown");
   });
+
+  it("renders the channel name with a SOLID fill for an inverted X Air color (8–15)", () => {
+    render(
+      <ChannelStrip
+        channel={{ ...CHANNEL, color: 12 }} // 12 = BLi (inverted blue → solid fill)
+        features={[]}
+        gainMinDb={-12}
+        gainMaxDb={60}
+        levelDb={-20}
+        levelEventsFlowing={true}
+        onFaderChange={vi.fn()}
+        onMuteToggle={vi.fn()}
+        onGainChange={vi.fn()}
+      />,
+    );
+    const nameBox = screen.getByTestId(`${TEST_ID_SOUNDBOARD_CHANNEL_NAME}-1`);
+    expect(nameBox.getAttribute("data-color")).toBe("fill");
+    expect(nameBox.style.backgroundColor).not.toBe(""); // solid background
+  });
+
+  it("renders the channel name as an OUTLINE for a base X Air color (1–7)", () => {
+    render(
+      <ChannelStrip
+        channel={{ ...CHANNEL, color: 4 }} // 4 = BL (outline blue)
+        features={[]}
+        gainMinDb={-12}
+        gainMaxDb={60}
+        levelDb={-20}
+        levelEventsFlowing={true}
+        onFaderChange={vi.fn()}
+        onMuteToggle={vi.fn()}
+        onGainChange={vi.fn()}
+      />,
+    );
+    const nameBox = screen.getByTestId(`${TEST_ID_SOUNDBOARD_CHANNEL_NAME}-1`);
+    expect(nameBox.getAttribute("data-color")).toBe("outline");
+    expect(nameBox.style.color).not.toBe(""); // colored text, no fill
+    expect(nameBox.style.backgroundColor).toBe("");
+  });
+
+  it("applies no color styling when the channel color is OFF / absent", () => {
+    renderStrip([]); // CHANNEL has no color
+    const nameBox = screen.getByTestId(`${TEST_ID_SOUNDBOARD_CHANNEL_NAME}-1`);
+    expect(nameBox.getAttribute("data-color")).toBeNull();
+  });
 });

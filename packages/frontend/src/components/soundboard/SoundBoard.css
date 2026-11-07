@@ -175,6 +175,21 @@
   margin-bottom: 0.375rem;
 }
 
+/* When the X Air channel has a color, the whole name box reflects it — matching
+   the physical scribble strip. The hue + fill-vs-outline style come from inline
+   runtime style (documented exception for mixer-driven colors):
+   - data-color="fill"    → solid colored background with dark text (X Air 8–15)
+   - data-color="outline" → colored text + colored border on the dark theme (0–7)
+   The box-model (padding/border/radius) is static here; only the color varies. */
+.soundboard-channel-name-colored {
+  box-sizing: border-box;
+  padding: 0 0.375rem;
+  border: 0.0625rem solid transparent;
+  border-radius: 0.25rem;
+  min-height: 1.5rem;
+  line-height: 1.5rem;
+}
+
 .soundboard-fader-meter-row {
   display: flex;
   gap: 0.375rem;

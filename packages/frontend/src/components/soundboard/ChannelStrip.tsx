@@ -1,7 +1,7 @@
 import { useId, useState } from "react";
-import type { ReactNode } from "react";
+import type { ReactNode, CSSProperties } from "react";
 import type { MixerChannelState, MixerFeature } from "@invisible-av-booth/shared";
-import { LEVEL_AXIS_MIN_DBFS } from "@invisible-av-booth/shared";
+import { LEVEL_AXIS_MIN_DBFS, resolveMixerColor } from "@invisible-av-booth/shared";
 import { useAuth } from "../../hooks/useAuth";
 import { VerticalFader } from "./VerticalFader";
 import { MuteButton } from "./MuteButton";
@@ -72,10 +72,26 @@ export function ChannelStrip({
   // Unique, DOM-safe trigger id so the popover anchors to THIS channel's button.
   const gainTriggerId = `gain-trigger-${useId().replace(/:/g, "")}-${channel.channel}`;
 
+  // The X Air per-channel scribble color + style (null when OFF / not yet read).
+  // Inverted (index 8–15) = solid colored background with dark text; otherwise
+  // an outline: colored border + colored text on the dark theme background.
+  // Runtime-computed mixer color is the documented inline-style exception.
+  const resolved = resolveMixerColor(channel.color);
+  const nameColorStyle: CSSProperties | undefined = resolved
+    ? resolved.inverted
+      ? { backgroundColor: resolved.hex, color: "#1A1A1A", borderColor: resolved.hex }
+      : { color: resolved.hex, borderColor: resolved.hex }
+    : undefined;
+
   return (
     <div className="soundboard-channel-strip" data-testid={`${TEST_ID_SOUNDBOARD_CHANNEL_STRIP}-${channel.channel}`}>
       {showNameRow && (
-        <span className="soundboard-channel-name" data-testid={`${TEST_ID_SOUNDBOARD_CHANNEL_NAME}-${channel.channel}`}>
+        <span
+          className={`soundboard-channel-name${resolved ? " soundboard-channel-name-colored" : ""}`}
+          data-testid={`${TEST_ID_SOUNDBOARD_CHANNEL_NAME}-${channel.channel}`}
+          data-color={resolved ? (resolved.inverted ? "fill" : "outline") : undefined}
+          {...(nameColorStyle ? { style: nameColorStyle } : {})}
+        >
           {channel.name}
         </span>
       )}
