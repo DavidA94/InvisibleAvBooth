@@ -4,6 +4,7 @@ import { render, screen, fireEvent, act, cleanup } from "@testing-library/react"
 import { SoundBoardWidget, deriveControlsStatus } from "./SoundBoardWidget";
 import { useStore } from "../../store";
 import type { MixerState } from "@invisible-av-booth/shared";
+import { PRESET_ACK_TIMEOUT_MS } from "@invisible-av-booth/shared";
 import {
   TEST_ID_SOUNDBOARD_WIDGET,
   TEST_ID_SOUNDBOARD_STRIP_ROW,
@@ -95,7 +96,7 @@ describe("deriveControlsStatus", () => {
 
 describe("SoundBoardWidget", () => {
   beforeEach(() => {
-    useStore.setState({ mixerStates: {}, mixerLevels: {}, notifications: [] });
+    useStore.setState({ mixerStates: {}, mixerLevels: {}, pendingPresetIds: [], notifications: [] });
   });
 
   it("renders channel strips for a connected mixer with fresh state (green Controls)", () => {
@@ -146,15 +147,52 @@ describe("SoundBoardWidget", () => {
     expect(screen.getByTestId(TEST_ID_SOUNDBOARD_STRIP_ROW)).toBeInTheDocument();
   });
 
-  it("activates a preset and shows a toast", () => {
+  it("activates a preset: marks it pending and emits (NO optimistic toast)", () => {
+    mockEmit.mockClear();
     useStore.setState({
       mixerStates: { mix1: makeMixer({ presets: [{ id: "p1", name: "Singers", sortOrder: 0 }] }) },
+      pendingPresetIds: [],
       notifications: [],
     });
     render(<SoundBoardWidget />);
     fireEvent.click(screen.getByTestId(`${TEST_ID_MIXER_PRESET_BUTTON}-p1`));
-    const notifications = useStore.getState().notifications;
-    expect(notifications.some((n) => n.level === "toast" && n.message.includes("Singers"))).toBe(true);
+    // The CTS activate was emitted…
+    expect(mockEmit.mock.calls.some((c) => c[0] === "cts:mixer:preset:activate" && (c[1] as { presetId: string }).presetId === "p1")).toBe(true);
+    // …the button is marked pending (loading until the backend acks)…
+    expect(useStore.getState().pendingPresetIds).toContain("p1");
+    // …and NO toast is shown yet (the ack drives the toast, not the tap).
+    expect(useStore.getState().notifications).toHaveLength(0);
+  });
+
+  it("releases a pending preset button and toasts an error if the ack never arrives", () => {
+    vi.useFakeTimers();
+    useStore.setState({
+      mixerStates: { mix1: makeMixer({ presets: [{ id: "p1", name: "Singers", sortOrder: 0 }] }) },
+      pendingPresetIds: [],
+      notifications: [],
+    });
+    render(<SoundBoardWidget />);
+    fireEvent.click(screen.getByTestId(`${TEST_ID_MIXER_PRESET_BUTTON}-p1`));
+    expect(useStore.getState().pendingPresetIds).toContain("p1");
+    act(() => vi.advanceTimersByTime(PRESET_ACK_TIMEOUT_MS + 10));
+    expect(useStore.getState().pendingPresetIds).not.toContain("p1");
+    expect(useStore.getState().notifications.some((n) => n.severity === "error")).toBe(true);
+    vi.useRealTimers();
+  });
+
+  it("does not toast a timeout when the ack arrived in time", () => {
+    vi.useFakeTimers();
+    useStore.setState({
+      mixerStates: { mix1: makeMixer({ presets: [{ id: "p1", name: "Singers", sortOrder: 0 }] }) },
+      pendingPresetIds: [],
+      notifications: [],
+    });
+    render(<SoundBoardWidget />);
+    fireEvent.click(screen.getByTestId(`${TEST_ID_MIXER_PRESET_BUTTON}-p1`));
+    act(() => useStore.getState().clearPresetPending("p1")); // ack handler cleared it
+    act(() => vi.advanceTimersByTime(PRESET_ACK_TIMEOUT_MS + 10));
+    expect(useStore.getState().notifications).toHaveLength(0);
+    vi.useRealTimers();
   });
 
   it("opens the gain popover from a channel's Adjust Gain button (gain-control on, AvPowerUser+)", () => {

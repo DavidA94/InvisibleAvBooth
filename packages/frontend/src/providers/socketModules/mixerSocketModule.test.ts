@@ -1,7 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { registerMixerSocketHandlers } from "./mixerSocketModule";
 import { useStore } from "../../store";
-import { STC_MIXER_STATE, STC_MIXER_STATE_UPDATE, STC_MIXER_LEVELS, STC_MIXER_ERROR, STC_MIXER_ERROR_RESOLVED } from "@invisible-av-booth/shared";
+import {
+  STC_MIXER_STATE,
+  STC_MIXER_STATE_UPDATE,
+  STC_MIXER_LEVELS,
+  STC_MIXER_ERROR,
+  STC_MIXER_ERROR_RESOLVED,
+  STC_MIXER_PRESET_RESULT,
+} from "@invisible-av-booth/shared";
 import type { MixerState } from "@invisible-av-booth/shared";
 
 function makeFakeSocket() {
@@ -26,7 +33,7 @@ const MIXER_STATE: MixerState = {
 
 describe("mixerSocketModule", () => {
   beforeEach(() => {
-    useStore.setState({ mixerStates: {}, mixerLevels: {}, notifications: [] });
+    useStore.setState({ mixerStates: {}, mixerLevels: {}, pendingPresetIds: [], notifications: [] });
   });
 
   it("STC_MIXER_STATE replaces all mixer states", () => {
@@ -66,5 +73,35 @@ describe("mixerSocketModule", () => {
     expect(useStore.getState().notifications).toHaveLength(1);
     socket.emit(STC_MIXER_ERROR_RESOLVED, { errorCode: "MIXER_CAPTURE_PATH_LOST" });
     expect(useStore.getState().notifications).toHaveLength(0);
+  });
+
+  it("STC_MIXER_PRESET_RESULT (ok) clears pending and toasts success with the preset name", () => {
+    const socket = makeFakeSocket();
+    registerMixerSocketHandlers(socket as never);
+    useStore.setState({
+      mixerStates: { mix1: { ...MIXER_STATE, presets: [{ id: "p1", name: "Service Start", sortOrder: 0 }] } },
+      pendingPresetIds: ["p1"],
+    });
+    socket.emit(STC_MIXER_PRESET_RESULT, { mixerId: "mix1", presetId: "p1", ok: true });
+    expect(useStore.getState().pendingPresetIds).toEqual([]);
+    const notifications = useStore.getState().notifications;
+    expect(notifications).toHaveLength(1);
+    expect(notifications[0]).toMatchObject({ level: "toast", severity: "info", message: "Applied: Service Start" });
+  });
+
+  it("STC_MIXER_PRESET_RESULT (failure) clears pending and toasts an error with unconfirmed channels", () => {
+    const socket = makeFakeSocket();
+    registerMixerSocketHandlers(socket as never);
+    useStore.setState({
+      mixerStates: { mix1: { ...MIXER_STATE, presets: [{ id: "p1", name: "Service Start", sortOrder: 0 }] } },
+      pendingPresetIds: ["p1"],
+    });
+    socket.emit(STC_MIXER_PRESET_RESULT, { mixerId: "mix1", presetId: "p1", ok: false, unconfirmedChannels: [2, 5] });
+    expect(useStore.getState().pendingPresetIds).toEqual([]);
+    const notifications = useStore.getState().notifications;
+    expect(notifications).toHaveLength(1);
+    expect(notifications[0]).toMatchObject({ level: "toast", severity: "error" });
+    expect(notifications[0]!.message).toMatch(/Service Start/);
+    expect(notifications[0]!.message).toMatch(/2, 5/);
   });
 });

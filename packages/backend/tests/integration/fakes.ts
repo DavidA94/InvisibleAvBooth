@@ -324,6 +324,7 @@ export function createFakeMixer(): FakeMixerRegistry {
         return payload;
       },
       activatePreset: async (payload) => {
+        const touched = new Set<number>();
         for (const [address, value] of Object.entries(payload)) {
           const faderMatch = /^\/ch\/(\d+)\/mix\/fader$/.exec(address);
           if (faderMatch && typeof value === "number") {
@@ -332,21 +333,31 @@ export function createFakeMixer(): FakeMixerRegistry {
             if (state) {
               state.fader = value;
               state.faderDb = faderFloatToDb(value);
+              touched.add(state.channel);
             }
           }
           const onMatch = /^\/ch\/(\d+)\/mix\/on$/.exec(address);
           if (onMatch && typeof value === "number") {
             driver.commands.push({ op: "mute", channel: Number(onMatch[1]), value: value === 0 });
             const state = channels.get(Number(onMatch[1]));
-            if (state) state.muted = value === 0;
+            if (state) {
+              state.muted = value === 0;
+              touched.add(state.channel);
+            }
           }
           const gainMatch = /^\/headamp\/(\d+)\/gain$/.exec(address);
           if (gainMatch && typeof value === "number") {
             driver.commands.push({ op: "gain", channel: Number(gainMatch[1]) + 1, value });
             const state = channels.get(Number(gainMatch[1]) + 1);
-            if (state) state.gainDb = value;
+            if (state) {
+              state.gainDb = value;
+              touched.add(state.channel);
+            }
           }
         }
+        for (const channel of touched) emitState(channel);
+        // The fake always confirms (seeded values match the written ones).
+        return { unconfirmedChannels: [] };
       },
       onMeterUpdate: (listener) => {
         meterListeners.add(listener);

@@ -17,6 +17,8 @@ class FakeTransport implements OscTransport {
   /** Addresses pinned by an explicit seed() — a set must NOT overwrite these. */
   private pinned = new Set<string>();
   autoReply = true;
+  /** address → number of upcoming VALUE writes to silently drop (models UDP loss). */
+  dropWrites = new Map<string, number>();
 
   /**
    * Seed (pin) the value the console will report for an address on query/read-
@@ -34,13 +36,34 @@ class FakeTransport implements OscTransport {
 
   send(address: string, types = "", values: Array<number | string | Uint8Array> = []): void {
     this.sends.push({ address, types, values });
+    // Simulate a dropped UDP write: recorded as sent, but the console never sees it.
+    const toDrop = this.dropWrites.get(address) ?? 0;
+    if (values.length > 0 && toDrop > 0) {
+      this.dropWrites.set(address, toDrop - 1);
+      return;
+    }
     // A query is a send with no args; auto-reply with the seeded (or last-set) value.
     if (this.autoReply && values.length === 0 && !address.startsWith("/xremote") && !address.startsWith("/meters")) {
-      const reply = this.seeded.get(address);
+      // The mix NODE replies with its leaf fields (`,ifif on fader lr pan`),
+      // assembled from the leaf values — matching the real XR18.
+      const node = /^\/ch\/(\d+)\/mix$/.exec(address);
+      const on = node ? this.seeded.get(`${address}/on`) : undefined;
+      const fader = node ? this.seeded.get(`${address}/fader`) : undefined;
+      const reply = node ? (on && fader ? [on[0]!, fader[0]!, 1, 0.5] : undefined) : this.seeded.get(address);
       if (reply) {
         // Reply asynchronously to mimic UDP round-trip ordering.
         queueMicrotask(() => this.inject(address, reply));
       }
+    }
+    // A grouped node set (`/ch/NN/mix ,if on fader`) writes the leading leaf fields.
+    const nodeSet = /^\/ch\/(\d+)\/mix$/.exec(address);
+    if (nodeSet && values.length > 0) {
+      const leaves = [`${address}/on`, `${address}/fader`];
+      values.forEach((value, index) => {
+        const leaf = leaves[index];
+        if (leaf && !this.pinned.has(leaf)) this.seeded.set(leaf, [value]);
+      });
+      return;
     }
     // Record set values so a query echoes the LATEST set (a real console reports
     // its current value) — unless the address was explicitly pinned via seed().
@@ -244,7 +267,7 @@ describe("BehringerXAirDriver", () => {
     // from a retired query can never apply a stale value. Live symptom was the UI
     // jumping to an old value then snapping back.
     it("a superseded read-back cannot apply over the newest command (epoch guard)", async () => {
-      const { driver, transport } = makeDriver();
+      const { driver } = makeDriver();
       await driver.connect();
       // Console echoes the last-set value; the burst settles on 0.8.
       const burst = [0.2, 0.8].map((value) => driver.setFader(1, value));
@@ -253,6 +276,32 @@ describe("BehringerXAirDriver", () => {
       // It is an unsolicited push, but must not regress the settled value within
       // the same reconcile generation.
       expect(driver.getChannelState(1)?.fader).toBeCloseTo(0.8, 5);
+    });
+
+    // Backend-authoritative stale-echo suppression (the user's "send 1 then 1.5,
+    // drop 1's read-back" model). A fast burst collapses to the latest value and
+    // no earlier value is ever broadcast into state — the frontend relies on this
+    // so it can accept every inbound value without filtering. (The writeSeq guard
+    // additionally protects against a superseded read-back that resolves late.)
+    it("only the latest value of a burst is ever broadcast (no earlier value leaks)", async () => {
+      const { driver, transport } = makeDriver();
+      await driver.connect();
+      transport.sends.length = 0;
+
+      const broadcasts: number[] = [];
+      driver.onStateChange((state) => {
+        if (state.channel === 1) broadcasts.push(Math.round(state.fader * 100) / 100);
+      });
+
+      // Console echoes the last-set value on read-back (FakeTransport default).
+      const burst = [0.1, 0.3, 0.5, 0.9].map((value) => driver.setFader(1, value));
+      await Promise.all(burst);
+
+      // Only the settled final value reached state; no intermediate value leaked.
+      expect(broadcasts).not.toContain(0.1);
+      expect(broadcasts).not.toContain(0.3);
+      expect(broadcasts).not.toContain(0.5);
+      expect(driver.getChannelState(1)?.fader).toBeCloseTo(0.9, 5);
     });
   });
 
@@ -378,40 +427,187 @@ describe("BehringerXAirDriver", () => {
     });
   });
 
-  describe("presets", () => {
-    it("capturePreset gathers fader/mute/gain for all channels", async () => {
-      const { driver, transport } = makeDriver({ channelCount: 2 });
+  describe("presets (audibility-gated capture / write / verify)", () => {
+    it("capture stores all three fields for an audible channel (unmuted, fader up)", async () => {
+      const { driver, transport } = makeDriver({ channelCount: 1 });
       await driver.connect();
-      transport.seed("/ch/01/mix/fader", [0.7]);
-      transport.seed("/ch/01/mix/on", [1]);
-      transport.seed("/headamp/01/gain", [10]);
-      transport.seed("/ch/02/mix/fader", [0.3]);
-      transport.seed("/ch/02/mix/on", [0]);
-      transport.seed("/headamp/02/gain", [20]);
+      transport.seed("/ch/01/mix/on", [1]); // unmuted
+      transport.seed("/ch/01/mix/fader", [0.7]); // audible
+      transport.seed("/headamp/01/gain", [0.4]);
 
       const payload = await driver.capturePreset();
-      expect(payload["/ch/01/mix/fader"]).toBe(0.7);
       expect(payload["/ch/01/mix/on"]).toBe(1);
-      expect(payload["/headamp/01/gain"]).toBe(10);
-      expect(payload["/ch/02/mix/on"]).toBe(0);
+      expect(payload["/ch/01/mix/fader"]).toBe(0.7);
+      expect(payload["/headamp/01/gain"]).toBe(0.4);
+    });
+
+    it("capture stores ONLY mute for a muted channel (fader/gain inaudible → skipped)", async () => {
+      const { driver, transport } = makeDriver({ channelCount: 1 });
+      await driver.connect();
+      transport.seed("/ch/01/mix/on", [0]); // muted
+      transport.seed("/ch/01/mix/fader", [0.7]);
+      transport.seed("/headamp/01/gain", [0.4]);
+
+      const payload = await driver.capturePreset();
+      expect(payload["/ch/01/mix/on"]).toBe(0);
+      expect(payload["/ch/01/mix/fader"]).toBeUndefined();
+      expect(payload["/headamp/01/gain"]).toBeUndefined();
+    });
+
+    it("capture stores mute+fader but NOT gain for an unmuted channel at −∞ (fader float 0)", async () => {
+      const { driver, transport } = makeDriver({ channelCount: 1 });
+      await driver.connect();
+      transport.seed("/ch/01/mix/on", [1]); // unmuted
+      transport.seed("/ch/01/mix/fader", [0]); // −∞ → inaudible, gain irrelevant
+      transport.seed("/headamp/01/gain", [0.4]);
+
+      const payload = await driver.capturePreset();
+      expect(payload["/ch/01/mix/on"]).toBe(1);
+      expect(payload["/ch/01/mix/fader"]).toBe(0);
+      expect(payload["/headamp/01/gain"]).toBeUndefined();
     });
 
     it("capturePreset fails with a descriptive error naming unconfirmed channels", async () => {
-      // Keep it fast: 1 channel, no gain field → 2 fields × 4 attempts × 250ms ≈ 2s.
+      // 1 channel, no gain feature → on + fader queries only.
       const { driver, transport } = makeDriver({ channelCount: 1, features: [] });
       await driver.connect();
       transport.autoReply = false; // nothing confirms
       await expect(driver.capturePreset()).rejects.toThrow(/channel\(s\): 1/);
     }, 8000);
 
-    it("activatePreset writes each address with the right type (mix/on as int)", async () => {
+    it("activatePreset writes mute+fader as ONE grouped /ch/NN/mix message, gain separately, and verifies", async () => {
       const { driver, transport } = makeDriver({ channelCount: 1 });
       await driver.connect();
       transport.sends.length = 0;
-      await driver.activatePreset({ "/ch/01/mix/fader": 0.8, "/ch/01/mix/on": 0, "/headamp/01/gain": 5 });
-      expect(transport.sends.find((s) => s.address === "/ch/01/mix/fader" && s.types === "f")?.values[0]).toBe(0.8);
-      expect(transport.sends.find((s) => s.address === "/ch/01/mix/on" && s.types === "i")?.values[0]).toBe(0);
-      expect(transport.sends.find((s) => s.address === "/headamp/01/gain" && s.types === "f")?.values[0]).toBe(5);
+      const result = await driver.activatePreset({ "/ch/01/mix/on": 1, "/ch/01/mix/fader": 0.8, "/headamp/01/gain": 0.5 });
+      expect(result.unconfirmedChannels).toEqual([]);
+      const valueWrites = transport.sends.filter((s) => s.values.length > 0);
+      expect(valueWrites.find((s) => s.address === "/ch/01/mix")).toMatchObject({ types: "if", values: [1, 0.8] });
+      expect(valueWrites.find((s) => s.address === "/headamp/01/gain")).toMatchObject({ types: "f", values: [0.5] });
+      // No separate leaf writes for mute/fader.
+      expect(valueWrites.some((s) => s.address === "/ch/01/mix/on" || s.address === "/ch/01/mix/fader")).toBe(false);
+      // Verified with ONE grouped node query instead of two leaf queries.
+      const queries = transport.sends.filter((s) => s.values.length === 0).map((s) => s.address);
+      expect(queries).toContain("/ch/01/mix");
+      expect(queries).not.toContain("/ch/01/mix/fader");
+    });
+
+    it("going audible writes gain BEFORE the grouped unmute+fader (spike-safe ordering)", async () => {
+      const { driver, transport } = makeDriver({ channelCount: 1 });
+      await driver.connect();
+      transport.sends.length = 0;
+      await driver.activatePreset({ "/ch/01/mix/on": 1, "/ch/01/mix/fader": 0.8, "/headamp/01/gain": 0.5 });
+      const writeOrder = transport.sends.filter((s) => s.values.length > 0).map((s) => s.address);
+      expect(writeOrder.indexOf("/headamp/01/gain")).toBeLessThan(writeOrder.indexOf("/ch/01/mix"));
+    });
+
+    it("legacy payloads are audibility-gated at apply time (muted → mute only; −∞ fader → no gain)", async () => {
+      const { driver, transport } = makeDriver({ channelCount: 2 });
+      await driver.connect();
+      transport.sends.length = 0;
+      await driver.activatePreset({
+        "/ch/01/mix/on": 0,
+        "/ch/01/mix/fader": 0.8,
+        "/headamp/01/gain": 0.5,
+        "/ch/02/mix/on": 1,
+        "/ch/02/mix/fader": 0,
+        "/headamp/02/gain": 0.5,
+      });
+      const valueWrites = transport.sends.filter((s) => s.values.length > 0).map((s) => s.address);
+      expect(valueWrites).toContain("/ch/01/mix/on");
+      expect(valueWrites).not.toContain("/headamp/01/gain");
+      expect(valueWrites).not.toContain("/ch/01/mix");
+      expect(valueWrites).toContain("/ch/02/mix"); // grouped unmute + −∞ fader
+      expect(valueWrites).not.toContain("/headamp/02/gain");
+    });
+
+    it("paces read-back queries instead of bursting them", async () => {
+      const { driver, transport } = makeDriver({ channelCount: 4 });
+      await driver.connect();
+      await new Promise((resolve) => setTimeout(resolve, 50)); // let the connect-time refresh finish
+      const queryTimes: number[] = [];
+      const send = transport.send.bind(transport);
+      transport.send = (address, types, values) => {
+        if (!values?.length && /^\/(ch|headamp)\//.test(address)) queryTimes.push(performance.now());
+        send(address, types, values);
+      };
+      const payload: Record<string, number> = {};
+      for (let c = 1; c <= 4; c++) Object.assign(payload, { [`/ch/0${c}/mix/on`]: 1, [`/ch/0${c}/mix/fader`]: 0.5, [`/headamp/0${c}/gain`]: 0.3 });
+      await driver.activatePreset(payload);
+      expect(queryTimes.length).toBe(8); // 4 grouped mix + 4 gain
+      for (let i = 1; i < queryTimes.length; i++) expect(queryTimes[i]! - queryTimes[i - 1]!).toBeGreaterThanOrEqual(0.5);
+    });
+
+    it("a mute-only channel is written to the /mix/on leaf (not the grouped node)", async () => {
+      const { driver, transport } = makeDriver({ channelCount: 1 });
+      await driver.connect();
+      transport.sends.length = 0;
+      await driver.activatePreset({ "/ch/01/mix/on": 0 });
+      const valueWrites = transport.sends.filter((s) => s.values.length > 0);
+      expect(valueWrites).toEqual([{ address: "/ch/01/mix/on", types: "i", values: [0] }]);
+    });
+
+    it("activatePreset reports unconfirmed channels when the board does not echo the written value", async () => {
+      const { driver, transport } = makeDriver({ channelCount: 1 });
+      await driver.connect();
+      // Pin a DIFFERENT value than we will write → exact-match verification fails.
+      transport.seed("/ch/01/mix/fader", [0.1]);
+      const result = await driver.activatePreset({ "/ch/01/mix/on": 1, "/ch/01/mix/fader": 0.8 });
+      expect(result.unconfirmedChannels).toEqual([1]);
+    }, 8000);
+
+    it("re-writes a channel whose write was dropped, then confirms it (retry rounds)", async () => {
+      const { driver, transport } = makeDriver({ channelCount: 1 });
+      await driver.connect();
+      transport.send("/ch/01/mix/fader", "f", [0.1]); // board currently at 0.1
+      transport.dropWrites.set("/ch/01/mix", 1); // first grouped preset write is lost (UDP drop)
+      transport.sends.length = 0;
+      const result = await driver.activatePreset({ "/ch/01/mix/on": 1, "/ch/01/mix/fader": 0.8 });
+      expect(result.unconfirmedChannels).toEqual([]);
+      const mixWrites = transport.sends.filter((s) => s.address === "/ch/01/mix" && s.values.length > 0);
+      expect(mixWrites).toHaveLength(2); // initial + one re-write
+      expect(driver.getChannelState(1)?.fader).toBeCloseTo(0.8, 5);
+    }, 8000);
+
+    it("gives up after the max rounds when the board never takes the value", async () => {
+      const { driver, transport } = makeDriver({ channelCount: 1 });
+      await driver.connect();
+      transport.send("/ch/01/mix/fader", "f", [0.1]);
+      transport.dropWrites.set("/ch/01/mix", 99);
+      const result = await driver.activatePreset({ "/ch/01/mix/on": 1, "/ch/01/mix/fader": 0.8 });
+      expect(result.unconfirmedChannels).toEqual([1]);
+    }, 8000);
+
+    it("accepts a float within tolerance (float32 / quantization) but not mute mismatches", async () => {
+      const { driver, transport } = makeDriver({ channelCount: 1 });
+      await driver.connect();
+      transport.seed("/ch/01/mix/fader", [0.8005]); // board quantized slightly off the stored 0.8
+      const result = await driver.activatePreset({ "/ch/01/mix/on": 1, "/ch/01/mix/fader": 0.8 });
+      expect(result.unconfirmedChannels).toEqual([]);
+      expect(driver.getChannelState(1)?.fader).toBeCloseTo(0.8005, 5); // board-reported value wins
+    }, 8000);
+
+    it("does not broadcast per-address /xremote echoes of its own writes during apply", async () => {
+      const { driver, transport } = makeDriver({ channelCount: 1 });
+      await driver.connect();
+      const emitted: number[] = [];
+      driver.onStateChange((state) => emitted.push(state.fader));
+      const pending = driver.activatePreset({ "/ch/01/mix/on": 1, "/ch/01/mix/fader": 0.8 });
+      transport.inject("/ch/01/mix/fader", [0.3]); // intermediate echo mid-apply
+      await pending;
+      expect(emitted).not.toContain(0.3);
+      expect(emitted).toHaveLength(1); // one published state for the channel
+    }, 8000);
+
+    it("only verifies the fields present in the payload (muted channel → mute only)", async () => {
+      const { driver, transport } = makeDriver({ channelCount: 1 });
+      await driver.connect();
+      transport.sends.length = 0;
+      const result = await driver.activatePreset({ "/ch/01/mix/on": 0 });
+      expect(result.unconfirmedChannels).toEqual([]);
+      // No fader/gain read-back was issued for this channel (nothing to verify).
+      expect(transport.sends.some((s) => s.address === "/ch/01/mix/fader" && s.values.length === 0)).toBe(false);
+      expect(transport.sends.some((s) => s.address === "/headamp/01/gain" && s.values.length === 0)).toBe(false);
     });
   });
 

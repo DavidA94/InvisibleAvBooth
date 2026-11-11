@@ -11,7 +11,7 @@ interface VerticalFaderProps {
   fader: number;
   /** True when read-back was exhausted for this control (Req 15.8). */
   unreconciled?: boolean;
-  /** Emit a fader change (throttled while dragging; final on release). */
+  /** Emit a fader change (debounced + max-wait while dragging; final on release). */
   onFaderChange: (fader: number) => void;
 }
 
@@ -55,14 +55,15 @@ const SLIDER_SX = {
  * A vertical fader built on the MUI Slider (matching the camera zoom control;
  * ion-range has no vertical mode). Displays a real dB scale via FADER_TICKS_DB
  * with legible, on-track tick labels (−∞ at the bottom), uses useHeldControl for
- * the suppress-in/throttle-out interaction model, and emits normalized 0.0–1.0
- * values. Exposes data-state including "unreconciled" (Req 15.8), which
- * auto-clears when the next confirmed value arrives.
+ * the debounce+max-wait outbound / accept-all inbound interaction model, and
+ * emits normalized 0.0–1.0 values. Exposes data-state including "unreconciled"
+ * (Req 15.8), which auto-clears when the next confirmed value arrives.
  */
 export function VerticalFader({ channel, fader, unreconciled = false, onFaderChange }: VerticalFaderProps): ReactNode {
   const held = useHeldControl(fader, onFaderChange);
 
-  // Feed backend values through the hold model (dropped during the suppression window).
+  // Feed backend values through the hold model (applied unconditionally — the
+  // backend only broadcasts the latest settled value for this address).
   useEffect(() => {
     held.onBackendValue(fader);
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -6,6 +6,18 @@ export interface MixerSlice {
   mixerStates: Record<string, MixerState>;
   /** Per-mixer, per-channel level in dBFS (mixerId → channel → dBFS). */
   mixerLevels: Record<string, Record<number, number>>;
+  /**
+   * Preset ids currently awaiting a backend apply/verify ack (the button shows a
+   * loading state while its id is here). Keyed as a flat set of presetId — preset
+   * ids are globally unique, so no mixer nesting is needed. Populated on tap,
+   * cleared when STC_MIXER_PRESET_RESULT arrives.
+   */
+  pendingPresetIds: string[];
+  /**
+   * performance.now() when each pending preset was tapped — used ONLY to log the
+   * tap→ack round-trip so slow applies can be diagnosed from app.log.
+   */
+  presetPendingSince: Record<string, number>;
   /** Replace the full state for one mixer (used for both initial + update). */
   setMixerState: (mixerId: string, state: MixerState) => void;
   /**
@@ -18,11 +30,17 @@ export interface MixerSlice {
   setMixerLevels: (mixerId: string, levels: MixerChannelLevel[]) => void;
   /** Replace all mixer states (initial state, an array). */
   setAllMixerStates: (states: MixerState[]) => void;
+  /** Mark a preset as awaiting its apply/verify ack (button → loading). */
+  markPresetPending: (presetId: string) => void;
+  /** Clear a preset's pending flag (ack arrived — button → idle). */
+  clearPresetPending: (presetId: string) => void;
 }
 
 export const createMixerSlice: StateCreator<MixerSlice> = (set) => ({
   mixerStates: {},
   mixerLevels: {},
+  pendingPresetIds: [],
+  presetPendingSince: {},
 
   setMixerState: (mixerId, state) =>
     set((prev) => ({
@@ -51,5 +69,17 @@ export const createMixerSlice: StateCreator<MixerSlice> = (set) => ({
   setAllMixerStates: (states) =>
     set({
       mixerStates: Object.fromEntries(states.map((state) => [state.mixerId, state])),
+    }),
+
+  markPresetPending: (presetId) =>
+    set((prev) => ({
+      pendingPresetIds: prev.pendingPresetIds.includes(presetId) ? prev.pendingPresetIds : [...prev.pendingPresetIds, presetId],
+      presetPendingSince: { ...prev.presetPendingSince, [presetId]: performance.now() },
+    })),
+
+  clearPresetPending: (presetId) =>
+    set((prev) => {
+      const { [presetId]: _started, ...rest } = prev.presetPendingSince;
+      return { pendingPresetIds: prev.pendingPresetIds.filter((id) => id !== presetId), presetPendingSince: rest };
     }),
 });

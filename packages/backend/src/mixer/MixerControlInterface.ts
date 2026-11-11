@@ -53,10 +53,14 @@ export interface MixerControlInterface {
   getChannelState(channel: number): MixerChannelState | null;
   getAllChannelStates(): MixerChannelState[];
 
-  /** Capture the current board (all settable values, all channels) into an address→value map. */
+  /** Capture the current board (only the AUDIBLE fields per channel) into an address→value map. */
   capturePreset(): Promise<MixerPresetPayload>;
-  /** Apply a preset payload to the mixer (writes each address). */
-  activatePreset(payload: MixerPresetPayload): Promise<void>;
+  /**
+   * Apply a preset payload to the mixer with spike-safe write ordering, then
+   * verify the written fields via scoped parallel read-back. Resolves with the
+   * channels whose values the mixer did not confirm (empty = full success).
+   */
+  activatePreset(payload: MixerPresetPayload): Promise<{ unconfirmedChannels: number[] }>;
 
   /** Metering observation intent — driver decides mechanism (OSC /meters). */
   onMeterUpdate(listener: (levels: MixerChannelLevel[]) => void): () => void;

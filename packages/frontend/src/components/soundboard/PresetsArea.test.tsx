@@ -50,4 +50,22 @@ describe("PresetsArea", () => {
     // Modal auto-closes → its content is gone.
     expect(screen.queryByTestId(TEST_ID_MIXER_VIEW_ALL_PRESETS_MODAL)).toBeNull();
   });
+
+  it("shows a loading state and disables a pending preset button", () => {
+    render(<PresetsArea presets={makePresets(2)} inlineLimit={6} pendingPresetIds={["p1"]} onActivate={vi.fn()} />);
+    const button = screen.getByTestId(`${TEST_ID_MIXER_PRESET_BUTTON}-p1`);
+    expect(button).toHaveAttribute("data-state", "loading");
+    expect(button).toBeDisabled();
+    // A non-pending button is idle and enabled.
+    const other = screen.getByTestId(`${TEST_ID_MIXER_PRESET_BUTTON}-p2`);
+    expect(other).toHaveAttribute("data-state", "idle");
+    expect(other).not.toBeDisabled();
+  });
+
+  it("ignores a re-tap while a preset is pending", () => {
+    const onActivate = vi.fn();
+    render(<PresetsArea presets={makePresets(2)} inlineLimit={6} pendingPresetIds={["p1"]} onActivate={onActivate} />);
+    fireEvent.click(screen.getByTestId(`${TEST_ID_MIXER_PRESET_BUTTON}-p1`));
+    expect(onActivate).not.toHaveBeenCalled();
+  });
 });

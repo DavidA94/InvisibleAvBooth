@@ -52,6 +52,7 @@ export type {
   MixerState,
   MixerPresetSummary,
   MixerPresetPayload,
+  MixerPresetResult,
   MixerChannelLevel,
   MixerCommand,
 } from "./types/mixer.js";

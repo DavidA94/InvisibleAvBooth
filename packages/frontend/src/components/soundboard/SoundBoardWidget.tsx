@@ -8,8 +8,15 @@ import { WidgetErrorOverlay } from "../WidgetErrorOverlay";
 import { useStore } from "../../store";
 import { useSocket } from "../../providers/SocketProvider";
 import { useResizeObserver } from "../../hooks/useResizeObserver";
-import { CTS_MIXER_SET, CTS_MIXER_PRESET_ACTIVATE, CTS_MIXER_WIDGET_PRESENT, CONTROLS_FRESHNESS_MS, LEVEL_AXIS_MIN_DBFS } from "@invisible-av-booth/shared";
+import { logger } from "../../logger";
+import { CTS_MIXER_SET, CTS_MIXER_PRESET_ACTIVATE, CTS_MIXER_WIDGET_PRESENT, CONTROLS_FRESHNESS_MS, PRESET_ACK_TIMEOUT_MS } from "@invisible-av-booth/shared";
 import type { MixerChannelState } from "@invisible-av-booth/shared";
+
+interface StripHandlers {
+  onFaderChange: (fader: number) => void;
+  onMuteToggle: (muted: boolean) => void;
+  onGainChange: (gainDb: number) => void;
+}
 import { ChannelStrip } from "./ChannelStrip";
 import { PresetsArea } from "./PresetsArea";
 import { computePaginationLayout, channelsForPage, rangeLabel } from "./pagination";
@@ -43,7 +50,7 @@ interface SoundBoardWidgetProps {
 
 export function SoundBoardWidget({ enabled = true, forceSelectedId }: SoundBoardWidgetProps = {}): ReactNode {
   const mixerStates = useStore((s) => s.mixerStates);
-  const mixerLevels = useStore((s) => s.mixerLevels);
+  const pendingPresetIds = useStore((s) => s.pendingPresetIds);
   const socket = useSocket();
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -79,13 +86,11 @@ export function SoundBoardWidget({ enabled = true, forceSelectedId }: SoundBoard
     };
   }, [enabled, socket, mixerId]);
 
-  // Controls freshness: driven by control STATE changes only. Level frames arrive
-  // at ~25fps and must NOT drive this effect — depending on levelsForMixer here
-  // re-ran the effect (new object each frame), resetting the timer every frame and
-  // triggering "Maximum update depth exceeded". Meter liveness is derived
-  // separately from level presence below.
+  // Controls freshness: driven by control STATE changes only. Level frames must
+  // NOT re-render this widget at all — each strip's MixerChannelMeter subscribes
+  // to its own level (measured: widget-level meter subscription re-rendered all
+  // 16 strips ~12×/s and starved the main thread on tablet-class CPUs).
   const [stateFresh, setStateFresh] = useState(false);
-  const levelsForMixer = mixerId ? mixerLevels[mixerId] : undefined;
   useEffect(() => {
     if (!state) return;
     setStateFresh(true);
@@ -102,6 +107,27 @@ export function SoundBoardWidget({ enabled = true, forceSelectedId }: SoundBoard
 
   const emitSet = (channel: number, fields: { fader?: number; muted?: boolean; gainDb?: number }): void => {
     if (socket && mixerId) socket.emit(CTS_MIXER_SET, { mixerId, channel, ...fields });
+  };
+
+  // STABLE per-channel handlers so memoized ChannelStrips don't re-render just
+  // because the parent created new arrow functions. They call through a ref to
+  // the latest emitSet, so a socket/mixer change is still picked up (no stale
+  // closure). Measured: re-rendering all 16 strips on every state broadcast was a
+  // ~390 ms main-thread task on a tablet-class (6× throttled) CPU.
+  const emitSetRef = useRef(emitSet);
+  emitSetRef.current = emitSet;
+  const handlerCache = useRef(new Map<number, StripHandlers>());
+  const handlersFor = (index: number): StripHandlers => {
+    let handlers = handlerCache.current.get(index);
+    if (!handlers) {
+      handlers = {
+        onFaderChange: (fader) => emitSetRef.current(index, { fader }),
+        onMuteToggle: (muted) => emitSetRef.current(index, { muted }),
+        onGainChange: (gainDb) => emitSetRef.current(index, { gainDb }),
+      };
+      handlerCache.current.set(index, handlers);
+    }
+    return handlers;
   };
 
   const connected = state?.connected ?? false;
@@ -151,13 +177,10 @@ export function SoundBoardWidget({ enabled = true, forceSelectedId }: SoundBoard
                         features={state!.capabilities.features}
                         gainMinDb={state!.capabilities.gainRange.minDb}
                         gainMaxDb={state!.capabilities.gainRange.maxDb}
-                        levelDb={levelsForMixer?.[index] ?? LEVEL_AXIS_MIN_DBFS}
-                        levelEventsFlowing={levelsForMixer?.[index] !== undefined}
+                        mixerId={mixerId}
                         faderUnreconciled={channel.unreconciled ?? false}
                         showNameRow={anyNameOnPage}
-                        onFaderChange={(fader) => emitSet(index, { fader })}
-                        onMuteToggle={(muted) => emitSet(index, { muted })}
-                        onGainChange={(gainDb) => emitSet(index, { gainDb })}
+                        {...handlersFor(index)}
                       />
                     );
                   });
@@ -201,11 +224,28 @@ export function SoundBoardWidget({ enabled = true, forceSelectedId }: SoundBoard
             {state && (
               <PresetsArea
                 presets={state.presets}
-                onActivate={(presetId, name) => {
-                  if (socket && mixerId) socket.emit(CTS_MIXER_PRESET_ACTIVATE, { mixerId, presetId });
-                  useStore
-                    .getState()
-                    .addNotification({ id: `preset-${presetId}-${Date.now()}`, level: "toast", severity: "info", message: `Applied: ${name}` });
+                pendingPresetIds={pendingPresetIds}
+                onActivate={(presetId) => {
+                  if (!socket || !mixerId) return;
+                  // No optimistic toast: mark the button pending and let the
+                  // backend ack (STC_MIXER_PRESET_RESULT) drive the toast once the
+                  // preset is actually applied + verified on the board.
+                  useStore.getState().markPresetPending(presetId);
+                  socket.emit(CTS_MIXER_PRESET_ACTIVATE, { mixerId, presetId });
+                  // A lost ack must never leave the button spinning: if the
+                  // backend has not answered in time, release it and say so.
+                  setTimeout(() => {
+                    const store = useStore.getState();
+                    if (!store.pendingPresetIds.includes(presetId)) return; // ack already arrived
+                    logger.warn("Preset ack timed out", { context: { mixerId, presetId, timeoutMs: PRESET_ACK_TIMEOUT_MS } });
+                    store.clearPresetPending(presetId);
+                    store.addNotification({
+                      id: `preset-${presetId}-${Date.now()}`,
+                      level: "toast",
+                      severity: "error",
+                      message: "No response from the sound board — check the preset was applied",
+                    });
+                  }, PRESET_ACK_TIMEOUT_MS);
                 }}
               />
             )}

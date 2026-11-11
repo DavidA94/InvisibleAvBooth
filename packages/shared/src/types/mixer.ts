@@ -93,6 +93,26 @@ export interface MixerState {
  */
 export type MixerPresetPayload = Record<string, number | string>;
 
+/**
+ * Result of a preset activation, sent back to the requesting client
+ * (STC_MIXER_PRESET_RESULT). The backend writes the preset's audible fields,
+ * verifies them via scoped read-back, and reports the outcome so the UI can end
+ * the button's loading state and toast success/failure — never guessing.
+ *
+ * `ok` is true only when every WRITTEN (audible) field was confirmed by the
+ * mixer. On failure, `unconfirmedChannels` names the channels that did not
+ * confirm so the volunteer sees exactly what to check.
+ */
+export interface MixerPresetResult {
+  mixerId: string;
+  presetId: string;
+  ok: boolean;
+  /** Channels whose written values the mixer did not confirm (failure only). */
+  unconfirmedChannels?: number[];
+  /** Human-readable error (e.g. "Mixer not found", "Preset not found"). */
+  error?: string;
+}
+
 /** Per-channel level for the always-visible meter (mono, dBFS). */
 export interface MixerChannelLevel {
   channel: number;

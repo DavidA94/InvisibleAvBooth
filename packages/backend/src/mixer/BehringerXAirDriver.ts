@@ -33,6 +33,12 @@ import {
   READBACK_MAX_RETRIES,
   COMMAND_DEBOUNCE_MS,
   SELF_ECHO_GUARD_MS,
+  PRESET_WRITE_STAGGER_MS,
+  PRESET_VERIFY_SETTLE_MS,
+  PRESET_MAX_ROUNDS,
+  PRESET_VERIFY_TOLERANCE,
+  PRESET_QUERY_STAGGER_MS,
+  PRESET_READ_TIMEOUT_MS,
 } from "@invisible-av-booth/shared";
 import type { MixerControlInterface, MixerDriverConfig, OscTransport } from "./MixerControlInterface.js";
 import { UdpOscTransport } from "./UdpOscTransport.js";
@@ -49,6 +55,10 @@ const pad2 = (channel: number): string => String(channel).padStart(2, "0");
 
 const chFader = (channel: number): string => `/ch/${pad2(channel)}/mix/fader`;
 const chOn = (channel: number): string => `/ch/${pad2(channel)}/mix/on`; // 1 = unmuted (INVERTED)
+// The channel MIX NODE. A no-arg query replies `,ifif <on> <fader> <lr> <pan>`;
+// a multi-tag set (`,if <on> <fader>`) writes the leading fields in one message.
+// Verified on XR18V2 fw 1.26. Used by preset apply only.
+const chMix = (channel: number): string => `/ch/${pad2(channel)}/mix`;
 const chName = (channel: number): string => `/ch/${pad2(channel)}/config/name`;
 const chColor = (channel: number): string => `/ch/${pad2(channel)}/config/color`; // int 0–15 scribble color
 // X Air headamp (preamp) gain address. IMPORTANT: X Air is NOT X32 here — X32
@@ -85,6 +95,28 @@ interface PendingWrite {
   send: () => void;
   /** Reconcile the mixer-reported read-back values into channel state. */
   apply: (values: Array<number | string | Uint8Array>) => void;
+}
+
+/**
+ * A preset payload re-grouped per channel for spike-safe write ordering and
+ * scoped verification. Only the fields the preset actually stores (per the
+ * audibility rule) are populated; absent fields are simply not written/verified.
+ */
+/** Board-reported values for a verified preset channel (only fields in the preset). */
+interface PresetReported {
+  on?: number;
+  fader?: number;
+  gain?: number;
+}
+
+interface PresetChannelEntry {
+  channel: number;
+  on?: number;
+  onAddress?: string;
+  fader?: number;
+  faderAddress?: string;
+  gain?: number;
+  gainAddress?: string;
 }
 
 // ── Driver ───────────────────────────────────────────────────────────────────
@@ -141,6 +173,21 @@ export class BehringerXAirDriver implements MixerControlInterface {
   // is the single debounced read-back; /xremote echoes for a self-driven address
   // are dropped until this expiry, after which genuine external moves flow again.
   private readonly selfWriteUntil = new Map<string, number>();
+
+  // Per-address monotonic write sequence — the backend-authoritative stale-echo
+  // guard (design: "backend tracks which write is newest"). Every coalesceSet
+  // bumps writeSeq[address]; the reconcile that runs for a given set captures the
+  // sequence it was issued under. When that set's read-back resolves, we only
+  // BROADCAST (apply → emitState) if its captured sequence is STILL the latest
+  // for the address. Concretely, if the UI sends 1 then 1.5 far enough apart that
+  // both reach us, 1's read-back is discarded the moment 1.5's set bumps the
+  // sequence — only 1.5's settled value is ever broadcast to clients. This is
+  // what prevents the "slider slides, then re-slides seconds later" artifact
+  // WITHOUT any frontend filtering (the frontend trusts whatever we send).
+  private readonly writeSeq = new Map<string, number>();
+
+  /** Tail of the paced-query chain (see pacedQuery). */
+  private queryGate: Promise<void> = Promise.resolve();
 
   constructor(private readonly config: MixerDriverConfig) {
     this.channelCount = config.channelCount;
@@ -199,6 +246,7 @@ export class BehringerXAirDriver implements MixerControlInterface {
     this.writeDebounce.clear();
     this.pendingWrites.clear();
     this.selfWriteUntil.clear();
+    this.writeSeq.clear();
     for (const waiters of this.writeWaiters.values()) {
       for (const resolve of waiters) resolve();
     }
@@ -323,6 +371,11 @@ export class BehringerXAirDriver implements MixerControlInterface {
    * until shortly after the settled reconcile.
    */
   private coalesceSet(address: string, write: PendingWrite): Promise<void> {
+    // Bump the per-address write sequence: this set is now the newest intent for
+    // the address. The reconcile scheduled below captures this value and only
+    // broadcasts if it is still the latest when the read-back resolves (so a
+    // superseded set's read-back is dropped — the stale-echo guard).
+    this.writeSeq.set(address, (this.writeSeq.get(address) ?? 0) + 1);
     // Mark self-driven so /xremote echoes of our own writes are not re-broadcast.
     this.markSelfWrite(address);
     // Write the latest value now so the console tracks the live slider motion.
@@ -370,10 +423,13 @@ export class BehringerXAirDriver implements MixerControlInterface {
   private async runReconcile(address: string): Promise<void> {
     const pending = this.pendingWrites.get(address);
     this.pendingWrites.delete(address);
+    // Capture the sequence this reconcile answers to. If a newer set bumps
+    // writeSeq[address] before our read-back resolves, we drop the broadcast.
+    const seq = this.writeSeq.get(address) ?? 0;
     try {
       // The value was already written in coalesceSet; here we only read it back
       // and reconcile (the mixer is authoritative, including its own rounding).
-      const confirmed = pending ? await this.reconcile(address, pending.channel, pending.apply) : false;
+      const confirmed = pending ? await this.reconcile(address, pending.channel, pending.apply, seq) : false;
       if (confirmed) {
         // Keep absorbing trailing /xremote echoes for a beat after the confirmed
         // read-back, then let genuine external changes through again.
@@ -396,10 +452,15 @@ export class BehringerXAirDriver implements MixerControlInterface {
    * Read-back reconciliation with bounded retry (Req 2.7). After a set, query
    * the address; if no reply arrives within READBACK_TIMEOUT_MS, re-query up to
    * READBACK_MAX_RETRIES. The apply callback runs with the MIXER-reported value
-   * (authoritative). On exhaustion we WARN-log and leave the channel marked
-   * unreconciled (the service/UI surfaces this — Req 15.8).
+   * (authoritative) — but ONLY if `seq` is still the latest write for this
+   * address (the stale-echo guard: a superseded set's read-back is never
+   * broadcast). On exhaustion we WARN-log and leave the channel unreconciled.
+   *
+   * `seq` is the per-address write sequence captured when this reconcile was
+   * scheduled; `reconcileEpoch` additionally supersedes an older in-flight
+   * reconcile's QUERY so a late reply cannot be consumed by the wrong attempt.
    */
-  private async reconcile(address: string, channel: number, apply: (values: Array<number | string | Uint8Array>) => void): Promise<boolean> {
+  private async reconcile(address: string, channel: number, apply: (values: Array<number | string | Uint8Array>) => void, seq: number): Promise<boolean> {
     // Supersede any in-flight reconcile for this address: bump the epoch so a
     // late reply to the previous query is recognized as stale and dropped
     // (prevents the "jump to old value then snap back" artifact during a drag).
@@ -413,6 +474,10 @@ export class BehringerXAirDriver implements MixerControlInterface {
       // applying our (older) reply would regress it.
       if (this.reconcileEpoch.get(address) !== epoch) return false;
       if (reply) {
+        // Stale-echo guard: only broadcast if this set is still the newest write
+        // for the address. If 1.5 superseded our 1 after the query was sent, we
+        // drop 1's reply here — 1.5's own reconcile will broadcast the truth.
+        if ((this.writeSeq.get(address) ?? 0) !== seq) return false;
         apply(reply);
         this.emitLiveness();
         return true; // confirmed by the mixer
@@ -421,6 +486,8 @@ export class BehringerXAirDriver implements MixerControlInterface {
     // Only the current epoch may mark the channel unreconciled — a superseded
     // reconcile must not stamp Unknown over a value the newer one is confirming.
     if (this.reconcileEpoch.get(address) !== epoch) return false;
+    // Likewise, a superseded write must not raise Unknown — the newer write owns it.
+    if ((this.writeSeq.get(address) ?? 0) !== seq) return false;
     logger.warn("Mixer read-back exhausted — channel marked unreconciled (surfaces as Unknown)", {
       context: { mixerId: this.config.mixerId, address, channel, retries: READBACK_MAX_RETRIES, timeoutMs: READBACK_TIMEOUT_MS },
     });
@@ -437,7 +504,7 @@ export class BehringerXAirDriver implements MixerControlInterface {
   }
 
   /** Send a query for an address and await one reply within the timeout. */
-  private query(address: string): Promise<Array<number | string | Uint8Array> | null> {
+  private query(address: string, timeoutMs: number = READBACK_TIMEOUT_MS): Promise<Array<number | string | Uint8Array> | null> {
     // If a previous query for this address is still waiting, cancel it: resolve
     // it as null so its reconcile loop settles immediately instead of lingering
     // and potentially consuming THIS query's reply. The map holds one waiter per
@@ -456,7 +523,7 @@ export class BehringerXAirDriver implements MixerControlInterface {
         settled = true;
         if (this.pendingReadbacks.get(address) === resolver) this.pendingReadbacks.delete(address);
         resolve(null);
-      }, READBACK_TIMEOUT_MS);
+      }, timeoutMs);
 
       const resolver = (values: Array<number | string | Uint8Array>): void => {
         if (settled) return;
@@ -628,36 +695,85 @@ export class BehringerXAirDriver implements MixerControlInterface {
   }
 
   // ── Presets ──────────────────────────────────────────────────────────────────
+  //
+  // AUDIBILITY-GATED PRESETS (design decision — audio-correctness first).
+  //
+  // A preset is a board snapshot, but we deliberately store/write/verify ONLY the
+  // fields that affect what the congregation hears, decided per channel by its
+  // snapshot state:
+  //
+  //   muted                     → only /mix/on            (mute)
+  //   unmuted, fader at −∞ (0)  → /mix/on + /mix/fader     (mute + fader)
+  //   unmuted, audible fader    → /mix/on + /mix/fader + /headamp/NN/gain (all three)
+  //
+  // WHY: a muted channel's fader/gain are inaudible, so restoring them is at best
+  // pointless and at worst a latent surprise — someone unmutes later and gets a
+  // level nobody considered when the preset was made. By NOT touching them, the
+  // channel keeps whatever the operator currently has, and the preset only
+  // governs audible reality. The SAME rule drives capture, write, and verify, so
+  // the stored payload is self-describing: whatever keys it contains are exactly
+  // what we write and what we verify. (gain is only ever included when the device
+  // declares gain-control.)
+
+  /** mix/on wire value: 1 = unmuted (on), 0 = muted. */
+  private static readonly ON = 1;
+  private static readonly OFF = 0;
 
   /**
-   * Capture the current board into an address→value map (Req 10.8). Uses the
-   * same bounded-retry read-back as commands. If any channel's value cannot be
-   * confirmed, FAIL with a descriptive error naming the channel(s) rather than
-   * saving a partial/stale snapshot — a wrong stored value would later be applied
-   * as a live audio fault.
+   * Decide which addresses are AUDIBLE for a channel given its (on, faderFloat)
+   * state — the single source of truth for capture, apply, and verify. Returns
+   * the ordered address list that should be stored/written/verified.
+   */
+  private audibleAddresses(channel: number, on: number, faderFloat: number): string[] {
+    const muted = on === BehringerXAirDriver.OFF;
+    if (muted) return [chOn(channel)]; // inaudible → mute only
+    const addresses = [chOn(channel), chFader(channel)];
+    // fader at −∞ (float 0) → the channel is unmuted but silent, so gain is
+    // inaudible; include it only when the fader is actually passing signal.
+    if (faderFloat > 0 && this.features.includes("gain-control")) addresses.push(headampGain(channel));
+    return addresses;
+  }
+
+  /**
+   * Capture the current board into an address→value map (Req 10.8), storing ONLY
+   * the audible fields per channel (see section header). Uses bounded-retry
+   * read-back; if any channel's REQUIRED field cannot be confirmed, FAIL naming
+   * the channel(s) rather than saving a partial/stale snapshot — a wrong stored
+   * value would later be applied as a live audio fault.
    */
   async capturePreset(): Promise<MixerPresetPayload> {
     const payload: MixerPresetPayload = {};
     const unconfirmed: number[] = [];
 
     for (let channel = 1; channel <= this.channelCount; channel++) {
-      const faderValues = await this.queryWithRetry(chFader(channel));
+      // mix/on and fader are always needed to even DECIDE audibility.
       const onValues = await this.queryWithRetry(chOn(channel));
-      const gainValues = this.features.includes("gain-control") ? await this.queryWithRetry(headampGain(channel)) : [];
-
-      const faderOk = faderValues && typeof faderValues[0] === "number";
-      const onOk = onValues && typeof onValues[0] === "number";
-      const gainOk = !this.features.includes("gain-control") || (gainValues && typeof gainValues[0] === "number");
-
-      if (!faderOk || !onOk || !gainOk) {
+      const faderValues = await this.queryWithRetry(chFader(channel));
+      const on = onValues && typeof onValues[0] === "number" ? onValues[0] : null;
+      const faderFloat = faderValues && typeof faderValues[0] === "number" ? faderValues[0] : null;
+      if (on === null || faderFloat === null) {
         unconfirmed.push(channel);
         continue;
       }
 
-      payload[chFader(channel)] = faderValues[0] as number;
-      payload[chOn(channel)] = onValues[0] as number;
-      if (this.features.includes("gain-control") && gainValues && typeof gainValues[0] === "number") {
-        payload[headampGain(channel)] = gainValues[0];
+      const addresses = this.audibleAddresses(channel, on, faderFloat);
+      // Store the already-confirmed on/fader; fetch gain only if audible.
+      let gainOk = true;
+      let gainValue: number | null = null;
+      if (addresses.includes(headampGain(channel))) {
+        const gainValues = await this.queryWithRetry(headampGain(channel));
+        if (gainValues && typeof gainValues[0] === "number") gainValue = gainValues[0];
+        else gainOk = false;
+      }
+      if (!gainOk) {
+        unconfirmed.push(channel);
+        continue;
+      }
+
+      for (const address of addresses) {
+        if (address === chOn(channel)) payload[address] = on;
+        else if (address === chFader(channel)) payload[address] = faderFloat;
+        else if (gainValue !== null) payload[address] = gainValue;
       }
     }
 
@@ -667,19 +783,230 @@ export class BehringerXAirDriver implements MixerControlInterface {
     return payload;
   }
 
-  /** Apply a preset payload — write each address. Entries beyond channelCount are harmless (Req 3.2). */
-  async activatePreset(payload: MixerPresetPayload): Promise<void> {
-    for (const [address, value] of Object.entries(payload)) {
-      if (typeof value === "number") {
-        // Faders/gain are floats; mix/on is an int. Infer from the address.
-        const type = /\/mix\/on$/.test(address) ? "i" : "f";
-        this.transport.send(address, type, [value]);
+  /**
+   * Apply a preset payload with SPIKE-SAFE write ordering, then verify the
+   * written fields via scoped PARALLEL read-back (Req 3.2, RTT budget).
+   *
+   * SPIKE-SAFE ORDERING: over UDP the writes are unordered on the wire, but we
+   * still sequence the risky transitions so a channel never passes audio at the
+   * wrong level even momentarily:
+   *   • going AUDIBLE (on=1): write gain + fader FIRST, then unmute LAST, so the
+   *     level is correct before any sound is let through.
+   *   • going MUTED (on=0):   write mute FIRST, so sound is cut before any
+   *     (irrelevant) level writes — though for a muted channel we only write mute.
+   *
+   * VERIFY: stored values came from reading the board, so the console should
+   * report them back; floats compare within PRESET_VERIFY_TOLERANCE (float32 wire
+   * vs float64 JSON, console quantization), mute exactly. Writes are PACED and
+   * channels that don't verify are RE-WRITTEN for up to PRESET_MAX_ROUNDS — UDP
+   * to the X Air drops packets under burst, so one miss must not fail a preset.
+   * Read-backs run in PARALLEL across channels/fields (every address is distinct).
+   */
+  async activatePreset(payload: MixerPresetPayload): Promise<{ unconfirmedChannels: number[] }> {
+    // Group payload entries by channel so we can order each channel's writes and
+    // verify per channel. Keep only addresses we understand (fader/on/gain).
+    const byChannel = this.groupPresetByChannel(payload);
+    const startedAt = Date.now();
+
+    // Drop /xremote echoes of our own writes for every address we touch, for the
+    // whole apply (+ guard). Otherwise each echo is broadcast as an "external
+    // change" — dozens of full-state broadcasts that make channels jump one by one.
+    const holdEchoes = (): void => {
+      const until =
+        Date.now() + PRESET_MAX_ROUNDS * (READBACK_TIMEOUT_MS + PRESET_VERIFY_SETTLE_MS + byChannel.size * PRESET_WRITE_STAGGER_MS) + SELF_ECHO_GUARD_MS;
+      for (const entry of byChannel.values()) {
+        for (const address of [entry.onAddress, entry.faderAddress, entry.gainAddress, chMix(entry.channel)]) {
+          if (address) this.selfWriteUntil.set(address, until);
+        }
+      }
+    };
+    holdEchoes();
+
+    // Write → settle → read back → re-write ONLY the channels that did not match.
+    // A dropped UDP packet (the likely cause of a single unconfirmed channel) gets
+    // another chance instead of failing the whole preset on the first miss.
+    let pending = Array.from(byChannel.values());
+    const confirmed = new Map<number, PresetReported>();
+    for (let round = 1; round <= PRESET_MAX_ROUNDS && pending.length > 0; round++) {
+      await this.writePresetEntries(pending);
+      await sleep(PRESET_VERIFY_SETTLE_MS);
+      const outcomes = await Promise.all(pending.map(async (entry) => ({ entry, reported: await this.readPresetEntry(entry) })));
+      const stillPending: PresetChannelEntry[] = [];
+      for (const { entry, reported } of outcomes) {
+        if (reported) confirmed.set(entry.channel, reported);
+        else stillPending.push(entry);
+      }
+      if (stillPending.length > 0) {
+        logger.warn("Preset apply round left channel(s) unconfirmed", {
+          context: { mixerId: this.config.mixerId, round, maxRounds: PRESET_MAX_ROUNDS, channels: stillPending.map((e) => e.channel) },
+        });
+      }
+      pending = stillPending;
+    }
+
+    // Publish the board-REPORTED values (mixer is authoritative) once, together.
+    for (const [channel, reported] of confirmed) this.applyReportedChannel(channel, reported);
+    holdEchoes(); // absorb trailing echoes for a beat after the final read
+
+    const unconfirmedChannels = pending.map((entry) => entry.channel).sort((a, b) => a - b);
+    logger.info("Preset apply finished", {
+      context: { mixerId: this.config.mixerId, channels: byChannel.size, confirmed: confirmed.size, unconfirmedChannels, elapsedMs: Date.now() - startedAt },
+    });
+    return { unconfirmedChannels };
+  }
+
+  /**
+   * Spike-safe, PACED writes for the given channels (see activatePreset). The
+   * per-channel stagger keeps bursts inside the console's UDP buffer.
+   *
+   * GROUPED WRITES (verified on an XR18V2, fw 1.26): the X Air accepts a
+   * multi-type-tag set on the mix NODE — `/ch/NN/mix ,if <on> <fader>` sets mute
+   * and fader in ONE message (the node's field order is on, fader, lr, pan; a
+   * shorter tag list sets the leading fields). This halves the mute+fader traffic
+   * and means the two can never land out of order. OSC BUNDLES were tested and
+   * are SILENTLY IGNORED by the board — do not use them.
+   *
+   * Ordering: gain is its own node (/headamp/NN/gain). Going audible we write
+   * gain FIRST so the preamp is right before the grouped unmute+fader lands;
+   * going muted we write the grouped mute+fader first, then any gain.
+   */
+  private async writePresetEntries(entries: PresetChannelEntry[]): Promise<void> {
+    for (const entry of entries) {
+      const writeMixGroup = (): void => {
+        if (entry.on !== undefined && entry.fader !== undefined) {
+          this.transport.send(chMix(entry.channel), "if", [entry.on, entry.fader]);
+        } else {
+          // Only one of the two present (e.g. muted channel → mute only).
+          if (entry.on !== undefined) this.transport.send(entry.onAddress!, "i", [entry.on]);
+          if (entry.fader !== undefined) this.transport.send(entry.faderAddress!, "f", [entry.fader]);
+        }
+      };
+      if (entry.on === BehringerXAirDriver.ON) {
+        if (entry.gain !== undefined) this.transport.send(entry.gainAddress!, "f", [entry.gain]);
+        writeMixGroup();
       } else {
-        this.transport.send(address, "s", [value]);
+        writeMixGroup();
+        if (entry.gain !== undefined) this.transport.send(entry.gainAddress!, "f", [entry.gain]);
+      }
+      await sleep(PRESET_WRITE_STAGGER_MS);
+    }
+  }
+
+  /** Parsed, per-channel view of a preset payload for ordered write + verify. */
+  private groupPresetByChannel(payload: MixerPresetPayload): Map<number, PresetChannelEntry> {
+    const byChannel = new Map<number, PresetChannelEntry>();
+    const ensure = (channel: number): PresetChannelEntry => {
+      let entry = byChannel.get(channel);
+      if (!entry) {
+        entry = { channel };
+        byChannel.set(channel, entry);
+      }
+      return entry;
+    };
+    for (const [address, value] of Object.entries(payload)) {
+      if (typeof value !== "number") continue; // fader/on/gain are all numeric
+      const onMatch = /^\/ch\/(\d+)\/mix\/on$/.exec(address);
+      if (onMatch) {
+        const entry = ensure(Number(onMatch[1]));
+        entry.on = value;
+        entry.onAddress = address;
+        continue;
+      }
+      const faderMatch = /^\/ch\/(\d+)\/mix\/fader$/.exec(address);
+      if (faderMatch) {
+        const entry = ensure(Number(faderMatch[1]));
+        entry.fader = value;
+        entry.faderAddress = address;
+        continue;
+      }
+      const gainMatch = /^\/headamp\/(\d+)\/gain$/.exec(address);
+      if (gainMatch) {
+        const entry = ensure(Number(gainMatch[1]));
+        entry.gain = value;
+        entry.gainAddress = address;
       }
     }
-    // Reconcile all written channels so clients reflect the mixer-reported result.
-    await this.refreshAllChannels();
+    // Apply the audibility rule at APPLY time too, so presets captured before the
+    // rule existed (all 3 fields for every channel) behave exactly like new ones:
+    // muted → mute only; unmuted at −∞ → mute + fader; otherwise all three. This
+    // also cuts a legacy 16-channel preset from 32 writes/32 reads to ~17.
+    for (const entry of byChannel.values()) {
+      if (entry.on === BehringerXAirDriver.OFF) {
+        delete entry.fader;
+        delete entry.faderAddress;
+        delete entry.gain;
+        delete entry.gainAddress;
+      } else if (entry.fader === 0) {
+        delete entry.gain;
+        delete entry.gainAddress;
+      }
+    }
+    return byChannel;
+  }
+
+  /**
+   * Read back one channel's written fields (single attempt per address — retries
+   * happen at the round level, which also RE-WRITES). Returns the board-reported
+   * values when every field matches its stored value (mute exact, floats within
+   * PRESET_VERIFY_TOLERANCE), or null if any field is missing or mismatched.
+   */
+  private async readPresetEntry(entry: PresetChannelEntry): Promise<PresetReported | null> {
+    // When both mute and fader are in the preset, ONE grouped node query returns
+    // both (`,ifif on fader lr pan`); otherwise query the single leaf address.
+    const grouped = entry.on !== undefined && entry.fader !== undefined;
+    const ask = (address: string): Promise<Array<number | string | Uint8Array> | null> => this.pacedQuery(address, PRESET_READ_TIMEOUT_MS);
+    const [mix, onLeaf, faderLeaf, gain] = await Promise.all([
+      grouped ? ask(chMix(entry.channel)) : Promise.resolve(null),
+      !grouped && entry.on !== undefined ? ask(entry.onAddress!) : Promise.resolve(null),
+      !grouped && entry.fader !== undefined ? ask(entry.faderAddress!) : Promise.resolve(null),
+      entry.gain !== undefined ? ask(entry.gainAddress!) : Promise.resolve(null),
+    ]);
+    const on = grouped ? (mix ? [mix[0]] : null) : onLeaf;
+    const fader = grouped ? (mix && mix.length >= 2 ? [mix[1]] : null) : faderLeaf;
+    const reported: PresetReported = {};
+    if (entry.on !== undefined) {
+      if (!on || on[0] !== entry.on) return null;
+      reported.on = entry.on;
+    }
+    if (entry.fader !== undefined) {
+      if (!fader || typeof fader[0] !== "number" || Math.abs(fader[0] - entry.fader) > PRESET_VERIFY_TOLERANCE) return null;
+      reported.fader = fader[0];
+    }
+    if (entry.gain !== undefined) {
+      if (!gain || typeof gain[0] !== "number" || Math.abs(gain[0] - entry.gain) > PRESET_VERIFY_TOLERANCE) return null;
+      reported.gain = gain[0];
+    }
+    this.emitLiveness();
+    return reported;
+  }
+
+  /**
+   * Send a query no sooner than PRESET_QUERY_STAGGER_MS after the previous paced
+   * query, then await its reply. MEASURED on the XR18 (fw 1.26): a burst of 32
+   * simultaneous queries intermittently loses replies (one run: 16/32 answered,
+   * channels 1–8 missing; another: 31/32) — the board drops part of the burst.
+   * Pacing at 1 ms answered 32/32 every time in ~37 ms total. Each lost reply
+   * otherwise costs a full read timeout PLUS a re-write round. Only the SEND is
+   * serialized; replies are still awaited in parallel.
+   */
+  private pacedQuery(address: string, timeoutMs: number): Promise<Array<number | string | Uint8Array> | null> {
+    const slot = this.queryGate.then(() => sleep(PRESET_QUERY_STAGGER_MS));
+    this.queryGate = slot;
+    return slot.then(() => this.query(address, timeoutMs));
+  }
+
+  /** Apply board-reported values to channel state, emitting ONE state change. */
+  private applyReportedChannel(channel: number, reported: PresetReported): void {
+    const state = this.channels.get(channel);
+    if (!state) return;
+    if (reported.on !== undefined) state.muted = reported.on === BehringerXAirDriver.OFF;
+    if (reported.fader !== undefined) {
+      state.fader = reported.fader;
+      state.faderDb = faderFloatToDb(reported.fader);
+    }
+    if (reported.gain !== undefined) state.gainDb = gainFloatToDb(reported.gain, X_AIR_GAIN_RANGE.minDb, X_AIR_GAIN_RANGE.maxDb);
+    state.unreconciled = false;
+    this.emitState(state);
   }
 
   private async queryWithRetry(address: string): Promise<Array<number | string | Uint8Array> | null> {

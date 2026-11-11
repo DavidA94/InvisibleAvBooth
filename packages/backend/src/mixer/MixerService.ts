@@ -171,10 +171,22 @@ export class MixerService {
     };
   }
 
+  // Coalesce state broadcasts per mixer onto a microtask. Every driver state
+  // change used to trigger a full-state build + broadcast (including a DB query
+  // for the preset list); a preset apply or a burst of /xremote pushes produced
+  // dozens back-to-back. Coalescing sends ONE broadcast of the final state per
+  // tick — clients lose nothing because each broadcast is the full state.
+  private readonly broadcastScheduled = new Set<string>();
+
   private broadcastState(mixerId: string): void {
-    const instance = this.instances.get(mixerId);
-    if (!instance) return;
-    eventBus.emit(BUS_MIXER_STATE_CHANGED, { mixerId, state: this.buildState(instance) });
+    if (this.broadcastScheduled.has(mixerId)) return;
+    this.broadcastScheduled.add(mixerId);
+    queueMicrotask(() => {
+      this.broadcastScheduled.delete(mixerId);
+      const instance = this.instances.get(mixerId);
+      if (!instance) return;
+      eventBus.emit(BUS_MIXER_STATE_CHANGED, { mixerId, state: this.buildState(instance) });
+    });
   }
 
   // ── Commands ───────────────────────────────────────────────────────────────
@@ -194,7 +206,7 @@ export class MixerService {
     }
   }
 
-  async activatePreset(mixerId: string, presetId: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  async activatePreset(mixerId: string, presetId: string): Promise<{ ok: true } | { ok: false; error: string; unconfirmedChannels?: number[] }> {
     const instance = this.instances.get(mixerId);
     if (!instance) return { ok: false, error: "Mixer not found" };
     const row = this.database.prepare("SELECT payload FROM mixer_presets WHERE id = ? AND mixerId = ?").get(presetId, mixerId) as
@@ -202,7 +214,14 @@ export class MixerService {
     if (!row) return { ok: false, error: "Preset not found" };
     try {
       const payload = JSON.parse(row.payload) as MixerPresetPayload;
-      await instance.driver.activatePreset(payload);
+      const { unconfirmedChannels } = await instance.driver.activatePreset(payload);
+      if (unconfirmedChannels.length > 0) {
+        return {
+          ok: false,
+          error: `Mixer did not confirm channel(s): ${unconfirmedChannels.join(", ")}`,
+          unconfirmedChannels,
+        };
+      }
       return { ok: true };
     } catch (error) {
       return { ok: false, error: (error as Error).message };

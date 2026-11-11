@@ -6,17 +6,21 @@ import { MixerService } from "./MixerService.js";
 import type { MixerDriverFactory } from "./MixerService.js";
 import type { MixerControlInterface, MixerDriverConfig } from "./MixerControlInterface.js";
 import { eventBus } from "../eventBus/eventBus.js";
-import { BUS_MIXER_DEVICE_CHANGED } from "../eventBus/types.js";
+import { BUS_MIXER_DEVICE_CHANGED, BUS_MIXER_STATE_CHANGED } from "../eventBus/types.js";
+import type { MixerChannelState } from "@invisible-av-booth/shared";
 
 vi.mock("../logger.js", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
 
 /** A minimal fake driver capturing calls, produced by a factory we can inspect. */
-function makeFakeDriver(config: MixerDriverConfig): MixerControlInterface & { metering: boolean; connectCount: number } {
+function makeFakeDriver(
+  config: MixerDriverConfig,
+): MixerControlInterface & { metering: boolean; connectCount: number; stateListeners: Array<(state: MixerChannelState) => void> } {
   const driver = {
     metering: false,
     connectCount: 0,
+    stateListeners: [] as Array<(state: MixerChannelState) => void>,
     connect: vi.fn(async () => {
       driver.connectCount++;
       return true;
@@ -30,12 +34,15 @@ function makeFakeDriver(config: MixerDriverConfig): MixerControlInterface & { me
     getChannelState: () => null,
     getAllChannelStates: () => [],
     capturePreset: vi.fn(async () => ({ "/ch/01/mix/fader": 0.5 })),
-    activatePreset: vi.fn(async () => {}),
+    activatePreset: vi.fn(async () => ({ unconfirmedChannels: [] })),
     onMeterUpdate: () => () => {},
     setMeteringEnabled: vi.fn((enabled: boolean) => {
       driver.metering = enabled;
     }),
-    onStateChange: () => () => {},
+    onStateChange: (listener: (state: MixerChannelState) => void) => {
+      driver.stateListeners.push(listener);
+      return () => {};
+    },
     onLiveness: () => () => {},
   };
   return driver;
@@ -122,6 +129,20 @@ describe("MixerService", () => {
     expect(driver.setGain).not.toHaveBeenCalled(); // gain-control disabled
   });
 
+  it("coalesces a burst of driver state changes into ONE state broadcast", async () => {
+    insertMixer(database, "m1");
+    await service.initialize();
+    await Promise.resolve(); // flush the connect-time broadcast
+    const broadcasts: unknown[] = [];
+    eventBus.subscribe(BUS_MIXER_STATE_CHANGED, (payload) => broadcasts.push(payload));
+    const channel = { channel: 1, name: "Ch 1", fader: 0.5, faderDb: -10, muted: false, gainDb: 0 };
+    for (const listener of drivers.get("m1")!.stateListeners) {
+      for (let i = 0; i < 20; i++) listener(channel);
+    }
+    await Promise.resolve();
+    expect(broadcasts).toHaveLength(1);
+  });
+
   it("setChannel is a no-op for an unknown mixer", async () => {
     await service.initialize();
     await expect(service.setChannel("nope", { mixerId: "nope", channel: 1, fader: 0.5 })).resolves.toBeUndefined();
@@ -143,6 +164,21 @@ describe("MixerService", () => {
     await service.initialize();
     expect((await service.activatePreset("nope", "p1")).ok).toBe(false);
     expect((await service.activatePreset("m1", "nope")).ok).toBe(false);
+  });
+
+  it("activatePreset reports failure (with channels) when the driver cannot confirm", async () => {
+    insertMixer(database, "m1");
+    await service.initialize();
+    database
+      .prepare("INSERT INTO mixer_presets (id, mixerId, name, sortOrder, payload, createdAt) VALUES (?,?,?,?,?,?)")
+      .run("p1", "m1", "Test", 0, JSON.stringify({ "/ch/01/mix/fader": 0.8 }), new Date().toISOString());
+    drivers.get("m1")!.activatePreset = vi.fn(async () => ({ unconfirmedChannels: [1, 3] }));
+    const result = await service.activatePreset("m1", "p1");
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.unconfirmedChannels).toEqual([1, 3]);
+      expect(result.error).toMatch(/1, 3/);
+    }
   });
 
   it("capturePreset delegates to the driver; throws for unknown mixer", async () => {

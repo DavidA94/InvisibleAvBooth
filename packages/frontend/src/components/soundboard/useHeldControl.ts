@@ -1,55 +1,64 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CONTROL_THROTTLE_MS, CONTROL_SETTLE_MS } from "@invisible-av-booth/shared";
+import { CONTROL_DEBOUNCE_MS, CONTROL_MAX_WAIT_MS } from "@invisible-av-booth/shared";
 
 export interface HeldControl {
-  /** The value to display (local while adjusting, backend otherwise). */
+  /** The value to display (local while interacting, backend value otherwise). */
   value: number;
-  /** Feed a value that arrived from the backend. Dropped only during the settle window. */
+  /** Feed a value that arrived from the backend. Always applied (see WHY below). */
   onBackendValue: (value: number) => void;
-  /** Report a local change (drag). Updates value immediately, emits throttled. */
+  /** Report a local change (drag). Updates value immediately, sends debounced. */
   onLocalChange: (value: number) => void;
-  /** Report release (pointer/touch up). Guarantees a final emit of the exact value. */
+  /** Report release (pointer/touch up). Guarantees a final send of the exact value. */
   onRelease: (value: number) => void;
 }
 
 /**
- * Local-authority hold for a continuous control (Req 8).
+ * Local-display hold for a continuous control (fader / gain), Req 8.
  *
- * The problem this solves: while the volunteer moves a fader/gain, the backend is
- * also streaming that control's state back. Under congestion those inbound
- * updates can be STALE (a value that predates the latest local change), and if
- * applied they make the control visibly jump to an old value and then snap back
- * when the correct one lands — the live "jump to another value and back" bug.
+ * WHAT THIS SOLVES, AND WHO OWNS WHAT
+ * -----------------------------------
+ * While the volunteer moves a control, two things happen at once: the UI must
+ * track their finger smoothly, AND the backend is streaming the control's real
+ * value back (the mixer rounds/clamps, e.g. you command 2.5 dB and the console
+ * lands on 2.0 dB — that 2.0 is the truth and must become the live value).
  *
- * WHY a short SETTLE WINDOW rather than confirmation-matching: we cannot wait for
- * an inbound value that EQUALS what we commanded — the X Air rounds to its own
- * grid (command 2.5 dB, the console settles at 2.6 dB), so an exact match may
- * NEVER arrive. The mixer is authoritative: its rounded value is the truth and
- * must be shown. So after the last local change we drop inbound values for just
- * CONTROL_SETTLE_MS — long enough to let pre-command stragglers flush — then
- * accept the next backend value UNCONDITIONALLY, rounding and all. The backend
- * already guarantees it only broadcasts reads that post-date the latest write
- * (coalescing worker + per-address epoch), so the first value after the settle
- * window is the mixer's genuine answer to our command.
+ * Earlier variants tried to filter inbound values on the FRONTEND (suppress /
+ * settle windows) to avoid a stale echo yanking the thumb. That was the wrong
+ * layer: while the user kept nudging, the window never closed, so the mixer's
+ * genuine value was hidden until release — and a stale echo at the window edge
+ * still slipped through. The correct owner of "is this value stale?" is the
+ * BACKEND, which stamps every write with a sequence and only ever broadcasts a
+ * read-back that is still the latest write for that address (see
+ * BehringerXAirDriver writeSeq/broadcastSeq). Superseded read-backs are dropped
+ * before they leave the server.
  *
- * CONTROL_SETTLE_MS is tied to the backend read-back timeout (the earliest a
- * genuine answer can arrive), so the window closes right about when the real
- * answer shows up — stragglers are filtered, the true value is not.
+ * GIVEN that backend guarantee, this hook is simple and correct:
+ *   • onLocalChange shows the finger position immediately (local authority while
+ *     interacting) and schedules a debounced send.
+ *   • onBackendValue is applied UNCONDITIONALLY — anything the backend sends is,
+ *     by construction, the newest settled truth. This is what lets a mid-hold
+ *     correction (2.5→2.0) appear even while the control is still held.
+ *   • onRelease forces an immediate final send of the exact released value.
  *
- * NOT used for discrete controls (mute, preset) — those reflect backend state
- * immediately.
+ * OUTBOUND: DEBOUNCE + MAX-WAIT
+ * -----------------------------
+ * We do NOT send every intermediate value (that floods the board and the wire).
+ * Instead we debounce: a send fires CONTROL_DEBOUNCE_MS after the user goes
+ * quiet. But a pure debounce would send NOTHING during a continuous slow drag or
+ * a held-and-nudged thumb — so the board would not track and the authoritative
+ * value could not flow back until release. MAX-WAIT fixes that: regardless of
+ * how continuously the user moves, we force a send at least every
+ * CONTROL_MAX_WAIT_MS. Release always forces a final send immediately.
  */
 export function useHeldControl(initial: number, emit: (value: number) => void): HeldControl {
   const [value, setValue] = useState(initial);
 
-  // Timestamp of the last local change/release. Inbound values are dropped while
-  // now - lastLocalChange < CONTROL_SETTLE_MS, then accepted (mixer is authority).
-  const lastLocalChangeRef = useRef<number>(0);
-
-  // Outbound throttle bookkeeping.
-  const lastEmitRef = useRef<number>(0);
-  const trailingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const throttleValueRef = useRef<number | null>(null);
+  // Latest value the user has dialed in but not yet sent.
+  const pendingValueRef = useRef<number | null>(null);
+  // Debounce timer (fires after the user goes quiet).
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Timestamp of the first un-sent change in the current burst (for max-wait).
+  const burstStartRef = useRef<number>(0);
 
   // Keep the latest emit fn without retriggering effects.
   const emitRef = useRef(emit);
@@ -57,59 +66,66 @@ export function useHeldControl(initial: number, emit: (value: number) => void): 
     emitRef.current = emit;
   }, [emit]);
 
-  const clearTrailing = useCallback(() => {
-    if (trailingTimerRef.current) {
-      clearTimeout(trailingTimerRef.current);
-      trailingTimerRef.current = null;
+  const clearDebounce = useCallback(() => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = null;
     }
   }, []);
 
+  /** Send the pending value now and reset the burst bookkeeping. */
+  const flush = useCallback(() => {
+    clearDebounce();
+    burstStartRef.current = 0;
+    if (pendingValueRef.current !== null) {
+      const toSend = pendingValueRef.current;
+      pendingValueRef.current = null;
+      emitRef.current(toSend);
+    }
+  }, [clearDebounce]);
+
   const onBackendValue = useCallback((incoming: number) => {
-    // Drop only pre-command stragglers within the settle window; after it, accept
-    // the mixer's value verbatim (it is authoritative, including its rounding).
-    if (Date.now() - lastLocalChangeRef.current < CONTROL_SETTLE_MS) return;
+    // Applied unconditionally — the backend guarantees it only broadcasts the
+    // latest settled value for this address, so there is nothing to filter.
     setValue(incoming);
   }, []);
 
-  const onLocalChange = useCallback((next: number) => {
-    lastLocalChangeRef.current = Date.now();
-    setValue(next);
+  const onLocalChange = useCallback(
+    (next: number) => {
+      setValue(next); // local display authority while interacting
+      pendingValueRef.current = next;
 
-    // Outbound throttle while dragging, with a guaranteed trailing emit.
-    throttleValueRef.current = next;
-    const sinceEmit = Date.now() - lastEmitRef.current;
-    if (sinceEmit >= CONTROL_THROTTLE_MS) {
-      lastEmitRef.current = Date.now();
-      emitRef.current(next);
-      throttleValueRef.current = null;
-    } else if (!trailingTimerRef.current) {
-      trailingTimerRef.current = setTimeout(() => {
-        trailingTimerRef.current = null;
-        if (throttleValueRef.current !== null) {
-          lastEmitRef.current = Date.now();
-          emitRef.current(throttleValueRef.current);
-          // The trailing emit is a fresh local change — restart the settle window
-          // so stragglers from before it are still filtered.
-          lastLocalChangeRef.current = Date.now();
-          throttleValueRef.current = null;
-        }
-      }, CONTROL_THROTTLE_MS - sinceEmit);
-    }
-  }, []);
+      const now = Date.now();
+      if (burstStartRef.current === 0) burstStartRef.current = now;
+
+      // MAX-WAIT: if we have been accumulating changes for at least this long
+      // without a send, fire immediately so the board tracks a continuous drag
+      // and the authoritative value can echo back mid-hold.
+      if (now - burstStartRef.current >= CONTROL_MAX_WAIT_MS) {
+        flush();
+        return;
+      }
+
+      // Otherwise (re)arm the debounce — a send fires once the user goes quiet.
+      clearDebounce();
+      debounceTimerRef.current = setTimeout(() => {
+        debounceTimerRef.current = null;
+        flush();
+      }, CONTROL_DEBOUNCE_MS);
+    },
+    [clearDebounce, flush],
+  );
 
   const onRelease = useCallback(
     (finalValue: number) => {
-      lastLocalChangeRef.current = Date.now();
-      clearTrailing();
-      throttleValueRef.current = null;
       setValue(finalValue);
-      lastEmitRef.current = Date.now();
-      emitRef.current(finalValue); // guaranteed final emit
+      pendingValueRef.current = finalValue;
+      flush(); // guaranteed immediate final send of the exact released value
     },
-    [clearTrailing],
+    [flush],
   );
 
-  useEffect(() => clearTrailing, [clearTrailing]);
+  useEffect(() => clearDebounce, [clearDebounce]);
 
   return { value, onBackendValue, onLocalChange, onRelease };
 }

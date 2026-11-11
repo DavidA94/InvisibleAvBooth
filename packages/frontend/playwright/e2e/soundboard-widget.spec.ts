@@ -49,7 +49,13 @@ async function setupSocket(page: Page, initial = [mixerState()]): Promise<{ last
       const setMatch = text.match(/^\d+\["cts:mixer:set",(.*)\]$/);
       if (setMatch) lastSet = JSON.parse(setMatch[1]!);
       const presetMatch = text.match(/^\d+\["cts:mixer:preset:activate",(.*)\]$/);
-      if (presetMatch) lastPresetActivate = JSON.parse(presetMatch[1]!);
+      if (presetMatch) {
+        lastPresetActivate = JSON.parse(presetMatch[1]!);
+        // The backend applies + verifies, then acks the requesting socket; mimic
+        // a successful ack so the button leaves its loading state and toasts.
+        const { mixerId, presetId } = lastPresetActivate as { mixerId: string; presetId: string };
+        ws.send(`42["stc:mixer:preset:result",${JSON.stringify({ mixerId, presetId, ok: true })}]`);
+      }
     });
   });
 
@@ -119,7 +125,7 @@ test.describe("Sound Board widget", () => {
     await expect.poll(() => socket.lastSet()).toMatchObject({ mixerId: "mix1", channel: 1, muted: true });
   });
 
-  test("activating a preset emits cts:mixer:preset:activate and shows a toast", async ({ page }) => {
+  test("activating a preset emits cts:mixer:preset:activate and toasts after the backend ack", async ({ page }) => {
     await routeAuthLogin(page, volunteerLogin);
     await routeAuthCheck(page, volunteerLogin);
     await setupDashboard(page);
@@ -127,7 +133,9 @@ test.describe("Sound Board widget", () => {
     await loginAndNavigate(page);
 
     await page.getByTestId("mixer-preset-button-p1").click();
+    // The CTS activate was emitted…
     await expect.poll(() => socket.lastPresetActivate()).toMatchObject({ mixerId: "mix1", presetId: "p1" });
+    // …and the success toast appears only after the backend ack (mock replies ok).
     await expect(page.getByText("Applied: Singers")).toBeVisible();
   });
 

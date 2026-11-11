@@ -17,7 +17,7 @@ const MIXER_STATE: MixerState = {
 
 describe("mixerSlice", () => {
   beforeEach(() => {
-    useStore.setState({ mixerStates: {}, mixerLevels: {} });
+    useStore.setState({ mixerStates: {}, mixerLevels: {}, pendingPresetIds: [] });
   });
 
   it("setMixerState stores a mixer by id", () => {
@@ -65,5 +65,15 @@ describe("mixerSlice", () => {
     useStore.getState().setMixerLevels("mix1", [{ channel: 1, levelDb: -18 }]);
     useStore.getState().setMixerLevels("mix1", [{ channel: 2, levelDb: -12 }]);
     expect(useStore.getState().mixerLevels["mix1"]).toEqual({ 2: -12 });
+  });
+
+  it("markPresetPending adds an id (idempotent) and clearPresetPending removes it", () => {
+    useStore.getState().markPresetPending("p1");
+    useStore.getState().markPresetPending("p1"); // idempotent
+    expect(useStore.getState().pendingPresetIds).toEqual(["p1"]);
+    useStore.getState().markPresetPending("p2");
+    expect(useStore.getState().pendingPresetIds).toEqual(["p1", "p2"]);
+    useStore.getState().clearPresetPending("p1");
+    expect(useStore.getState().pendingPresetIds).toEqual(["p2"]);
   });
 });

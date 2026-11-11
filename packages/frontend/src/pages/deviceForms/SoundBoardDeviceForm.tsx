@@ -283,7 +283,7 @@ export function SoundBoardDeviceForm({ device, onSaved, onDeleted, registerDirty
                   setPresetModalOpen(true);
                 }}
               >
-                Edit
+                Load &amp; edit
               </IonButton>
               <IonButton slot="end" size="small" fill="clear" color="danger" onClick={() => setPresetDeleteId(preset.id)}>
                 Delete

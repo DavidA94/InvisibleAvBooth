@@ -7,12 +7,13 @@ import {
   STC_MIXER_STATE,
   STC_MIXER_STATE_UPDATE,
   STC_MIXER_LEVELS,
+  STC_MIXER_PRESET_RESULT,
   CTS_MIXER_SET,
   CTS_MIXER_PRESET_ACTIVATE,
   CTS_MIXER_WIDGET_PRESENT,
   METERS_BROADCAST_INTERVAL_MS,
 } from "@invisible-av-booth/shared";
-import type { MixerCommand, MixerChannelLevel } from "@invisible-av-booth/shared";
+import type { MixerCommand, MixerChannelLevel, MixerPresetResult } from "@invisible-av-booth/shared";
 import { logger } from "../../../logger.js";
 
 /**
@@ -139,7 +140,21 @@ export class MixerSocketModule implements SocketModule {
     socket.on(CTS_MIXER_PRESET_ACTIVATE, async (payload: { mixerId: string; presetId: string }) => {
       if (!canOperate || !payload?.mixerId || !payload?.presetId) return;
       logger.info("Mixer preset activate", { userId: jwtPayload.sub, context: { mixerId: payload.mixerId, presetId: payload.presetId } });
-      await this.mixerService.activatePreset(payload.mixerId, payload.presetId);
+      // Apply + verify on the backend, then ack ONLY the requesting socket so its
+      // preset button can end its loading state and toast the real outcome. We do
+      // NOT broadcast this result — other clients see the state change via the
+      // normal STC_MIXER_STATE_UPDATE pipeline; only the tapper needs the ack.
+      const result = await this.mixerService.activatePreset(payload.mixerId, payload.presetId);
+      const ack: MixerPresetResult = result.ok
+        ? { mixerId: payload.mixerId, presetId: payload.presetId, ok: true }
+        : {
+            mixerId: payload.mixerId,
+            presetId: payload.presetId,
+            ok: false,
+            error: result.error,
+            ...(result.unconfirmedChannels ? { unconfirmedChannels: result.unconfirmedChannels } : {}),
+          };
+      socket.emit(STC_MIXER_PRESET_RESULT, ack);
     });
 
     socket.on(CTS_MIXER_WIDGET_PRESENT, (payload: { mixerId: string; present: boolean }) => {

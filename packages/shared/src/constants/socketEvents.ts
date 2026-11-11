@@ -52,6 +52,12 @@ export const STC_MIXER_STATE_UPDATE = "stc:mixer:state:update" as const; // sing
 export const STC_MIXER_LEVELS = "stc:mixer:levels" as const; // per-channel meter levels (throttled)
 export const STC_MIXER_ERROR = "stc:mixer:error" as const; // catastrophic capture-path raise: { errorCode, mixerId, message, level: "modal" }
 export const STC_MIXER_ERROR_RESOLVED = "stc:mixer:error:resolved" as const; // resolution: { errorCode } → removeNotification(errorCode)
+// Result ack for a preset activation, sent ONLY to the requesting socket (not a
+// broadcast): { mixerId, presetId, ok, unconfirmedChannels?, error? }. Drives the
+// preset button's loading→done transition and the success/failure toast. The
+// backend applies the preset, verifies the audible fields via scoped read-back,
+// then emits this so the button never guesses — it reflects the mixer's reality.
+export const STC_MIXER_PRESET_RESULT = "stc:mixer:preset:result" as const;
 
 // ── Mixer (Sound Board): Client → Server ──────────────────────────────────────
 

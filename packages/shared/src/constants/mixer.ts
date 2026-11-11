@@ -14,38 +14,52 @@
 export const LEVEL_AXIS_MAX_DBFS = 0;
 export const LEVEL_AXIS_MIN_DBFS = -60;
 
-// ── Interaction hold model (Req 8) ───────────────────────────────────────────
+// ── Interaction hold model (Req 8, revised) ──────────────────────────────────
 //
-// Inbound settle window (revised — replaces both the old fixed CONTROL_SUPPRESS_MS
-// window and the short-lived confirmation-match approach). After the UI commands
-// a fader/gain value it drops inbound backend values for only this long — just
-// enough to flush pre-command stragglers that would otherwise make the control
-// jump to a stale value — then ACCEPTS the next backend value unconditionally.
+// REVISION HISTORY (why this looks different from older variants): we previously
+// tried (a) a fixed "suppress inbound" window and (b) a settle-window that
+// dropped inbound values for a while after the last local change. BOTH relocated
+// the "phantom re-slide" bug instead of fixing it: while the user kept nudging a
+// control the window never closed, so the mixer's genuine (rounded/clamped)
+// value was hidden until release — and a stale echo arriving right at the window
+// edge still yanked the thumb.
 //
-// WHY unconditional-after-window (not confirmation-match): the mixer is
-// authoritative and the X Air rounds to its own grid (command 2.5 dB, the
-// console settles at 2.6 dB). An exact-match confirmation may NEVER arrive, so
-// waiting for one would hide the mixer's true value behind a stale local value
-// until a backstop fired — the same jump bug relocated. Instead we trust the
-// backend's guarantee that it only broadcasts reads POST-DATING the latest write
-// (coalescing worker + per-address epoch), so the first value after this window
-// is the mixer's genuine (possibly rounded) answer and must be shown.
+// THE REAL FIX LIVES ON THE BACKEND: the driver stamps every write to an address
+// with a monotonically increasing sequence and only ever broadcasts a read-back
+// that is STILL the latest write for that address (SEE BehringerXAirDriver
+// writeSeq/broadcastSeq). A superseded set's read-back is dropped before it ever
+// reaches a client. Given that guarantee, the frontend does NOT need to filter
+// inbound values at all — anything the backend sends is, by construction, the
+// newest settled truth. So the hook now:
+//   • shows the user's live finger position while they interact,
+//   • ACCEPTS every inbound backend value unconditionally (no settle/suppress),
+//   • sends OUTBOUND with debounce + max-wait (below), and
+//   • forces a final send on release.
 //
-// Sized to the backend read-back timeout (READBACK_TIMEOUT_MS = 250) — the
-// earliest a genuine answer can arrive — so the window closes right as the real
-// value shows up: stragglers filtered, true value not.
-export const CONTROL_SETTLE_MS = 250;
-// Outbound throttle: emit at most this often while dragging, plus a guaranteed
-// final emit on release.
-export const CONTROL_THROTTLE_MS = 50;
+// This is what lets the 2.5→2.0 correction appear even while the control is
+// still held: the backend sends 2.0 as the latest value and the hook applies it.
+
+// Outbound DEBOUNCE: after the last local change, wait this long of quiet before
+// sending (collapses a flurry of micro-adjustments into one send). Small enough
+// that a normal "drag and release" still feels instant via the release-forced
+// emit, large enough to meaningfully coalesce a fast scrub.
+export const CONTROL_DEBOUNCE_MS = 120;
+
+// Outbound MAX-WAIT: even if the user NEVER pauses (continuous slow drag / holds
+// the thumb and keeps nudging), force a send at least this often so the backend
+// can command the board and echo back the authoritative value during the hold.
+// This is the "longer SLA while holding" the design calls for — the board tracks
+// live motion and the true value can flow back without waiting for release.
+export const CONTROL_MAX_WAIT_MS = 300;
 
 // Backend read-back debounce: while a fader/gain is being dragged the UI sends a
-// burst of sets (~every CONTROL_THROTTLE_MS). Each is WRITTEN to the console
-// immediately, but the read-back (which produces a downstream confirmation) is
-// deferred until the burst goes quiet for this long — so the whole drag yields
-// ONE confirmation of the SETTLED value, never a replay of the intermediate
-// values. Must be comfortably larger than CONTROL_THROTTLE_MS (so mid-drag sets
-// keep resetting it) yet small enough to feel immediate after release.
+// burst of sets. Each is WRITTEN to the console immediately (fire-and-forget, so
+// the physical board tracks the motion), but the READ-BACK that produces a
+// downstream broadcast is deferred until the burst goes quiet for this long — so
+// the drag yields confirmations of SETTLED values, not a replay of every
+// intermediate. The backend sequence guard additionally drops any read-back that
+// a newer write superseded, so only the latest value is ever broadcast. Must be
+// comfortably larger than the client's effective send cadence.
 export const COMMAND_DEBOUNCE_MS = 120;
 
 // How long AFTER the last self-write (and after the settled read-back) we keep
@@ -56,6 +70,33 @@ export const COMMAND_DEBOUNCE_MS = 120;
 // changes". Kept modest so a genuine physical-console move right after we let go
 // is still reflected promptly.
 export const SELF_ECHO_GUARD_MS = 400;
+
+// ── Preset apply (write → verify → re-write unconfirmed) ─────────────────────
+//
+// The X Air has a small UDP receive buffer and silently drops packets when a
+// burst of ~48 writes lands at once (the original refresh code staggered for the
+// same reason). So preset apply PACES its writes, waits a short settle for the
+// console to process them, reads back, and RE-WRITES only the channels that did
+// not match — for a bounded number of rounds. Budget: a clean apply is
+// ~(channels × stagger + settle + one round-trip) ≈ 150–250 ms; each retry round
+// adds roughly stagger + settle + READBACK_TIMEOUT_MS, so 3 rounds stay under ~1 s.
+export const PRESET_WRITE_STAGGER_MS = 3; // gap between channels' writes
+export const PRESET_VERIFY_SETTLE_MS = 40; // let the console apply writes before reading back
+export const PRESET_MAX_ROUNDS = 3; // initial write + up to 2 re-writes of unconfirmed channels
+// Float compare tolerance for verify. Stored values came from the board, but they
+// cross float32 (wire) ↔ float64 (JSON) and the console quantizes (fader ≈ 1/1024
+// steps), so exact === can false-fail. Mute (int) is still compared exactly.
+export const PRESET_VERIFY_TOLERANCE = 0.002;
+// Read-back pacing + timeout for preset verify (MEASURED, XR18V2 fw 1.26): 32
+// simultaneous queries intermittently lose replies; paced 1 ms apart they all
+// answer, and an answered query replies in ~1–3 ms. So pace sends at 1 ms and use
+// a short per-query timeout — a genuinely lost reply then costs ~100 ms (and a
+// retry round) instead of the general 250 ms READBACK_TIMEOUT_MS.
+export const PRESET_QUERY_STAGGER_MS = 1;
+export const PRESET_READ_TIMEOUT_MS = 100;
+// Frontend: if no preset ack arrives in this long, stop the spinner and tell the
+// volunteer (a lost ack must never leave a button spinning forever).
+export const PRESET_ACK_TIMEOUT_MS = 5000;
 
 // Mute-confirm window (Req 6, revised): mute is a discrete toggle, so the UI
 // OPTIMISTICALLY shows the commanded On/Off immediately (we trust the command

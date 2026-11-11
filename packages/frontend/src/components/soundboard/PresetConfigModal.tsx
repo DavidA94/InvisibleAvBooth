@@ -4,13 +4,7 @@ import { IonInput, IonButton, IonSpinner, IonText } from "@ionic/react";
 import { Modal } from "../Modal";
 import { SoundBoardWidget } from "./SoundBoardWidget";
 import type { MixerPresetPayload } from "@invisible-av-booth/shared";
-import {
-  TEST_ID_PRESET_NAME_INPUT,
-  TEST_ID_PRESET_SAVE_BUTTON,
-  TEST_ID_PRESET_CANCEL_BUTTON,
-  TEST_ID_PRESET_POSITION_SUMMARY,
-  TEST_ID_PRESET_LOAD_BUTTON,
-} from "../../constants/testIds";
+import { TEST_ID_PRESET_NAME_INPUT, TEST_ID_PRESET_SAVE_BUTTON, TEST_ID_PRESET_CANCEL_BUTTON, TEST_ID_PRESET_POSITION_SUMMARY } from "../../constants/testIds";
 
 /** The existing preset being edited (rename and/or re-capture), or null to create. */
 export interface EditingPreset {
@@ -44,12 +38,19 @@ export function PresetConfigModal({ open, mixerId, editingPreset = null, onClose
   const [error, setError] = useState("");
 
   // Sync the name field when (re)opening — pre-filled when editing, blank for new.
+  // When EDITING, this is a "Load & edit" flow: we auto-apply the preset onto the
+  // live board on open so the admin starts from a KNOWN point and adjusts from
+  // there (rather than dialing it all in from scratch). The apply goes through
+  // the same backend path as the volunteer preset buttons (apply + verify); on
+  // failure we surface an error but still open the modal so the admin can
+  // re-capture/rename — being locked out would be worse.
   useEffect(() => {
-    if (open) {
-      setName(editingPreset?.name ?? "");
-      setPayload(null);
-      setError("");
-    }
+    if (!open) return;
+    setName(editingPreset?.name ?? "");
+    setPayload(null);
+    setError("");
+    if (editingPreset) void autoLoad(editingPreset.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, editingPreset]);
 
   const reset = (): void => {
@@ -58,17 +59,15 @@ export function PresetConfigModal({ open, mixerId, editingPreset = null, onClose
     setError("");
   };
 
-  // Load (apply) the preset being edited onto the live board so the admin starts
-  // from a KNOWN point and adjusts, instead of dialing everything in from scratch.
-  // Only offered when editing an existing preset (a new one has nothing to load).
-  // The live SoundBoardWidget reflects the applied values via the normal state
-  // broadcast, so there is no local payload to track here.
-  const handleLoad = async (): Promise<void> => {
-    if (!editingPreset) return;
+  // Apply (load) the preset being edited onto the live board. Runs automatically
+  // on open for an existing preset (see the open effect above). The live
+  // SoundBoardWidget reflects the applied values via the normal state broadcast,
+  // so there is no local payload to track here.
+  const autoLoad = async (presetId: string): Promise<void> => {
     setLoading(true);
     setError("");
     try {
-      const response = await fetch(`/api/admin/mixers/${mixerId}/presets/${editingPreset.id}/apply`, {
+      const response = await fetch(`/api/admin/mixers/${mixerId}/presets/${presetId}/apply`, {
         method: "POST",
         credentials: "include",
       });
@@ -170,15 +169,12 @@ export function PresetConfigModal({ open, mixerId, editingPreset = null, onClose
         </div>
 
         <div className="layout-row gap-standard">
-          {editingPreset && (
-            <IonButton data-testid={TEST_ID_PRESET_LOAD_BUTTON} size="small" fill="outline" disabled={loading || capturing} onClick={() => void handleLoad()}>
-              {loading ? <IonSpinner name="crescent" /> : "Load preset onto board"}
-            </IonButton>
-          )}
           <IonButton size="small" fill="outline" disabled={capturing || loading} onClick={() => void handleCapture()}>
             {capturing ? <IonSpinner name="crescent" /> : editingPreset ? "Re-capture current board" : "Capture current board"}
           </IonButton>
         </div>
+
+        {editingPreset && loading && <p className="text-muted text-secondary text-small">Loading preset onto board…</p>}
 
         {payload && (
           <p className="text-muted text-secondary" data-testid={TEST_ID_PRESET_POSITION_SUMMARY}>

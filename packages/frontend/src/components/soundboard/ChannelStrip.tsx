@@ -1,11 +1,11 @@
-import { useId, useState } from "react";
+import { memo, useId, useState } from "react";
 import type { ReactNode, CSSProperties } from "react";
 import type { MixerChannelState, MixerFeature } from "@invisible-av-booth/shared";
-import { LEVEL_AXIS_MIN_DBFS, resolveMixerColor } from "@invisible-av-booth/shared";
+import { resolveMixerColor } from "@invisible-av-booth/shared";
 import { useAuth } from "../../hooks/useAuth";
 import { VerticalFader } from "./VerticalFader";
 import { MuteButton } from "./MuteButton";
-import { ChannelLevelMeter } from "./ChannelLevelMeter";
+import { MixerChannelMeter } from "./MixerChannelMeter";
 import { GainPopover } from "./GainPopover";
 import { GainSemicircle } from "./GainSemicircle";
 import {
@@ -21,10 +21,12 @@ interface ChannelStripProps {
   /** Gain range for this mixer (from capabilities), used by the gain popover. */
   gainMinDb: number;
   gainMaxDb: number;
-  /** Pre-fader level in dBFS for this channel (from mixerLevels). */
-  levelDb: number;
-  /** Whether meter data is currently flowing (freshness). */
-  levelEventsFlowing: boolean;
+  /**
+   * Mixer this strip belongs to. The strip's level meter subscribes to its own
+   * channel's level from the store (MixerChannelMeter) so ~12 Hz meter frames
+   * never re-render the whole strip — see MixerChannelMeter for the measurement.
+   */
+  mixerId: string;
   /** Whether this channel's fader is unreconciled (read-back exhausted). */
   faderUnreconciled?: boolean;
   /**
@@ -51,13 +53,12 @@ interface ChannelStripProps {
  * rendered for AvPowerUser+; AvVolunteer never sees it. The backend also rejects
  * gain in cts:mixer:set from AvVolunteer as defense-in-depth.
  */
-export function ChannelStrip({
+function ChannelStripView({
   channel,
   features,
   gainMinDb,
   gainMaxDb,
-  levelDb,
-  levelEventsFlowing,
+  mixerId,
   faderUnreconciled = false,
   showNameRow = true,
   onFaderChange,
@@ -130,16 +131,43 @@ export function ChannelStrip({
 
       <div className="soundboard-fader-meter-row">
         <VerticalFader channel={channel.channel} fader={channel.fader} unreconciled={faderUnreconciled} onFaderChange={onFaderChange} />
-        {hasMetering && (
-          <ChannelLevelMeter
-            testId={`${TEST_ID_MIXER_CHANNEL_METER}-${channel.channel}`}
-            levelDb={levelEventsFlowing ? levelDb : LEVEL_AXIS_MIN_DBFS}
-            eventsFlowing={levelEventsFlowing}
-          />
-        )}
+        {hasMetering && <MixerChannelMeter mixerId={mixerId} channel={channel.channel} testId={`${TEST_ID_MIXER_CHANNEL_METER}-${channel.channel}`} />}
       </div>
 
       <MuteButton channel={channel.channel} muted={channel.muted} unreconciled={channel.unreconciled ?? false} onToggle={onMuteToggle} />
     </div>
   );
 }
+
+/**
+ * Memoized by VALUE. Every state broadcast arrives as freshly-parsed JSON, so
+ * the channel/features objects are new references even when nothing changed;
+ * a default shallow memo would never skip. Comparing the channel's fields
+ * means a preset or fader broadcast only re-renders the strips that actually
+ * changed. Handlers must be stable (SoundBoardWidget caches them per channel).
+ */
+function stripPropsEqual(prev: ChannelStripProps, next: ChannelStripProps): boolean {
+  const a = prev.channel;
+  const b = next.channel;
+  return (
+    a.channel === b.channel &&
+    a.name === b.name &&
+    a.fader === b.fader &&
+    a.faderDb === b.faderDb &&
+    a.muted === b.muted &&
+    a.gainDb === b.gainDb &&
+    a.color === b.color &&
+    a.unreconciled === b.unreconciled &&
+    prev.features.join() === next.features.join() &&
+    prev.gainMinDb === next.gainMinDb &&
+    prev.gainMaxDb === next.gainMaxDb &&
+    prev.mixerId === next.mixerId &&
+    prev.faderUnreconciled === next.faderUnreconciled &&
+    prev.showNameRow === next.showNameRow &&
+    prev.onFaderChange === next.onFaderChange &&
+    prev.onMuteToggle === next.onMuteToggle &&
+    prev.onGainChange === next.onGainChange
+  );
+}
+
+export const ChannelStrip = memo(ChannelStripView, stripPropsEqual);

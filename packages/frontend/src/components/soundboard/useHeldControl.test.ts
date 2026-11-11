@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { act, renderHook } from "@testing-library/react";
+import { CONTROL_DEBOUNCE_MS, CONTROL_MAX_WAIT_MS } from "@invisible-av-booth/shared";
 import { useHeldControl } from "./useHeldControl";
 
 describe("useHeldControl", () => {
@@ -12,87 +13,88 @@ describe("useHeldControl", () => {
     expect(result.current.value).toBe(0.5);
   });
 
-  it("drops a backend value that arrives within the settle window", () => {
+  it("shows the live local value immediately while interacting", () => {
     const emit = vi.fn();
     const { result } = renderHook(() => useHeldControl(0.5, emit));
-    act(() => result.current.onLocalChange(0.8)); // starts the settle window
-    act(() => {
-      vi.advanceTimersByTime(100); // still inside the window
-      result.current.onBackendValue(0.2); // pre-command straggler → dropped
-    });
+    act(() => result.current.onLocalChange(0.8));
     expect(result.current.value).toBe(0.8);
   });
 
-  it("accepts the mixer's value after the settle window even if it is rounded differently", () => {
+  it("debounces outbound: a single send fires only after the user goes quiet", () => {
     const emit = vi.fn();
     const { result } = renderHook(() => useHeldControl(0.5, emit));
-    act(() => result.current.onLocalChange(0.8)); // we command 0.8
     act(() => {
-      vi.advanceTimersByTime(300); // past the 250ms settle window
-      // The X Air settles at a slightly different value than commanded — it is
-      // authoritative and must be shown (no exact-match required).
-      result.current.onBackendValue(0.81);
+      result.current.onLocalChange(0.6);
+      vi.advanceTimersByTime(CONTROL_DEBOUNCE_MS - 20);
+      result.current.onLocalChange(0.61); // resets the debounce
+      vi.advanceTimersByTime(CONTROL_DEBOUNCE_MS - 20);
+      result.current.onLocalChange(0.62); // resets again
     });
-    expect(result.current.value).toBe(0.81);
+    // Nothing sent yet — the user never paused long enough and max-wait not hit.
+    expect(emit).not.toHaveBeenCalled();
+    act(() => vi.advanceTimersByTime(CONTROL_DEBOUNCE_MS));
+    // One send, carrying the LATEST value.
+    expect(emit).toHaveBeenCalledTimes(1);
+    expect(emit).toHaveBeenLastCalledWith(0.62);
   });
 
-  it("keeps accepting backend values after the window (genuine external changes)", () => {
+  it("max-wait forces a send during a continuous hold even without a pause", () => {
+    const emit = vi.fn();
+    const { result } = renderHook(() => useHeldControl(0.5, emit));
+    act(() => {
+      // Nudge continuously faster than the debounce so it never fires on its own.
+      let value = 0.6;
+      const step = CONTROL_DEBOUNCE_MS - 40;
+      let elapsed = 0;
+      while (elapsed < CONTROL_MAX_WAIT_MS + step) {
+        result.current.onLocalChange(value);
+        vi.advanceTimersByTime(step);
+        elapsed += step;
+        value += 0.01;
+      }
+    });
+    // Despite never pausing, max-wait guarantees at least one send mid-hold.
+    expect(emit).toHaveBeenCalled();
+  });
+
+  it("accepts a backend value unconditionally, even mid-interaction (the 2.5→2.0 correction)", () => {
+    const emit = vi.fn();
+    const { result } = renderHook(() => useHeldControl(0.5, emit));
+    // User is holding at a commanded value...
+    act(() => result.current.onLocalChange(0.8));
+    expect(result.current.value).toBe(0.8);
+    // ...the backend (authoritative, latest-only) reports the board rounded to 0.78.
+    act(() => result.current.onBackendValue(0.78));
+    expect(result.current.value).toBe(0.78);
+  });
+
+  it("accepts later external changes (physical console moves)", () => {
     const emit = vi.fn();
     const { result } = renderHook(() => useHeldControl(0.5, emit));
     act(() => result.current.onRelease(0.9));
-    act(() => {
-      vi.advanceTimersByTime(300);
-      result.current.onBackendValue(0.9); // mixer confirms
-    });
+    act(() => result.current.onBackendValue(0.9)); // mixer confirms
     expect(result.current.value).toBe(0.9);
     act(() => result.current.onBackendValue(0.3)); // later physical-console move
     expect(result.current.value).toBe(0.3);
   });
 
-  it("emits immediately on the first local change", () => {
+  it("guarantees an immediate final send on release with the exact released value", () => {
     const emit = vi.fn();
     const { result } = renderHook(() => useHeldControl(0.5, emit));
     act(() => result.current.onLocalChange(0.6));
-    expect(emit).toHaveBeenCalledWith(0.6);
-  });
-
-  it("throttles rapid local changes to ~CONTROL_THROTTLE_MS spacing", () => {
-    const emit = vi.fn();
-    const { result } = renderHook(() => useHeldControl(0.5, emit));
-    act(() => result.current.onLocalChange(0.6)); // immediate emit
-    act(() => {
-      vi.advanceTimersByTime(10);
-      result.current.onLocalChange(0.61); // within throttle → scheduled
-      vi.advanceTimersByTime(10);
-      result.current.onLocalChange(0.62); // still within throttle → replaces pending
-    });
-    // Only one emit so far (the immediate one).
-    expect(emit).toHaveBeenCalledTimes(1);
-    act(() => vi.advanceTimersByTime(50)); // let the trailing emit fire
-    // Trailing emit carries the LATEST value.
-    expect(emit).toHaveBeenLastCalledWith(0.62);
-  });
-
-  it("guarantees a final emit on release with the exact released value", () => {
-    const emit = vi.fn();
-    const { result } = renderHook(() => useHeldControl(0.5, emit));
-    act(() => result.current.onLocalChange(0.6));
-    act(() => {
-      vi.advanceTimersByTime(10);
-      result.current.onRelease(0.9);
-    });
+    act(() => result.current.onRelease(0.9));
     expect(emit).toHaveBeenLastCalledWith(0.9);
     expect(result.current.value).toBe(0.9);
   });
 
-  it("suppresses backend values briefly after release too", () => {
+  it("does not leave a pending debounce timer after release", () => {
     const emit = vi.fn();
     const { result } = renderHook(() => useHeldControl(0.5, emit));
+    act(() => result.current.onLocalChange(0.6));
     act(() => result.current.onRelease(0.9));
-    act(() => {
-      vi.advanceTimersByTime(100);
-      result.current.onBackendValue(0.3);
-    });
-    expect(result.current.value).toBe(0.9); // still suppressed
+    emit.mockClear();
+    act(() => vi.advanceTimersByTime(CONTROL_MAX_WAIT_MS * 2));
+    // Release flushed and cleared the timer — no stray trailing send.
+    expect(emit).not.toHaveBeenCalled();
   });
 });

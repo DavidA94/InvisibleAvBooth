@@ -9,7 +9,7 @@ interface HorizontalGainSliderProps {
   gainDb: number;
   minDb: number;
   maxDb: number;
-  /** Emit a gain change (throttled while dragging; final on release). */
+  /** Emit a gain change (debounced + max-wait while dragging; final on release). */
   onGainChange: (gainDb: number) => void;
   /** Reflect the slider's current value to the parent (for the semicircle). */
   onValue?: (gainDb: number) => void;

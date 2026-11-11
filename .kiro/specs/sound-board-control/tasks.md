@@ -219,3 +219,19 @@ All work is committed directly to `main` (no feature branch). `npm run ci` must 
 
 - [x] 52. Full verification — run `npm run ci` (lint, format, build, test:coverage across all packages); fix any failures; confirm coverage thresholds (90% lines/statements, 85% branches) hold per package.
   - _Requirements: all_
+
+---
+
+## Phase 11: Real-hardware correctness & latency (XR18V2 fw 1.26)
+
+- [x] 53. Backend-authoritative stale-echo suppression — per-address `writeSeq`; a superseded set's read-back is never broadcast. `useHeldControl` rewritten: debounce (`CONTROL_DEBOUNCE_MS`) + max-wait (`CONTROL_MAX_WAIT_MS`) outbound, every inbound value accepted (no settle window), guaranteed final send on release.
+  - _Requirements: 8_
+
+- [x] 54. Preset apply with acknowledgement — audibility-gated capture/apply/verify (muted → mute; −∞ fader → mute+fader; else all three; legacy payloads gated at apply time); grouped `/ch/NN/mix ,if` writes + node read-back (bundles verified ignored by the board); paced writes and queries; tolerance compare; bounded re-write rounds; `STC_MIXER_PRESET_RESULT` ack to the requester; preset button loading state, ack-driven toast, client ack timeout.
+  - _Requirements: 10_
+
+- [x] 55. Admin "Load & edit" — standalone Load button removed; editing a preset auto-applies it (error shown, modal stays open on failure).
+  - _Requirements: 10.8_
+
+- [x] 56. Widget render scoping — per-channel `MixerChannelMeter` store subscription; value-memoized `ChannelStrip` with stable handlers; coalesced backend state broadcasts. Regression-guarded by `SoundBoardWidget.render.test.tsx`; frontend logs preset ack `rttMs`.
+  - _Requirements: 5, 10, 12_

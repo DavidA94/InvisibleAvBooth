@@ -7,10 +7,12 @@ import { eventBus } from "../../../eventBus/eventBus.js";
 import { BUS_MIXER_STATE_CHANGED, BUS_MIXER_LEVELS } from "../../../eventBus/types.js";
 import {
   CTS_MIXER_SET,
+  CTS_MIXER_PRESET_ACTIVATE,
   CTS_MIXER_WIDGET_PRESENT,
   STC_MIXER_STATE,
   STC_MIXER_STATE_UPDATE,
   STC_MIXER_LEVELS,
+  STC_MIXER_PRESET_RESULT,
   METERS_BROADCAST_INTERVAL_MS,
 } from "@invisible-av-booth/shared";
 
@@ -159,6 +161,38 @@ describe("MixerSocketModule", () => {
       module.registerSocket(auth);
       fire(CTS_MIXER_SET, { channel: 1 });
       expect(service.setChannel).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("preset activation ack", () => {
+    it("applies the preset and acks the requesting socket with ok:true on success", async () => {
+      service.activatePreset = vi.fn(async () => ({ ok: true })) as never;
+      const { auth, fire, emitted } = makeSocket("AvVolunteer");
+      module.registerSocket(auth);
+      fire(CTS_MIXER_PRESET_ACTIVATE, { mixerId: "m1", presetId: "p1" });
+      await Promise.resolve();
+      await Promise.resolve();
+      const ack = emitted.find((e) => e.event === STC_MIXER_PRESET_RESULT);
+      expect(ack?.payload).toEqual({ mixerId: "m1", presetId: "p1", ok: true });
+    });
+
+    it("acks ok:false with the error + unconfirmed channels on failure", async () => {
+      service.activatePreset = vi.fn(async () => ({ ok: false, error: "Mixer did not confirm channel(s): 2", unconfirmedChannels: [2] })) as never;
+      const { auth, fire, emitted } = makeSocket("AvVolunteer");
+      module.registerSocket(auth);
+      fire(CTS_MIXER_PRESET_ACTIVATE, { mixerId: "m1", presetId: "p1" });
+      await Promise.resolve();
+      await Promise.resolve();
+      const ack = emitted.find((e) => e.event === STC_MIXER_PRESET_RESULT);
+      expect(ack?.payload).toEqual({ mixerId: "m1", presetId: "p1", ok: false, error: "Mixer did not confirm channel(s): 2", unconfirmedChannels: [2] });
+    });
+
+    it("ignores a preset activate with a malformed payload", async () => {
+      const { auth, fire, emitted } = makeSocket("AvVolunteer");
+      module.registerSocket(auth);
+      fire(CTS_MIXER_PRESET_ACTIVATE, { mixerId: "m1" }); // no presetId
+      await Promise.resolve();
+      expect(emitted.find((e) => e.event === STC_MIXER_PRESET_RESULT)).toBeUndefined();
     });
   });
 

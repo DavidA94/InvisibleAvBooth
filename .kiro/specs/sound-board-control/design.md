@@ -233,9 +233,10 @@ export const GOOD_RANGE_BAND_DBFS = { topDb: -8, bottomDb: -18 };
 export const RED_FADE_DBFS = { topDb: 0, bottomDb: -6 }; // darkest at 0 (clip)
 export const BLUE_FADE_DBFS = { topDb: -40, bottomDb: -60 }; // darkest at -60 (noise)
 
-/** Interaction hold model. */
-export const CONTROL_SETTLE_MS = 250; // drop pre-command stragglers this long, then accept the mixer's (authoritative, possibly rounded) value
-export const CONTROL_THROTTLE_MS = 50; // outbound throttle while dragging
+/** Interaction hold model (debounce + max-wait outbound; accept-all inbound). */
+export const CONTROL_DEBOUNCE_MS = 120; // send once the user goes quiet this long
+export const CONTROL_MAX_WAIT_MS = 300; // force a send at least this often during a continuous hold
+export const COMMAND_DEBOUNCE_MS = 120; // backend: defer read-back until the write burst settles
 
 /** Envelope decimation for the gain window. */
 export const ENVELOPE_PAIRS_PER_SEC = 60;
@@ -682,22 +683,98 @@ The frontend socket module (`mixerSocketModule.ts`) wires `STC_MIXER_STATE`/`STC
 
 ```typescript
 /**
- * Local-authority hold for a continuous control.
- * - While interacting AND for CONTROL_SETTLE_MS (250ms) after the last local change,
- *   incoming backend values are DROPPED (pre-command stragglers) so the control
- *   never jumps to a stale value mid/just-after adjustment.
- * - After the settle window the next backend value is ACCEPTED UNCONDITIONALLY —
- *   the mixer is authoritative and the X Air rounds to its own grid, so we must
- *   show its value even when it differs from what we commanded (no exact-match).
- * - Outbound emits are throttled to CONTROL_THROTTLE_MS (~50ms) while dragging, with a
- *   GUARANTEED final emit on release (exact released value).
+ * Local-DISPLAY hold for a continuous control. The "is this value stale?"
+ * decision lives on the BACKEND, not here (see "Backend-authoritative stale-echo
+ * suppression" below), so this hook is deliberately simple:
+ * - onLocalChange shows the finger position immediately (local authority while
+ *   interacting) and schedules a DEBOUNCED outbound send (CONTROL_DEBOUNCE_MS).
+ * - A pure debounce would send nothing during a continuous hold, so CONTROL_MAX_WAIT_MS
+ *   forces a send at least that often — the board tracks the motion and the
+ *   authoritative value can flow back mid-hold.
+ * - onBackendValue is applied UNCONDITIONALLY — the backend only ever broadcasts
+ *   the latest settled value for an address, so a mid-hold correction (command
+ *   2.5 dB, board lands on 2.0 dB) appears even while the control is held.
+ * - onRelease forces an immediate final send of the exact released value.
  * Returns { value, onBackendValue, onLocalChange, onRelease }.
  * NOT used for discrete controls (mute, preset).
  */
 export function useHeldControl(initial: number, emit: (value: number) => void): HeldControl;
 ```
 
-Tests assert: during-window backend update dropped; after-window applied; final emit on release; throttle spacing.
+Tests assert: live local value while interacting; debounced send after quiet; max-wait send during a continuous hold; inbound accepted unconditionally (the 2.5→2.0 correction); immediate final emit on release; no stray timer after release.
+
+### Backend-authoritative stale-echo suppression
+
+The driver stamps every write to an OSC address with a per-address monotonic
+sequence (`writeSeq`). The read-back that a given set schedules captures the
+sequence it was issued under, and only broadcasts the mixer-reported value if
+that sequence is STILL the latest for the address when the reply resolves. So if
+the UI sends `1` then `1.5` (far enough apart that both reach the backend), the
+read-back of `1` is dropped the moment `1.5`'s set bumps the sequence — only
+`1.5`'s settled value is ever broadcast. This is what lets the frontend accept
+every inbound value without any client-side filtering (no settle/suppress
+window), which in turn lets genuine corrections appear even while the control is
+held. A per-address reconcile epoch additionally drops a late/out-of-order reply
+to a superseded QUERY so it cannot be consumed by the wrong attempt.
+
+### Audibility-gated presets (audio-correctness first)
+
+A preset is a board snapshot, but capture, write, AND verify all follow one rule
+keyed on each channel's snapshot state — so the stored payload is self-describing
+(whatever keys it holds are exactly what we write and verify):
+
+| Channel snapshot state         | Stored / written / verified          |
+| ------------------------------ | ------------------------------------ |
+| muted                          | `/ch/NN/mix/on` (mute only)          |
+| unmuted, fader at −∞ (float 0) | `/ch/NN/mix/on` + `/ch/NN/mix/fader` |
+| unmuted, audible fader         | mute + fader + `/headamp/NN/gain`    |
+
+WHY: a muted channel's fader/gain are inaudible, so restoring them is pointless
+at best and a latent surprise at worst (someone unmutes later and gets a level
+nobody intended). By not touching them the preset governs only audible reality.
+
+**Grouped writes + ordering.** Mute and fader are written together as ONE
+message to the channel mix node (`/ch/NN/mix ,if <on> <fader>`) and verified with
+ONE node query (`/ch/NN/mix` → `,ifif on fader lr pan`); gain is its own node
+(`/headamp/NN/gain`). Going AUDIBLE writes gain FIRST, then the grouped
+unmute+fader; going MUTED writes the grouped mute+fader first. Mute-only channels
+use the `/ch/NN/mix/on` leaf. Writes are PACED (`PRESET_WRITE_STAGGER_MS`), then
+after `PRESET_VERIFY_SETTLE_MS` they are read back; channels that don't match are
+re-written for up to `PRESET_MAX_ROUNDS`. **Verification** compares floats within
+`PRESET_VERIFY_TOLERANCE` (the board quantizes — commanding 0.5 reads back 0.4995)
+and mute exactly, with read-backs fired in PARALLEL across channels.
+
+Hardware findings (XR18V2, firmware 1.26, Nov 2026):
+
+- OSC **bundles are silently ignored** — no apply, no reply. Do not use them.
+- Grouped node set/query on `/ch/NN/mix` works as described above.
+- A 15-channel grouped apply confirmed on the first round in ~92 ms; a
+  1-channel apply in ~45 ms.
+- A BURST of 32 simultaneous queries intermittently loses replies (16/32 and
+  31/32 observed); paced 1 ms apart, 32/32 every time (~37 ms). Preset read-back
+  is therefore paced (`PRESET_QUERY_STAGGER_MS`) with a short per-query timeout
+  (`PRESET_READ_TIMEOUT_MS`). Before this, channels 1–8 failed round 1 on every
+  apply and a 16-channel apply took ~410 ms; after, ~110 ms and round 1 confirms.
+- Legacy presets (captured before the audibility rule) are gated at APPLY time,
+  so they write/verify only audible fields like new presets.
+
+**Frontend render scoping (measured).** The tap→spinner-clear time was 3–5 s on
+the booth machine although the backend acked in ~410 ms. Cause: the widget
+subscribed to `mixerLevels`, so every ~12 Hz meter frame re-rendered all 16
+strips; on a 6×-throttled CPU (tablet-class) the spinner took ~11 s with 41 long
+tasks. Fix: each strip's `MixerChannelMeter` subscribes to its own level, and
+`ChannelStrip` is memoized by value with stable per-channel handlers. Same test
+after the fix: ~450 ms (≈ the mocked 400 ms backend), zero long tasks. Both are
+guarded by `SoundBoardWidget.render.test.tsx`. The frontend logs
+`Preset ack received {rttMs}` / `Preset ack timed out` for future diagnosis.
+
+- Not yet verified: whether the grouped unmute+fader can produce an audible
+  transient on a LIVE channel (all hardware tests were on muted channels).
+
+`activatePreset` returns the
+unconfirmed channels; `MixerService` maps any to `ok:false`; the socket module
+acks the requesting client with `STC_MIXER_PRESET_RESULT` so the tapped preset
+button leaves its loading state and toasts the real outcome.
 
 ### Widget Structure
 

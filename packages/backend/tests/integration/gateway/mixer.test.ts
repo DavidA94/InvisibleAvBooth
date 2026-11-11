@@ -11,8 +11,9 @@ import {
   STC_MIXER_STATE,
   STC_MIXER_STATE_UPDATE,
   STC_MIXER_LEVELS,
+  STC_MIXER_PRESET_RESULT,
 } from "@invisible-av-booth/shared";
-import type { MixerState } from "@invisible-av-booth/shared";
+import type { MixerState, MixerPresetResult } from "@invisible-av-booth/shared";
 
 let s: TestServer;
 let adminToken: string;
@@ -201,12 +202,16 @@ describe("emitInitialState & presets", () => {
     const presetId = presetRes.body.id;
 
     const client = await connectClient();
+    const ackPromise = waitFor<MixerPresetResult>(client, STC_MIXER_PRESET_RESULT);
     client.emit(CTS_MIXER_PRESET_ACTIVATE, { mixerId, presetId });
     const driver = s.fakeMixer.get(mixerId)!;
     await waitUntil(() => driver.commands.some((c) => c.op === "fader") && driver.commands.some((c) => c.op === "mute"));
     const commands = driver.commands;
     expect(commands).toContainEqual({ op: "fader", channel: 1, value: 0.8 });
     expect(commands).toContainEqual({ op: "mute", channel: 1, value: true }); // on=0 → muted
+    // The requesting client gets a success ack so its button can leave loading.
+    const ack = await ackPromise;
+    expect(ack).toMatchObject({ mixerId, presetId, ok: true });
   });
 
   it("admin apply-preset loads the stored preset onto the live board", async () => {

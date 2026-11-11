@@ -28,9 +28,9 @@ vi.mock("react-select", () => ({
 }));
 
 vi.mock("../../hooks/useResizeObserver", () => ({ useResizeObserver: () => 600 }));
-let presetModalProps: { open: boolean; onSaved?: () => void } | null = null;
+let presetModalProps: { open: boolean; onSaved?: () => void; editingPreset?: { id: string; name: string } | null } | null = null;
 vi.mock("../../components/soundboard/PresetConfigModal", () => ({
-  PresetConfigModal: (props: { open: boolean; onSaved?: () => void }) => {
+  PresetConfigModal: (props: { open: boolean; onSaved?: () => void; editingPreset?: { id: string; name: string } | null }) => {
     presetModalProps = props;
     return props.open ? <div data-testid="preset-modal-mock" /> : null;
   },
@@ -210,6 +210,28 @@ describe("SoundBoardDeviceForm", () => {
     await act(async () => {
       presetModalProps?.onSaved?.();
     });
+  });
+
+  it("offers 'Load & edit' per preset, which opens the modal with that preset for auto-load", async () => {
+    vi.stubGlobal("fetch", makeFetch({ "/presets": [{ id: "p1", name: "Singers", sortOrder: 0 }] }));
+    const device: DeviceRecord = {
+      id: "m1",
+      deviceType: "soundboard",
+      label: "Main Mixer",
+      host: "127.0.0.1",
+      port: 10024,
+      metadata: { model: "behringer-xair", channelCount: "4" },
+      features: { "gain-control": true, "channel-metering": true },
+      enabled: true,
+      createdAt: "",
+    };
+    render(<SoundBoardDeviceForm device={device} onSaved={noop} onDeleted={noop} registerDirtyCheck={noop} />);
+    // The preset row renders once the GET resolves.
+    await waitFor(() => expect(screen.getByText("Load & edit")).toBeInTheDocument());
+    fireEvent.click(screen.getByText("Load & edit"));
+    // Modal opens for THIS preset so it auto-loads on open (no separate Load button).
+    expect(screen.getByTestId("preset-modal-mock")).toBeInTheDocument();
+    expect(presetModalProps?.editingPreset).toEqual({ id: "p1", name: "Singers" });
   });
 
   it("serializes mixer metadata on save (no usbSlotMap — capture removed)", async () => {
