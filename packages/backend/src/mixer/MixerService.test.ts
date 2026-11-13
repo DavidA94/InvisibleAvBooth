@@ -28,6 +28,7 @@ function makeFakeDriver(
     disconnect: vi.fn(),
     isConnected: () => true,
     getCapabilities: () => ({ features: [...config.features], gainRange: { minDb: -12, maxDb: 60 } }),
+    setFeatures: vi.fn(),
     setFader: vi.fn(async () => {}),
     setMute: vi.fn(async () => {}),
     setGain: vi.fn(async () => {}),
@@ -117,6 +118,12 @@ describe("MixerService", () => {
   it("getMixerState returns null for an unknown mixer", async () => {
     await service.initialize();
     expect(service.getMixerState("nope")).toBeNull();
+  });
+
+  it("passes the opt-in usb-trim-follows-gain feature through to the driver", async () => {
+    insertMixer(database, "m1", { features: { "gain-control": true, "usb-trim-follows-gain": true } });
+    await service.initialize();
+    expect(service.getMixerState("m1")?.capabilities.features).toContain("usb-trim-follows-gain");
   });
 
   it("setChannel routes each field to the driver and enforces gain capability", async () => {
@@ -229,6 +236,8 @@ describe("MixerService", () => {
       await service.reloadMixer("m1", "updated");
       expect(drivers.get("m1")).toBe(before); // same object → not reconnected
       expect(before.disconnect).not.toHaveBeenCalled();
+      // …and the DRIVER is told, so the toggle takes effect without a restart.
+      expect(before.setFeatures).toHaveBeenCalledWith([]);
     });
 
     it("reconnects (new driver) when host changes", async () => {

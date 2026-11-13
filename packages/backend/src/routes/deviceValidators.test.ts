@@ -11,6 +11,10 @@ describe("validateSoundboard", () => {
     features: { "gain-control": true, "channel-metering": true },
   };
 
+  it("accepts the opt-in usb-trim-follows-gain feature toggle", () => {
+    expect(validateSoundboard({ ...valid, features: { "gain-control": true, "usb-trim-follows-gain": true } })).toBeNull();
+  });
+
   it("accepts a valid mixer config", () => {
     expect(validateSoundboard(valid)).toBeNull();
   });

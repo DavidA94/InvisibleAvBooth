@@ -324,6 +324,76 @@ describe("BehringerXAirDriver", () => {
     });
   });
 
+  describe("usb-trim-follows-gain (DAW playback tuning, opt-in)", () => {
+    const trimWrites = (transport: FakeTransport, channel = 1): number[] =>
+      transport.sends.filter((s) => s.address === `/ch/0${channel}/preamp/rtntrim` && s.values.length > 0).map((s) => s.values[0] as number);
+    /** Wire 0..1 over -18..+18 dB → dB. */
+    const trimDb = (wire: number): number => -18 + wire * 36;
+
+    it("is OFF by default: setGain never touches the USB trim", async () => {
+      const { driver, transport } = makeDriver(); // gain-control + channel-metering only
+      await driver.connect();
+      transport.sends.length = 0;
+      await driver.setGain(1, 12);
+      expect(trimWrites(transport)).toEqual([]);
+    });
+
+    it.each`
+      gainDb | expectedTrimDb | why
+      ${12}  | ${12}          | ${"in range → same value"}
+      ${-12} | ${-12}         | ${"low end of gain fits the trim"}
+      ${57}  | ${18}          | ${"above +18 → clamped to the trim max"}
+      ${60}  | ${18}          | ${"gain max → trim max"}
+    `("setGain($gainDb dB) also writes the USB trim at $expectedTrimDb dB ($why)", async ({ gainDb, expectedTrimDb }) => {
+      const { driver, transport } = makeDriver({ features: ["gain-control", "usb-trim-follows-gain"] });
+      await driver.connect();
+      transport.sends.length = 0;
+      await driver.setGain(1, gainDb);
+      const writes = trimWrites(transport);
+      expect(writes.length).toBeGreaterThan(0);
+      expect(trimDb(writes.at(-1)!)).toBeCloseTo(expectedTrimDb, 3);
+      // Sent right after the gain write (same moment, separate node).
+      const order = transport.sends.filter((s) => s.values.length > 0).map((s) => s.address);
+      expect(order.indexOf("/ch/01/preamp/rtntrim")).toBe(order.indexOf("/headamp/01/gain") + 1);
+    });
+
+    it("never reads the trim back or marks the channel unreconciled (post-production convenience only)", async () => {
+      const { driver, transport } = makeDriver({ features: ["gain-control", "usb-trim-follows-gain"] });
+      await driver.connect();
+      transport.sends.length = 0;
+      await driver.setGain(1, 30);
+      expect(transport.sends.some((s) => s.address === "/ch/01/preamp/rtntrim" && s.values.length === 0)).toBe(false);
+      expect(driver.getChannelState(1)?.unreconciled).toBe(false);
+    });
+
+    it("mirrors preset gain writes too", async () => {
+      const { driver, transport } = makeDriver({ channelCount: 1, features: ["gain-control", "usb-trim-follows-gain"] });
+      await driver.connect();
+      transport.sends.length = 0;
+      // gain wire 0.375 = +15 dB (the booth's Pastor J value)
+      await driver.activatePreset({ "/ch/01/mix/on": 1, "/ch/01/mix/fader": 0.7, "/headamp/01/gain": 0.375 });
+      expect(trimDb(trimWrites(transport).at(-1)!)).toBeCloseTo(15, 3);
+    });
+
+    it("takes effect immediately when the feature is toggled on a live driver (setFeatures)", async () => {
+      const { driver, transport } = makeDriver(); // starts with the feature OFF
+      await driver.connect();
+      driver.setFeatures(["gain-control", "channel-metering", "usb-trim-follows-gain"]);
+      transport.sends.length = 0;
+      await driver.setGain(1, 10);
+      expect(trimDb(trimWrites(transport).at(-1)!)).toBeCloseTo(10, 3);
+      expect(driver.getCapabilities().features).toContain("usb-trim-follows-gain");
+    });
+
+    it("does not mirror gain changes made OUTSIDE the app (X AIR Edit / the board)", async () => {
+      const { driver, transport } = makeDriver({ features: ["gain-control", "usb-trim-follows-gain"] });
+      await driver.connect();
+      transport.sends.length = 0;
+      transport.inject("/headamp/01/gain", [0.5]); // external change
+      expect(trimWrites(transport)).toEqual([]);
+    });
+  });
+
   describe("capability enforcement", () => {
     it("ignores setGain when gain-control is not declared", async () => {
       const { driver, transport } = makeDriver({ features: ["channel-metering"] });

@@ -46,7 +46,7 @@ interface MixerInstance {
   unsubscribes: Array<() => void>;
 }
 
-const MIXER_FEATURES: MixerFeature[] = ["gain-control", "channel-metering"];
+const MIXER_FEATURES: MixerFeature[] = ["gain-control", "channel-metering", "usb-trim-follows-gain"];
 
 export class MixerService {
   private readonly instances = new Map<string, MixerInstance>();
@@ -291,6 +291,9 @@ export class MixerService {
     // Only non-connection fields changed — update in place, keep OSC connection
     // and /xremote/meters subscriptions alive (do not interrupt live monitoring).
     existing.features = parsed.features;
+    // The DRIVER enforces features too (gain-control, usb-trim-follows-gain), so it
+    // must see the change — otherwise a toggle only took effect after a restart.
+    existing.driver.setFeatures(parsed.features);
     existing.channelCount = parsed.metadata.channelCount;
     this.broadcastState(mixerId);
   }

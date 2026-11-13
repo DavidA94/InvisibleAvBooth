@@ -51,6 +51,12 @@ export interface MixerControlInterface {
   isConnected(): boolean;
 
   getCapabilities(): MixerCapabilities;
+  /**
+   * Replace the enabled feature set in place (admin toggled a feature). Called on
+   * a feature-only hot-reload so the change takes effect WITHOUT reconnecting —
+   * the driver gates gain writes, metering and USB-trim mirroring on this list.
+   */
+  setFeatures(features: MixerCapabilities["features"]): void;
 
   setFader(channel: number, level: number): Promise<void>; // level 0.0–1.0
   setMute(channel: number, muted: boolean): Promise<void>;

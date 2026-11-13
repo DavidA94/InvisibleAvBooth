@@ -24,7 +24,7 @@ export interface DeviceValidationInput {
 /** Returns an error message string if invalid, or null if valid. */
 export type DeviceValidator = (input: DeviceValidationInput) => string | null;
 
-const MIXER_FEATURES: MixerFeature[] = ["gain-control", "channel-metering"];
+const MIXER_FEATURES: MixerFeature[] = ["gain-control", "channel-metering", "usb-trim-follows-gain"];
 
 /**
  * Validate a soundboard (mixer) device (Req 9.2/9.6):

@@ -2,7 +2,7 @@ import type { MixerFeature, MixerModel } from "@invisible-av-booth/shared";
 import { OSC_PORT_DEFAULT } from "@invisible-av-booth/shared";
 import type { DeviceRecord } from "./deviceTypeRegistry";
 
-export const MIXER_FEATURES: MixerFeature[] = ["gain-control", "channel-metering"];
+export const MIXER_FEATURES: MixerFeature[] = ["gain-control", "channel-metering", "usb-trim-follows-gain"];
 
 export const MIXER_MODEL_OPTIONS: Array<{ value: MixerModel; label: string }> = [{ value: "behringer-xair", label: "Behringer X Air" }];
 
@@ -26,7 +26,8 @@ export interface SoundBoardFormState {
 }
 
 function defaultFeatures(): Record<MixerFeature, boolean> {
-  return { "gain-control": true, "channel-metering": true };
+  // usb-trim-follows-gain is opt-in: it overwrites the board's USB-return trims.
+  return { "gain-control": true, "channel-metering": true, "usb-trim-follows-gain": false };
 }
 
 export function buildInitialState(device: DeviceRecord | null): SoundBoardFormState {
@@ -36,6 +37,7 @@ export function buildInitialState(device: DeviceRecord | null): SoundBoardFormSt
     const features = {
       "gain-control": device.features["gain-control"] ?? false,
       "channel-metering": device.features["channel-metering"] ?? false,
+      "usb-trim-follows-gain": device.features["usb-trim-follows-gain"] ?? false,
     };
     return {
       label: device.label,

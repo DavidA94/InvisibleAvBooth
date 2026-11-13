@@ -279,6 +279,9 @@ export function createFakeMixer(): FakeMixerRegistry {
       },
       isConnected: () => connected,
       getCapabilities: () => ({ features: [...capabilities.features], gainRange: { ...capabilities.gainRange } }),
+      setFeatures: (features) => {
+        capabilities.features = [...features];
+      },
 
       setFader: async (channel, level) => {
         driver.commands.push({ op: "fader", channel, value: level });

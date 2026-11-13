@@ -4,6 +4,22 @@ import type { DeviceRecord } from "./deviceTypeRegistry";
 
 describe("soundBoardDeviceFormLogic", () => {
   describe("buildInitialState", () => {
+    it("defaults usb-trim-follows-gain OFF for a new mixer and round-trips it for an existing one", () => {
+      expect(buildInitialState(null).features["usb-trim-follows-gain"]).toBe(false);
+      const existing = buildInitialState({
+        id: "m1",
+        deviceType: "soundboard",
+        label: "Mixer",
+        host: "127.0.0.1",
+        port: 10024,
+        metadata: { model: "behringer-xair", channelCount: "16" },
+        features: { "gain-control": true, "usb-trim-follows-gain": true },
+        enabled: true,
+        createdAt: "",
+      });
+      expect(existing.features["usb-trim-follows-gain"]).toBe(true);
+    });
+
     it("provides defaults for a new device (port 10024, 8 channels)", () => {
       const state = buildInitialState(null);
       expect(state.port).toBe("10024");

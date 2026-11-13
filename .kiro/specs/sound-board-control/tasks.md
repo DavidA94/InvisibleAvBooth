@@ -244,3 +244,6 @@ All work is committed directly to `main` (no feature branch). `npm run ci` must 
 
 - [x] 59. Preset reorder — drag-and-drop in the Sound Board device form; order saved via `PUT …/presets/order` (restored + error on failure); route scoped to the mixer; real-browser drag e2e test.
   - _Requirements: 10.8_
+
+- [x] 60. `usb-trim-follows-gain` (opt-in, default OFF) — every in-app gain write (slider + presets) also sets the channel's USB-return trim to the same dB, clamped to ±18 dB; fire-and-forget, no read-back; external gain changes not mirrored. Feature toggles now reach the driver on hot-reload (`setFeatures`), so they take effect without a restart. Verified end-to-end on XR18V2 fw 1.26.
+  - _Requirements: 1.7, 7, 9.7_

@@ -70,6 +70,11 @@ const chColor = (channel: number): string => `/ch/${pad2(channel)}/config/color`
 // (`/headamp/{index+1 zfill 2}`). The value on the wire is a normalized 0..1
 // float (linear over -12..+60 dB), not raw dB.
 const headampGain = (channel: number): string => `/headamp/${pad2(channel)}/gain`;
+// Channel USB-return trim (the level of the channel when its source is switched to
+// USB playback). Normalized 0..1 on the wire, linear over -18..+18 dB — verified
+// on XR18V2 fw 1.26 (`/node ch/01/preamp` → "+5.0 …" for wire 0.6389).
+const usbReturnTrim = (channel: number): string => `/ch/${pad2(channel)}/preamp/rtntrim`;
+const USB_TRIM_RANGE = { minDb: -18, maxDb: 18 } as const;
 
 // X Air /meters subscription: the command takes a STRING (the meter bank
 // ADDRESS, e.g. "/meters/1") and an INT rate factor — NOT an int bank number.
@@ -126,7 +131,7 @@ interface PresetChannelEntry {
 export class BehringerXAirDriver implements MixerControlInterface {
   private readonly transport: OscTransport;
   private readonly channelCount: number;
-  private readonly features: MixerFeature[];
+  private features: MixerFeature[];
   private connected = false;
   private metering = false;
 
@@ -290,6 +295,11 @@ export class BehringerXAirDriver implements MixerControlInterface {
     return this.connected;
   }
 
+  setFeatures(features: MixerFeature[]): void {
+    this.features = [...features];
+    logger.info("Mixer features updated", { context: { mixerId: this.config.mixerId, features: this.features } });
+  }
+
   getCapabilities(): MixerCapabilities {
     return { features: [...this.features], gainRange: { ...X_AIR_GAIN_RANGE } };
   }
@@ -374,13 +384,36 @@ export class BehringerXAirDriver implements MixerControlInterface {
     const address = headampGain(channel);
     await this.coalesceSet(address, {
       channel,
-      send: () => this.transport.send(address, "f", [wire]),
+      send: () => {
+        this.transport.send(address, "f", [wire]);
+        this.mirrorGainToUsbTrim(channel, clamped);
+      },
       apply: (values) => {
         // The reply is the mixer's normalized value → convert back to dB (authoritative).
         const replyFloat = typeof values[0] === "number" ? values[0] : wire;
         this.applyGain(channel, gainFloatToDb(replyFloat, X_AIR_GAIN_RANGE.minDb, X_AIR_GAIN_RANGE.maxDb));
       },
     });
+  }
+
+  /**
+   * "usb-trim-follows-gain" (opt-in): write the channel's USB-return trim to the
+   * same dB as the gain we just wrote, clamped to the trim's ±18 dB range (the
+   * analog preamp's -12..+60 is the authoritative range; anything past ±18 simply
+   * can't be mirrored). Sent back-to-back with the gain write — gain and trim live
+   * in DIFFERENT nodes (/headamp/NN vs /ch/NN/preamp), so they can't be one grouped
+   * message, and the board ignores bundles.
+   *
+   * Deliberately FIRE-AND-FORGET (no read-back): the trim is a post-production
+   * convenience, not part of the live audio path, so it must never mark a channel
+   * "Unknown" or fail a preset. Every intermediate gain write during a drag also
+   * re-sends the trim, so the final value is re-sent on release. Only gain writes
+   * made through this app are mirrored — external gain changes are not.
+   */
+  private mirrorGainToUsbTrim(channel: number, gainDb: number): void {
+    if (!this.features.includes("usb-trim-follows-gain")) return;
+    const trimDb = Math.max(USB_TRIM_RANGE.minDb, Math.min(USB_TRIM_RANGE.maxDb, gainDb));
+    this.transport.send(usbReturnTrim(channel), "f", [gainDbToFloat(trimDb, USB_TRIM_RANGE.minDb, USB_TRIM_RANGE.maxDb)]);
   }
 
   /**
@@ -958,11 +991,17 @@ export class BehringerXAirDriver implements MixerControlInterface {
         }
       };
       if (entry.on === BehringerXAirDriver.ON) {
-        if (entry.gain !== undefined) this.transport.send(entry.gainAddress!, "f", [entry.gain]);
+        if (entry.gain !== undefined) {
+          this.transport.send(entry.gainAddress!, "f", [entry.gain]);
+          this.mirrorGainToUsbTrim(entry.channel, gainFloatToDb(entry.gain, X_AIR_GAIN_RANGE.minDb, X_AIR_GAIN_RANGE.maxDb));
+        }
         writeMixGroup();
       } else {
         writeMixGroup();
-        if (entry.gain !== undefined) this.transport.send(entry.gainAddress!, "f", [entry.gain]);
+        if (entry.gain !== undefined) {
+          this.transport.send(entry.gainAddress!, "f", [entry.gain]);
+          this.mirrorGainToUsbTrim(entry.channel, gainFloatToDb(entry.gain, X_AIR_GAIN_RANGE.minDb, X_AIR_GAIN_RANGE.maxDb));
+        }
       }
       await sleep(PRESET_WRITE_STAGGER_MS);
     }

@@ -23,7 +23,14 @@ export type MixerModel = "behringer-xair";
  * recoverable from git history if a future feature (e.g. multitrack recording)
  * needs it.
  */
-export type MixerFeature = "gain-control" | "channel-metering";
+/**
+ * - "usb-trim-follows-gain": OPT-IN. Every gain write made through this app (gain
+ *   slider and presets) also sets the channel's USB-return trim to the same dB
+ *   (clamped to the trim's ±18 dB range), so tuning against a DAW recording played
+ *   back through the USB returns behaves like tuning the live preamp. See the
+ *   "DAW playback tuning" section of the sound-board-control design doc.
+ */
+export type MixerFeature = "gain-control" | "channel-metering" | "usb-trim-follows-gain";
 
 export interface MixerCapabilities {
   /**

@@ -741,6 +741,33 @@ order). The route is scoped to the mixer (`… WHERE id = ? AND mixerId = ?`) an
 emits `BUS_MIXER_DEVICE_CHANGED`, so every dashboard's preset buttons follow the
 new order. Covered by a real-browser drag test in `admin-soundboard.spec.ts`.
 
+**DAW playback tuning — `usb-trim-follows-gain` (opt-in feature).**
+Use case: record a service to a DAW over USB, then during the week play it back
+through the board's USB returns (channel source switched to USB) and tune gain,
+fader and presets against real audio. In that mode the channel's analog preamp
+gain has no effect (confirmed by hand: −12 vs +60 sounds identical during DAW
+playback) — the USB-return trim (`/ch/NN/preamp/rtntrim`) sets the level instead.
+With this feature ON, every gain write made **through this app** (the gain slider
+and preset apply) also sets that channel's USB trim to the same dB, so gain
+adjustments made while tuning against a recording are audible and land in the
+preset exactly as they would live.
+
+- Ranges: the analog preamp's −12…+60 dB is authoritative. The trim only spans
+  −18…+18 dB, so values outside that are clamped (e.g. gain +57 → trim +18); the
+  extra gain simply isn't reproduced on playback.
+- Assumption (by decision): the recording carries no gain of its own, i.e. trim
+  = gain exactly. If a recording was made post-preamp, playback runs louder by the
+  gain it was recorded at; no recording-time reference is tracked.
+- Gain and trim live in different nodes (`/headamp/NN` vs `/ch/NN/preamp`), so they
+  can't be one grouped message (and bundles are ignored); the trim is sent
+  immediately after each gain write, including every intermediate drag value.
+- The trim write is fire-and-forget (no read-back): it is a post-production
+  convenience and must never mark a channel Unknown or fail a preset.
+- Gain changed outside the app (X AIR Edit, the board) is NOT mirrored.
+- Off by default because it overwrites the board's USB trims; enable per mixer in
+  Admin → Devices → Sound Board → Features. Verified on XR18V2 fw 1.26 (gain +25 →
+  trim +18 clamped, −12 → −12).
+
 **Grouped writes + ordering.** Mute and fader are written together as ONE
 message to the channel mix node (`/ch/NN/mix ,if <on> <fader>`) and verified with
 ONE node query (`/ch/NN/mix` → `,ifif on fader lr pan`); gain is its own node
