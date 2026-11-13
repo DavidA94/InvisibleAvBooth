@@ -56,10 +56,14 @@ describe("PresetsArea", () => {
     const button = screen.getByTestId(`${TEST_ID_MIXER_PRESET_BUTTON}-p1`);
     expect(button).toHaveAttribute("data-state", "loading");
     expect(button).toBeDisabled();
+    // The label stays visible while loading (spinner is ADDED beside it).
+    expect(button).toHaveTextContent("Preset 1");
+    expect(button.querySelector(".mixer-preset-spinner")).not.toBeNull();
     // A non-pending button is idle and enabled.
     const other = screen.getByTestId(`${TEST_ID_MIXER_PRESET_BUTTON}-p2`);
     expect(other).toHaveAttribute("data-state", "idle");
     expect(other).not.toBeDisabled();
+    expect(other.querySelector(".mixer-preset-spinner")).toBeNull();
   });
 
   it("ignores a re-tap while a preset is pending", () => {

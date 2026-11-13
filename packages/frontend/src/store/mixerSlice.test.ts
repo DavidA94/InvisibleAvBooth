@@ -17,7 +17,7 @@ const MIXER_STATE: MixerState = {
 
 describe("mixerSlice", () => {
   beforeEach(() => {
-    useStore.setState({ mixerStates: {}, mixerLevels: {}, pendingPresetIds: [] });
+    useStore.setState({ mixerStates: {}, mixerLevels: {}, mixerPostLevels: {}, pendingPresetIds: [] });
   });
 
   it("setMixerState stores a mixer by id", () => {
@@ -55,16 +55,25 @@ describe("mixerSlice", () => {
 
   it("setMixerLevels stores per-channel dBFS by channel number", () => {
     useStore.getState().setMixerLevels("mix1", [
-      { channel: 1, levelDb: -18 },
-      { channel: 2, levelDb: -40 },
+      { channel: 1, levelDb: -18, postFaderDb: -18 },
+      { channel: 2, levelDb: -40, postFaderDb: -40 },
     ]);
     expect(useStore.getState().mixerLevels["mix1"]).toEqual({ 1: -18, 2: -40 });
   });
 
   it("setMixerLevels replaces the prior levels for that mixer", () => {
-    useStore.getState().setMixerLevels("mix1", [{ channel: 1, levelDb: -18 }]);
-    useStore.getState().setMixerLevels("mix1", [{ channel: 2, levelDb: -12 }]);
+    useStore.getState().setMixerLevels("mix1", [{ channel: 1, levelDb: -18, postFaderDb: -18 }]);
+    useStore.getState().setMixerLevels("mix1", [{ channel: 2, levelDb: -12, postFaderDb: -12 }]);
     expect(useStore.getState().mixerLevels["mix1"]).toEqual({ 2: -12 });
+  });
+
+  it("setMixerLevels stores outgoing levels separately and omits channels with no outgoing value yet", () => {
+    useStore.getState().setMixerLevels("mix1", [
+      { channel: 1, levelDb: -5, postFaderDb: -37 },
+      { channel: 2, levelDb: -20 }, // just unmuted — no post-fader frame yet
+    ]);
+    expect(useStore.getState().mixerLevels["mix1"]).toEqual({ 1: -5, 2: -20 });
+    expect(useStore.getState().mixerPostLevels["mix1"]).toEqual({ 1: -37 });
   });
 
   it("markPresetPending adds an id (idempotent) and clearPresetPending removes it", () => {

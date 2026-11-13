@@ -173,11 +173,11 @@ describe("Meter levels", () => {
   it("broadcasts meter frames over STC_MIXER_LEVELS", async () => {
     const mixerId = await createMixer();
     const client = await connectClient();
-    const levelsPromise = waitFor<{ mixerId: string; levels: Array<{ channel: number; levelDb: number }> }>(client, STC_MIXER_LEVELS);
-    s.fakeMixer.get(mixerId)!.pushMeters([{ channel: 1, levelDb: -18 }]);
+    const levelsPromise = waitFor<{ mixerId: string; levels: Array<{ channel: number; levelDb: number; postFaderDb: number }> }>(client, STC_MIXER_LEVELS);
+    s.fakeMixer.get(mixerId)!.pushMeters([{ channel: 1, levelDb: -18, postFaderDb: -18 }]);
     const payload = await levelsPromise;
     expect(payload.mixerId).toBe(mixerId);
-    expect(payload.levels[0]).toEqual({ channel: 1, levelDb: -18 });
+    expect(payload.levels[0]).toEqual({ channel: 1, levelDb: -18, postFaderDb: -18 });
   });
 });
 

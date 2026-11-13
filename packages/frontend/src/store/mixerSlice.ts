@@ -4,8 +4,10 @@ import type { MixerState, MixerChannelState, MixerChannelLevel } from "@invisibl
 export interface MixerSlice {
   /** Full mixer state by mixerId. */
   mixerStates: Record<string, MixerState>;
-  /** Per-mixer, per-channel level in dBFS (mixerId → channel → dBFS). */
+  /** Per-mixer, per-channel INPUT (pre-fader) level in dBFS (mixerId → channel → dBFS). */
   mixerLevels: Record<string, Record<number, number>>;
+  /** Per-mixer, per-channel OUTGOING (post-fader, post-mute) level in dBFS. */
+  mixerPostLevels: Record<string, Record<number, number>>;
   /**
    * Preset ids currently awaiting a backend apply/verify ack (the button shows a
    * loading state while its id is here). Keyed as a flat set of presetId — preset
@@ -39,6 +41,7 @@ export interface MixerSlice {
 export const createMixerSlice: StateCreator<MixerSlice> = (set) => ({
   mixerStates: {},
   mixerLevels: {},
+  mixerPostLevels: {},
   pendingPresetIds: [],
   presetPendingSince: {},
 
@@ -60,9 +63,15 @@ export const createMixerSlice: StateCreator<MixerSlice> = (set) => ({
   setMixerLevels: (mixerId, levels) =>
     set((prev) => {
       const byChannel: Record<number, number> = {};
-      for (const level of levels) byChannel[level.channel] = level.levelDb;
+      const postByChannel: Record<number, number> = {};
+      for (const level of levels) {
+        byChannel[level.channel] = level.levelDb;
+        // Absent = outgoing not measured yet (just unmuted) → meter shows nothing.
+        if (level.postFaderDb !== undefined) postByChannel[level.channel] = level.postFaderDb;
+      }
       return {
         mixerLevels: { ...prev.mixerLevels, [mixerId]: byChannel },
+        mixerPostLevels: { ...prev.mixerPostLevels, [mixerId]: postByChannel },
       };
     }),
 

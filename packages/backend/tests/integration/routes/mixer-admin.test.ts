@@ -27,6 +27,14 @@ function startFakeXAir(silent = false): Promise<{ port: number; close: () => voi
   });
 }
 
+/** Poll until `predicate` holds (deterministic — no fixed sleep). Caller asserts after. */
+const waitUntil = async (predicate: () => boolean, timeoutMs = 2000): Promise<void> => {
+  const start = Date.now();
+  while (!predicate() && Date.now() - start < timeoutMs) {
+    await new Promise((r) => setTimeout(r, 5));
+  }
+};
+
 const baseMixer = {
   deviceType: "soundboard",
   label: "Main Mixer",
@@ -165,7 +173,48 @@ describe("Mixer admin — presets", () => {
     await s.agent.put("/api/admin/mixers/mix1/presets/order").set("Cookie", adminCookie).send({ presetIds: reversed });
 
     const reordered = await s.agent.get("/api/admin/mixers/mix1/presets").set("Cookie", adminCookie);
-    expect(reordered.body[0].id).toBe(reversed[0]);
+    expect(reordered.body.map((p: { id: string }) => p.id)).toEqual(reversed);
+    // The live mixer state (what dashboards render as preset buttons) follows the new order.
+    await waitUntil(
+      () =>
+        s.ctx.mixerService
+          .getMixerState("mix1")
+          ?.presets.map((p) => p.id)
+          .join() === reversed.join(),
+    );
+    expect(s.ctx.mixerService.getMixerState("mix1")?.presets.map((p) => p.id)).toEqual(reversed);
+  });
+
+  it("reorder only touches this mixer's presets (ids from another mixer are ignored)", async () => {
+    await s.agent.post("/api/admin/mixers/mix1/presets").set("Cookie", adminCookie).send({ name: "A" });
+    s.ctx.database
+      .prepare("INSERT INTO device_connections (id, deviceType, label, host, port, metadata, features, createdAt) VALUES (?,?,?,?,?,?,?,?)")
+      .run(
+        "other-mixer",
+        "soundboard",
+        "Other",
+        "127.0.0.2",
+        10024,
+        JSON.stringify({ model: "behringer-xair", channelCount: 8 }),
+        "{}",
+        new Date().toISOString(),
+      );
+    s.ctx.database
+      .prepare("INSERT INTO mixer_presets (id, mixerId, name, sortOrder, payload, createdAt) VALUES (?, ?, ?, ?, ?, ?)")
+      .run("foreign", "other-mixer", "Other", 7, "{}", new Date().toISOString());
+    const ownId = (await s.agent.get("/api/admin/mixers/mix1/presets").set("Cookie", adminCookie)).body[0].id as string;
+    const res = await s.agent
+      .put("/api/admin/mixers/mix1/presets/order")
+      .set("Cookie", adminCookie)
+      .send({ presetIds: ["foreign", ownId] });
+    expect(res.status).toBe(200);
+    const foreign = s.ctx.database.prepare("SELECT sortOrder FROM mixer_presets WHERE id = 'foreign'").get() as { sortOrder: number };
+    expect(foreign.sortOrder).toBe(7); // untouched
+  });
+
+  it("reorder requires a presetIds array", async () => {
+    const res = await s.agent.put("/api/admin/mixers/mix1/presets/order").set("Cookie", adminCookie).send({});
+    expect(res.status).toBe(400);
   });
 
   it("cascade delete removes presets when device deleted", async () => {

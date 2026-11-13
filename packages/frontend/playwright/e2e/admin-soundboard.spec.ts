@@ -14,6 +14,7 @@ import {
   TEST_ID_PRESET_NAME_INPUT,
   TEST_ID_PRESET_SAVE_BUTTON,
   TEST_ID_PRESET_POSITION_SUMMARY,
+  TEST_ID_MIXER_PRESET_REORDER_GROUP,
 } from "../../src/constants/testIds";
 
 const MIXER_DEVICE = {
@@ -135,5 +136,54 @@ test.describe("Admin Sound Board Device", () => {
     // Delete the device (confirm cascade).
     await page.getByTestId(`${TEST_ID_DEVICE_LIST_DELETE_BUTTON}-mix1`).click();
     await page.getByTestId(TEST_ID_CONFIRMATION_CONFIRM_BUTTON).click();
+  });
+
+  test("drag a preset to reorder it; the new order is saved", async ({ page }) => {
+    // The preset list sits low in the device form; a taller window keeps the drag
+    // handles on screen (pointer events outside the viewport are never delivered).
+    await page.setViewportSize({ width: 1280, height: 1100 });
+    await page.unroute("**/api/admin/devices");
+    await page.route("**/api/admin/devices", async (route) => {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify([MIXER_DEVICE]) });
+    });
+    const presets = [
+      { id: "p1", name: "Welcome", sortOrder: 0 },
+      { id: "p2", name: "Sermon", sortOrder: 1 },
+      { id: "p3", name: "Worship", sortOrder: 2 },
+    ];
+    await page.unroute("**/api/admin/mixers/*/presets");
+    await page.route("**/api/admin/mixers/*/presets", async (route) => {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(presets) });
+    });
+    let savedOrder: unknown = null;
+    await page.route("**/api/admin/mixers/*/presets/order", async (route) => {
+      savedOrder = route.request().postDataJSON();
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ success: true }) });
+    });
+
+    await page.goto("/admin/devices");
+    await page.getByTestId(`${TEST_ID_DEVICE_LIST_ITEM}-mix1`).click();
+    const group = page.getByTestId(TEST_ID_MIXER_PRESET_REORDER_GROUP);
+    await expect(group.getByText("Worship")).toBeVisible();
+    // Wait for Ionic to finish upgrading the list (gesture attached) before dragging.
+    await expect(group).toHaveClass(/reorder-enabled/);
+    await expect(group.locator("ion-reorder")).toHaveCount(3);
+
+    // Drag Worship's handle above Welcome (Ionic's reorder is a pointer gesture).
+    const handle = group.locator("ion-item", { hasText: "Worship" }).locator("ion-reorder");
+    const target = group.locator("ion-item", { hasText: "Welcome" });
+    const from = (await handle.boundingBox())!;
+    const to = (await target.boundingBox())!;
+    await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+    await page.mouse.down();
+    for (let step = 1; step <= 12; step++) {
+      await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2 + ((to.y + 4 - (from.y + from.height / 2)) * step) / 12);
+      await page.waitForTimeout(20);
+    }
+    await page.mouse.up();
+
+    await expect.poll(() => savedOrder).toEqual({ presetIds: ["p3", "p1", "p2"] });
+    const names = await group.locator("ion-item ion-label").allTextContents();
+    expect(names).toEqual(["Worship", "Welcome", "Sermon"]);
   });
 });

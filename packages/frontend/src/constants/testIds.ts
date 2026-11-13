@@ -320,7 +320,10 @@ export const TEST_ID_SOUNDBOARD_CHANNEL_STRIP = "soundboard-channel-strip";
 export const TEST_ID_SOUNDBOARD_CHANNEL_NAME = "soundboard-channel-name";
 export const TEST_ID_SOUNDBOARD_EMPTY_PLACEHOLDER = "soundboard-empty-placeholder";
 export const TEST_ID_MIXER_VERTICAL_FADER = "mixer-vertical-fader";
+/** Outgoing (post-fader) channel meter, right of the fader. */
 export const TEST_ID_MIXER_CHANNEL_METER = "mixer-channel-meter";
+/** Thin input (pre-fader) channel meter, left of the fader. */
+export const TEST_ID_MIXER_CHANNEL_INPUT_METER = "mixer-channel-input-meter";
 export const TEST_ID_MIXER_MUTE_BUTTON = "mixer-mute-button";
 export const TEST_ID_MIXER_MUTE_STATUS = "mixer-mute-status";
 export const TEST_ID_MIXER_ADJUST_GAIN_BUTTON = "mixer-adjust-gain-button";
@@ -329,6 +332,8 @@ export const TEST_ID_MIXER_GAIN_SLIDER = "mixer-gain-slider";
 export const TEST_ID_MIXER_GAIN_SEMICIRCLE = "mixer-gain-semicircle";
 export const TEST_ID_MIXER_PRESETS_AREA = "mixer-presets-area";
 export const TEST_ID_MIXER_PRESET_BUTTON = "mixer-preset-button";
+/** Admin Sound Board preset list (drag-to-reorder). */
+export const TEST_ID_MIXER_PRESET_REORDER_GROUP = "mixer-preset-reorder-group";
 export const TEST_ID_MIXER_VIEW_ALL_PRESETS_BUTTON = "mixer-view-all-presets-button";
 export const TEST_ID_MIXER_VIEW_ALL_PRESETS_MODAL = "mixer-view-all-presets-modal";
 export const TEST_ID_MIXER_PAGINATION = "mixer-pagination";

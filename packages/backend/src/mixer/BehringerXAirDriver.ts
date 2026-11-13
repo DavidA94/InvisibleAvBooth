@@ -39,9 +39,11 @@ import {
   PRESET_VERIFY_TOLERANCE,
   PRESET_QUERY_STAGGER_MS,
   PRESET_READ_TIMEOUT_MS,
+  LEVEL_AXIS_MIN_DBFS,
 } from "@invisible-av-booth/shared";
 import type { MixerControlInterface, MixerDriverConfig, OscTransport } from "./MixerControlInterface.js";
 import { UdpOscTransport } from "./UdpOscTransport.js";
+import { PostFaderMeterPool } from "./PostFaderMeterPool.js";
 import { decodeMeterBlob, clampLevelDb } from "./osc/meterDecode.js";
 import { logger } from "../logger.js";
 
@@ -189,10 +191,37 @@ export class BehringerXAirDriver implements MixerControlInterface {
   /** Tail of the paced-query chain (see pacedQuery). */
   private queryGate: Promise<void> = Promise.resolve();
 
+  /** One registered client per unmuted channel for TRUE post-fader meters. */
+  private readonly postFaderMeters: PostFaderMeterPool;
+  /** Latest input (bank 1) level per channel, dBFS clamped. */
+  private readonly lastInputDb = new Map<number, number>();
+  /** Latest true post-fader level per measured (unmuted) channel, dBFS clamped. */
+  private readonly lastPostFaderDb = new Map<number, number>();
+  /**
+   * Channels whose mute state the BOARD has reported (read-back, /xremote, preset
+   * verify). Channel state defaults to "unmuted" before the first read, which would
+   * otherwise open a post-fader client for all 16 channels at startup — and ≥4
+   * clients slows every meter on the board (see PostFaderMeterPool).
+   */
+  private readonly muteKnown = new Set<number>();
+
   constructor(private readonly config: MixerDriverConfig) {
     this.channelCount = config.channelCount;
     this.features = [...config.features];
     this.transport = config.transport ?? new UdpOscTransport(config.host, config.port, config.mixerId);
+    // Each post-fader channel needs its OWN registered client (see PostFaderMeterPool).
+    const createTransport = config.transportFactory ?? ((): OscTransport => new UdpOscTransport(config.host, config.port, config.mixerId));
+    this.postFaderMeters = new PostFaderMeterPool(
+      createTransport,
+      METERS_RATE_FACTOR,
+      (channel, postFaderDb) => {
+        // Ignore a straggler frame for a channel that was muted/released meanwhile.
+        if (this.channels.get(channel)?.muted) return;
+        this.lastPostFaderDb.set(channel, postFaderDb);
+        this.emitLevels();
+      },
+      config.mixerId,
+    );
 
     for (let channel = 1; channel <= this.channelCount; channel++) {
       this.channels.set(channel, {
@@ -235,6 +264,10 @@ export class BehringerXAirDriver implements MixerControlInterface {
     this.xremoteTimer = null;
     this.metersTimer = null;
     this.metering = false;
+    this.postFaderMeters.releaseAll();
+    this.lastPostFaderDb.clear();
+    this.lastInputDb.clear();
+    this.muteKnown.clear();
     this.unsubscribeTransport?.();
     this.unsubscribeTransport = null;
     this.transport.close();
@@ -273,6 +306,8 @@ export class BehringerXAirDriver implements MixerControlInterface {
     // periodic confirmed round-trip the freshness window is sized around
     // (CONTROLS_FRESHNESS_MS ≥ 2× XREMOTE_RENEW_MS + margin).
     this.transport.send("/xinfo");
+    // Per-channel post-fader clients must stay registered too (~10 s lapse).
+    this.postFaderMeters.renewRegistration();
   }
 
   setMeteringEnabled(enabled: boolean): void {
@@ -286,12 +321,15 @@ export class BehringerXAirDriver implements MixerControlInterface {
       if (this.metersTimer) clearInterval(this.metersTimer);
       this.metersTimer = null;
     }
+    this.reconcilePostFaderMeters();
   }
 
   private subscribeMeters(): void {
     // Bank 1, indices 0–15 = per-channel PRE-FADER input (always-visible meter).
     const { address, types, args } = metersSubscribe(METERS_BANK_CHANNEL_PREFADER, METERS_RATE_FACTOR);
     this.transport.send(address, types, args);
+    // Per-channel post-fader subscriptions lapse on the same ~10 s window.
+    this.postFaderMeters.renewMeters();
   }
 
   // ── Commands (with capability enforcement + read-back reconciliation) ────────
@@ -570,16 +608,50 @@ export class BehringerXAirDriver implements MixerControlInterface {
     const decoded = decodeMeterBlob(blob);
     if (decoded.length === 0) return;
 
-    const levels: MixerChannelLevel[] = [];
     for (let channel = 1; channel <= this.channelCount; channel++) {
-      const index = channel - 1; // indices 0–15 are per-channel pre-fader
+      const index = channel - 1; // indices 0–15 are per-channel pre-fader input
       const db = decoded[index];
       if (db === undefined) continue;
-      levels.push({ channel, levelDb: clampLevelDb(db) });
+      this.lastInputDb.set(channel, clampLevelDb(db));
+    }
+    this.emitLevels();
+  }
+
+  /**
+   * Emit one level frame: the latest INPUT (bank 1) per channel plus the latest
+   * OUTGOING value. Outgoing is the board's TRUE post-fader meter for unmuted
+   * channels (PostFaderMeterPool), the axis floor (silent) for muted channels,
+   * and ABSENT for an unmuted channel whose first post-fader frame hasn't arrived
+   * (~80 ms after unmute) — we show nothing rather than a guessed value.
+   * Called on every input-bank frame and every post-fader frame, so neither
+   * signal waits on the other; the socket module coalesces the broadcast.
+   */
+  private emitLevels(): void {
+    const levels: MixerChannelLevel[] = [];
+    for (const [channel, levelDb] of this.lastInputDb) {
+      const state = this.channels.get(channel);
+      const post = state?.muted ? LEVEL_AXIS_MIN_DBFS : this.lastPostFaderDb.get(channel);
+      levels.push(post === undefined ? { channel, levelDb } : { channel, levelDb, postFaderDb: post });
     }
     if (levels.length > 0) {
       for (const listener of this.meterListeners) listener(levels);
     }
+  }
+
+  /**
+   * Keep post-fader subscriptions on exactly the channels that need one: metering
+   * on (a widget is showing this mixer) AND unmuted. Cheap to call on every state
+   * change — the pool only opens/closes on actual set differences.
+   */
+  private reconcilePostFaderMeters(): void {
+    const wanted = new Set<number>();
+    if (this.metering && this.connected) {
+      for (const state of this.channels.values()) if (this.muteKnown.has(state.channel) && !state.muted) wanted.add(state.channel);
+    }
+    for (const channel of Array.from(this.lastPostFaderDb.keys())) {
+      if (!wanted.has(channel)) this.lastPostFaderDb.delete(channel); // never show a stale outgoing value
+    }
+    this.postFaderMeters.reconcile(wanted);
   }
 
   private handleExternalChange(address: string, values: Array<number | string | Uint8Array>): void {
@@ -634,6 +706,7 @@ export class BehringerXAirDriver implements MixerControlInterface {
     const state = this.channels.get(channel);
     if (!state) return;
     state.muted = muted;
+    this.muteKnown.add(channel);
     state.unreconciled = false;
     this.emitState(state);
   }
@@ -663,6 +736,9 @@ export class BehringerXAirDriver implements MixerControlInterface {
   private emitState(state: MixerChannelState): void {
     const snapshot: MixerChannelState = { ...state };
     for (const listener of this.stateListeners) listener(snapshot);
+    // Mute changes (ours, presets, or external /xremote) decide which channels
+    // need a post-fader meter — every state change funnels through here.
+    this.reconcilePostFaderMeters();
   }
 
   private emitLiveness(): void {
@@ -999,7 +1075,10 @@ export class BehringerXAirDriver implements MixerControlInterface {
   private applyReportedChannel(channel: number, reported: PresetReported): void {
     const state = this.channels.get(channel);
     if (!state) return;
-    if (reported.on !== undefined) state.muted = reported.on === BehringerXAirDriver.OFF;
+    if (reported.on !== undefined) {
+      state.muted = reported.on === BehringerXAirDriver.OFF;
+      this.muteKnown.add(channel);
+    }
     if (reported.fader !== undefined) {
       state.fader = reported.fader;
       state.faderDb = faderFloatToDb(reported.fader);

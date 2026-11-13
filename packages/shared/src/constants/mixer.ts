@@ -118,7 +118,9 @@ export const METERS_RENEW_MS = 1000;
 // ── /meters bank selection (X Air) ───────────────────────────────────────────
 //
 // Verified against Patrick-Gilles Maillot's X32/X-Air OSC meter-bank table.
-//   Bank 1, indices 0–15 = per-channel PRE-FADER input (always-visible meter, Req 5.4).
+//   Bank 1, indices 0–15 = per-channel PRE-FADER input (the thin INPUT meter, Req 5.4).
+//   The OUTGOING (post-fader) meter is NOT in any all-channel bank — see
+//   PostFaderMeterPool (one registered /meters/0 client per unmuted channel).
 // Blob format: leading 32-bit LITTLE-endian count of int16 samples (verified on
 // XR18); each sample a 16-bit SIGNED LITTLE-endian integer at 1/256 dB
 // (value / 256 = dB); values below NOISE_FLOOR_DBFS are treated as -inf.
@@ -177,12 +179,15 @@ export const CONTROLS_FRESHNESS_MS = 18000;
 
 // ── Channel scribble-strip colors (X Air /ch/NN/config/color, 0–15) ──────────
 //
-// The X Air stores a per-channel color as an int 0–15 (verified against the
-// X-Air OSC wiki). It encodes BOTH the hue AND the scribble-strip style:
-//   0–7   = colored text/accent on a dark background (the "outline" look)
-//   8–15  = the same hues "inverted": a SOLID colored background with dark text
-// Index 0 (and 8) = OFF (no color). Hex values read clearly on the dark theme
-// while matching the console's color names.
+// The X Air stores a per-channel color as an int 0–15. It encodes BOTH the hue
+// AND the scribble-strip style:
+//   1–7   = SOLID colored background with dark text (the default scribble look)
+//   9–15  = the same hues "inverted": colored text/border on a dark background
+// Index 0 (and 8) = OFF (no color).
+// CORRECTED against the X AIR Edit app on the booth XR18 (Nov 2026): the original
+// mapping had these backwards (8–15 as solid), so the widget showed an outline
+// where X AIR showed a fill and vice versa. Hex values read clearly on the dark
+// theme while matching the console's color names.
 export const MIXER_COLOR_HEX: Record<number, string> = {
   1: "#E74C3C", // RD red
   2: "#2ECC71", // GN green
@@ -197,19 +202,19 @@ export const MIXER_COLOR_HEX: Record<number, string> = {
 export interface MixerColor {
   /** CSS hex for the hue. */
   hex: string;
-  /** true = solid colored background (inverted scribble, index 8–15); false = outline/accent. */
-  inverted: boolean;
+  /** true = solid colored background (base scribble, index 1–7); false = outline (inverted, 9–15). */
+  filled: boolean;
 }
 
 /**
  * Resolve an X Air channel color index (0–15) into a hue + style, or null when
  * the channel has no color (OFF / absent). The hue repeats every 8; indices
- * 8–15 are the "inverted" (solid-background) variants of 0–7.
+ * 1–7 are solid fills and 9–15 are their "inverted" (outline) variants.
  */
 export function resolveMixerColor(color: number | undefined): MixerColor | null {
   if (color === undefined) return null;
   const hue = ((color % 8) + 8) % 8; // normalize into 0..7
   const hex = MIXER_COLOR_HEX[hue];
   if (!hex) return null; // OFF (hue 0)
-  return { hex, inverted: color >= 8 };
+  return { hex, filled: color < 8 };
 }

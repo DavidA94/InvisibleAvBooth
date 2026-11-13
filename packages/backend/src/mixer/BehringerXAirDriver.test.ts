@@ -42,6 +42,11 @@ class FakeTransport implements OscTransport {
       this.dropWrites.set(address, toDrop - 1);
       return;
     }
+    // The board ALWAYS answers /xinfo (used for liveness and client registration).
+    if (this.autoReply && address === "/xinfo") {
+      queueMicrotask(() => this.inject("/xinfo", ["192.168.1.10", "XR18", "XR18", "1.26"]));
+      return;
+    }
     // A query is a send with no args; auto-reply with the seeded (or last-set) value.
     if (this.autoReply && values.length === 0 && !address.startsWith("/xremote") && !address.startsWith("/meters")) {
       // The mix NODE replies with its leaf fields (`,ifif on fader lr pan`),
@@ -77,7 +82,9 @@ class FakeTransport implements OscTransport {
     return () => this.listeners.delete(listener);
   }
 
+  closed = false;
   close(): void {
+    this.closed = true;
     this.listeners.clear();
   }
 
@@ -87,8 +94,10 @@ class FakeTransport implements OscTransport {
   }
 }
 
-function makeDriver(overrides?: Partial<MixerDriverConfig>): { driver: BehringerXAirDriver; transport: FakeTransport } {
+function makeDriver(overrides?: Partial<MixerDriverConfig>): { driver: BehringerXAirDriver; transport: FakeTransport; postTransports: FakeTransport[] } {
   const transport = new FakeTransport();
+  // Every extra (per-channel post-fader) client the driver opens is recorded here.
+  const postTransports: FakeTransport[] = [];
   const config: MixerDriverConfig = {
     mixerId: "mix1",
     host: "127.0.0.1",
@@ -96,9 +105,19 @@ function makeDriver(overrides?: Partial<MixerDriverConfig>): { driver: Behringer
     channelCount: 4,
     features: ["gain-control", "channel-metering"],
     transport,
+    transportFactory: () => {
+      const extra = new FakeTransport();
+      postTransports.push(extra);
+      return extra;
+    },
     ...overrides,
   };
-  return { driver: new BehringerXAirDriver(config), transport };
+  return { driver: new BehringerXAirDriver(config), transport, postTransports };
+}
+
+/** The open post-fader client subscribed to a given 1-based channel, if any. */
+function postClientFor(postTransports: FakeTransport[], channel: number): FakeTransport | undefined {
+  return postTransports.find((t) => !t.closed && t.sends.some((s) => s.address === "/meters" && s.values[0] === "/meters/0" && s.values[1] === channel - 1));
 }
 
 /** Build a /meters blob: 32-bit LE count + int16 LE samples (dB*256). */
@@ -374,6 +393,123 @@ describe("BehringerXAirDriver", () => {
     });
   });
 
+  describe("post-fader (outgoing) meters — one registered client per unmuted channel", () => {
+    /** Flush microtasks so async open() + the /xinfo reply → subscribe chain settles. */
+    const settle = async (): Promise<void> => {
+      for (let i = 0; i < 5; i++) await new Promise((resolve) => setTimeout(resolve, 0));
+    };
+    /** A /meters/0 channel-strip frame: 8 values, index 4 = post-fader. */
+    const stripFrame = (postDb: number): Uint8Array => meterBlob([-10, -10, 0, 0, postDb, postDb, -10, -10]);
+
+    async function setup(): Promise<ReturnType<typeof makeDriver>> {
+      const made = makeDriver({ channelCount: 3 });
+      await made.driver.connect();
+      // The board reports: ch1 unmuted, ch2 muted, ch3 not yet read.
+      made.transport.inject("/ch/01/mix/on", [1]);
+      made.transport.inject("/ch/02/mix/on", [0]);
+      return made;
+    }
+
+    it("opens nothing until metering is enabled", async () => {
+      const { postTransports } = await setup();
+      await settle();
+      expect(postTransports).toHaveLength(0);
+    });
+
+    it("subscribes ONLY board-confirmed unmuted channels, registering before subscribing", async () => {
+      const { driver, postTransports } = await setup();
+      driver.setMeteringEnabled(true);
+      await settle();
+      // ch1 unmuted → one client; ch2 muted → none; ch3 mute unknown → none (no 16-client burst at startup).
+      expect(postTransports.filter((t) => !t.closed)).toHaveLength(1);
+      const client = postClientFor(postTransports, 1)!;
+      const order = client.sends.map((s) => s.address);
+      expect(order.indexOf("/xinfo")).toBeLessThan(order.indexOf("/meters"));
+      expect(order).toContain("/xremote");
+      expect(client.sends.find((s) => s.address === "/meters")).toMatchObject({ types: "sii", values: ["/meters/0", 0, expect.any(Number)] });
+      driver.setMeteringEnabled(false);
+    });
+
+    it("reports the board's post-fader value; muted = floor; unmeasured = absent", async () => {
+      const { driver, transport, postTransports } = await setup();
+      driver.setMeteringEnabled(true);
+      await settle();
+      const frames: MixerChannelLevel[][] = [];
+      driver.onMeterUpdate((levels) => frames.push(levels));
+      transport.inject("/ch/03/mix/on", [1]); // ch3 becomes known-unmuted → subscribed, no frame yet
+      await settle();
+      postClientFor(postTransports, 1)!.inject("/meters/0", [stripFrame(-37.5)]);
+      transport.inject("/meters/1", [meterBlob([-5, -17, -20])]);
+      const last = frames.at(-1)!;
+      expect(last.find((l) => l.channel === 1)).toEqual({ channel: 1, levelDb: -5, postFaderDb: -37.5 });
+      expect(last.find((l) => l.channel === 2)).toEqual({ channel: 2, levelDb: -17, postFaderDb: -60 }); // muted → silent
+      expect(last.find((l) => l.channel === 3)).toEqual({ channel: 3, levelDb: -20 }); // no post frame yet → absent
+      driver.setMeteringEnabled(false);
+    });
+
+    it("muting a channel (e.g. from X AIR) releases its client and shows silence immediately", async () => {
+      const { driver, transport, postTransports } = await setup();
+      driver.setMeteringEnabled(true);
+      await settle();
+      const client = postClientFor(postTransports, 1)!;
+      client.inject("/meters/0", [stripFrame(-30)]);
+      const frames: MixerChannelLevel[][] = [];
+      driver.onMeterUpdate((levels) => frames.push(levels));
+      transport.inject("/ch/01/mix/on", [0]); // external mute
+      expect(client.closed).toBe(true);
+      transport.inject("/meters/1", [meterBlob([-5, -17, -20])]);
+      expect(frames.at(-1)!.find((l) => l.channel === 1)?.postFaderDb).toBe(-60);
+      driver.setMeteringEnabled(false);
+    });
+
+    it("re-unmuting starts a fresh subscription and never shows the stale old value", async () => {
+      const { driver, transport, postTransports } = await setup();
+      driver.setMeteringEnabled(true);
+      await settle();
+      postClientFor(postTransports, 1)!.inject("/meters/0", [stripFrame(-30)]);
+      transport.inject("/ch/01/mix/on", [0]);
+      transport.inject("/ch/01/mix/on", [1]);
+      await settle();
+      expect(postClientFor(postTransports, 1)).toBeDefined();
+      const frames: MixerChannelLevel[][] = [];
+      driver.onMeterUpdate((levels) => frames.push(levels));
+      transport.inject("/meters/1", [meterBlob([-5, -17, -20])]);
+      expect(frames.at(-1)!.find((l) => l.channel === 1)).toEqual({ channel: 1, levelDb: -5 }); // absent until a new frame
+      driver.setMeteringEnabled(false);
+    });
+
+    it("renews each post client's subscription and registration with the main renewals", async () => {
+      vi.useFakeTimers();
+      const { driver, postTransports } = await setup();
+      driver.setMeteringEnabled(true);
+      await vi.advanceTimersByTimeAsync(10);
+      const client = postClientFor(postTransports, 1)!;
+      const count = (address: string): number => client.sends.filter((s) => s.address === address).length;
+      const meters = count("/meters");
+      const xremote = count("/xremote");
+      await vi.advanceTimersByTimeAsync(8100); // > XREMOTE_RENEW_MS, several METERS_RENEW_MS
+      expect(count("/meters")).toBeGreaterThan(meters);
+      expect(count("/xremote")).toBeGreaterThan(xremote);
+      driver.setMeteringEnabled(false);
+      driver.disconnect();
+      vi.useRealTimers();
+    });
+
+    it("disabling metering or disconnecting releases every post client", async () => {
+      const { driver, transport, postTransports } = await setup();
+      transport.inject("/ch/03/mix/on", [1]);
+      driver.setMeteringEnabled(true);
+      await settle();
+      expect(postTransports.filter((t) => !t.closed)).toHaveLength(2);
+      driver.setMeteringEnabled(false);
+      expect(postTransports.every((t) => t.closed)).toBe(true);
+      driver.setMeteringEnabled(true);
+      await settle();
+      driver.disconnect();
+      expect(postTransports.every((t) => t.closed)).toBe(true);
+    });
+  });
+
   describe("metering", () => {
     it("does not subscribe /meters until metering is enabled", async () => {
       const { driver, transport } = makeDriver();
@@ -528,13 +664,15 @@ describe("BehringerXAirDriver", () => {
       const queryTimes: number[] = [];
       const send = transport.send.bind(transport);
       transport.send = (address, types, values) => {
-        if (!values?.length && /^\/(ch|headamp)\//.test(address)) queryTimes.push(performance.now());
+        // Only preset verify sends GROUPED node queries — the connect-time refresh
+        // queries leaf addresses, so it can't pollute this measurement.
+        if (!values?.length && /^\/ch\/\d\d\/mix$/.test(address)) queryTimes.push(performance.now());
         send(address, types, values);
       };
       const payload: Record<string, number> = {};
       for (let c = 1; c <= 4; c++) Object.assign(payload, { [`/ch/0${c}/mix/on`]: 1, [`/ch/0${c}/mix/fader`]: 0.5, [`/headamp/0${c}/gain`]: 0.3 });
       await driver.activatePreset(payload);
-      expect(queryTimes.length).toBe(8); // 4 grouped mix + 4 gain
+      expect(queryTimes.length).toBe(4); // one grouped mix query per channel
       for (let i = 1; i < queryTimes.length; i++) expect(queryTimes[i]! - queryTimes[i - 1]!).toBeGreaterThanOrEqual(0.5);
     });
 

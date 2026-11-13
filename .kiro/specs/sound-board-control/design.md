@@ -733,6 +733,14 @@ WHY: a muted channel's fader/gain are inaudible, so restoring them is pointless
 at best and a latent surprise at worst (someone unmutes later and gets a level
 nobody intended). By not touching them the preset governs only audible reality.
 
+**Preset order (admin).** Presets are reorderable by drag-and-drop in the Sound
+Board device form (Ionic reorder list, same pattern as camera presets). The new
+order shows immediately and is saved via `PUT /api/admin/mixers/:mixerId/presets/order`;
+on failure the list is restored and an error shown (never a silently-unsaved
+order). The route is scoped to the mixer (`… WHERE id = ? AND mixerId = ?`) and
+emits `BUS_MIXER_DEVICE_CHANGED`, so every dashboard's preset buttons follow the
+new order. Covered by a real-browser drag test in `admin-soundboard.spec.ts`.
+
 **Grouped writes + ordering.** Mute and fader are written together as ONE
 message to the channel mix node (`/ch/NN/mix ,if <on> <fader>`) and verified with
 ONE node query (`/ch/NN/mix` → `,ifif on fader lr pan`); gain is its own node
@@ -767,6 +775,38 @@ tasks. Fix: each strip's `MixerChannelMeter` subscribes to its own level, and
 after the fix: ~450 ms (≈ the mocked 400 ms backend), zero long tasks. Both are
 guarded by `SoundBoardWidget.render.test.tsx`. The frontend logs
 `Preset ack received {rttMs}` / `Preset ack timed out` for future diagnosis.
+
+**Channel meters: input (thin) + outgoing, both right of the fader — measured, XR18V2 fw 1.26.**
+Each strip shows two meters, both to the RIGHT of the fader, input first. The
+thin (0.15rem) meter is the INPUT (pre-fader) level from `/meters/1` indices
+0–15 — "is a signal arriving?", which catches a missed channel even with its
+fader down. The full-width meter after it is the OUTGOING (post-fader,
+post-mute) level — what the channel actually sends. Findings that shaped this:
+
+- There is NO 16-channel post-fader bank. `/meters/1` is 16 pre-fade channels,
+  aux, FX returns (pre), buses (pre), FX sends (pre), then main L/R (post) and
+  monitor (matches the community `xr-meters` layout); only main/mon are post-fade.
+- The true per-channel post-fader meter is `/meters/0 <ch-1> <rate>` (channel
+  strip; index 0 = input, index 4 = post-fader; muted → −∞). It holds ONE channel
+  selection PER REGISTERED CLIENT (a UDP source port that sent `/xinfo` +
+  `/xremote`, like X AIR Edit). Unregistered sockets share a single slot — the last
+  subscribe wins for all of them.
+- So `PostFaderMeterPool` opens one registered client per channel and subscribes
+  after the `/xinfo` reply; renewals ride the existing `/meters` and `/xremote`
+  timers.
+- COST: the board divides a fixed meter budget across subscribers. With ≥4 extra
+  clients every stream (ours and other clients') drops to ~200 ms per frame;
+  1 client is ~free. Hence clients are opened ONLY for channels whose mute the
+  board has confirmed as unmuted (a muted channel's outgoing is silent by
+  definition). Opening/closing follows mute changes from any source.
+- While an unmuted channel waits for its first post-fader frame, `postFaderDb`
+  is absent and the outgoing meter shows nothing — never a computed guess.
+- A computed outgoing value (input + fader) was considered and REJECTED: it matched
+  `/meters/0` to 0.00 dB on neutral channels, but would miss EQ, dynamics, DCA and
+  mute-group effects — and a meter claiming audio is going out when it isn't
+  violates the audio-first rule.
+- No meter smoothing (longer CSS transition) is applied for the 5 fps case yet —
+  by decision; add only if it proves needed.
 
 - Not yet verified: whether the grouped unmute+fader can produce an audible
   transient on a LIVE channel (all hardware tests were on muted channels).

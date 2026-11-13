@@ -3,7 +3,7 @@ import { render, screen, fireEvent, act, waitFor } from "@testing-library/react"
 import "../../test/ionicMocks";
 import { SoundBoardDeviceForm } from "./SoundBoardDeviceForm";
 import type { DeviceRecord } from "./deviceTypeRegistry";
-import { TEST_ID_DEVICE_FORM_LABEL, TEST_ID_DEVICE_FORM_HOST, TEST_ID_DEVICE_FORM_SAVE } from "../../constants/testIds";
+import { TEST_ID_DEVICE_FORM_LABEL, TEST_ID_DEVICE_FORM_HOST, TEST_ID_DEVICE_FORM_SAVE, TEST_ID_MIXER_PRESET_REORDER_GROUP } from "../../constants/testIds";
 
 vi.mock("react-select", () => ({
   default: ({ options, onChange, value }: Record<string, unknown>) => {
@@ -209,6 +209,79 @@ describe("SoundBoardDeviceForm", () => {
     // Trigger the modal's onSaved so the form reloads presets and closes it.
     await act(async () => {
       presetModalProps?.onSaved?.();
+    });
+  });
+
+  describe("preset reorder (drag-and-drop)", () => {
+    const mixer: DeviceRecord = {
+      id: "m1",
+      deviceType: "soundboard",
+      label: "Main Mixer",
+      host: "127.0.0.1",
+      port: 10024,
+      metadata: { model: "behringer-xair", channelCount: "4" },
+      features: { "gain-control": true, "channel-metering": true },
+      enabled: true,
+      createdAt: "",
+    };
+    const PRESETS = [
+      { id: "p1", name: "Welcome", sortOrder: 0 },
+      { id: "p2", name: "Sermon", sortOrder: 1 },
+      { id: "p3", name: "Worship", sortOrder: 2 },
+    ];
+    /** Simulate Ionic's drop: dispatch ionItemReorder on the reorder group. */
+    const drop = (from: number, to: number): void => {
+      const group = screen.getByTestId(TEST_ID_MIXER_PRESET_REORDER_GROUP);
+      act(() => {
+        group.dispatchEvent(new CustomEvent("ionItemReorder", { detail: { from, to, complete: vi.fn() } }));
+      });
+    };
+    const shownOrder = (): string[] =>
+      ["Welcome", "Sermon", "Worship"].sort((a, b) => {
+        const node = (name: string) => screen.getByText(name);
+        return node(a).compareDocumentPosition(node(b)) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1;
+      });
+
+    it("saves the new order (PUT …/presets/order) and shows it", async () => {
+      const calls: Array<{ url: string; method: string; body?: unknown }> = [];
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async (url: string, opts?: { method?: string; body?: string }) => {
+          calls.push({ url, method: opts?.method ?? "GET", body: opts?.body ? JSON.parse(opts.body) : undefined });
+          return { ok: true, json: async () => (opts?.method ? { success: true } : PRESETS) } as Response;
+        }) as unknown as typeof fetch,
+      );
+      render(<SoundBoardDeviceForm device={mixer} onSaved={noop} onDeleted={noop} registerDirtyCheck={noop} />);
+      await waitFor(() => expect(screen.getByText("Worship")).toBeInTheDocument());
+      drop(2, 0); // move Worship to the top
+      await waitFor(() => expect(calls.some((c) => c.method === "PUT")).toBe(true));
+      const put = calls.find((c) => c.method === "PUT")!;
+      expect(put.url).toBe("/api/admin/mixers/m1/presets/order");
+      expect(put.body).toEqual({ presetIds: ["p3", "p1", "p2"] });
+      expect(shownOrder()).toEqual(["Worship", "Welcome", "Sermon"]);
+    });
+
+    it("puts the list back and shows an error when saving the order fails", async () => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async (_url: string, opts?: { method?: string }) =>
+          opts?.method === "PUT" ? ({ ok: false, json: async () => ({}) } as Response) : ({ ok: true, json: async () => PRESETS } as Response),
+        ) as unknown as typeof fetch,
+      );
+      render(<SoundBoardDeviceForm device={mixer} onSaved={noop} onDeleted={noop} registerDirtyCheck={noop} />);
+      await waitFor(() => expect(screen.getByText("Worship")).toBeInTheDocument());
+      drop(0, 2);
+      await waitFor(() => expect(screen.getByText(/Couldn't save the new preset order/)).toBeInTheDocument());
+      expect(shownOrder()).toEqual(["Welcome", "Sermon", "Worship"]);
+    });
+
+    it("ignores a drop onto the same position (no save)", async () => {
+      const fetchSpy = vi.fn(async () => ({ ok: true, json: async () => PRESETS }) as Response);
+      vi.stubGlobal("fetch", fetchSpy as unknown as typeof fetch);
+      render(<SoundBoardDeviceForm device={mixer} onSaved={noop} onDeleted={noop} registerDirtyCheck={noop} />);
+      await waitFor(() => expect(screen.getByText("Worship")).toBeInTheDocument());
+      drop(1, 1);
+      expect(fetchSpy.mock.calls.some((call) => (call as unknown as [string, { method?: string }?])[1]?.method === "PUT")).toBe(false);
     });
   });
 

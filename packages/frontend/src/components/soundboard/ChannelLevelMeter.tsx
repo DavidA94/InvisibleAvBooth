@@ -19,6 +19,8 @@ interface ChannelLevelMeterProps {
   label?: string;
   /** data-testid for the bar wrapper. */
   testId?: string;
+  /** Extra class on the bar wrapper (e.g. the Sound Board's thin input meter). */
+  className?: string;
 }
 
 /**
@@ -36,7 +38,7 @@ interface ChannelLevelMeterProps {
  * (a new peak = a value higher than the current held peak). Continuous audio at
  * the same level does NOT reset the decay timer.
  */
-export function ChannelLevelMeter({ levelDb, eventsFlowing, label, testId }: ChannelLevelMeterProps): ReactNode {
+export function ChannelLevelMeter({ levelDb, eventsFlowing, label, testId, className }: ChannelLevelMeterProps): ReactNode {
   const [peak, setPeak] = useState(-60);
   const peakRef = useRef(-60);
   const peakTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -84,7 +86,7 @@ export function ChannelLevelMeter({ levelDb, eventsFlowing, label, testId }: Cha
     <div
       data-testid={testId}
       data-status={eventsFlowing ? "active" : "inactive"}
-      className={`audio-meter-bar-wrapper${eventsFlowing ? "" : " audio-meter-inactive"}`}
+      className={`audio-meter-bar-wrapper${eventsFlowing ? "" : " audio-meter-inactive"}${className ? ` ${className}` : ""}`}
     >
       <div className="audio-meter-track">
         {/* Full-height gradient, clipped to fill level from bottom. The --fill-percent

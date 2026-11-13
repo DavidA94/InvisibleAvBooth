@@ -33,7 +33,7 @@ const MIXER_STATE: MixerState = {
 
 describe("mixerSocketModule", () => {
   beforeEach(() => {
-    useStore.setState({ mixerStates: {}, mixerLevels: {}, pendingPresetIds: [], notifications: [] });
+    useStore.setState({ mixerStates: {}, mixerLevels: {}, mixerPostLevels: {}, pendingPresetIds: [], notifications: [] });
   });
 
   it("STC_MIXER_STATE replaces all mixer states", () => {
@@ -53,7 +53,7 @@ describe("mixerSocketModule", () => {
   it("STC_MIXER_LEVELS stores per-channel levels", () => {
     const socket = makeFakeSocket();
     registerMixerSocketHandlers(socket as never);
-    socket.emit(STC_MIXER_LEVELS, { mixerId: "mix1", levels: [{ channel: 1, levelDb: -18 }] });
+    socket.emit(STC_MIXER_LEVELS, { mixerId: "mix1", levels: [{ channel: 1, levelDb: -18, postFaderDb: -18 }] });
     expect(useStore.getState().mixerLevels["mix1"]).toEqual({ 1: -18 });
   });
 

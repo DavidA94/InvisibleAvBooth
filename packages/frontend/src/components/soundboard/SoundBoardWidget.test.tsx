@@ -96,7 +96,7 @@ describe("deriveControlsStatus", () => {
 
 describe("SoundBoardWidget", () => {
   beforeEach(() => {
-    useStore.setState({ mixerStates: {}, mixerLevels: {}, pendingPresetIds: [], notifications: [] });
+    useStore.setState({ mixerStates: {}, mixerLevels: {}, mixerPostLevels: {}, pendingPresetIds: [], notifications: [] });
   });
 
   it("renders channel strips for a connected mixer with fresh state (green Controls)", () => {

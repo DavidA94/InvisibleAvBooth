@@ -38,7 +38,14 @@ const total = (): number => [...faderRenders.byChannel.values()].reduce((a, b) =
 describe("SoundBoardWidget render scoping", () => {
   beforeEach(() => {
     faderRenders.byChannel.clear();
-    useStore.setState({ mixerStates: { mix1: makeState() }, mixerLevels: {}, pendingPresetIds: [], presetPendingSince: {}, notifications: [] });
+    useStore.setState({
+      mixerStates: { mix1: makeState() },
+      mixerLevels: {},
+      mixerPostLevels: {},
+      pendingPresetIds: [],
+      presetPendingSince: {},
+      notifications: [],
+    });
   });
   afterEach(() => cleanup());
 
@@ -49,7 +56,7 @@ describe("SoundBoardWidget render scoping", () => {
       for (let i = 0; i < 10; i++)
         useStore.getState().setMixerLevels(
           "mix1",
-          [1, 2, 3, 4].map((c) => ({ channel: c, levelDb: -30 + i })),
+          [1, 2, 3, 4].map((c) => ({ channel: c, levelDb: -30 + i, postFaderDb: -30 + i })),
         );
     });
     expect(total()).toBe(before);

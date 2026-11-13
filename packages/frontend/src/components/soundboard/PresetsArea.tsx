@@ -61,7 +61,10 @@ export function PresetsArea({ presets, inlineLimit = 6, pendingPresetIds = [], o
         disabled={pending}
         onClick={() => handleActivate(preset, fromModal)}
       >
-        {pending ? <IonSpinner name="crescent" /> : preset.name}
+        {/* Keep the label while loading so the volunteer still sees WHICH preset is
+            being applied; the spinner sits to its left. */}
+        {pending && <IonSpinner name="crescent" className="mixer-preset-spinner" aria-hidden="true" />}
+        <span>{preset.name}</span>
       </button>
     );
   };

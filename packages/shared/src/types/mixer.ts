@@ -113,11 +113,19 @@ export interface MixerPresetResult {
   error?: string;
 }
 
-/** Per-channel level for the always-visible meter (mono, dBFS). */
+/** Per-channel levels for the strip meters (mono, dBFS). */
 export interface MixerChannelLevel {
   channel: number;
-  /** dBFS, clamped to LEVEL_AXIS_MIN_DBFS..LEVEL_AXIS_MAX_DBFS. */
+  /** INPUT level (pre-fader, pre-mute) in dBFS, clamped to the display axis. Shows "is a signal arriving?". */
   levelDb: number;
+  /**
+   * OUTGOING level (post-fader, post-mute) in dBFS, clamped to the display axis —
+   * "what this channel is actually sending". Read from the board's TRUE per-channel
+   * post-fader meter (one registered client per unmuted channel); the axis minimum
+   * when muted. ABSENT for an unmuted channel whose first post-fader frame hasn't
+   * arrived yet (~80 ms after unmute) — the UI shows nothing rather than a guess.
+   */
+  postFaderDb?: number;
 }
 
 /**

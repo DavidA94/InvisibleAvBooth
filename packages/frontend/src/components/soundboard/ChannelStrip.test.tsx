@@ -7,6 +7,7 @@ import {
   TEST_ID_SOUNDBOARD_CHANNEL_NAME,
   TEST_ID_MIXER_ADJUST_GAIN_BUTTON,
   TEST_ID_MIXER_CHANNEL_METER,
+  TEST_ID_MIXER_CHANNEL_INPUT_METER,
   TEST_ID_MIXER_VERTICAL_FADER,
   TEST_ID_MIXER_MUTE_BUTTON,
 } from "../../constants/testIds";
@@ -66,6 +67,18 @@ describe("ChannelStrip", () => {
     expect(screen.getByTestId(`${TEST_ID_MIXER_CHANNEL_METER}-1`)).toBeInTheDocument();
   });
 
+  it("shows both meters right of the fader: thin INPUT first, then OUTGOING", () => {
+    renderStrip(["channel-metering"]);
+    const input = screen.getByTestId(`${TEST_ID_MIXER_CHANNEL_INPUT_METER}-1`);
+    const fader = screen.getByTestId(`${TEST_ID_MIXER_VERTICAL_FADER}-1`);
+    const output = screen.getByTestId(`${TEST_ID_MIXER_CHANNEL_METER}-1`);
+    expect(input).toHaveClass("mixer-input-meter");
+    expect(output).not.toHaveClass("mixer-input-meter");
+    // DOM order = visual order in the flex row: fader, input, outgoing.
+    expect(fader.compareDocumentPosition(input) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(input.compareDocumentPosition(output) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it("HIDES the Adjust Gain button for an AvVolunteer even when gain-control is enabled (AvPowerUser+ gate)", () => {
     mockIsRole.mockImplementation((min: string) => min !== "AvPowerUser"); // volunteer: not power-user
     renderStrip(["gain-control"]);
@@ -75,6 +88,7 @@ describe("ChannelStrip", () => {
   it("hides the level meter when channel-metering is disabled", () => {
     renderStrip(["gain-control"]);
     expect(screen.queryByTestId(`${TEST_ID_MIXER_CHANNEL_METER}-1`)).toBeNull();
+    expect(screen.queryByTestId(`${TEST_ID_MIXER_CHANNEL_INPUT_METER}-1`)).toBeNull();
   });
 
   it("opens the gain popover when the Adjust Gain button is clicked", () => {
@@ -102,10 +116,10 @@ describe("ChannelStrip", () => {
     expect(screen.getByTestId(`${TEST_ID_MIXER_MUTE_BUTTON}-1`).getAttribute("data-state")).toBe("unknown");
   });
 
-  it("renders the channel name with a SOLID fill for an inverted X Air color (8–15)", () => {
+  it("renders the channel name with a SOLID fill for a base X Air color (1–7, matches the X AIR app)", () => {
     render(
       <ChannelStrip
-        channel={{ ...CHANNEL, color: 12 }} // 12 = BLi (inverted blue → solid fill)
+        channel={{ ...CHANNEL, color: 4 }} // 4 = BL (base blue → solid fill)
         features={[]}
         gainMinDb={-12}
         gainMaxDb={60}
@@ -120,10 +134,10 @@ describe("ChannelStrip", () => {
     expect(nameBox.style.backgroundColor).not.toBe(""); // solid background
   });
 
-  it("renders the channel name as an OUTLINE for a base X Air color (1–7)", () => {
+  it("renders the channel name as an OUTLINE for an inverted X Air color (9–15)", () => {
     render(
       <ChannelStrip
-        channel={{ ...CHANNEL, color: 4 }} // 4 = BL (outline blue)
+        channel={{ ...CHANNEL, color: 12 }} // 12 = BLi (inverted blue → outline)
         features={[]}
         gainMinDb={-12}
         gainMaxDb={60}

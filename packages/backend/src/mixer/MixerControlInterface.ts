@@ -37,6 +37,12 @@ export interface MixerDriverConfig {
   features: MixerCapabilities["features"];
   /** Optional injected transport (tests inject a fake; production omits → real UDP). */
   transport?: OscTransport;
+  /**
+   * Optional factory for ADDITIONAL transports — one per unmuted channel for true
+   * post-fader meters (each must be its own registered client on the board). Tests
+   * inject fakes; production omits → a new real UDP socket per channel.
+   */
+  transportFactory?: () => OscTransport;
 }
 
 export interface MixerControlInterface {

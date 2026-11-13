@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { IonInput, IonButton, IonText, IonSpinner, IonCheckbox, IonToggle, IonIcon, IonItem, IonLabel } from "@ionic/react";
+import { IonInput, IonButton, IonText, IonSpinner, IonCheckbox, IonToggle, IonIcon, IonItem, IonLabel, IonReorderGroup, IonReorder } from "@ionic/react";
+import type { ItemReorderEventDetail } from "@ionic/react";
 import { checkmarkCircle, closeCircle } from "ionicons/icons";
 import Select from "react-select";
 import { darkSelectStyles } from "../../theme/selectStyles";
@@ -16,6 +17,7 @@ import {
   TEST_ID_DEVICE_FORM_SAVE,
   TEST_ID_DEVICE_FORM_DELETE,
   TEST_ID_DEVICE_FORM_ERROR,
+  TEST_ID_MIXER_PRESET_REORDER_GROUP,
 } from "../../constants/testIds";
 import type { SoundBoardFormState } from "./soundBoardDeviceFormLogic";
 import {
@@ -169,6 +171,36 @@ export function SoundBoardDeviceForm({ device, onSaved, onDeleted, registerDirty
     if (r.ok) setPresets((await r.json()) as PresetRow[]);
   }, [device]);
 
+  // Drag-to-reorder (mirrors the camera preset list). The new order is shown
+  // immediately, then saved; the backend re-broadcasts mixer state so every
+  // dashboard's preset buttons follow the new order. If the save fails we put the
+  // list back and say so — a silently-unsaved order would reappear later and
+  // confuse whoever set it.
+  const handlePresetReorder = useCallback(
+    async (fromIndex: number, toIndex: number): Promise<void> => {
+      if (!device || fromIndex === toIndex) return;
+      const previous = presets;
+      const reordered = [...presets];
+      const [moved] = reordered.splice(fromIndex, 1);
+      if (!moved) return;
+      reordered.splice(toIndex, 0, moved);
+      setPresets(reordered);
+      try {
+        const response = await fetch(`/api/admin/mixers/${device.id}/presets/order`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ presetIds: reordered.map((preset) => preset.id) }),
+        });
+        if (!response.ok) throw new Error(`status ${response.status}`);
+      } catch {
+        setPresets(previous);
+        setError("Couldn't save the new preset order — please try again");
+      }
+    },
+    [device, presets],
+  );
+
   const handleDeletePreset = useCallback(async (): Promise<void> => {
     if (!device || !presetDeleteId) return;
     try {
@@ -271,25 +303,37 @@ export function SoundBoardDeviceForm({ device, onSaved, onDeleted, registerDirty
         <>
           <h4 className="text-muted section-heading-margin">Presets</h4>
           {presets.length === 0 && <p className="text-muted text-secondary text-small">No presets configured.</p>}
-          {presets.map((preset) => (
-            <IonItem key={preset.id} lines="inset">
-              <IonLabel>{preset.name}</IonLabel>
-              <IonButton
-                slot="end"
-                size="small"
-                fill="clear"
-                onClick={() => {
-                  setEditingPreset({ id: preset.id, name: preset.name });
-                  setPresetModalOpen(true);
-                }}
-              >
-                Load &amp; edit
-              </IonButton>
-              <IonButton slot="end" size="small" fill="clear" color="danger" onClick={() => setPresetDeleteId(preset.id)}>
-                Delete
-              </IonButton>
-            </IonItem>
-          ))}
+          <IonReorderGroup
+            data-testid={TEST_ID_MIXER_PRESET_REORDER_GROUP}
+            disabled={false}
+            onIonItemReorder={(event: CustomEvent<ItemReorderEventDetail>) => {
+              const { from, to } = event.detail;
+              // Let Ionic settle the DOM, then re-render from state in the new order.
+              event.detail.complete(false);
+              void handlePresetReorder(from, to);
+            }}
+          >
+            {presets.map((preset) => (
+              <IonItem key={preset.id} lines="inset">
+                <IonReorder slot="start" />
+                <IonLabel>{preset.name}</IonLabel>
+                <IonButton
+                  slot="end"
+                  size="small"
+                  fill="clear"
+                  onClick={() => {
+                    setEditingPreset({ id: preset.id, name: preset.name });
+                    setPresetModalOpen(true);
+                  }}
+                >
+                  Load &amp; edit
+                </IonButton>
+                <IonButton slot="end" size="small" fill="clear" color="danger" onClick={() => setPresetDeleteId(preset.id)}>
+                  Delete
+                </IonButton>
+              </IonItem>
+            ))}
+          </IonReorderGroup>
           <IonButton
             size="small"
             fill="outline"

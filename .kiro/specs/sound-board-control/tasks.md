@@ -235,3 +235,12 @@ All work is committed directly to `main` (no feature branch). `npm run ci` must 
 
 - [x] 56. Widget render scoping — per-channel `MixerChannelMeter` store subscription; value-memoized `ChannelStrip` with stable handlers; coalesced backend state broadcasts. Regression-guarded by `SoundBoardWidget.render.test.tsx`; frontend logs preset ack `rttMs`.
   - _Requirements: 5, 10, 12_
+
+- [x] 57. Widget polish — scribble-strip fill/outline mapping corrected (1–7 solid, 9–15 outline, matches X AIR); uniform channel-name box so faders align; preset button keeps its label with the spinner beside it; fader dB-label reserve trimmed 44px→1.875rem; black ≥2px divider between channel strips.
+  - _Requirements: 5, 10_
+
+- [x] 58. Input + outgoing channel meters — thin (0.15rem) INPUT meter (`/meters/1`, pre-fader) and full-width OUTGOING meter, both right of the fader. Outgoing is the board's TRUE post-fader value from `/meters/0` via `PostFaderMeterPool` (one registered client per board-confirmed unmuted channel; muted = silent; absent until the first frame). Hardware findings documented in design.md.
+  - _Requirements: 5, 12_
+
+- [x] 59. Preset reorder — drag-and-drop in the Sound Board device form; order saved via `PUT …/presets/order` (restored + error on failure); route scoped to the mixer; real-browser drag e2e test.
+  - _Requirements: 10.8_

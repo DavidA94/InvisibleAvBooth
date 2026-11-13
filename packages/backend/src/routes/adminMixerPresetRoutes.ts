@@ -100,11 +100,15 @@ export function createMixerPresetRouter(routerDatabase: Database, authService: A
       response.status(400).json({ error: "presetIds array is required" });
       return;
     }
-    const stmt = routerDatabase.prepare("UPDATE mixer_presets SET sortOrder = ? WHERE id = ?");
+    // Scope by mixerId so a reorder can only touch THIS mixer's presets (an id from
+    // another mixer in the list is ignored rather than re-sorting that mixer).
+    const mixerId = request.params["mixerId"] as string;
+    const stmt = routerDatabase.prepare("UPDATE mixer_presets SET sortOrder = ? WHERE id = ? AND mixerId = ?");
     for (let index = 0; index < presetIds.length; index++) {
-      stmt.run(index, presetIds[index]);
+      stmt.run(index, presetIds[index], mixerId);
     }
-    emitChanged(request.params["mixerId"] as string);
+    logger.info("Mixer presets reordered", { userId: request.jwtPayload!.sub, context: { mixerId, count: presetIds.length } });
+    emitChanged(mixerId);
     response.json({ success: true });
   });
 

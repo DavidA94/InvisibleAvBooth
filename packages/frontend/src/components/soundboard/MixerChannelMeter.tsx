@@ -6,7 +6,14 @@ import { ChannelLevelMeter } from "./ChannelLevelMeter";
 interface MixerChannelMeterProps {
   mixerId: string;
   channel: number;
+  /**
+   * Which signal to show:
+   * - "output": OUTGOING (post-fader, post-mute) — what the channel sends to the mix.
+   * - "input":  INPUT (pre-fader) — is a signal arriving at all? (catches a missed channel)
+   */
+  kind: "input" | "output";
   testId: string;
+  className?: string;
 }
 
 /**
@@ -21,8 +28,15 @@ interface MixerChannelMeterProps {
  * frame re-renders only these small meter bars; the rest of the widget renders
  * only when control state actually changes. Do not lift this subscription back up.
  */
-export function MixerChannelMeter({ mixerId, channel, testId }: MixerChannelMeterProps): ReactNode {
-  const levelDb = useStore((s) => s.mixerLevels[mixerId]?.[channel]);
+export function MixerChannelMeter({ mixerId, channel, kind, testId, className }: MixerChannelMeterProps): ReactNode {
+  const levelDb = useStore((s) => (kind === "input" ? s.mixerLevels : s.mixerPostLevels)[mixerId]?.[channel]);
   const flowing = levelDb !== undefined;
-  return <ChannelLevelMeter testId={testId} levelDb={flowing ? levelDb : LEVEL_AXIS_MIN_DBFS} eventsFlowing={flowing} />;
+  return (
+    <ChannelLevelMeter
+      testId={testId}
+      levelDb={flowing ? levelDb : LEVEL_AXIS_MIN_DBFS}
+      eventsFlowing={flowing}
+      {...(className !== undefined ? { className } : {})}
+    />
+  );
 }

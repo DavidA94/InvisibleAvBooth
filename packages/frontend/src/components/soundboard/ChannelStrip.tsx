@@ -13,6 +13,7 @@ import {
   TEST_ID_SOUNDBOARD_CHANNEL_NAME,
   TEST_ID_MIXER_ADJUST_GAIN_BUTTON,
   TEST_ID_MIXER_CHANNEL_METER,
+  TEST_ID_MIXER_CHANNEL_INPUT_METER,
 } from "../../constants/testIds";
 
 interface ChannelStripProps {
@@ -75,12 +76,12 @@ function ChannelStripView({
   const gainTriggerId = `gain-trigger-${useId().replace(/:/g, "")}-${channel.channel}`;
 
   // The X Air per-channel scribble color + style (null when OFF / not yet read).
-  // Inverted (index 8–15) = solid colored background with dark text; otherwise
-  // an outline: colored border + colored text on the dark theme background.
+  // Filled (index 1–7) = solid colored background with dark text; inverted
+  // (9–15) = an outline: colored border + colored text on the dark background.
   // Runtime-computed mixer color is the documented inline-style exception.
   const resolved = resolveMixerColor(channel.color);
   const nameColorStyle: CSSProperties | undefined = resolved
-    ? resolved.inverted
+    ? resolved.filled
       ? { backgroundColor: resolved.hex, color: "#1A1A1A", borderColor: resolved.hex }
       : { color: resolved.hex, borderColor: resolved.hex }
     : undefined;
@@ -89,9 +90,9 @@ function ChannelStripView({
     <div className="soundboard-channel-strip" data-testid={`${TEST_ID_SOUNDBOARD_CHANNEL_STRIP}-${channel.channel}`}>
       {showNameRow && (
         <span
-          className={`soundboard-channel-name${resolved ? " soundboard-channel-name-colored" : ""}`}
+          className="soundboard-channel-name"
           data-testid={`${TEST_ID_SOUNDBOARD_CHANNEL_NAME}-${channel.channel}`}
-          data-color={resolved ? (resolved.inverted ? "fill" : "outline") : undefined}
+          data-color={resolved ? (resolved.filled ? "fill" : "outline") : undefined}
           {...(nameColorStyle ? { style: nameColorStyle } : {})}
         >
           {channel.name}
@@ -131,7 +132,23 @@ function ChannelStripView({
 
       <div className="soundboard-fader-meter-row">
         <VerticalFader channel={channel.channel} fader={channel.fader} unreconciled={faderUnreconciled} onFaderChange={onFaderChange} />
-        {hasMetering && <MixerChannelMeter mixerId={mixerId} channel={channel.channel} testId={`${TEST_ID_MIXER_CHANNEL_METER}-${channel.channel}`} />}
+        {/* Both meters sit RIGHT of the fader, input first then outgoing:
+            - thin INPUT meter (pre-fader): "is a signal arriving?" — catches a
+              missed/unplugged channel even when its fader is down;
+            - full-width OUTGOING meter (post-fader, post-mute): what this channel
+              actually sends to the mix — the level a volunteer should watch. */}
+        {hasMetering && (
+          <MixerChannelMeter
+            mixerId={mixerId}
+            channel={channel.channel}
+            kind="input"
+            className="mixer-input-meter"
+            testId={`${TEST_ID_MIXER_CHANNEL_INPUT_METER}-${channel.channel}`}
+          />
+        )}
+        {hasMetering && (
+          <MixerChannelMeter mixerId={mixerId} channel={channel.channel} kind="output" testId={`${TEST_ID_MIXER_CHANNEL_METER}-${channel.channel}`} />
+        )}
       </div>
 
       <MuteButton channel={channel.channel} muted={channel.muted} unreconciled={channel.unreconciled ?? false} onToggle={onMuteToggle} />

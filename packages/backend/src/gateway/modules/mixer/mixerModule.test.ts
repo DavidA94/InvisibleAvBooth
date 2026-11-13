@@ -96,38 +96,38 @@ describe("MixerSocketModule", () => {
     it("emits the first level frame immediately (leading edge)", () => {
       const io = makeIo();
       module.register(io as never);
-      eventBus.emit(BUS_MIXER_LEVELS, { mixerId: "m1", levels: [{ channel: 1, levelDb: -10 }] });
+      eventBus.emit(BUS_MIXER_LEVELS, { mixerId: "m1", levels: [{ channel: 1, levelDb: -10, postFaderDb: -10 }] });
       const levels = io.emitted.filter((e) => e.event === STC_MIXER_LEVELS);
       expect(levels).toHaveLength(1);
-      expect(levels[0]!.payload).toEqual({ mixerId: "m1", levels: [{ channel: 1, levelDb: -10 }] });
+      expect(levels[0]!.payload).toEqual({ mixerId: "m1", levels: [{ channel: 1, levelDb: -10, postFaderDb: -10 }] });
     });
 
     it("coalesces frames within the window to the latest, flushed once", () => {
       const io = makeIo();
       module.register(io as never);
       // Leading-edge frame goes out now.
-      eventBus.emit(BUS_MIXER_LEVELS, { mixerId: "m1", levels: [{ channel: 1, levelDb: -30 }] });
+      eventBus.emit(BUS_MIXER_LEVELS, { mixerId: "m1", levels: [{ channel: 1, levelDb: -30, postFaderDb: -30 }] });
       // These three arrive within the window — only the LAST should survive.
-      eventBus.emit(BUS_MIXER_LEVELS, { mixerId: "m1", levels: [{ channel: 1, levelDb: -20 }] });
-      eventBus.emit(BUS_MIXER_LEVELS, { mixerId: "m1", levels: [{ channel: 1, levelDb: -15 }] });
-      eventBus.emit(BUS_MIXER_LEVELS, { mixerId: "m1", levels: [{ channel: 1, levelDb: -5 }] });
+      eventBus.emit(BUS_MIXER_LEVELS, { mixerId: "m1", levels: [{ channel: 1, levelDb: -20, postFaderDb: -20 }] });
+      eventBus.emit(BUS_MIXER_LEVELS, { mixerId: "m1", levels: [{ channel: 1, levelDb: -15, postFaderDb: -15 }] });
+      eventBus.emit(BUS_MIXER_LEVELS, { mixerId: "m1", levels: [{ channel: 1, levelDb: -5, postFaderDb: -5 }] });
       expect(io.emitted.filter((e) => e.event === STC_MIXER_LEVELS)).toHaveLength(1);
 
       vi.advanceTimersByTime(METERS_BROADCAST_INTERVAL_MS);
       const levels = io.emitted.filter((e) => e.event === STC_MIXER_LEVELS);
       expect(levels).toHaveLength(2);
-      expect(levels[1]!.payload).toEqual({ mixerId: "m1", levels: [{ channel: 1, levelDb: -5 }] });
+      expect(levels[1]!.payload).toEqual({ mixerId: "m1", levels: [{ channel: 1, levelDb: -5, postFaderDb: -5 }] });
     });
 
     it("throttles each mixer independently", () => {
       const io = makeIo();
       module.register(io as never);
       // Both get a leading-edge emit.
-      eventBus.emit(BUS_MIXER_LEVELS, { mixerId: "m1", levels: [{ channel: 1, levelDb: -10 }] });
-      eventBus.emit(BUS_MIXER_LEVELS, { mixerId: "m2", levels: [{ channel: 1, levelDb: -11 }] });
+      eventBus.emit(BUS_MIXER_LEVELS, { mixerId: "m1", levels: [{ channel: 1, levelDb: -10, postFaderDb: -10 }] });
+      eventBus.emit(BUS_MIXER_LEVELS, { mixerId: "m2", levels: [{ channel: 1, levelDb: -11, postFaderDb: -11 }] });
       // Each then coalesces one more frame.
-      eventBus.emit(BUS_MIXER_LEVELS, { mixerId: "m1", levels: [{ channel: 1, levelDb: -8 }] });
-      eventBus.emit(BUS_MIXER_LEVELS, { mixerId: "m2", levels: [{ channel: 1, levelDb: -9 }] });
+      eventBus.emit(BUS_MIXER_LEVELS, { mixerId: "m1", levels: [{ channel: 1, levelDb: -8, postFaderDb: -8 }] });
+      eventBus.emit(BUS_MIXER_LEVELS, { mixerId: "m2", levels: [{ channel: 1, levelDb: -9, postFaderDb: -9 }] });
       expect(io.emitted.filter((e) => e.event === STC_MIXER_LEVELS)).toHaveLength(2);
 
       vi.advanceTimersByTime(METERS_BROADCAST_INTERVAL_MS);
@@ -139,8 +139,8 @@ describe("MixerSocketModule", () => {
     it("stops the flush timer once there is nothing pending", () => {
       const io = makeIo();
       module.register(io as never);
-      eventBus.emit(BUS_MIXER_LEVELS, { mixerId: "m1", levels: [{ channel: 1, levelDb: -10 }] }); // leading edge
-      eventBus.emit(BUS_MIXER_LEVELS, { mixerId: "m1", levels: [{ channel: 1, levelDb: -5 }] }); // pending → timer armed
+      eventBus.emit(BUS_MIXER_LEVELS, { mixerId: "m1", levels: [{ channel: 1, levelDb: -10, postFaderDb: -10 }] }); // leading edge
+      eventBus.emit(BUS_MIXER_LEVELS, { mixerId: "m1", levels: [{ channel: 1, levelDb: -5, postFaderDb: -5 }] }); // pending → timer armed
       expect(vi.getTimerCount()).toBe(1);
 
       vi.advanceTimersByTime(METERS_BROADCAST_INTERVAL_MS); // flush pending → self-stop
