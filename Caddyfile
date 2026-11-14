@@ -5,6 +5,13 @@
 #   bash scripts/generate-cert.sh   # one-time cert generation
 #   npm run build                   # build frontend
 
+# Bound graceful shutdown. Without this, `caddy stop` / restart blocks indefinitely
+# while browsers hold keep-alive or websocket connections, which leaves the old
+# process half-alive holding the admin port (2019) and wedges the dev->prod switch.
+{
+	grace_period 5s
+}
+
 invisible.av, localhost {
 	tls certs/localhost.crt certs/localhost.key
 

@@ -512,13 +512,52 @@ Each command ensures Caddy is running first (prompts for sudo once if needed). A
 
 ## Running in Production
 
+Production runs the compiled backend (`node --conditions=compiled dist/index.js`) and serves the built frontend as static files through Caddy. Prefer it over `dev:full` on the booth machine: no file watchers (a stray save can't restart the backend and drop OBS/mixer connections), a minified frontend for tablets, and `secure` auth cookies (`NODE_ENV=production`).
+
+### One-time install (start at boot, no password)
+
 ```bash
-npm run build
-sudo caddy start --config Caddyfile
-cd packages/backend && node dist/index.js   # or use a process manager like PM2
+bash scripts/auto-launch-prod.sh   # as your normal user, NOT sudo; asks for your password once
 ```
 
-Caddy serves the built static files from `packages/frontend/dist` and proxies API/Socket.io requests to the backend.
+This sits alongside `auto-launch-obs.sh` (which configures auto-login and OBS) and sets up:
+
+- `/etc/sysctl.d/99-invisible-av.conf` — lets ordinary users bind ports ≥ 80, so Caddy runs without root. (Used instead of `setcap` because `setcap` is silently wiped when Caddy is upgraded, which would break the next boot.)
+- Disables the distro `caddy.service` if enabled (it would take ports 80/443 first).
+- A systemd **user** service, `invisible-av.service`, running `scripts/run-prod.sh` (Caddy + backend), restarted automatically on failure.
+- `loginctl enable-linger`, so the service starts at boot.
+
+### Deploying a new version
+
+```bash
+npm run prod
+```
+
+Stops the service, builds, restarts it, and verifies that Caddy and the backend answer. If the service isn't installed, it runs in the foreground instead (Ctrl+C to stop).
+
+### Dev vs. production
+
+Production and `dev:full` use the same ports and cannot run together. `run-prod.sh` automatically stops any dev processes (`tsx watch`, Vite, dev Caddy) and **verifies** they are gone before starting; it refuses to start if it can't. You can run that step alone with `npm run stop:dev`.
+
+To go back to development, stop the service first, or it will restart itself:
+
+```bash
+systemctl --user stop invisible-av.service
+npm run dev:full
+```
+
+### Operating the service
+
+```bash
+systemctl --user status invisible-av.service
+journalctl --user -u invisible-av.service -f       # live logs
+systemctl --user disable --now invisible-av.service # undo start-at-boot
+```
+
+### Notes
+
+- `JWT_SECRET` is generated and saved to `packages/backend/.env` the first time production starts. Without it the backend falls back to a public, hardcoded secret, so production never runs that way. (Changing it logs everyone out.)
+- `@invisible-av-booth/shared` exports TypeScript source for `tsx`/Vite/tests. Plain `node` can't load that, so production passes `--conditions=compiled` to use shared's compiled `dist/` output instead. Always start the compiled backend via `npm run prod` or `npm start` in `packages/backend`, never bare `node dist/index.js`.
 
 ---
 
@@ -562,20 +601,20 @@ After rotating the key:
 
 All variables are set in `packages/backend/.env`. The file is gitignored and loaded automatically on startup.
 
-| Variable                | Required | Default                               | Description                                           |
-| ----------------------- | -------- | ------------------------------------- | ----------------------------------------------------- |
-| `DEVICE_SECRET_KEY`     | Yes      | —                                     | 64-character hex string for AES-256-GCM encryption    |
-| `YOUTUBE_CLIENT_ID`     | Yes      | —                                     | Google Cloud OAuth client ID                          |
-| `YOUTUBE_CLIENT_SECRET` | Yes      | —                                     | Google Cloud OAuth client secret                      |
-| `FACEBOOK_APP_ID`       | Yes      | —                                     | Meta app ID                                           |
-| `FACEBOOK_APP_SECRET`   | Yes      | —                                     | Meta app secret                                       |
-| `APP_URL`               | No       | `https://localhost/api/auth/callback` | OAuth redirect base URL (set when using a relay)      |
-| `PORT`                  | No       | `3001`                                | Backend server port                                   |
-| `NODE_ENV`              | No       | `development`                         | `production` enables optimizations                    |
-| `LOG_LEVEL`             | No       | `info`                                | `debug`, `info`, `warn`, or `error`                   |
-| `JWT_SECRET`            | No       | Auto-generated                        | Secret for signing JWT tokens                         |
-| `BCRYPT_ROUNDS`         | No       | `12`                                  | Password hashing rounds (lower = faster, less secure) |
-| `RELAY_PORT`            | No       | `1935`                                | Local RTMP relay port                                 |
+| Variable                | Required | Default                                 | Description                                               |
+| ----------------------- | -------- | --------------------------------------- | --------------------------------------------------------- |
+| `DEVICE_SECRET_KEY`     | Yes      | —                                       | 64-character hex string for AES-256-GCM encryption        |
+| `YOUTUBE_CLIENT_ID`     | Yes      | —                                       | Google Cloud OAuth client ID                              |
+| `YOUTUBE_CLIENT_SECRET` | Yes      | —                                       | Google Cloud OAuth client secret                          |
+| `FACEBOOK_APP_ID`       | Yes      | —                                       | Meta app ID                                               |
+| `FACEBOOK_APP_SECRET`   | Yes      | —                                       | Meta app secret                                           |
+| `APP_URL`               | No       | `https://localhost/api/auth/callback`   | OAuth redirect base URL (set when using a relay)          |
+| `PORT`                  | No       | `3001`                                  | Backend server port                                       |
+| `NODE_ENV`              | No       | `development`                           | `production` enables optimizations                        |
+| `LOG_LEVEL`             | No       | `info`                                  | `debug`, `info`, `warn`, or `error`                       |
+| `JWT_SECRET`            | No       | Dev: insecure fallback. Prod: generated | Secret for signing JWT tokens (see Running in Production) |
+| `BCRYPT_ROUNDS`         | No       | `12`                                    | Password hashing rounds (lower = faster, less secure)     |
+| `RELAY_PORT`            | No       | `1935`                                  | Local RTMP relay port                                     |
 
 ---
 

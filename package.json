@@ -18,6 +18,8 @@
     "dev:backend": "bash scripts/ensure-caddy.sh && npm run dev --workspace=packages/backend",
     "dev:frontend": "bash scripts/ensure-caddy.sh && npm run dev --workspace=packages/frontend",
     "dev:full": "bash scripts/dev-full.sh",
+    "prod": "bash scripts/prod.sh",
+    "stop:dev": "bash scripts/stop-dev.sh",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
