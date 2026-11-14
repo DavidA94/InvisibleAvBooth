@@ -59,6 +59,17 @@ export function ObsWidget(): ReactNode {
     void runCommand("stopRecording");
   }, [runCommand]);
 
+  // Streaming is gated on session metadata (the button shows an "Enter metadata" sub-label until then).
+  // Route the tap to the Session Details modal so the click matches that affordance; opening Manage
+  // Streams here would let a volunteer reach stream controls without a title/description.
+  const handleManageStreams = useCallback((): void => {
+    if (manifestReady) {
+      setShowManageStreams(true);
+    } else {
+      setShowManifestModal(true);
+    }
+  }, [manifestReady]);
+
   const handleReconnect = useCallback((): void => {
     logger.info("OBS reconnect requested by user");
     setReconnecting(true);
@@ -93,7 +104,7 @@ export function ObsWidget(): ReactNode {
             obsState={obsState}
             isPending={isPending || !socketConnected}
             manifestReady={manifestReady}
-            onManageStreams={() => setShowManageStreams(true)}
+            onManageStreams={handleManageStreams}
             onStartRecording={handleStartRecording}
             onStopRecording={handleStopRecording}
           />

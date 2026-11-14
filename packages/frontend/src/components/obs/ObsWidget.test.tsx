@@ -95,6 +95,19 @@ describe("ObsWidget", () => {
     expect(screen.getByTestId(TEST_ID_MANAGE_STREAMS_MODAL)).toBeInTheDocument();
   });
 
+  it("Manage Streams button opens SessionManifestModal, not ManageStreamsModal, when manifest is not ready", () => {
+    resetStore();
+    useStore.setState({ manifestReady: false });
+    render(
+      <IonApp>
+        <ObsWidget />
+      </IonApp>,
+    );
+    fireEvent.click(screen.getByTestId(TEST_ID_MANAGE_STREAMS_BUTTON));
+    expect(screen.getByTestId(TEST_ID_SESSION_MANIFEST_MODAL)).toBeInTheDocument();
+    expect(screen.queryByTestId(TEST_ID_MANAGE_STREAMS_MODAL)).not.toBeInTheDocument();
+  });
+
   it("Stop Recording opens danger confirmation", async () => {
     resetStore(recordingState);
     render(
