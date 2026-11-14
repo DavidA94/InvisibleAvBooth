@@ -60,11 +60,11 @@ If any of these prove inaccurate against real hardware during implementation, th
 - **Gain Semicircle**: The knob-style visual in the gain modal. An arc that fills clockwise from empty (gain at model minimum) to full (gain at model maximum). For the X Air: 0% = −12 dB, 100% = +60 dB.
 - **Audio Capture Layer**: The backend subsystem that owns the mixer's USB audio device (via PipeWire) and fans isolated channels out to multiple consumers. The gain window is the first consumer; multitrack recording is a designed-for future consumer.
 - **PipeWire**: The Linux audio server that owns the USB device exclusively and shares it among consumers (OBS, our capture) without exclusive-open conflicts.
-- **Preset**: A named, board-wide snapshot of every configured channel's fader, mute, and gain. Applied with one tap. Stored as an open OSC address→value map so additional parameters can be added later without a schema change.
+- **Preset**: A named, board-wide snapshot of the AUDIBLE settings of every configured channel (muted → mute only; unmuted at −∞ → mute + fader; otherwise mute + fader + gain — see Req 10.1). Applied with one tap. Stored as an open OSC address→value map so additional parameters can be added later without a schema change.
 - **Inbound-suppression window**: A 300 ms period after the last local change to a fader/gain control during which incoming backend updates for that control are ignored, preventing the control from "jumping back" mid-adjustment.
 - **Outbound throttle**: The rate limit (~50 ms) on messages emitted while dragging a fader/gain, plus a guaranteed final message on release.
 - **Read-back reconciliation**: After sending a fire-and-forget OSC command, the backend queries the affected address and broadcasts the mixer-reported value. The mixer is authoritative — if it reports a different value than commanded, clients reflect the mixer's value.
-- **Capability / Feature**: A toggleable mixer capability (`gain-control`, `channel-metering`, `channel-audio-capture`) that determines which controls the widget shows. `fader` and `mute` are core and always assumed present.
+- **Capability / Feature**: A toggleable mixer capability (`gain-control`, `channel-metering`, and the opt-in `usb-trim-follows-gain` — Req 16; `channel-audio-capture` was removed, see Appendix A) that determines which controls the widget shows and what the driver does. `fader` and `mute` are core and always assumed present.
 
 ---
 
@@ -140,7 +140,7 @@ If any of these prove inaccurate against real hardware during implementation, th
 1. THE Frontend SHALL render a "Sound Board" widget, registered with widgetId `"soundboard"` in the widget type registry, with a minimum size of **3×3** grid cells and no maximum (uses extra space for more channels/presets).
 2. THE widget SHALL render one **vertical channel strip** per configured channel. A strip SHALL contain, top to bottom: the channel **name** (verbatim from the mixer), an **Adjust Gain** button (Req 7), a **vertical fader** with a **per-channel level meter** beside it (both the same height), and a **mute/unmute button** (Req 6).
 3. THE vertical fader SHALL display a real dB scale with tick marks reflecting the console taper (e.g., +10, 0, −5, −10, −20, −30, −∞), NOT a linear 0–100% scale.
-4. THE per-channel level meter SHALL be a **mono** variant of the existing `AudioLevelMeter` visual language, showing the **pre-fader input level** (independent of fader position, matching a physical console), fixed to the 0…−60 dBFS scale with the established color zones and peak hold. WHEN meter data has stopped flowing (metering not subscribed, or stalled), THE meter SHALL render a **visually distinct inactive/−∞ state** (e.g., a dimmed/"no-signal" treatment) that is unambiguously different from a live meter reading true silence — so a volunteer can tell "meters are off" apart from "the channel is genuinely quiet." This inactive state is separate from the "Controls" indicator, which may remain green while meters are inactive (Req 12.3).
+4. _(Revised Nov 2026.)_ Each channel strip SHALL show **two** meters, both to the RIGHT of the fader: first a thin (0.15rem) **INPUT** meter showing the **pre-fader input level** (`/meters/1` 0–15 — "is a signal arriving?", catches a missed channel even with its fader down), then a full-width **OUTGOING** meter showing the channel's **true post-fader, post-mute level** read from the board (`/meters/0`, one registered client per unmuted channel — see design.md "Channel meters"). A muted channel's outgoing meter SHALL read silent; an unmuted channel whose first post-fader frame has not arrived SHALL show nothing rather than a computed value. Both meters are a **mono** variant of the existing `AudioLevelMeter` visual language, fixed to the 0…−60 dBFS scale with the established color zones and peak hold. WHEN meter data has stopped flowing (metering not subscribed, or stalled), THE meter SHALL render a **visually distinct inactive/−∞ state** (e.g., a dimmed/"no-signal" treatment) that is unambiguously different from a live meter reading true silence — so a volunteer can tell "meters are off" apart from "the channel is genuinely quiet." This inactive state is separate from the "Controls" indicator, which may remain green while meters are inactive (Req 12.3).
 5. THE height of each channel strip SHALL be derived from the widget's available height minus the space reserved for the presets area (Req 10).
 6. THE widget SHALL always support however many channels are configured. On the smallest supported size (small-portrait grid, ~3 strip columns), THE widget SHALL show a **minimum of three channel strips when all channels fit, or a minimum of two channel strips when pagination is present** (the last of the three slots becomes the pagination control, Req 13.2). The number of channel strips shown SHALL be computed from available width via a `ResizeObserver`, recomputing on resize/orientation change. This resolves the boundary at exactly-three-slots-with-overflow in favor of showing two channels plus the pager, rather than cramming a third.
 7. THE widget SHALL expose `data-status` (`online` / `offline`) and its stateful controls SHALL expose `data-state` for test assertions (code-style §data-attributes).
@@ -181,17 +181,20 @@ If any of these prove inaccurate against real hardware during implementation, th
 
 ---
 
-### Requirement 8: Interaction Hold Model (Suppress-In / Throttle-Out)
+### Requirement 8: Interaction Hold Model (Backend Latest-Only + Debounced Send)
 
-**User Story:** As a volunteer carefully adjusting a fader or gain, I don't want my control to jump back to an older value when a slightly-stale update arrives from the backend.
+_(Revised Nov 2026 — the original suppress-in/throttle-out model hid the mixer's genuine value for as long as the user kept adjusting, and stale echoes still slipped through at the window edge.)_
+
+**User Story:** As a volunteer carefully adjusting a fader or gain, I want my control to follow my finger, never jump back to an older value, and still show the board's real value (e.g. its rounding) even while I'm holding it.
 
 #### Acceptance Criteria
 
-1. WHILE the user is actively adjusting a fader or a gain control (pointer/touch down), AND for **300 ms after the last local change** to that control, THE Frontend SHALL treat the local value as authoritative for that specific control and SHALL **ignore** incoming backend updates for it.
-2. A backend update for a control that arrives **during** its suppression window SHALL be dropped (not queued). A backend update that arrives **after** the window SHALL be applied.
-3. WHILE dragging, THE Frontend SHALL emit outbound change messages at most every ~50 ms (throttled), and SHALL emit a **guaranteed final message** on release reflecting the exact released value.
-4. THE suppression window SHALL apply per-control — each channel's fader and each channel's gain slider independently.
-5. THE suppression window SHALL NOT apply to discrete controls (mute, preset activation) — those reflect backend state immediately.
+1. WHILE the user is adjusting a fader or gain control, THE Frontend SHALL display the local (finger) value immediately.
+2. THE Backend SHALL only ever broadcast the **latest settled** value for a control: each write is stamped with a per-address sequence, and a read-back answering a superseded write SHALL be dropped before it reaches any client.
+3. Given 8.2, THE Frontend SHALL apply every backend value for a control **unconditionally** (no suppression window), so a board correction (e.g. commanded 2.5 dB, board reports 2.0 dB) appears even while the control is held.
+4. THE Frontend SHALL send outbound changes **debounced** (`CONTROL_DEBOUNCE_MS`) with a **max-wait** (`CONTROL_MAX_WAIT_MS`) so a continuous hold still updates the board, and SHALL send a **guaranteed final message** on release with the exact released value.
+5. A single-channel set SHALL read back only that control's address.
+6. Discrete controls (mute, preset activation) SHALL NOT use this model.
 
 ---
 
@@ -218,14 +221,16 @@ If any of these prove inaccurate against real hardware during implementation, th
 
 #### Acceptance Criteria
 
-1. A preset SHALL be a **board-wide snapshot** capturing **fader, mute, and gain for every configured channel**. Channel names are device configuration, not part of a preset.
-2. A preset SHALL be stored as an **open OSC address→value map** (not three fixed columns), so additional parameters (e.g., EQ) can be captured in a future release without a schema change. In this release the captured set SHALL be exactly fader/mute/gain for all configured channels. Only values the system can **set** are captured (Req 10.8).
+1. A preset SHALL be a **board-wide snapshot** of the **audible** settings of every configured channel. _(Revised Nov 2026.)_ The same rule governs capture, apply and verification: a **muted** channel stores/writes/verifies only its mute; an **unmuted channel with its fader at −∞** stores mute + fader; any other channel stores mute + fader + gain. Settings that cannot be heard are left as the operator has them. Presets captured before this rule are gated the same way when applied. Channel names are device configuration, not part of a preset.
+2. A preset SHALL be stored as an **open OSC address→value map** (not three fixed columns), so additional parameters (e.g., EQ) can be captured in a future release without a schema change. In this release the captured set SHALL be the audible subset of fader/mute/gain per 10.1. Only values the system can **set** are captured (Req 10.8).
 3. THE widget SHALL render preset buttons **below the channel strips**, wrapping to at most **two rows** based on preset count and available width. Preset names are admin-configured.
 4. IF there are more presets than fit in two rows, THE widget SHALL show a **"View all presets"** button that opens a modal listing all presets. The modal SHALL use the same visual style/layout as the widget's preset area and SHALL scroll vertically as needed.
-5. WHEN the user taps a preset (in the widget or the modal), THE Frontend SHALL send a preset-activate message to the backend and THE Backend SHALL apply all relevant values to the mixer. WHEN activated from the modal, the modal SHALL auto-close.
-6. WHEN a preset is applied, THE widget SHALL show a brief confirmation **toast** (e.g., "Applied: \<preset name\>") and the board SHALL visibly update as reconciled state arrives.
+5. WHEN the user taps a preset (in the widget or the modal), THE Frontend SHALL send a preset-activate message and put that preset button into a **loading state** (label kept, spinner beside it) until the backend acknowledges. THE Backend SHALL apply the preset (spike-safe ordering: gain before the grouped unmute+fader; paced writes), **verify** every written value by read-back (within a small tolerance), re-write unconfirmed channels for a bounded number of rounds, and then acknowledge **only the requesting client** with success or failure (naming unconfirmed channels). Target round-trip: < 500 ms normally, ≤ 1 s on a slow network. WHEN activated from the modal, the modal SHALL auto-close.
+6. WHEN the acknowledgement arrives, THE widget SHALL end the loading state and show a **toast**: "Applied: \<preset name\>" on success, or an error naming the unconfirmed channels. IF no acknowledgement arrives within `PRESET_ACK_TIMEOUT_MS`, the loading state SHALL end with an error toast. There SHALL be no optimistic success toast.
 7. Preset application SHALL be applied **silently with respect to muting** — a preset MAY mute or unmute any channel as authored, without warning or confirmation, because rapid mute/unmute (e.g., singers→speaker) is the primary use case. The resulting mute states SHALL be clearly reflected per Req 6.
 8. Preset **authoring** (create/edit/delete/name) SHALL be ADMIN-only. Capturing a snapshot SHALL gather the current value of every setting the system can set for all configured channels (full, deterministic snapshot), by querying the mixer. Because queries are over lossy UDP, capture SHALL use the same bounded-retry read-back as commands (Req 2.7). IF any channel's value is still unconfirmed after retries, THE capture SHALL **fail with a descriptive error** naming the affected channel(s) and SHALL NOT save a partial/stale snapshot — a preset silently storing a wrong value would later be applied live as an audio fault. The admin retries the capture once the mixer is reachable.
+9. _(Added Nov 2026.)_ In the admin device form, editing a preset is **"Load & edit"**: opening it SHALL apply the preset to the live board first (same apply + verify path as 10.5); IF that fails, the editor SHALL still open and show the error.
+10. _(Added Nov 2026.)_ ADMINs SHALL be able to **reorder** presets by drag-and-drop in the device form. The new order SHALL show immediately, be saved for that mixer only, and be reflected in every dashboard's preset buttons; IF saving fails, the previous order SHALL be restored and an error shown.
 
 ---
 
@@ -302,6 +307,24 @@ If any of these prove inaccurate against real hardware during implementation, th
 6. IF the capture pipeline dies while a gain modal is open (GStreamer/PipeWire process crash), THE gain modal SHALL detect the envelope stream stopping, flip live to the slider tier (Req 7.4) with a calm inline note, and SHALL NOT leave a frozen/stale envelope that could be misread as live. The capture layer SHALL attempt teardown/respawn so a subsequent open works.
 7. THE Backend SHALL monitor the **mixer's own capture path** (its USB device presence in PipeWire, the capture pipeline, and its subscriptions) and attempt automatic recovery when a fault is detected (respawn/re-subscribe/reconnect). `AudioCaptureService` SHALL be the single owner of capture-pipeline respawn (the gain-modal stall detection in Req 15.6 reacts by flipping tiers but does not independently respawn, so two owners never race). IF automatic recovery is not possible, THE system SHALL raise a **catastrophic-tier modal** (steering §4 — `NotificationLevel: "modal"`, the same tier as `OBS_UNREACHABLE`, NOT a dismissible banner) via a **named raise event** (`BUS_MIXER_CAPTURE_PATH_LOST` → `stc:`), and SHALL **auto-clear** it via a **named resolution event** (`BUS_MIXER_CAPTURE_PATH_RESTORED`) when the path recovers — the same raise/resolution contract as `OBS_UNREACHABLE`, so the modal can never be left un-clearable. **Scope:** this covers the mixer's capture-path health only; it does **not** claim to guarantee the audio reaching the livestream/recording (that path is OBS → PipeWire → main-LR, which this system does not own — stream connectivity/platform health is already covered by the streaming service, and silent-but-connected outgoing audio is an OBS-level concern out of scope here). This honest scoping avoids giving false confidence that a green mixer widget means the stream has audio.
 8. WHEN a fader or gain control's read-back is exhausted (Req 2.7/15.5), THE widget SHALL represent that control as **unreconciled** via a `data-state` value (e.g., `data-state="unreconciled"`) and a subtle visual treatment, rather than silently presenting the unconfirmed local value as authoritative. The unreconciled state SHALL clear automatically on the next confirmed value (read-back success or `/xremote` push). (Mute uses the explicit "Audio: Unknown" yellow-dot form of this, Req 6.6.)
+
+---
+
+### Requirement 16: DAW Playback Tuning — USB Trim Follows Gain (opt-in)
+
+_(Added Nov 2026.)_
+
+**User Story:** As an admin tuning presets during the week against a DAW recording played back through the mixer's USB returns, I want gain adjustments to be audible on playback the way they would be live, so presets I build from a recording sound right on Sunday.
+
+#### Acceptance Criteria
+
+1. THE mixer device SHALL have an opt-in feature `usb-trim-follows-gain`, **OFF by default** (it overwrites the board's USB-return trims).
+2. WHILE enabled, every gain write made **through this app** (gain slider and preset apply) SHALL also set that channel's USB-return trim (`/ch/NN/preamp/rtntrim`) to the same dB, sent immediately after the gain write.
+3. THE analog gain range (−12…+60 dB) is authoritative; a value outside the trim's −18…+18 dB range SHALL be clamped to the trim's limit.
+4. THE recording SHALL be assumed to carry no gain of its own (trim = gain); no recording-time reference is tracked.
+5. THE trim write SHALL NOT be read back and SHALL NOT affect a channel's reconciled/Unknown state or a preset's success.
+6. Gain changes made outside the app (X AIR Edit, the board) SHALL NOT be mirrored.
+7. Toggling the feature SHALL take effect immediately (no backend restart).
 
 ---
 

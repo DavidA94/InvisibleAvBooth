@@ -384,6 +384,41 @@ Admin → Devices → Add Device → **Sound Board**. Enter the label, host, and
 hardware supports (gain control, per-channel metering). Use **Test Connection**
 to probe the mixer (`/xinfo`).
 
+Presets are authored in the same form: **Add Preset** captures the live board,
+**Load & edit** applies a preset to the board before editing it, and presets
+can be dragged into the order the dashboard should show them.
+
+### Channel meters: input and outgoing
+
+Each channel strip shows two meters right of the fader: a **thin input meter**
+(signal arriving at the channel, before the fader) and a **wider outgoing
+meter** (what the channel actually sends, after fader and mute — read from the
+board, not calculated).
+
+- The outgoing meter needs the backend to open **one extra UDP connection to
+  the mixer per unmuted channel** (the X Air only reports one channel's
+  post-fader level per connected client). Nothing needs configuring, but a
+  firewall between the booth PC and the mixer must allow these extra local
+  ports, just like the main connection.
+- With **four or more channels unmuted**, the board slows every meter stream to
+  about 5 updates/second — ours and X AIR Edit's. Control (faders, mute, gain,
+  presets) is unaffected.
+- A just-unmuted channel's outgoing meter is blank for a moment (~0.1 s) until
+  the board's first reading arrives.
+
+### Optional: DAW playback tuning (`usb-trim-follows-gain`)
+
+For tuning presets during the week against a recording played back from a DAW
+through the mixer's USB returns. Off by default because it **overwrites the
+board's USB-return trims**. Turn it on under Admin → Devices → your Sound Board
+→ Features (takes effect immediately). While on, every gain change made in this
+app (gain slider or preset) also sets that channel's USB-return trim to the
+same dB, clamped to the trim's ±18 dB range. Gain changed in X AIR Edit or on
+the board is not mirrored.
+
+> **Before a live service**, switch any channel you set to play from USB back
+> to its preamp input in X AIR Edit — the app does not change channel sources.
+
 ### Troubleshooting: channel level meters stay empty / grey
 
 If the Sound Board control values (faders, mute, gain, names) sync correctly but

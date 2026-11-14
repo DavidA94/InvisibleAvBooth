@@ -1671,3 +1671,13 @@
   font-size: 0.875rem;
   margin-left: 0.25rem;
 }
+
+/* ── Ionic toasts (NotificationLayer) ────────────────────────────────────────
+   Ionic's md toast is `--width: auto` between left/right anchors, so on wide
+   screens it stretches to its 700px max regardless of message length ("Applied:
+   Medium" rendered 700px wide). Size it to its content instead, centred by
+   Ionic's auto margins, with a cap so long messages still wrap readably. */
+ion-toast {
+  --width: fit-content;
+  --max-width: min(40rem, calc(100vw - 2rem));
+}

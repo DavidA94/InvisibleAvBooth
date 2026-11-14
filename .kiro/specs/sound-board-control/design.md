@@ -32,7 +32,7 @@ Patterns, conventions, and components defined there remain authoritative unless 
 - `MixerSocketModule` (backend) + `mixerSocketModule` (frontend) — `cts:`/`stc:` command & state
 - Preview transport restructured into `PreviewUpgradeRouter` (owns `/preview/*` upgrade + auth, dispatches by path), `VideoPreviewManager` (renamed from `PreviewStreamManager` — video previews), and `AudioPreviewManager` (new — audio-level previews over the binary WS; gain-window envelope is its first consumer)
 - `SoundBoardWidget` with channel strips, vertical faders (real dB taper), mono per-channel meters, mute buttons, gain modal (two tiers), presets + "View all" modal, pagination, "Controls" status indicator
-- Interaction hold model (suppress-in 300 ms / throttle-out ~50 ms) as a reusable hook
+- Interaction hold model as a reusable hook — originally suppress-in/throttle-out; REVISED to backend latest-only broadcasts + debounced/max-wait sends (see "Backend-authoritative stale-echo suppression")
 - Admin `SoundBoardDeviceForm` + preset authoring with live control before save
 - `mixer_presets` table
 - Setup script + docs updates (PipeWire, USB routing)
@@ -113,7 +113,7 @@ graph TD
 
 **Multi-consumer seam is built now, recording is not.** `AudioCaptureService` exposes a `subscribe(channels, consumer)` fan-out. The gain-window envelope consumer is built; a future `MultitrackRecorder` consumer can subscribe to all channels and write files with zero changes to the capture layer or the gain window. Requirement 4.2 is enforced by a test that registers a second consumer.
 
-**Interaction hold model as a reusable hook.** The suppress-in/throttle-out behavior is identical for the vertical fader and the horizontal gain slider, so it lives in one hook (`useHeldControl`) rather than being reimplemented. Mute and preset activation are discrete and bypass it.
+**Interaction hold model as a reusable hook.** _(Superseded detail: now debounce + max-wait outbound with every inbound value accepted — see "`useHeldControl` Hook" below.)_ The behavior is identical for the vertical fader and the horizontal gain slider, so it lives in one hook (`useHeldControl`) rather than being reimplemented. Mute and preset activation are discrete and bypass it.
 
 **Capability-driven UI with runtime override.** The widget renders controls purely from `getCapabilities()`. Admin toggles set intended capabilities; runtime availability (e.g., PipeWire missing) can _downgrade_ `channel-audio-capture` to unavailable, flipping the gain modal to the slider tier. The UI never special-cases beyond "which tier/what's present."
 
