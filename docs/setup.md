@@ -31,9 +31,18 @@ gst-inspect-1.0 ndi  # Should show NDI plugin info
 
 To access the app at `https://invisible.av`, configure DNS resolution on your network:
 
-**Option A — Router DNS (recommended):** Add a DNS entry on your router pointing `invisible.av` to the server's LAN IP address. All devices on the network will resolve it automatically.
+**Option A — Server as DNS (recommended; automated):** Most home routers cannot define a custom domain. `scripts/setup-dns-server.sh` (called at the end of `setup-dev-environment.sh`) installs `dnsmasq` on the server so it answers for `invisible.av` (exact name only, no wildcard) with its own LAN IP. All other queries are forwarded to the ISP/router DNS servers captured at setup time, then to Google (`8.8.8.8`) and Cloudflare (`1.1.1.1`) as backups. Port 53 is opened to the local subnet only.
 
-**Option B — Hosts file (per device):** Add an entry to each device's hosts file:
+Two manual steps remain:
+
+1. **Reserve the server's IP** in your router's DHCP settings (the script prints the MAC address). If the IP changes, `invisible.av` points at a dead address.
+2. **Set the router's DHCP DNS server** to the server's LAN IP, then renew the lease on client devices.
+
+Design notes: `dnsmasq` binds only the LAN IP and `127.0.0.1`, so `systemd-resolved`'s stub (`127.0.0.53`) keeps running and Tailscale DNS is unaffected. The server itself reaches `dnsmasq` through a resolved drop-in that routes only `invisible.av` to `127.0.0.1`. Config lives in `/etc/dnsmasq.d/invisible-av.conf`; re-run the script to regenerate it (for example after the server's IP changes). Upstreams are captured at setup time because, after step 2, DHCP lists the server itself as a resolver and reading them live would cause a forwarding loop.
+
+**Option B — Router DNS entry:** If your router can map a hostname to an IP, add `invisible.av` there instead and skip the script.
+
+**Option C — Hosts file (per device):** Add an entry to each device's hosts file:
 
 - **Linux/macOS:** `/etc/hosts`
 - **Windows:** `C:\Windows\System32\drivers\etc\hosts`
@@ -334,6 +343,12 @@ All camera pan/tilt/zoom/focus commands use VISCA over IP.
 1. Navigate to `/admin/devices`
 2. Add a camera-ptz device with the camera's IP address and VISCA port
 3. Save
+
+### Reset PTZ (recovering from a bumped camera)
+
+If the camera head is knocked or turned by hand, its internal pan/tilt count drifts and tap-to-center stops landing where you tap. The **Reset PTZ** button (directly under the camera preview, shown for cameras with VISCA and pan/tilt) makes the camera re-run its power-on self-check: it goes to standby, powers back on, and sweeps the head to re-find zero, just like at boot. Expect up to a minute; the button shows "Camera is re-homing" until the camera has settled. The preview may go dark briefly during standby.
+
+The button is disabled while a recording or stream is active (or starting/stopping), because the head visibly moves. The backend enforces this too, so it cannot be triggered from another tablet during a service. Stop the recording/stream first, then reset.
 
 ### AI Tracking (Tongveo NVS20A-4KN)
 

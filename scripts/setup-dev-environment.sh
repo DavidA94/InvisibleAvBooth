@@ -175,3 +175,6 @@ sudo ufw allow 7960:7970/tcp
 sudo ufw allow 7960:7970/udp
 sudo ufw allow 5960/tcp
 
+
+info "Setting up this machine as the DNS server for invisible.av"
+./scripts/setup-dns-server.sh
