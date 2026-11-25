@@ -316,3 +316,24 @@ Tests are part of each story's definition of done. Unit tests (including propert
 
 - [x] 85. Write Playwright E2E tests for admin pages — admin user CRUD flow end-to-end; admin device CRUD flow end-to-end (mocked backend)
   - _Requirements: 13, 14, 20_
+
+---
+
+## Enhancement — Numbers-Only Type to Search for Chapter / Verse
+
+_Rationale: scrolling long chapter/verse lists on a tablet mid-service is slow and error-prone. See Req 19.10 and design "Numbers-only type to search"._
+
+- [x] 86. Spec update — Req 19.4 corrected to match the shipped dropdowns, Req 19.10 added, design scripture-field section updated (with drift note for Req 19.8–19.9).
+  - _Requirements: 19_
+
+- [x] 87. Frontend — `numericSelect.tsx` (`sanitizeNumericInput`, `matchesNumberPrefix`, `NumericInput`), wire into chapter/verse/end in `ScriptureReferenceInput` (book unchanged).
+  - _Requirements: 19.10_
+
+- [x] 88. Tests — unit tests for the helpers and the component (typing filters by prefix, letters discarded, 3-digit cap, Enter selects the exact number, numeric keypad attributes); Playwright check in a real browser.
+  - _Requirements: 19.10_
+
+- [x] 89. Auto-advance — Req 19.11 + design; `nextFieldToFocus` helper in `scriptureCascade.ts`; select refs and synchronous `.focus()` in `ScriptureReferenceInput` change handlers.
+  - _Requirements: 19.11_
+
+- [x] 90. Auto-advance tests — helper table (empty/filled next field, clears, cascade resets, End is last), component focus tests, Playwright flow entering a full reference by typing only.
+  - _Requirements: 19.11_

@@ -645,7 +645,7 @@ The OBS widget shows an "Edit Details" button (pencil icon) in the `ObsStatusBar
 
 - Speaker Name: text input with `clearInput`
 - Sermon Title: text input with `clearInput`
-- Scripture: book text input with `clearInput` and KJV "contains" autocomplete (see Requirement 19), Chapter (number input), Verse (number input), End Verse (optional number input, shown as "– verse" suffix)
+- Scripture: book text input with `clearInput` and KJV "contains" autocomplete (see Requirement 19), Chapter, Verse, and optional End dropdowns limited to valid values, each with numbers-only type-to-search (Req 19.4, 19.10)
 - Live preview of `interpolatedStreamTitle` updating as fields change (including visible placeholders for missing fields)
 - Save and Cancel buttons; a "Clear All" button (disabled while streaming or recording is active)
 
@@ -760,7 +760,24 @@ All text inputs use Ionic's `clearInput` property, which renders an X button on 
 
 **Date**: The date is not a user-editable field. The backend always uses today's ISO 8601 date during template interpolation — it is set automatically and cannot be changed by the volunteer. The date is visible in the live preview of `interpolatedStreamTitle` so the volunteer can confirm it, but there is no date input in the modal. A livestream is always for today; pre-dating or post-dating the stream title is not a supported use case.
 
-**Scripture field**: The book input performs a case-insensitive "contains" search against the 66 books of the KJV canon. Book names use Roman numeral prefixes for numbered books (e.g., "I John", "II John", "III John"). Typing "John" surfaces "John", "I John", "II John", and "III John" as candidates. The frontend displays book names to the user but sends the numeric `bookId` (1–66) in the `ScriptureReference` payload — the `BIBLE_BOOKS` constant maps between the two. Chapter, verse, and optional end verse are numeric inputs.
+**Scripture field**: The book input performs a case-insensitive "contains" search against the 66 books of the KJV canon. Book names use Roman numeral prefixes for numbered books (e.g., "I John", "II John", "III John"). Typing "John" surfaces "John", "I John", "II John", and "III John" as candidates. The frontend displays book names to the user but sends the numeric `bookId` (1–66) in the `ScriptureReference` payload — the `BIBLE_BOOKS` constant maps between the two. Chapter, verse, and optional end verse are react-select dropdowns whose options come from the shared `getChaptersForBook` / `getVerseRange` data, so impossible values cannot be picked.
+
+**Numbers-only type to search** (Req 19.10): the three number dropdowns are searchable. Three pieces in `components/scripture/numericSelect.tsx` keep the behavior in one place:
+
+- `sanitizeNumericInput` — used as `onInputChange`; returns the typed text with non-digits removed, capped at 3 digits. react-select 5 uses the returned string as the new input value, so rejected characters never appear.
+- `matchesNumberPrefix` — the `filterOption`; an option matches when its label starts with the typed digits. "Contains" (react-select's default) was rejected: typing "1" would also list 21, 31, 41…, and typing "3" would not put 3 first, so Enter could select a wrong number.
+- `NumericInput` — a custom `Input` component that adds `inputMode="numeric"` and `pattern="[0-9]*"` so tablets show the number pad. react-select forwards unknown props to the `<input>`.
+
+Options are already in ascending order, so with prefix matching the exact typed number is always the first (focused) option and Enter/Tab selects it.
+
+**Auto-advance** (Req 19.11): each `onChange` handler computes the field values after its cascade, then asks the pure helper `nextFieldToFocus(changedField, valuesAfter)` (in `scriptureCascade.ts`) which field, if any, should receive focus. It returns the immediately following field only when that field is empty, and `null` when the change was a clear. `ScriptureReferenceInput` holds a react-select instance ref per field and calls `.focus()` on the result.
+
+Two constraints shaped this:
+
+- **Focus must move synchronously inside `onChange`.** react-select calls `onChange` from the tap/keydown handler, and iPadOS only shows the keyboard for focus calls made inside a user gesture. Deferring with `setTimeout` or an effect would focus the field without a keyboard.
+- **react-select blurs the field after `onChange` on touch devices** (`blurInputOnSelect` defaults to on for touch). Because focus has already moved to the next input, that blur targets an element that is no longer focused and does nothing, so the keyboard stays up. No react-select props need changing.
+
+**Drift note (not changed here):** Req 19.8–19.9 still describe a backend validation round-trip and blur-time end-verse normalisation from the original free-text design. The shipped dropdowns make invalid values unselectable and normalise via `scriptureCascade.ts` on change. Those two criteria should be rewritten to match when this area is next touched.
 
 **Scripture validation**: Before the form can be saved, the frontend validates that the entered `bookId` + `chapter` + `verse` combination exists in the KJV database. If the combination does not exist (e.g., Jude chapter 2, which doesn't exist), the form displays an inline validation error on the verse field and the Save button is disabled until the reference is corrected. The end verse, if provided, is also validated to exist in the same book and chapter. Validation is performed client-side by querying the KJV database via a backend REST endpoint (e.g., `GET /api/kjv/validate?bookId=&chapter=&verse=`) — the frontend does not embed the full KJV dataset. Validation fires on blur of each field, not on every keystroke.
 

@@ -78,3 +78,33 @@ export function cascadeVerseEndChange(verse: number | null, newVerseEnd: number 
   }
   return null;
 }
+
+// ── Auto-advance (Req 19.11) ──────────────────────────────────────────────────
+
+export type ScriptureField = "book" | "chapter" | "verse" | "verseEnd";
+
+const NEXT_FIELD: Record<ScriptureField, Exclude<ScriptureField, "book"> | null> = {
+  book: "chapter",
+  chapter: "verse",
+  verse: "verseEnd",
+  verseEnd: null,
+};
+
+/**
+ * Which field should receive focus after the volunteer picks a value, so the on-screen keyboard
+ * stays open through "John ⏎ 3 ⏎ 16 ⏎ 18 ⏎" instead of closing and reopening per field.
+ *
+ * Rules: only the immediately next field, and only if it is empty AFTER cascade resets (pass the
+ * post-cascade values). A clear (`selected === null`) never advances. Focus never skips past a filled
+ * field: if the next field has a value the volunteer is correcting one field, so focus stays put.
+ */
+export function nextFieldToFocus(
+  changed: ScriptureField,
+  selected: number | null,
+  after: Pick<ScriptureState, "chapter" | "verse" | "verseEnd">,
+): Exclude<ScriptureField, "book"> | null {
+  if (selected === null) return null;
+  const next = NEXT_FIELD[changed];
+  if (next === null) return null;
+  return after[next] === null ? next : null;
+}

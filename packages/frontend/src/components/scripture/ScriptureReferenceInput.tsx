@@ -1,10 +1,12 @@
-import { useMemo, useCallback } from "react";
+import { useMemo, useCallback, useRef } from "react";
 import type { ReactNode } from "react";
 import Select from "react-select";
-import type { GroupBase } from "react-select";
+import type { GroupBase, SelectInstance } from "react-select";
 import { BIBLE_BOOKS, MAX_CHAPTERS, MAX_VERSES, getChaptersForBook, getVerseRange } from "@invisible-av-booth/shared";
 import { darkSelectStyles } from "../../theme/selectStyles";
-import { cascadeBookChange, cascadeChapterChange, cascadeVerseChange, cascadeVerseEndChange } from "./scriptureCascade";
+import { NumericInput, matchesNumberPrefix, sanitizeNumericInput } from "./numericSelect";
+import { cascadeBookChange, cascadeChapterChange, cascadeVerseChange, cascadeVerseEndChange, nextFieldToFocus } from "./scriptureCascade";
+import type { ScriptureField } from "./scriptureCascade";
 import {
   TEST_ID_SCRIPTURE_BOOK_SELECT,
   TEST_ID_SCRIPTURE_CHAPTER_SELECT,
@@ -68,6 +70,18 @@ function buildVerseOptions(bookId: number | null, chapter: number | null): Numbe
 const bookStyles = darkSelectStyles<BookOption, false, BookGroup>();
 const numberStyles = darkSelectStyles<NumberOption>();
 
+/**
+ * Shared props for the chapter / verse / end-verse dropdowns: searchable, digits only, prefix match,
+ * numeric keypad on tablets (Req 19.10). Module-level so every render passes the same references.
+ */
+const NUMBER_SELECT_COMPONENTS = { Input: NumericInput<NumberOption, false, GroupBase<NumberOption>> };
+const numericSearchProps = {
+  isSearchable: true,
+  onInputChange: sanitizeNumericInput,
+  filterOption: matchesNumberPrefix,
+  components: NUMBER_SELECT_COMPONENTS,
+} as const;
+
 export function ScriptureReferenceInput({
   bookId,
   chapter,
@@ -79,6 +93,21 @@ export function ScriptureReferenceInput({
   onVerseEndChange,
   autoFocus,
 }: ScriptureReferenceInputProps): ReactNode {
+  // Auto-advance (Req 19.11): refs to the following fields so a selection can move focus to the next
+  // empty one. `.focus()` is called synchronously inside onChange (a user gesture) because iPadOS only
+  // shows the keyboard for focus made inside a gesture; deferring it would focus without a keyboard.
+  const chapterRef = useRef<SelectInstance<NumberOption> | null>(null);
+  const verseRef = useRef<SelectInstance<NumberOption> | null>(null);
+  const verseEndRef = useRef<SelectInstance<NumberOption> | null>(null);
+  const advanceFrom = useCallback(
+    (changed: ScriptureField, selected: number | null, after: { chapter: number | null; verse: number | null; verseEnd: number | null }) => {
+      const next = nextFieldToFocus(changed, selected, after);
+      const target = next === "chapter" ? chapterRef : next === "verse" ? verseRef : next === "verseEnd" ? verseEndRef : null;
+      target?.current?.focus();
+    },
+    [],
+  );
+
   const chapterOptions = useMemo(() => buildChapterOptions(bookId), [bookId]);
   const verseOptions = useMemo(() => buildVerseOptions(bookId, chapter), [bookId, chapter]);
   const verseEndOptions = useMemo(() => buildVerseOptions(bookId, chapter), [bookId, chapter]);
@@ -92,8 +121,14 @@ export function ScriptureReferenceInput({
       if (result.chapter !== undefined) onChapterChange(result.chapter);
       if (result.verse !== undefined) onVerseChange(result.verse);
       if (result.verseEnd !== undefined) onVerseEndChange(result.verseEnd);
+
+      advanceFrom("book", newBookId, {
+        chapter: result.chapter !== undefined ? result.chapter : chapter,
+        verse: result.verse !== undefined ? result.verse : verse,
+        verseEnd: result.verseEnd !== undefined ? result.verseEnd : verseEnd,
+      });
     },
-    [chapter, verse, verseEnd, onBookChange, onChapterChange, onVerseChange, onVerseEndChange],
+    [chapter, verse, verseEnd, onBookChange, onChapterChange, onVerseChange, onVerseEndChange, advanceFrom],
   );
 
   const handleChapterChange = useCallback(
@@ -104,8 +139,14 @@ export function ScriptureReferenceInput({
       const result = cascadeChapterChange(bookId, newChapter, { verse, verseEnd });
       if (result.verse !== undefined) onVerseChange(result.verse);
       if (result.verseEnd !== undefined) onVerseEndChange(result.verseEnd);
+
+      advanceFrom("chapter", newChapter, {
+        chapter: newChapter,
+        verse: result.verse !== undefined ? result.verse : verse,
+        verseEnd: result.verseEnd !== undefined ? result.verseEnd : verseEnd,
+      });
     },
-    [bookId, verse, verseEnd, onChapterChange, onVerseChange, onVerseEndChange],
+    [bookId, verse, verseEnd, onChapterChange, onVerseChange, onVerseEndChange, advanceFrom],
   );
 
   const handleVerseChange = useCallback(
@@ -118,8 +159,10 @@ export function ScriptureReferenceInput({
       } else {
         onVerseChange(newVerse);
       }
+
+      advanceFrom("verse", newVerse, { chapter, verse: swap ? swap.verse : newVerse, verseEnd: swap ? swap.verseEnd : verseEnd });
     },
-    [verseEnd, onVerseChange, onVerseEndChange],
+    [chapter, verseEnd, onVerseChange, onVerseEndChange, advanceFrom],
   );
 
   const handleVerseEndChange = useCallback(
@@ -163,36 +206,39 @@ export function ScriptureReferenceInput({
       <div className="manifest-scripture-row">
         <div className="fill-remaining" data-testid={TEST_ID_SCRIPTURE_CHAPTER_SELECT}>
           <Select<NumberOption>
+            ref={chapterRef}
             options={chapterOptions}
             value={selectedChapter}
             onChange={handleChapterChange}
             placeholder="Ch"
             isClearable
-            isSearchable={false}
+            {...numericSearchProps}
             styles={numberStyles}
             menuPortalTarget={document.body}
           />
         </div>
         <div className="fill-remaining" data-testid={TEST_ID_SCRIPTURE_VERSE_SELECT}>
           <Select<NumberOption>
+            ref={verseRef}
             options={verseOptions}
             value={selectedVerse}
             onChange={handleVerseChange}
             placeholder="Verse"
             isClearable
-            isSearchable={false}
+            {...numericSearchProps}
             styles={numberStyles}
             menuPortalTarget={document.body}
           />
         </div>
         <div className="fill-remaining" data-testid={TEST_ID_SCRIPTURE_VERSE_END_SELECT}>
           <Select<NumberOption>
+            ref={verseEndRef}
             options={verseEndOptions}
             value={selectedVerseEnd}
             onChange={handleVerseEndChange}
             placeholder="End"
             isClearable
-            isSearchable={false}
+            {...numericSearchProps}
             styles={numberStyles}
             menuPortalTarget={document.body}
           />

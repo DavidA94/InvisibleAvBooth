@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { cascadeBookChange, cascadeChapterChange, cascadeVerseChange, cascadeVerseEndChange } from "./scriptureCascade";
+import { cascadeBookChange, cascadeChapterChange, cascadeVerseChange, cascadeVerseEndChange, nextFieldToFocus } from "./scriptureCascade";
 
 describe("cascadeBookChange", () => {
   it.each`
@@ -50,5 +50,36 @@ describe("cascadeVerseEndChange", () => {
     ${"null verseEnd — no swap"} | ${3}    | ${null}     | ${null}
   `("$scenario", ({ verse, newVerseEnd, expected }) => {
     expect(cascadeVerseEndChange(verse, newVerseEnd)).toEqual(expected);
+  });
+});
+
+describe("nextFieldToFocus (auto-advance, Req 19.11)", () => {
+  const empty = { chapter: null, verse: null, verseEnd: null };
+
+  it.each`
+    changed       | selected | after                                        | expected
+    ${"book"}     | ${43}    | ${empty}                                     | ${"chapter"}
+    ${"book"}     | ${43}    | ${{ ...empty, chapter: 3 }}                  | ${null}
+    ${"chapter"}  | ${3}     | ${{ ...empty, chapter: 3 }}                  | ${"verse"}
+    ${"chapter"}  | ${3}     | ${{ chapter: 3, verse: 16, verseEnd: null }} | ${null}
+    ${"verse"}    | ${16}    | ${{ chapter: 3, verse: 16, verseEnd: null }} | ${"verseEnd"}
+    ${"verse"}    | ${16}    | ${{ chapter: 3, verse: 16, verseEnd: 18 }}   | ${null}
+    ${"verseEnd"} | ${18}    | ${{ chapter: 3, verse: 16, verseEnd: 18 }}   | ${null}
+  `("$changed → $expected when the next field is $after", ({ changed, selected, after, expected }) => {
+    expect(nextFieldToFocus(changed, selected, after)).toBe(expected);
+  });
+
+  it.each(["book", "chapter", "verse", "verseEnd"] as const)("never advances when %s is cleared", (changed) => {
+    expect(nextFieldToFocus(changed, null, empty)).toBeNull();
+  });
+
+  it("advances after a cascade reset emptied the next field", () => {
+    // e.g. switching book from Psalms ch 150 to Jude: cascade clears chapter, so focus goes there
+    expect(nextFieldToFocus("book", 65, { chapter: null, verse: null, verseEnd: null })).toBe("chapter");
+  });
+
+  it("does not skip ahead past a filled field", () => {
+    // Book changed on a reference whose chapter survived the cascade but verse was cleared
+    expect(nextFieldToFocus("book", 43, { chapter: 3, verse: null, verseEnd: null })).toBeNull();
   });
 });
