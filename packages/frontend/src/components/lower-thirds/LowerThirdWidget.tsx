@@ -1,5 +1,5 @@
 import { TEST_ID_LOWER_THIRD_WIDGET, TEST_ID_LOWER_THIRD_ACTIVE_SECTION, TEST_ID_LOWER_THIRD_LIBRARY_SECTION } from "../../constants/testIds";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { IonButton } from "@ionic/react";
 import { WidgetContainer } from "../WidgetContainer";
@@ -8,6 +8,7 @@ import { LowerThirdRow } from "./LowerThirdRow";
 import { AddLowerThirdDialog } from "./AddLowerThirdDialog";
 import { EditLowerThirdDialog } from "./EditLowerThirdDialog";
 import { PaginationControls } from "./PaginationControls";
+import { ExpandedScriptureModal } from "./ExpandedScriptureModal";
 import type { ConnectionStatus } from "../../types";
 import type { LowerThirdItem, LowerThirdType, AddLowerThirdInput, EditLowerThirdInput } from "@invisible-av-booth/shared";
 import "./LowerThirdWidget.css";
@@ -45,6 +46,10 @@ export function LowerThirdWidget(): ReactNode {
     sendCommand({ type: "activate", itemId, skipAnimation: true });
   };
 
+  const handleActivatePage = (itemId: string, startPage: number): void => {
+    void sendCommand({ type: "activate", itemId, startPage });
+  };
+
   const handleRemove = (itemId: string): void => {
     void sendCommand({ type: "remove-from-library", itemId });
   };
@@ -61,6 +66,25 @@ export function LowerThirdWidget(): ReactNode {
   const [showAddDropdown, setShowAddDropdown] = useState(false);
   const [editItem, setEditItem] = useState<LowerThirdItem | null>(null);
   const [openRowId, setOpenRowId] = useState<string | null>(null);
+
+  // Expanded View is tied to the item it was opened for. It is open only while that item is still the
+  // active one, which closes it for every cause at once (dismissed here or on another tablet,
+  // auto-dismiss, Force Clear, replaced by another item) without a separate handler per cause. The
+  // effect clears the id so re-activating the same item later does not reopen a stale modal (Req 5.27).
+  const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
+  useEffect(() => {
+    if (expandedItemId !== null && active?.id !== expandedItemId) setExpandedItemId(null);
+  }, [active?.id, expandedItemId]);
+
+  const handleDismissAndClose = (): void => {
+    setExpandedItemId(null);
+    void sendCommand({ type: "dismiss-active" });
+  };
+
+  const handleExpandedForceClear = (): void => {
+    setExpandedItemId(null);
+    void sendCommand({ type: "force-clear" });
+  };
 
   const handleAddSave = (input: AddLowerThirdInput): void => {
     sendCommand({ type: "add-to-library", input });
@@ -98,6 +122,7 @@ export function LowerThirdWidget(): ReactNode {
                 autoDismissAt={autoDismissAt}
                 onDismiss={handleDismiss}
                 onForceClear={handleForceClear}
+                onExpand={() => setExpandedItemId(active.id)}
                 onSwipeOpen={() => setOpenRowId(active.id)}
                 forceClose={openRowId !== active.id && openRowId !== null}
               />
@@ -133,6 +158,7 @@ export function LowerThirdWidget(): ReactNode {
                     transitionLocked={transitionLocked}
                     onActivate={handleActivate}
                     onActivateImmediate={handleActivateImmediate}
+                    onActivatePage={handleActivatePage}
                     onRemove={handleRemove}
                     onSwipeOpen={() => setOpenRowId(item.id)}
                     forceClose={openRowId !== item.id && openRowId !== null}
@@ -147,6 +173,7 @@ export function LowerThirdWidget(): ReactNode {
                     transitionLocked={transitionLocked}
                     onActivate={handleActivate}
                     onActivateImmediate={handleActivateImmediate}
+                    onActivatePage={handleActivatePage}
                     onRemove={handleRemove}
                     onEdit={setEditItem}
                     onSwipeOpen={() => setOpenRowId(item.id)}
@@ -195,6 +222,18 @@ export function LowerThirdWidget(): ReactNode {
             </div>
           )}
         </div>
+
+        {active && active.type === "Scripture" && expandedItemId === active.id && (
+          <ExpandedScriptureModal
+            item={active}
+            transitionLocked={transitionLocked}
+            onClose={() => setExpandedItemId(null)}
+            onPageNext={handlePageNext}
+            onPagePrevious={handlePagePrevious}
+            onDismissAndClose={handleDismissAndClose}
+            onForceClear={handleExpandedForceClear}
+          />
+        )}
 
         {addType && <AddLowerThirdDialog type={addType} onSave={handleAddSave} onGoLive={handleAddGoLive} onCancel={() => setAddType(null)} />}
 

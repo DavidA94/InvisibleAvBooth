@@ -31,7 +31,7 @@ export class LowerThirdModule implements SocketModule {
   private handleCommand(command: LowerThirdCommand): CommandResult & { itemId?: string } {
     switch (command.type) {
       case "activate": {
-        const result = this.service.activate(command.itemId, command.skipAnimation);
+        const result = this.service.activate(command.itemId, command.skipAnimation, command.startPage);
         return result.success ? { success: true } : { success: false, error: result.error };
       }
       case "dismiss-active": {

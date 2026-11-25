@@ -12,7 +12,8 @@ import { io as ioClient } from "socket.io-client";
 import type { Socket } from "socket.io-client";
 import { buildTestServer, resetServer, destroyServer, loginAsAdmin } from "../harness.js";
 import type { TestServer } from "../harness.js";
-import { CTS_LOWER_THIRD_COMMAND, OTS_LOWER_THIRD_PHASE, STO_LOWER_THIRD_STATE } from "@invisible-av-booth/shared";
+import { CTS_LOWER_THIRD_COMMAND, OTS_LOWER_THIRD_PHASE, STO_LOWER_THIRD_SHOW, STO_LOWER_THIRD_STATE } from "@invisible-av-booth/shared";
+import type { LowerThirdItem } from "@invisible-av-booth/shared";
 import type { LowerThirdCommand } from "@invisible-av-booth/shared";
 
 let server: TestServer;
@@ -459,5 +460,68 @@ describe("Overlay reconnect with skipEntrance", () => {
 
     // Should restart entrance animation (skipEntrance: false)
     expect(stateData.skipEntrance).toBe(false);
+  });
+});
+
+// ── Show page: activate with startPage ───────────────────────────────────────
+
+describe("Activate with startPage (Show page)", () => {
+  function addPagedScripture(): string {
+    const service = server.ctx.lowerThirdService;
+    const added = service.addToLibrary({ type: "Scripture", content: { reference: { bookId: 43, chapter: 3, verse: 16, verseEnd: 18 } } });
+    if (!added.success) throw new Error("add failed");
+    service.reportPages(added.value.id, {
+      totalPages: 3,
+      currentPage: 1,
+      pages: [
+        { pageNumber: 1, startVerse: 16, endVerse: 16 },
+        { pageNumber: 2, startVerse: 17, endVerse: 17 },
+        { pageNumber: 3, startVerse: 18, endVerse: 18 },
+      ],
+      useWideWidth: false,
+    });
+    return added.value.id;
+  }
+
+  async function connectReadyOverlay(): Promise<Socket> {
+    const overlay = connectOverlay();
+    await new Promise<void>((resolve) => overlay.on("connect", resolve));
+    await new Promise((r) => setTimeout(r, 50));
+    return overlay;
+  }
+
+  it("sends the overlay the item already on the chosen page, and paging continues from there", async () => {
+    const overlay = await connectReadyOverlay();
+    const shown = new Promise<{ item: LowerThirdItem }>((resolve) => overlay.once(STO_LOWER_THIRD_SHOW, resolve));
+    const dashboard = await connectDashboard();
+    const itemId = addPagedScripture();
+
+    const result = await sendCommand(dashboard, { type: "activate", itemId, startPage: 2 });
+
+    expect(result.success).toBe(true);
+    expect((await shown).item.pages!.currentPage).toBe(2);
+    expect(server.ctx.lowerThirdService.getFullState().library.find((item) => item.id === itemId)!.pages!.currentPage).toBe(1);
+
+    server.ctx.lowerThirdService.reportPhase("visible");
+    const next = await sendCommand(dashboard, { type: "page-next" });
+    expect(next.success).toBe(true);
+    expect(server.ctx.lowerThirdService.getActive()!.pages!.currentPage).toBe(3);
+  });
+
+  it("rejects an out-of-range startPage and sends the overlay nothing", async () => {
+    const overlay = await connectReadyOverlay();
+    let showCount = 0;
+    overlay.on(STO_LOWER_THIRD_SHOW, () => showCount++);
+    const dashboard = await connectDashboard();
+    const itemId = addPagedScripture();
+
+    const result = await sendCommand(dashboard, { type: "activate", itemId, startPage: 4 });
+    await new Promise((r) => setTimeout(r, 50));
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("out of range");
+    expect(showCount).toBe(0);
+    expect(server.ctx.lowerThirdService.getActive()).toBeNull();
+    expect(server.ctx.lowerThirdService.getAnimationPhase()).toBe("hidden");
   });
 });

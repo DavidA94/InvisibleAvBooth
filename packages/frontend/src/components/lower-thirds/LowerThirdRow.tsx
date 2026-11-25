@@ -1,8 +1,16 @@
-import { TEST_ID_LOWER_THIRD_DISMISS_BUTTON, TEST_ID_LOWER_THIRD_SHOW_BUTTON, TEST_ID_LOWER_THIRD_STATUS_OVERLAY } from "../../constants/testIds";
+import {
+  TEST_ID_LOWER_THIRD_DISMISS_BUTTON,
+  TEST_ID_LOWER_THIRD_EXPAND_BUTTON,
+  TEST_ID_LOWER_THIRD_SHOW_BUTTON,
+  TEST_ID_LOWER_THIRD_STATUS_OVERLAY,
+} from "../../constants/testIds";
 import type { ReactNode } from "react";
+import { IonIcon } from "@ionic/react";
+import { chevronExpandOutline } from "ionicons/icons";
 import type { LowerThirdItem, AnimationPhase, TitleContent, TitleSubtitleContent, ScriptureContent } from "@invisible-av-booth/shared";
 import { SwipeableRow } from "./SwipeableRow";
 import { ActiveCountdown } from "./ActiveCountdown";
+import { ShowPageButton } from "./ShowPageButton";
 
 interface LowerThirdRowProps {
   item: LowerThirdItem;
@@ -13,8 +21,12 @@ interface LowerThirdRowProps {
   autoDismissAt?: string | null;
   onDismiss?: () => void;
   onForceClear?: () => void;
+  /** Open the Expanded View for this active scripture item (Req 5.23). */
+  onExpand?: () => void;
   onActivate?: (itemId: string) => void;
   onActivateImmediate?: (itemId: string) => void;
+  /** Show a multi-page scripture starting on the given 1-based page (Req 5.19-5.22). */
+  onActivatePage?: (itemId: string, page: number) => void;
   onRemove?: (itemId: string) => void;
   onEdit?: (item: LowerThirdItem) => void;
   onPageNext?: () => void;
@@ -46,8 +58,10 @@ export function LowerThirdRow({
   autoDismissAt,
   onDismiss,
   onForceClear,
+  onExpand,
   onActivate,
   onActivateImmediate,
+  onActivatePage,
   onRemove,
   onEdit,
   onSwipeOpen,
@@ -111,6 +125,13 @@ export function LowerThirdRow({
       {section === "active" && autoDismissAt && !isDismissing && <ActiveCountdown autoDismissAt={autoDismissAt} />}
 
       {/* Primary action button */}
+      {/* Expand: active scripture only. Sits left of Dismiss with a double gap so Dismiss is not hit by accident. */}
+      {section === "active" && item.type === "Scripture" && onExpand && (
+        <button className="lt-action-btn lt-expand-btn" onClick={onExpand} data-testid={TEST_ID_LOWER_THIRD_EXPAND_BUTTON} aria-label="Expand">
+          <IonIcon icon={chevronExpandOutline} className="lt-action-icon" aria-hidden="true" />
+          <span className="lt-action-label">Expand</span>
+        </button>
+      )}
       {section === "active" && (
         <button
           className="lt-action-btn lt-action-primary"
@@ -122,6 +143,10 @@ export function LowerThirdRow({
           <span className="lt-action-icon">✕</span>
           <span className="lt-action-label">Dismiss</span>
         </button>
+      )}
+      {/* Show page: only for multi-page scripture that is not already on air. Sits left of Show. */}
+      {section === "library" && !isActive && item.type === "Scripture" && item.pages && item.pages.totalPages > 1 && onActivatePage && (
+        <ShowPageButton item={item} pages={item.pages} transitionLocked={transitionLocked} onShowPage={onActivatePage} />
       )}
       {section === "library" && !isActive && (
         <button

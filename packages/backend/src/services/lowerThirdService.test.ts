@@ -386,6 +386,148 @@ describe("page navigation", () => {
   });
 });
 
+// ── Activate with startPage (Show page) ───────────────────────────────────────
+
+describe("activate with startPage", () => {
+  const threePages = {
+    totalPages: 3,
+    currentPage: 1,
+    pages: [
+      { pageNumber: 1, startVerse: 1, endVerse: 1 },
+      { pageNumber: 2, startVerse: 2, endVerse: 2 },
+      { pageNumber: 3, startVerse: 3, endVerse: 3 },
+    ],
+    useWideWidth: false,
+  };
+
+  function addMeasuredScripture(pages: typeof threePages | null = threePages): string {
+    const added = service.addToLibrary({ type: "Scripture", content: { reference: { bookId: 1, chapter: 1, verse: 1, verseEnd: 3 } } });
+    if (!added.success) throw new Error("add failed");
+    if (pages) service.reportPages(added.value.id, pages);
+    return added.value.id;
+  }
+
+  it("fresh show starts on the requested page and sends it to the overlay", () => {
+    const id = addMeasuredScripture();
+    const result = service.activate(id, false, 3);
+    expect(result.success).toBe(true);
+    expect(service.getActive()!.pages!.currentPage).toBe(3);
+    expect(sendToOverlay).toHaveBeenCalledWith(
+      "sto:lower-third:show",
+      expect.objectContaining({ item: expect.objectContaining({ pages: expect.objectContaining({ currentPage: 3 }) }) }),
+    );
+  });
+
+  it("push-up starts on the requested page", () => {
+    const other = service.addToLibrary({ type: "Title", content: { title: "A" } });
+    if (!other.success) throw new Error("add failed");
+    const id = addMeasuredScripture();
+    service.activate(other.value.id);
+    service.reportPhase("visible");
+
+    const result = service.activate(id, false, 2);
+    expect(result.success).toBe(true);
+    expect(service.getActive()!.pages!.currentPage).toBe(2);
+    expect(sendToOverlay).toHaveBeenCalledWith(
+      "sto:lower-third:push-up",
+      expect.objectContaining({ item: expect.objectContaining({ pages: expect.objectContaining({ currentPage: 2 }) }) }),
+    );
+  });
+
+  it("combines with skipAnimation", () => {
+    const id = addMeasuredScripture();
+    service.activate(id, true, 2);
+    expect(service.getAnimationPhase()).toBe("visible");
+    expect(sendToOverlay).toHaveBeenCalledWith("sto:lower-third:show", expect.objectContaining({ skipEntrance: true }));
+    expect(service.getActive()!.pages!.currentPage).toBe(2);
+  });
+
+  it("does not mutate the library copy, so a later plain activate starts on page 1", () => {
+    const id = addMeasuredScripture();
+    service.activate(id, false, 3);
+    expect(service.getLibrary().find((item) => item.id === id)!.pages!.currentPage).toBe(1);
+
+    service.reportPhase("visible");
+    service.dismissActive();
+    service.reportPhase("hidden");
+    service.activate(id);
+    expect(service.getActive()!.pages!.currentPage).toBe(1);
+  });
+
+  it("page-next and page-previous continue from the start page", () => {
+    const id = addMeasuredScripture();
+    service.activate(id, false, 2);
+    service.reportPhase("visible");
+
+    expect(service.pageNext().success).toBe(true);
+    expect(service.getActive()!.pages!.currentPage).toBe(3);
+    service.reportPhase("visible");
+    expect(service.pageNext().success).toBe(false);
+    expect(service.pagePrevious().success).toBe(true);
+    expect(service.getActive()!.pages!.currentPage).toBe(2);
+  });
+
+  it("omitted startPage keeps the existing start-on-page-1 behavior", () => {
+    const id = addMeasuredScripture();
+    service.activate(id);
+    expect(service.getActive()!.pages!.currentPage).toBe(1);
+  });
+
+  it.each`
+    startPage | reason
+    ${0}      | ${"below range"}
+    ${4}      | ${"above range"}
+    ${-1}     | ${"negative"}
+    ${1.5}    | ${"non-integer"}
+    ${NaN}    | ${"NaN"}
+  `("rejects startPage $startPage ($reason) without touching state or the overlay", ({ startPage }: { startPage: number }) => {
+    const id = addMeasuredScripture();
+    sendToOverlay.mockClear();
+
+    const result = service.activate(id, false, startPage);
+
+    expect(result.success).toBe(false);
+    expect(service.getActive()).toBeNull();
+    expect(service.getAnimationPhase()).toBe("hidden");
+    expect(sendToOverlay).not.toHaveBeenCalled();
+    expect(service.getLibrary().find((item) => item.id === id)!.used).toBe(false);
+  });
+
+  it("rejects an invalid startPage while another item is on air and leaves it on air", () => {
+    const other = service.addToLibrary({ type: "Title", content: { title: "A" } });
+    if (!other.success) throw new Error("add failed");
+    const id = addMeasuredScripture();
+    service.activate(other.value.id);
+    service.reportPhase("visible");
+    sendToOverlay.mockClear();
+
+    const result = service.activate(id, false, 9);
+
+    expect(result.success).toBe(false);
+    expect(service.getActive()!.id).toBe(other.value.id);
+    expect(service.getAnimationPhase()).toBe("visible");
+    expect(sendToOverlay).not.toHaveBeenCalled();
+  });
+
+  it("rejects startPage for an item whose pages are not measured yet", () => {
+    const id = addMeasuredScripture(null);
+    const result = service.activate(id, false, 1);
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error).toContain("not measured");
+    expect(service.getActive()).toBeNull();
+  });
+
+  it("rejects startPage while a transition is in progress", () => {
+    const a = service.addToLibrary({ type: "Title", content: { title: "A" } });
+    if (!a.success) throw new Error("add failed");
+    const id = addMeasuredScripture();
+    service.activate(a.value.id); // phase = showing
+    const result = service.activate(id, false, 2);
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error).toContain("Transition in progress");
+  });
+});
+
 // ── State Emission ────────────────────────────────────────────────────────────
 
 describe("state emission", () => {

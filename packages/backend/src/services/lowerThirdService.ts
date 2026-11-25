@@ -145,18 +145,31 @@ export class LowerThirdService {
 
   // ── Activation & Dismiss ──────────────────────────────────────────────────
 
-  activate(itemId: string, skipAnimation = false): Result<void, string> {
+  /**
+   * Put a library item on air.
+   *
+   * `startPage` (1-based) lets the volunteer start a multi-page scripture partway through instead of
+   * showing page 1 and tapping Next repeatedly (lower-thirds spec Req 4.14-4.15, supersedes Risk 4).
+   * It rides on the normal activate path so the transition lock, push-up detection, auto-dismiss and
+   * phase tracking run exactly once; the overlay needs no new event because show/push-up already carry
+   * the whole item including `pages.currentPage`.
+   *
+   * Validation happens BEFORE any state change: a bad request must never disturb what is on air.
+   */
+  activate(itemId: string, skipAnimation = false, startPage?: number): Result<void, string> {
     if (this.isTransitionLocked()) return { success: false, error: "Transition in progress" };
 
     const item = this.library.find((item) => item.id === itemId);
     if (!item) return { success: false, error: "Item not found in library" };
 
+    const page = this._resolveStartPage(item, startPage);
+    if (!page.success) return page;
+
     if (this.active) {
       // Push-up transition
       this.cancelAutoDismiss();
       const previous = this.active;
-      this.active = { ...item, used: true };
-      if (this.active.pages) this.active.pages = { ...this.active.pages, currentPage: 1 };
+      this.active = this._buildActiveCopy(item, page.value);
       this.markUsed(itemId);
       if (skipAnimation) {
         this.phase = "visible";
@@ -170,8 +183,7 @@ export class LowerThirdService {
       this.returnToLibrary(previous);
     } else {
       // Fresh show
-      this.active = { ...item, used: true };
-      if (this.active.pages) this.active.pages = { ...this.active.pages, currentPage: 1 };
+      this.active = this._buildActiveCopy(item, page.value);
       this.markUsed(itemId);
       if (skipAnimation) {
         this.phase = "visible";
@@ -478,6 +490,28 @@ export class LowerThirdService {
       .prepare("SELECT VERSENO, VERSETEXT FROM kjv WHERE BOOKID = ? AND CHAPTERNO = ? AND VERSENO >= ? AND VERSENO <= ? ORDER BY VERSENO")
       .all(ref.bookId, ref.chapter, ref.verse, endVerse) as Array<{ VERSENO: number; VERSETEXT: string }>;
     return rows.map((row) => ({ verseNumber: row.VERSENO, text: row.VERSETEXT }));
+  }
+
+  /**
+   * Validate a requested start page for an item about to go on air. Omitted means page 1.
+   * Rejects (rather than clamps) bad values: silently showing a different page than the volunteer
+   * tapped would put the wrong verses on the stream.
+   */
+  _resolveStartPage(item: LowerThirdItem, startPage: number | undefined): Result<number, string> {
+    if (startPage === undefined) return { success: true, value: 1 };
+    if (!item.pages) return { success: false, error: "Pages not measured yet" };
+    if (!Number.isInteger(startPage) || startPage < 1 || startPage > item.pages.totalPages) {
+      return { success: false, error: `Page ${startPage} is out of range (1-${item.pages.totalPages})` };
+    }
+    return { success: true, value: startPage };
+  }
+
+  /**
+   * The copy of a library item that goes on air. Only this copy carries the chosen page; the library
+   * item keeps its own `currentPage` so a later plain Show always starts on page 1.
+   */
+  _buildActiveCopy(item: LowerThirdItem, page: number): LowerThirdItem {
+    return { ...item, used: true, pages: item.pages ? { ...item.pages, currentPage: page } : null };
   }
 
   private markUsed(itemId: string): void {

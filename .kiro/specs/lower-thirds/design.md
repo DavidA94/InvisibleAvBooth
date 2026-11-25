@@ -96,7 +96,7 @@ graph TD
 
 **Unauthenticated `/overlay` namespace**: The overlay page runs in OBS with no user interaction — there's no way to log in. The `/overlay` namespace accepts connections without JWT but only emits display commands and accepts phase reports. No control commands are accepted on this namespace. The namespace enforces single-client: new connections forcibly disconnect the previous client.
 
-**No Staged section — Preview Dialog instead**: Rather than a persistent "Staged" queue, the volunteer sees a Preview Dialog before activation. This reduces widget complexity (two sections instead of three), provides a clear confirmation step, and eliminates the confusion of "what does staged mean?" The preview is ephemeral — dismissing the dialog cancels the action.
+**No Staged section, no confirmation step**: Rather than a persistent "Staged" queue, the library offers **Show** (animated) and swipe **Go Live** (`skipAnimation`), and both activate immediately. This keeps the widget to two sections instead of three and removes the confusion of "what does staged mean?" _(Revised: the original design put a Preview Dialog between Show and activation. The shipped behavior activates directly and that was confirmed as intended; the `PreviewDialog` component is built and tested but unused. Mistaken activations are recovered with Dismiss / Force Clear. The original reasoning for dropping the dialog was not recorded.)_
 
 **Swipe-to-reveal actions**: Each row shows one primary button. Secondary actions are revealed by swiping. This reduces visual clutter while maintaining discoverability. The pattern is consistent across all rows.
 
@@ -121,7 +121,9 @@ interface LowerThirdService {
   editLibraryItem(itemId: string, patch: EditLowerThirdInput): Result<LowerThirdItem, string>;
 
   // Activation (directly from library)
-  activate(itemId: string): Result<void, string>;
+  // startPage (1-based, optional): activate on that page instead of page 1. Validated before any
+  // state change; the library copy is never mutated (see "Show page" decisions below).
+  activate(itemId: string, skipAnimation?: boolean, startPage?: number): Result<void, string>;
   dismissActive(): Result<void, string>;
   forceClear(): void; // always succeeds, bypasses lock
 
@@ -314,7 +316,7 @@ Implements `SocketModule`. Handles dashboard commands and broadcasts state.
 
 ```typescript
 type LowerThirdCommand =
-  | { type: "activate"; itemId: string }
+  | { type: "activate"; itemId: string; skipAnimation?: boolean; startPage?: number }
   | { type: "dismiss-active" }
   | { type: "force-clear" }
   | { type: "add-to-library"; input: AddLowerThirdInput }
@@ -423,15 +425,74 @@ WidgetContainer (title: "Lower Thirds", connections: [{ label: "Overlay", status
 │   │   ├── CountdownIndicator (if auto-dismiss)
 │   │   └── StatusOverlay ("Dismissing...", blocks interaction)
 │   └── PaginationRow (if paginated scripture)
+│   └── [Expand button — active scripture only, left of Dismiss] → ExpandedScriptureModal
 ├── LibrarySection
 │   ├── TemplateItems (sorted by name)
-│   │   └── Row (Show button visible, swipe-left for Go Live, swipe-right for Go Live)
+│   │   └── Row ([Show page — multi-page scripture only] + Show button visible, swipe-left for Go Live, swipe-right for Go Live)
 │   └── VolunteerItems (sorted by creation time)
-│       └── Row (Show button visible, swipe-left for Edit/Delete, swipe-right for Go Live)
+│       └── Row ([Show page — multi-page scripture only] + Show button visible, swipe-left for Edit/Delete, swipe-right for Go Live)
 ├── EmptyStates ("Nothing active", "No items available")
 ├── AddButton (dropdown → type → input dialog)
-└── PreviewDialog (modal: content preview + Cancel/Go Live)
+└── (PreviewDialog component exists but is not rendered — Show activates immediately; see Req 5.13)
 ```
+
+### Show Page (Jump-to-Page on Activate)
+
+_Added after the initial release. Supersedes Risk 4 in requirements.md (Req 4.14–4.15, 5.19–5.22)._
+
+**Why:** starting a long passage partway through required showing page 1 on air and tapping Next repeatedly. See Risk 4.
+
+**Wire protocol: one optional field, no new events.** `activate` gains `startPage?: number`. Alternatives considered:
+
+| Option                                            | Verdict                                                                                                                                                           |
+| ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Optional `startPage` on `activate`                | **Chosen.** One atomic command, so the transition lock, push-up detection, auto-dismiss start, and phase tracking all run exactly once through the existing path. |
+| New `activate-at-page` command                    | Rejected. Duplicates the whole activate path (fresh vs. push-up, `skipAnimation`, timers) and the two copies drift.                                               |
+| Frontend sends `activate` then N × `page-next`    | Rejected. Page 1 appears on air first, and each `page-next` waits on a transition lock (~one animation per page). Not atomic.                                     |
+| Frontend sends `activate` then a new `go-to-page` | Rejected for the same reason: page 1 is on air in between.                                                                                                        |
+
+**No overlay change.** `sto:lower-third:show` and `sto:lower-third:push-up` already send the whole item. The overlay builds content and measures plate height from `item.pages.currentPage`, so an item activated with `currentPage = 3` renders page 3 on entrance, and also on reconnect (`state` carries the active item). The overlay's `page` event stays for in-place Prev/Next.
+
+**Backend rules** (`LowerThirdService.activate`):
+
+- Validation runs first (`_resolveStartPage`). `startPage` must be an integer in `1..totalPages`, and the item must already have a page breakdown. On failure, return an error and do nothing else: the thing on air is never disturbed by a bad request.
+- Only the active copy gets `currentPage = startPage`. The library item keeps `currentPage: 1`, so plain **Show** and **Go Live** always start at page 1.
+- `startPage` is orthogonal to `skipAnimation`; both may be set (`Go Live` itself does not expose a page picker).
+- An omitted `startPage` yields identical behavior to before this change.
+
+**Frontend: `ShowPageButton`** (`components/lower-thirds/ShowPageButton.tsx`), rendered by `LowerThirdRow` only for non-active library rows with `item.pages.totalPages > 1`:
+
+- Button: `documentOutline` Ionicon + "Show page" label, `lt-action-btn` sizing, placed left of **Show** with `margin-right` equal to the row gap, giving a double gap (1rem) between the two buttons. Disabled under transition lock.
+- Popover: `IonPopover` (same family as `GainPopover` / `ObsMetadataPreview`), rendered only while open so closing leaves no stale overlay. One full-width button per page, `min-height: 2.75rem` (primary-action touch-target size, steering §10) so a thumb on a tablet in a dim booth hits it first time. Entry text: "Page N" plus the range label shared with `PaginationControls` (`pageReference.ts`), so the same wording appears in both places. List scrolls (`max-height`) rather than shrinking entries.
+- Selecting a page closes the popover and calls `onActivatePage(itemId, page)`; `LowerThirdWidget` maps that to `{ type: "activate", itemId, startPage: page }`.
+- **Show** itself is untouched.
+
+**Failure behavior:** a rejected `startPage` (e.g., re-measurement changed the page count between render and tap) returns the normal `CommandResult` error. The popover has already closed and nothing is on air differently. This is the same visible outcome as a rejected **Show** under a transition lock today.
+
+### Expanded View (Large Text View of the Active Scripture)
+
+_Added after the initial release. Requirements 5.23–5.27. Frontend only: no new socket events, commands, or backend changes._
+
+**Why:** the active row only shows the reference and a page range, so volunteers could not see which words were on screen when paginating. The dashboard has no copy of the rendered graphic, and building one would mean duplicating the overlay's CSS and animation engine (Risk 7). The decision, confirmed with David, is **text only**: the verses of the current page at a readable size, with the same pagination controls.
+
+**Components** (`components/lower-thirds/`):
+
+- `ExpandedScriptureModal.tsx` — wraps the shared `Modal` (large). Header: reference. Body: verses on the current page (`versesOnPage` in `pageReference.ts`, using the same start/end verse filter the overlay applies, so the text matches what viewers see), then `PaginationControls` when `totalPages > 1`. Footer: Force Clear at bottom-left; Close and Dismiss and close at bottom-right.
+- The Expand button lives in `LowerThirdRow` (active section, scripture only), left of Dismiss with the same double gap as Show page.
+- `LowerThirdWidget` owns one piece of state: `expandedItemId`. The modal is open only while `active?.id === expandedItemId`, and an effect clears `expandedItemId` once the active item changes. That one rule covers every close-for-any-reason case in Req 5.27, including actions from another tablet, and prevents re-activation of the same item from reopening a stale modal.
+
+**Commands reused, unchanged:** `page-next`, `page-previous`, `dismiss-active`, `force-clear`. The modal renders from the same `lowerThirdState` as the widget, so it follows the live page for free.
+
+**Decisions and alternatives:**
+
+| Decision                                                         | Reason                                                                                                                                                                                                   |
+| ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Text only, not a rendered graphic or live video                  | Cheapest way to answer "what words are on screen". A faithful render would duplicate overlay CSS/animation (Risk 7).                                                                                     |
+| Scripture only                                                   | Title items have nothing to paginate; their text already fits in the row.                                                                                                                                |
+| Force Clear: no confirmation, far bottom-left, red               | Matches the swipe-revealed version's one-tap behavior; the layout is the only guard. Confirmation was offered and declined.                                                                              |
+| Disable Dismiss and close and Prev/Next during a transition lock | Matches the widget. Closing the modal while the backend rejects the dismiss would look like success while the verse stays on air. The lock feedback itself ("Dismissing" overlay) remains in the widget. |
+| Close on item change rather than "follow the active item"        | Simpler, and a modal that silently switches to different verses is a hazard live.                                                                                                                        |
+| No auto-dismiss countdown in the modal                           | Not requested; the widget still shows it. Add if volunteers lose verses mid-pagination.                                                                                                                  |
 
 ### Swipe-to-Reveal Implementation
 
@@ -592,6 +653,8 @@ This is a static file directory, NOT an npm package. It does not participate in 
 7. **Library items are stable**: Template items keyed by template ID. Volunteer items maintain creation-time order regardless of edits.
 8. **Single overlay client**: New connections forcibly disconnect the previous. No doubled graphics.
 9. **Overlay connection status is visible**: The widget's connection indicator reflects real-time overlay connectivity and resolution correctness.
+10. **A bad `startPage` never disturbs the screen**: `activate` with an invalid or unmeasured `startPage` is rejected before any state, timer, or overlay change. The library copy's `currentPage` is never modified by activation.
+11. **The Expanded View never outlives its item**: it is open only while the item it was opened for is the Active item, so it cannot show stale or different verses.
 
 ---
 
@@ -599,15 +662,18 @@ This is a static file directory, NOT an npm package. It does not participate in 
 
 ### Unit Tests
 
-- `LowerThirdService` — state transitions, transition lock, auto-dismiss lifecycle, template resolution, force clear
+- `LowerThirdService` — state transitions, transition lock, auto-dismiss lifecycle, template resolution, force clear, `activate` with `startPage` (valid, push-up, out-of-range, unmeasured, library copy untouched)
 - `MetadataTemplateDao` — lower-third CRUD, canonical JSON, duplicate detection
 - `LowerThirdModule` — command handling, ack responses, initial state
-- `LowerThirdWidget` — sections, swipe actions, preview dialog, countdown
+- `ExpandedScriptureModal` / Expand button — visibility (active scripture only), current-page verses only, pagination states, footer actions, auto-close when the item changes or is cleared, no reopen on re-activation
+- `LowerThirdWidget` — sections, swipe actions, countdown, show-page popover (`PreviewDialog` is tested as a component only; the widget does not use it)
 - `LowerThirdOverlay` — phase reporting, measurement, disconnect timeout, force clear
 
 ### Integration Tests
 
-- Full flow: add scripture → measure → activate via preview → paginate → dismiss
+- Full flow: add scripture → measure → activate (Show) → paginate → dismiss
+- Expanded View: has no backend path of its own (it reuses `page-next`, `page-previous`, `dismiss-active`, `force-clear`), so those commands' existing integration tests cover it
+- Show page: add multi-page scripture → measure → activate with `startPage` → overlay receives item at that page → Prev/Next continue from it; invalid `startPage` rejected with nothing sent to the overlay
 - Auto-dismiss: activate with timer → verify dismiss fires → verify phase transitions
 - Push-up: activate A → activate B → verify push-up command
 - Template resolution: update manifest → verify library recomputes

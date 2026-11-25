@@ -1,7 +1,7 @@
 import { TEST_ID_LOWER_THIRD_PAGINATION, TEST_ID_LOWER_THIRD_PAGE_INFO } from "../../constants/testIds";
 import type { ReactNode } from "react";
-import type { PageBreakdown, ScriptureContent, LowerThirdItem } from "@invisible-av-booth/shared";
-import { BIBLE_BOOKS } from "@invisible-av-booth/shared";
+import type { PageBreakdown, LowerThirdItem } from "@invisible-av-booth/shared";
+import { formatPageRange } from "./pageReference";
 
 interface PaginationControlsProps {
   item: LowerThirdItem;
@@ -12,17 +12,8 @@ interface PaginationControlsProps {
 }
 
 function formatPageReference(item: LowerThirdItem, pages: PageBreakdown): string {
-  const content = item.content as ScriptureContent;
   const currentPageInfo = pages.pages[pages.currentPage - 1];
-  if (!currentPageInfo) return "";
-
-  const bookName = BIBLE_BOOKS[content.reference.bookId] ?? "";
-  const chapter = content.reference.chapter;
-
-  if (currentPageInfo.startVerse === currentPageInfo.endVerse) {
-    return `${bookName} ${chapter}:${currentPageInfo.startVerse}`;
-  }
-  return `${bookName} ${chapter}:${currentPageInfo.startVerse}-${currentPageInfo.endVerse}`;
+  return currentPageInfo ? formatPageRange(item, currentPageInfo) : "";
 }
 
 export function PaginationControls({ item, pages, transitionLocked, onPageNext, onPagePrevious }: PaginationControlsProps): ReactNode {

@@ -111,7 +111,7 @@ Tests are part of each task's definition of done. Unit tests follow the unit or 
 - [x] 31. Create `PaginationControls` component — Previous/Next buttons, current page reference display, disabled states.
   - _Requirements: 5_
 
-- [x] 32. Create `PreviewDialog` component — modal showing item content/type/style, Cancel and Go Live buttons, disabled during transition lock.
+- [x] 32. Create `PreviewDialog` component — modal showing item content/type/style, Cancel and Go Live buttons, disabled during transition lock. _(Built and unit-tested but never wired into `LowerThirdWidget`: Show activates immediately. Spec corrected in Phase 8 task 62.)_
   - _Requirements: 5_
 
 - [x] 33. Create `AddLowerThirdDialog` — type dropdown, type-specific input fields (Title: title input; TitleSubtitle: title+subtitle inputs; Scripture: ScriptureReferenceInput), Cancel/Save actions.
@@ -197,3 +197,45 @@ Tests are part of each task's definition of done. Unit tests follow the unit or 
 
 - [x] 56. Write Playwright overlay integration tests — show/dismiss/push-up phase reporting, measurement accuracy, disconnect timeout, reconnect with skipEntrance, reconnect after timer fired, Force Clear instant hide, resolution telemetry.
   - _Requirements: 1, 6, 7, 8_
+
+---
+
+## Phase 8: Enhancement — Show Page (Jump-to-Page on Activate)
+
+_Supersedes Risk 4 (requirements.md). Rationale: starting a long passage partway through required showing page 1 on air and tapping Next repeatedly. See design.md "Show Page"._
+
+- [x] 57. Spec update — requirements (Req 4.14–4.15, 5.19–5.22, 8.5, glossary, Risk 4 superseded), design (service signature, command type, Show Page section, correctness property 10, test strategy), this phase.
+  - _Requirements: 4, 5, 8_
+
+- [x] 58. Shared + backend — add `startPage?: number` to the `activate` variant of `LowerThirdCommand`; `LowerThirdService.activate(itemId, skipAnimation, startPage)` with `_resolveStartPage` validation before any mutation; `LowerThirdModule` passes `startPage` through. Library copy never mutated.
+  - _Requirements: 4.14, 4.15, 8.5_
+
+- [x] 59. Backend tests — service unit tests (valid start page on fresh show and push-up, out-of-range / non-integer / unmeasured rejected with no state change, library copy stays on page 1, Prev/Next continue from start page, overlay payload carries the page), module passthrough test, socket integration test.
+  - _Requirements: 4.14, 4.15_
+
+- [x] 60. Frontend — `pageReference.ts` shared range label (also used by `PaginationControls`), `ShowPageButton` (`document-outline` icon, "Show page" label, popover of pages with ≥2.75rem entries), wire into `LowerThirdRow` (left of Show, double gap, multi-page scripture only) and `LowerThirdWidget` (`activate` with `startPage`), test IDs, CSS.
+  - _Requirements: 5.19–5.22_
+
+- [x] 61. Frontend tests — unit tests for `ShowPageButton`, `LowerThirdRow` visibility rules, `LowerThirdWidget` command; Playwright flow `lower-third-show-page.spec.ts`.
+  - _Requirements: 5.19–5.22_
+
+- [x] 62. Spec correction (drift fix, no code change) — Req 5.5, 5.13, 5.14, 9.1, the glossary, and design.md now state that **Show** activates immediately (the shipped, confirmed behavior) instead of opening a Preview Dialog. `PreviewDialog` is documented as an unused component.
+  - _Requirements: 5, 9_
+
+---
+
+## Phase 9: Enhancement — Expanded View (Large Text View of the Active Scripture)
+
+_Frontend only. Rationale: volunteers could not easily see which words were on screen while paginating; a text-only larger view with pagination, Force Clear, Close and Dismiss and close fixes that without duplicating the overlay renderer (Risk 7). See design.md "Expanded View"._
+
+- [x] 63. Spec update — requirements (Req 5.23–5.27, glossary, Risk 7 note), design ("Expanded View" section, tree, property 11, test strategy), this phase.
+  - _Requirements: 5_
+
+- [x] 64. Frontend — `versesOnPage` helper in `pageReference.ts`; `ExpandedScriptureModal` (shared `Modal`, large; reference + current-page verses + `PaginationControls`; footer: Force Clear bottom-left, Close and Dismiss and close bottom-right); Expand button in the active scripture row (`chevron-expand-outline`, left of Dismiss, double gap); `LowerThirdWidget` `expandedItemId` state with auto-close; test IDs, CSS.
+  - _Requirements: 5.23–5.27_
+
+- [x] 65. Frontend unit tests — helper, modal (text, pagination states and lock, Force Clear, Close, Dismiss and close), row (button visibility), widget (auto-close on dismiss/force-clear/replacement, no reopen).
+  - _Requirements: 5.23–5.27_
+
+- [x] 66. Playwright flow `lower-third-expanded-view.spec.ts` — open, paginate sends commands, Dismiss and close, Force Clear, Close, auto-close on server state change, footer layout (Force Clear left and apart from the right group).
+  - _Requirements: 5.23–5.27_

@@ -215,6 +215,16 @@ export const TEST_ID_LOWER_THIRD_ACTIVE_SECTION = "lower-third-active-section";
 export const TEST_ID_LOWER_THIRD_LIBRARY_SECTION = "lower-third-library-section";
 export const TEST_ID_LOWER_THIRD_DISMISS_BUTTON = "lower-third-dismiss-button";
 export const TEST_ID_LOWER_THIRD_SHOW_BUTTON = "lower-third-show-button";
+export const TEST_ID_LOWER_THIRD_EXPAND_BUTTON = "lower-third-expand-button";
+export const TEST_ID_LOWER_THIRD_EXPANDED_VIEW = "lower-third-expanded-view";
+export const TEST_ID_LOWER_THIRD_EXPANDED_VERSES = "lower-third-expanded-verses";
+export const TEST_ID_LOWER_THIRD_EXPANDED_FORCE_CLEAR_BUTTON = "lower-third-expanded-force-clear-button";
+export const TEST_ID_LOWER_THIRD_EXPANDED_CLOSE_BUTTON = "lower-third-expanded-close-button";
+export const TEST_ID_LOWER_THIRD_EXPANDED_DISMISS_AND_CLOSE_BUTTON = "lower-third-expanded-dismiss-and-close-button";
+export const TEST_ID_LOWER_THIRD_SHOW_PAGE_BUTTON = "lower-third-show-page-button";
+export const TEST_ID_LOWER_THIRD_SHOW_PAGE_POPOVER = "lower-third-show-page-popover";
+/** Suffix with `-<pageNumber>` for a specific page entry, e.g. `lower-third-show-page-option-2`. */
+export const TEST_ID_LOWER_THIRD_SHOW_PAGE_OPTION = "lower-third-show-page-option";
 export const TEST_ID_LOWER_THIRD_FORCE_CLEAR_AREA = "lower-third-force-clear-area";
 export const TEST_ID_LOWER_THIRD_GO_LIVE_AREA = "lower-third-go-live-area";
 export const TEST_ID_LOWER_THIRD_DELETE_AREA = "lower-third-delete-area";

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within, act } from "@testing-library/react";
 import "../../test/ionicMocks";
 import { LowerThirdWidget } from "./LowerThirdWidget";
 import { LowerThirdRow } from "./LowerThirdRow";
@@ -103,6 +103,21 @@ describe("LowerThirdWidget", () => {
     expect(rows[1]).toHaveAttribute("data-testid", "lower-third-row-item-1");
   });
 
+  it("Show page sends activate with the chosen startPage", () => {
+    setState({ library: [scriptureItem] });
+    render(<LowerThirdWidget />);
+    fireEvent.click(screen.getByTestId("lower-third-show-page-button"));
+    fireEvent.click(screen.getByTestId("lower-third-show-page-option-2"));
+    expect(mockEmit).toHaveBeenCalledWith(expect.anything(), { type: "activate", itemId: "item-3", startPage: 2 }, expect.any(Function));
+  });
+
+  it("plain Show still sends activate without a startPage", () => {
+    setState({ library: [scriptureItem] });
+    render(<LowerThirdWidget />);
+    fireEvent.click(screen.getByTestId("lower-third-show-button"));
+    expect(mockEmit).toHaveBeenCalledWith(expect.anything(), { type: "activate", itemId: "item-3" }, expect.any(Function));
+  });
+
   it("shows overlay connection indicator as unhealthy when disconnected", () => {
     setState({ overlayConnected: false });
     render(<LowerThirdWidget />);
@@ -189,6 +204,107 @@ describe("LowerThirdRow", () => {
     const showBtn = screen.getByTestId("lower-third-show-button");
     fireEvent.click(showBtn);
     expect(onActivate).toHaveBeenCalledWith("item-1");
+  });
+
+  describe("Show page button visibility", () => {
+    const renderRow = (item: LowerThirdItem, props: { isActive?: boolean; section?: "library" | "active" } = {}) =>
+      render(
+        <LowerThirdRow
+          item={item}
+          section={props.section ?? "library"}
+          isActive={props.isActive ?? false}
+          transitionLocked={false}
+          onActivate={vi.fn()}
+          onActivatePage={vi.fn()}
+        />,
+      );
+
+    it("appears to the left of Show for multi-page scripture", () => {
+      renderRow(scriptureItem);
+      const showPage = screen.getByTestId("lower-third-show-page-button");
+      const show = screen.getByTestId("lower-third-show-button");
+      expect(showPage.compareDocumentPosition(show) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+
+    it("keeps the Show button's behavior unchanged", () => {
+      const onActivate = vi.fn();
+      const onActivatePage = vi.fn();
+      render(
+        <LowerThirdRow
+          item={scriptureItem}
+          section="library"
+          isActive={false}
+          transitionLocked={false}
+          onActivate={onActivate}
+          onActivatePage={onActivatePage}
+        />,
+      );
+      fireEvent.click(screen.getByTestId("lower-third-show-button"));
+      expect(onActivate).toHaveBeenCalledWith("item-3");
+      expect(onActivatePage).not.toHaveBeenCalled();
+    });
+
+    it("passes the chosen page to onActivatePage", () => {
+      const onActivatePage = vi.fn();
+      render(<LowerThirdRow item={scriptureItem} section="library" isActive={false} transitionLocked={false} onActivatePage={onActivatePage} />);
+      fireEvent.click(screen.getByTestId("lower-third-show-page-button"));
+      fireEvent.click(screen.getByTestId("lower-third-show-page-option-2"));
+      expect(onActivatePage).toHaveBeenCalledWith("item-3", 2);
+    });
+
+    it("is hidden for single-page scripture", () => {
+      renderRow({ ...scriptureItem, pages: { ...scriptureItem.pages!, totalPages: 1, pages: [scriptureItem.pages!.pages[0]!] } });
+      expect(screen.queryByTestId("lower-third-show-page-button")).not.toBeInTheDocument();
+    });
+
+    it("is hidden for scripture that has not been measured yet", () => {
+      renderRow({ ...scriptureItem, pages: null });
+      expect(screen.queryByTestId("lower-third-show-page-button")).not.toBeInTheDocument();
+    });
+
+    it("is hidden for Title items", () => {
+      renderRow(titleItem);
+      expect(screen.queryByTestId("lower-third-show-page-button")).not.toBeInTheDocument();
+    });
+
+    it("is hidden when the scripture is the active item", () => {
+      renderRow(scriptureItem, { isActive: true });
+      expect(screen.queryByTestId("lower-third-show-page-button")).not.toBeInTheDocument();
+    });
+
+    it("is hidden in the active section", () => {
+      renderRow(scriptureItem, { section: "active", isActive: true });
+      expect(screen.queryByTestId("lower-third-show-page-button")).not.toBeInTheDocument();
+    });
+  });
+
+  describe("Expand button visibility", () => {
+    it("shows for the active scripture row, left of Dismiss", () => {
+      render(<LowerThirdRow item={scriptureItem} section="active" isActive={true} transitionLocked={false} onDismiss={vi.fn()} onExpand={vi.fn()} />);
+      const expand = screen.getByTestId("lower-third-expand-button");
+      const dismiss = screen.getByTestId("lower-third-dismiss-button");
+      expect(expand).toHaveTextContent("Expand");
+      expect(expand.compareDocumentPosition(dismiss) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+
+    it("calls onExpand and leaves Dismiss alone", () => {
+      const onExpand = vi.fn();
+      const onDismiss = vi.fn();
+      render(<LowerThirdRow item={scriptureItem} section="active" isActive={true} transitionLocked={false} onDismiss={onDismiss} onExpand={onExpand} />);
+      fireEvent.click(screen.getByTestId("lower-third-expand-button"));
+      expect(onExpand).toHaveBeenCalledTimes(1);
+      expect(onDismiss).not.toHaveBeenCalled();
+    });
+
+    it("is hidden for an active Title item", () => {
+      render(<LowerThirdRow item={titleItem} section="active" isActive={true} transitionLocked={false} onDismiss={vi.fn()} onExpand={vi.fn()} />);
+      expect(screen.queryByTestId("lower-third-expand-button")).not.toBeInTheDocument();
+    });
+
+    it("is hidden on library rows", () => {
+      render(<LowerThirdRow item={scriptureItem} section="library" isActive={false} transitionLocked={false} onExpand={vi.fn()} />);
+      expect(screen.queryByTestId("lower-third-expand-button")).not.toBeInTheDocument();
+    });
   });
 
   it("renders Edit and Delete buttons for volunteer items in library", () => {
@@ -657,5 +773,126 @@ describe("LowerThirdWidget — transitionLocked disables controls", () => {
     setState({ library: [titleItem], transitionLocked: true });
     render(<LowerThirdWidget />);
     expect(screen.getByTestId("lower-third-show-button")).toBeDisabled();
+  });
+});
+
+describe("LowerThirdWidget — Expanded View", () => {
+  const verses = [
+    { verseNumber: 1, text: "In the beginning" },
+    { verseNumber: 2, text: "And the earth was without form" },
+    { verseNumber: 3, text: "And God said, Let there be light" },
+  ];
+  const activeScripture: LowerThirdItem = {
+    ...scriptureItem,
+    id: "active-scripture",
+    used: true,
+    content: { reference: { bookId: 1, chapter: 1, verse: 1, verseEnd: 3 }, formattedReference: "Genesis 1:1-3", verses },
+  };
+  const otherScripture: LowerThirdItem = { ...activeScripture, id: "other-scripture" };
+
+  const expandedView = (): HTMLElement => screen.getByTestId("lower-third-expanded-view");
+  const openExpanded = (): void => {
+    fireEvent.click(screen.getByTestId("lower-third-expand-button"));
+  };
+
+  it("opens from the Expand button and shows the on-screen text", () => {
+    setState({ active: activeScripture, phase: "visible" });
+    render(<LowerThirdWidget />);
+    expect(screen.queryByTestId("lower-third-expanded-view")).not.toBeInTheDocument();
+
+    openExpanded();
+
+    expect(within(expandedView()).getByTestId("lower-third-expanded-verses")).toHaveTextContent("In the beginning");
+    expect(within(expandedView()).getByTestId("lower-third-expanded-verses")).not.toHaveTextContent("Let there be light");
+  });
+
+  it("pagination inside the modal sends page-next", () => {
+    setState({ active: activeScripture, phase: "visible" });
+    render(<LowerThirdWidget />);
+    openExpanded();
+
+    fireEvent.click(within(expandedView()).getByLabelText("Next page"));
+
+    expect(mockEmit).toHaveBeenCalledWith(expect.anything(), { type: "page-next" }, expect.any(Function));
+  });
+
+  it("Close closes the modal and sends nothing", () => {
+    setState({ active: activeScripture, phase: "visible" });
+    render(<LowerThirdWidget />);
+    openExpanded();
+
+    fireEvent.click(screen.getByTestId("lower-third-expanded-close-button"));
+
+    expect(screen.queryByTestId("lower-third-expanded-view")).not.toBeInTheDocument();
+    expect(mockEmit).not.toHaveBeenCalled();
+  });
+
+  it("Dismiss and close sends dismiss-active and closes the modal immediately", () => {
+    setState({ active: activeScripture, phase: "visible" });
+    render(<LowerThirdWidget />);
+    openExpanded();
+
+    fireEvent.click(screen.getByTestId("lower-third-expanded-dismiss-and-close-button"));
+
+    expect(mockEmit).toHaveBeenCalledWith(expect.anything(), { type: "dismiss-active" }, expect.any(Function));
+    // The backend has not confirmed anything yet (item still active) and the modal is already gone.
+    expect(screen.queryByTestId("lower-third-expanded-view")).not.toBeInTheDocument();
+  });
+
+  it("Force Clear sends force-clear with no confirmation and closes the modal", () => {
+    setState({ active: activeScripture, phase: "visible" });
+    render(<LowerThirdWidget />);
+    openExpanded();
+
+    fireEvent.click(screen.getByTestId("lower-third-expanded-force-clear-button"));
+
+    expect(mockEmit).toHaveBeenCalledWith(expect.anything(), { type: "force-clear" }, expect.any(Function));
+    expect(screen.queryByTestId("lower-third-expanded-view")).not.toBeInTheDocument();
+  });
+
+  it("Dismiss and close is disabled while the widget is transition-locked", () => {
+    setState({ active: activeScripture, phase: "visible", transitionLocked: false });
+    render(<LowerThirdWidget />);
+    openExpanded();
+
+    act(() => setState({ active: activeScripture, phase: "showing", transitionLocked: true }));
+
+    expect(screen.getByTestId("lower-third-expanded-dismiss-and-close-button")).toBeDisabled();
+    fireEvent.click(screen.getByTestId("lower-third-expanded-dismiss-and-close-button"));
+    expect(mockEmit).not.toHaveBeenCalled();
+    expect(screen.getByTestId("lower-third-expanded-view")).toBeInTheDocument();
+  });
+
+  it("closes by itself when the item is dismissed or cleared elsewhere, and does not reopen on re-activation", () => {
+    setState({ active: activeScripture, phase: "visible" });
+    render(<LowerThirdWidget />);
+    openExpanded();
+    expect(screen.getByTestId("lower-third-expanded-view")).toBeInTheDocument();
+
+    act(() => setState({ active: null, phase: "hidden" }));
+    expect(screen.queryByTestId("lower-third-expanded-view")).not.toBeInTheDocument();
+
+    act(() => setState({ active: activeScripture, phase: "visible" }));
+    expect(screen.queryByTestId("lower-third-expanded-view")).not.toBeInTheDocument();
+  });
+
+  it("closes when a different item replaces the active one", () => {
+    setState({ active: activeScripture, phase: "visible" });
+    render(<LowerThirdWidget />);
+    openExpanded();
+
+    act(() => setState({ active: otherScripture, phase: "visible" }));
+
+    expect(screen.queryByTestId("lower-third-expanded-view")).not.toBeInTheDocument();
+  });
+
+  it("follows the live page while open", () => {
+    setState({ active: activeScripture, phase: "visible" });
+    render(<LowerThirdWidget />);
+    openExpanded();
+
+    act(() => setState({ active: { ...activeScripture, pages: { ...activeScripture.pages!, currentPage: 2 } }, phase: "visible" }));
+
+    expect(within(expandedView()).getByTestId("lower-third-expanded-verses")).toHaveTextContent("Let there be light");
   });
 });

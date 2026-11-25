@@ -139,6 +139,63 @@
   color: var(--color-success);
 }
 
+/* ── Show Page ───────────────────────────────────────────────────────────── */
+
+/* The row gap is 0.5rem. The extra right margin doubles the space between Show page and Show so a
+   volunteer aiming for Show cannot hit Show page by accident (lower-thirds spec Req 5.20). */
+.lt-show-page-btn,
+.lt-expand-btn {
+  margin-right: 0.5rem;
+  white-space: nowrap;
+}
+
+.lt-show-page-ion-popover {
+  --width: 16rem;
+}
+
+.lt-show-page-list {
+  display: flex;
+  flex-direction: column;
+  max-height: 18rem;
+  overflow-y: auto;
+}
+
+/* Full-width entries, 2.75rem minimum: WCAG 2.5.5 primary-action touch target (steering §10). */
+.lt-show-page-option {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.4rem 0.75rem;
+  border: none;
+  border-bottom: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.lt-show-page-option:last-child {
+  border-bottom: none;
+}
+
+.lt-show-page-option:hover,
+.lt-show-page-option:active {
+  background: var(--color-surface);
+}
+
+.lt-show-page-option-number {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.lt-show-page-option-range {
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+}
+
 /* ── Status Overlay ──────────────────────────────────────────────────────── */
 
 .lt-status-overlay {
@@ -272,4 +329,85 @@
   position: relative;
   z-index: 1;
   background: var(--color-surface-raised);
+}
+
+/* ── Expanded View ───────────────────────────────────────────────────────── */
+
+.lt-expanded-reference {
+  margin: 0 0 0.75rem;
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--color-text-muted);
+}
+
+.lt-expanded-verses {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.lt-expanded-verse {
+  margin: 0;
+  font-size: 1.75rem;
+  line-height: 1.35;
+  color: var(--color-text);
+}
+
+.lt-expanded-verse-num {
+  color: var(--color-text-muted);
+  font-weight: 700;
+}
+
+.lt-expanded-pagination {
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--color-border);
+}
+
+/* Force Clear sits at the far left, Close / Dismiss and close at the far right, so reaching for the
+   right-hand buttons never lands on Force Clear (Req 5.25). Buttons are plain elements with an
+   explicit 2.75rem minimum height (WCAG 2.5.5 primary-action target). */
+.lt-expanded-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+}
+
+.lt-expanded-footer-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.lt-expanded-btn {
+  min-height: 2.75rem;
+  min-width: 2.75rem;
+  padding: 0 1rem;
+  border: 2px solid var(--color-border);
+  border-radius: 0.25rem;
+  background: transparent;
+  color: var(--color-text);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.lt-expanded-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.lt-expanded-btn--primary {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+}
+
+.lt-expanded-btn--primary:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+}
+
+.lt-expanded-btn--danger {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
 }

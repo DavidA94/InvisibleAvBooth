@@ -78,6 +78,10 @@ vi.mock("@ionic/react", async () => {
         onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
           (onIonChange as ((e: { detail: { value: number } }) => void) | undefined)?.({ detail: { value: Number(e.target.value) } }),
       }),
-    IonPopover: ({ children, ...props }: Record<string, unknown>) => React.createElement("ion-popover", props, children as React.ReactNode),
+    // Render as a plain div. A real <ion-popover> custom element would try to present itself in jsdom
+    // (isOpen) and throw "framework delegate is missing". Ionic-only props (isOpen, trigger, side...)
+    // are dropped; real popover behavior is validated by Playwright E2E tests.
+    IonPopover: ({ children, className, "data-testid": testId }: Record<string, unknown>) =>
+      React.createElement("div", { className: className as string | undefined, "data-testid": testId as string | undefined }, children as React.ReactNode),
   };
 });

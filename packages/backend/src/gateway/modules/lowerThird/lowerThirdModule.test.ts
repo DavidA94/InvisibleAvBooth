@@ -69,8 +69,33 @@ describe("LowerThirdModule", () => {
       const ack = vi.fn();
       handler({ type: "activate", itemId: "item1" }, ack);
 
-      expect(mockService.activate).toHaveBeenCalledWith("item1", undefined);
+      expect(mockService.activate).toHaveBeenCalledWith("item1", undefined, undefined);
       expect(ack).toHaveBeenCalledWith({ success: true });
+    });
+
+    it("passes skipAnimation and startPage through to activate", () => {
+      const socket = { on: vi.fn() };
+      const auth = { socket, jwtPayload: { sub: "u1", username: "admin", role: "ADMIN", iat: 0, exp: 9999999999 } };
+      module.registerSocket(auth as never);
+
+      const handler = socket.on.mock.calls.find((c) => c[0] === CTS_LOWER_THIRD_COMMAND)?.[1] as (cmd: unknown, ack: (r: unknown) => void) => void;
+      handler({ type: "activate", itemId: "item1", startPage: 3 }, vi.fn());
+      expect(mockService.activate).toHaveBeenCalledWith("item1", undefined, 3);
+
+      handler({ type: "activate", itemId: "item2", skipAnimation: true, startPage: 2 }, vi.fn());
+      expect(mockService.activate).toHaveBeenCalledWith("item2", true, 2);
+    });
+
+    it("returns the service error when activate with startPage is rejected", () => {
+      mockService.activate.mockReturnValueOnce({ success: false, error: "Page 9 is out of range (1-2)" });
+      const socket = { on: vi.fn() };
+      const auth = { socket, jwtPayload: { sub: "u1", username: "admin", role: "ADMIN", iat: 0, exp: 9999999999 } };
+      module.registerSocket(auth as never);
+
+      const handler = socket.on.mock.calls.find((c) => c[0] === CTS_LOWER_THIRD_COMMAND)?.[1] as (cmd: unknown, ack: (r: unknown) => void) => void;
+      const ack = vi.fn();
+      handler({ type: "activate", itemId: "item1", startPage: 9 }, ack);
+      expect(ack).toHaveBeenCalledWith({ success: false, error: "Page 9 is out of range (1-2)" });
     });
 
     it("handles force-clear command", () => {
