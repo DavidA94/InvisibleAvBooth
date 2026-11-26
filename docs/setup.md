@@ -55,6 +55,14 @@ Replace `192.168.x.x` with the server's LAN IP.
 
 > `https://localhost` always works on the server machine itself without any DNS setup.
 
+**Option D — Tailscale (remote access, no DNS or cert setup):** Both Caddyfiles also serve `https://bmbc-optiplex-7000.tail7f999c.ts.net`. Any device signed in to the tailnet can use it from anywhere. Caddy gets a publicly trusted certificate for this name from the local `tailscaled`, so step 3 does not apply to it. One-time prerequisites:
+
+1. In the Tailscale admin console, open **DNS** and enable **HTTPS Certificates**.
+2. Let Caddy talk to `tailscaled`: run Caddy as root (`sudo caddy start ...`), or run `sudo tailscale set --operator=$USER` if it runs as your user.
+3. Restart Caddy. The first request may take a few seconds while the certificate is issued.
+
+The Vite dev server allows this host via `allowedHosts` in `packages/frontend/vite.config.ts`. If the machine is renamed, update the hostname in both Caddyfiles and `vite.config.ts`.
+
 ---
 
 ## 3. Trust the TLS Certificate on Client Devices

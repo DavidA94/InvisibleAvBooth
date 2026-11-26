@@ -11,9 +11,8 @@
 	grace_period 5s
 }
 
-invisible.av, localhost {
-	tls certs/localhost.crt certs/localhost.key
-
+# Shared routing for every HTTPS hostname above.
+(app_routes) {
 	@backend path /api/* /socket.io/* /preview/*
 	handle @backend {
 		reverse_proxy localhost:3001
@@ -22,6 +21,21 @@ invisible.av, localhost {
 	handle {
 		reverse_proxy localhost:5173
 	}
+}
+
+invisible.av, localhost {
+	tls certs/localhost.crt certs/localhost.key
+	import app_routes
+}
+
+# Remote access over Tailscale (https://bmbc-optiplex-7000.tail7f999c.ts.net).
+# No `tls` directive on purpose: for *.ts.net names Caddy fetches a publicly
+# trusted certificate from the local tailscaled, so devices need no manual cert
+# import. Requires "HTTPS Certificates" enabled in the Tailscale admin console
+# (DNS tab) and Caddy permitted to talk to tailscaled (run as root, or
+# `sudo tailscale set --operator=$USER`). See docs/setup.md.
+bmbc-optiplex-7000.tail7f999c.ts.net {
+	import app_routes
 }
 
 # HTTP-only overlay endpoint for OBS browser sources.
