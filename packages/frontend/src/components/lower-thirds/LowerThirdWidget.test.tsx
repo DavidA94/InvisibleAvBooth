@@ -8,6 +8,7 @@ import { PaginationControls } from "./PaginationControls";
 import { PreviewDialog } from "./PreviewDialog";
 import { useStore } from "../../store";
 import { INITIAL_LOWER_THIRD_STATE } from "../../store/lowerThirdSlice";
+import { TEST_ID_LOWER_THIRD_TEMPLATE_VALUE } from "../../constants/testIds";
 import type { LowerThirdItem, LowerThirdState } from "@invisible-av-booth/shared";
 
 const mockEmit = vi.fn();
@@ -137,6 +138,35 @@ describe("LowerThirdRow", () => {
     render(<LowerThirdRow item={templateItem} section="library" isActive={false} transitionLocked={false} />);
     expect(screen.getByText("Speaker Name")).toBeInTheDocument();
     expect(screen.getByText("Template")).toBeInTheDocument();
+  });
+
+  it("shows the title after the template name for a Title template", () => {
+    render(<LowerThirdRow item={templateItem} section="library" isActive={false} transitionLocked={false} />);
+    expect(screen.getByTestId(TEST_ID_LOWER_THIRD_TEMPLATE_VALUE)).toHaveTextContent("John Smith");
+  });
+
+  it("shows the reference after the template name for a Scripture template", () => {
+    const item: LowerThirdItem = { ...scriptureItem, source: "template", templateId: "tmpl-2", templateName: "Sermon Text", pages: null };
+    render(<LowerThirdRow item={item} section="library" isActive={false} transitionLocked={false} />);
+    expect(screen.getByText("Sermon Text")).toBeInTheDocument();
+    expect(screen.getByTestId(TEST_ID_LOWER_THIRD_TEMPLATE_VALUE)).toHaveTextContent("Genesis 1:1-3");
+  });
+
+  it("shows the subtitle in italics after the title for a TitleSubtitle template", () => {
+    const item: LowerThirdItem = {
+      ...templateItem,
+      type: "TitleSubtitle",
+      content: { title: "Jane Doe", subtitle: "Elder" },
+    };
+    render(<LowerThirdRow item={item} section="library" isActive={false} transitionLocked={false} />);
+    const value = screen.getByTestId(TEST_ID_LOWER_THIRD_TEMPLATE_VALUE);
+    expect(value).toHaveTextContent("Jane Doe Elder");
+    expect(screen.getByText("Elder").tagName).toBe("EM");
+  });
+
+  it("does not show a template value for volunteer items", () => {
+    render(<LowerThirdRow item={titleItem} section="library" isActive={false} transitionLocked={false} />);
+    expect(screen.queryByTestId(TEST_ID_LOWER_THIRD_TEMPLATE_VALUE)).not.toBeInTheDocument();
   });
 
   it("shows used indicator border class", () => {

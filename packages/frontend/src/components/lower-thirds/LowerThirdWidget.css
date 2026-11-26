@@ -91,6 +91,39 @@
   white-space: nowrap;
 }
 
+/* Template rows: "Name  value" on one line. The name keeps its width (up to a cap) and the value takes
+   the remainder, so a long value ellipsizes instead of pushing the name or the action buttons out.
+   Ellipsis needs overflow hidden + nowrap on the element that is actually constrained, which is why
+   each part is its own flex item with min-width: 0 rather than relying on the parent's ellipsis. */
+.lt-row-title--template {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.lt-row-template-name {
+  flex: 0 1 auto;
+  max-width: 50%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lt-row-template-value {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 400;
+  color: var(--color-text-muted);
+}
+
+.lt-row-value-subtitle {
+  font-style: italic;
+}
+
 .lt-row-subtitle {
   font-size: 0.7rem;
   color: var(--color-text-muted);

@@ -200,6 +200,9 @@ export const TEST_ID_TEMPLATE_FORM_ERROR = "template-form-error";
 export const TEST_ID_TEMPLATE_VALIDATION_BLOCKERS = "template-validation-blockers";
 export const TEST_ID_TEMPLATE_VALIDATION_WARNINGS = "template-validation-warnings";
 export const TEST_ID_TEMPLATE_FORM_AUTO_DISMISS = "template-form-auto-dismiss";
+export const TEST_ID_TEMPLATE_FORM_AUTO_DISMISS_TOGGLE = "template-form-auto-dismiss-toggle";
+export const TEST_ID_TEMPLATE_FORM_TYPE = "template-form-type";
+export const TEST_ID_TEMPLATE_FORM_SUBTITLE = "template-form-subtitle";
 export const TEST_ID_TEMPLATE_FORM_DELETE = "template-form-delete";
 
 // ── Platform Config Pages ──────────────────────────────────────────────────────
@@ -232,6 +235,7 @@ export const TEST_ID_LOWER_THIRD_PAGINATION = "lower-third-pagination";
 export const TEST_ID_LOWER_THIRD_PAGE_INFO = "lower-third-page-info";
 export const TEST_ID_LOWER_THIRD_COUNTDOWN = "lower-third-countdown";
 export const TEST_ID_LOWER_THIRD_STATUS_OVERLAY = "lower-third-status-overlay";
+export const TEST_ID_LOWER_THIRD_TEMPLATE_VALUE = "lower-third-template-value";
 export const TEST_ID_LOWER_THIRD_PREVIEW_DIALOG = "lower-third-preview-dialog";
 export const TEST_ID_LOWER_THIRD_PREVIEW_GO_LIVE = "lower-third-preview-go-live";
 export const TEST_ID_LOWER_THIRD_PREVIEW_CANCEL = "lower-third-preview-cancel";

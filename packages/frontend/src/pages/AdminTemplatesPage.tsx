@@ -18,6 +18,9 @@ import {
   TEST_ID_TEMPLATE_VALIDATION_BLOCKERS,
   TEST_ID_TEMPLATE_VALIDATION_WARNINGS,
   TEST_ID_TEMPLATE_FORM_AUTO_DISMISS,
+  TEST_ID_TEMPLATE_FORM_AUTO_DISMISS_TOGGLE,
+  TEST_ID_TEMPLATE_FORM_TYPE,
+  TEST_ID_TEMPLATE_FORM_SUBTITLE,
   TEST_ID_TEMPLATE_FORM_DELETE,
 } from "../constants/testIds";
 import type { Role } from "../types";
@@ -63,6 +66,30 @@ function sortTemplates(templates: Template[]): Template[] {
   return [...titles, ...noneTemplate, ...otherDescriptions, ...lowerThirds];
 }
 
+interface FormSnapshot {
+  name: string;
+  formatString: string;
+  subtitleFormatString: string;
+  roleMinimum: Role;
+  lowerThirdType: "Title" | "TitleSubtitle" | "Scripture";
+  autoDismissEnabled: boolean;
+  autoDismissSeconds: number;
+}
+
+const EMPTY_FORM_SNAPSHOT: FormSnapshot = {
+  name: "",
+  formatString: "",
+  subtitleFormatString: "",
+  roleMinimum: "AvVolunteer",
+  lowerThirdType: "Title",
+  autoDismissEnabled: false,
+  autoDismissSeconds: 10,
+};
+
+function isSameForm(a: FormSnapshot, b: FormSnapshot): boolean {
+  return (Object.keys(a) as Array<keyof FormSnapshot>).every((key) => a[key] === b[key]);
+}
+
 export function AdminTemplatesPage(): ReactNode {
   const [templates, setTemplates] = useState<Template[]>([]);
   const [loading, setLoading] = useState(true);
@@ -84,9 +111,13 @@ export function AdminTemplatesPage(): ReactNode {
   const [validated, setValidated] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  // Dirty check
-  const initialRef = useRef({ name: "", formatString: "", roleMinimum: "AvVolunteer" as Role });
-  const isDirty = name !== initialRef.current.name || formatString !== initialRef.current.formatString || roleMinimum !== initialRef.current.roleMinimum;
+  // Dirty check: compare every editable field against the snapshot taken when the form was loaded or last saved.
+  // Anything the user can change must be in FormSnapshot, or edits to it can be discarded without a warning.
+  // Nothing is "dirty" while no form is showing (e.g. after deleting the selected template), so stale field
+  // values left behind in state never trigger a prompt.
+  const initialRef = useRef<FormSnapshot>(EMPTY_FORM_SNAPSHOT);
+  const currentForm: FormSnapshot = { name, formatString, subtitleFormatString, roleMinimum, lowerThirdType, autoDismissEnabled, autoDismissSeconds };
+  const isDirty = panel.mode !== "empty" && !isSameForm(currentForm, initialRef.current);
   const [pendingNavigation, setPendingNavigation] = useState<PanelState | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Template | null>(null);
 
@@ -135,32 +166,47 @@ export function AdminTemplatesPage(): ReactNode {
       setLowerThirdType("Title");
       setAutoDismissEnabled(false);
       setAutoDismissSeconds(10);
-      initialRef.current = { name: "", formatString: "", roleMinimum: "AvVolunteer" };
+      initialRef.current = EMPTY_FORM_SNAPSHOT;
     } else if (next.mode === "edit" && next.templateId) {
       const template = templates.find((tpl) => tpl.id === next.templateId);
       if (template) {
         setName(template.name);
         setRoleMinimum(template.roleMinimum);
-        setLowerThirdType((template.lowerThirdType as "Title" | "TitleSubtitle" | "Scripture") ?? "Title");
-        setAutoDismissEnabled(template.autoDismissMs !== null && template.autoDismissMs !== undefined);
-        setAutoDismissSeconds(template.autoDismissMs ? template.autoDismissMs / 1000 : 10);
+        // Snapshot values are computed once and used for both the form and the baseline so they cannot drift apart.
+        const loadedType = (template.lowerThirdType as FormSnapshot["lowerThirdType"]) ?? "Title";
+        const loadedAutoDismissEnabled = template.autoDismissMs !== null && template.autoDismissMs !== undefined;
+        const loadedAutoDismissSeconds = template.autoDismissMs ? template.autoDismissMs / 1000 : 10;
+        setLowerThirdType(loadedType);
+        setAutoDismissEnabled(loadedAutoDismissEnabled);
+        setAutoDismissSeconds(loadedAutoDismissSeconds);
 
-        // For lower-third templates, parse JSON back into editable format
+        // For lower-third templates, parse JSON back into editable format.
+        // The dirty-check baseline must be the value actually placed in the form (the parsed title),
+        // not the raw stored JSON; otherwise the form looks modified the moment it loads and every
+        // navigation prompts to discard changes.
+        let loadedFormatString = template.formatString;
+        let loadedSubtitle = "";
         if (template.category === "lower_third") {
           try {
             const parsed = JSON.parse(template.formatString) as Record<string, string>;
-            setFormatString(parsed["title"] ?? "");
-            setSubtitleFormatString(parsed["subtitle"] ?? "");
+            loadedFormatString = parsed["title"] ?? "";
+            loadedSubtitle = parsed["subtitle"] ?? "";
           } catch {
-            setFormatString(template.formatString);
-            setSubtitleFormatString("");
+            // Not JSON: keep the raw string as the title.
           }
-        } else {
-          setFormatString(template.formatString);
-          setSubtitleFormatString("");
         }
+        setFormatString(loadedFormatString);
+        setSubtitleFormatString(loadedSubtitle);
 
-        initialRef.current = { name: template.name, formatString: template.formatString, roleMinimum: template.roleMinimum };
+        initialRef.current = {
+          name: template.name,
+          formatString: loadedFormatString,
+          subtitleFormatString: loadedSubtitle,
+          roleMinimum: template.roleMinimum,
+          lowerThirdType: loadedType,
+          autoDismissEnabled: loadedAutoDismissEnabled,
+          autoDismissSeconds: loadedAutoDismissSeconds,
+        };
       }
     }
     setFormError("");
@@ -215,7 +261,7 @@ export function AdminTemplatesPage(): ReactNode {
         body: JSON.stringify(body),
       });
       if (res.ok) {
-        initialRef.current = { name, formatString, roleMinimum };
+        initialRef.current = currentForm;
         setPanel({ mode: "empty" });
         void fetchTemplates();
       } else {
@@ -377,7 +423,7 @@ export function AdminTemplatesPage(): ReactNode {
                   {isLowerThird && (
                     <>
                       <label className="tpl-form-label">Type:</label>
-                      <div>
+                      <div data-testid={TEST_ID_TEMPLATE_FORM_TYPE}>
                         <Select
                           options={[
                             { value: "Title", label: "Title" },
@@ -436,6 +482,7 @@ export function AdminTemplatesPage(): ReactNode {
                     <>
                       <label className="tpl-form-label">Subtitle Format:</label>
                       <IonInput
+                        data-testid={TEST_ID_TEMPLATE_FORM_SUBTITLE}
                         fill="outline"
                         value={subtitleFormatString}
                         onIonInput={(e) => {
@@ -483,6 +530,7 @@ export function AdminTemplatesPage(): ReactNode {
                       <label className="tpl-form-label">Auto-Dismiss:</label>
                       <div className="layout-row gap-standard align-center">
                         <IonToggle
+                          data-testid={TEST_ID_TEMPLATE_FORM_AUTO_DISMISS_TOGGLE}
                           checked={autoDismissEnabled}
                           onIonChange={(event) => {
                             setAutoDismissEnabled(event.detail.checked);

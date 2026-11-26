@@ -3,6 +3,7 @@ import {
   TEST_ID_LOWER_THIRD_EXPAND_BUTTON,
   TEST_ID_LOWER_THIRD_SHOW_BUTTON,
   TEST_ID_LOWER_THIRD_STATUS_OVERLAY,
+  TEST_ID_LOWER_THIRD_TEMPLATE_VALUE,
 } from "../../constants/testIds";
 import type { ReactNode } from "react";
 import { IonIcon } from "@ionic/react";
@@ -40,6 +41,26 @@ function getDisplayTitle(item: LowerThirdItem): string {
   const content = item.content;
   if ("title" in content) return (content as TitleContent | TitleSubtitleContent).title;
   return (content as ScriptureContent).formattedReference;
+}
+
+/**
+ * The resolved value of a template item, shown after the template name so the volunteer can see
+ * what will go on air without opening it. Scripture shows its reference, Title shows the title,
+ * TitleSubtitle shows the title followed by the subtitle in italics. Rendered as inline runs inside
+ * one nowrap box so a single CSS ellipsis cuts the whole value cleanly at the right edge.
+ */
+function getTemplateValue(item: LowerThirdItem): ReactNode {
+  const content = item.content;
+  if (item.type === "Scripture") return (content as ScriptureContent).formattedReference;
+  if (item.type === "TitleSubtitle") {
+    const { title, subtitle } = content as TitleSubtitleContent;
+    return (
+      <>
+        {title} <em className="lt-row-value-subtitle">{subtitle}</em>
+      </>
+    );
+  }
+  return (content as TitleContent).title;
 }
 
 function getSubtitle(item: LowerThirdItem): string {
@@ -117,7 +138,16 @@ export function LowerThirdRow({
       {isActive && section === "library" && <div className="lt-badge">Active</div>}
 
       <div className="lt-row-content">
-        <span className="lt-row-title">{getDisplayTitle(item)}</span>
+        {item.source === "template" ? (
+          <span className="lt-row-title lt-row-title--template">
+            <span className="lt-row-template-name">{getDisplayTitle(item)}</span>
+            <span className="lt-row-template-value" data-testid={TEST_ID_LOWER_THIRD_TEMPLATE_VALUE}>
+              {getTemplateValue(item)}
+            </span>
+          </span>
+        ) : (
+          <span className="lt-row-title">{getDisplayTitle(item)}</span>
+        )}
         <span className="lt-row-subtitle">{getSubtitle(item)}</span>
       </div>
 

@@ -36,6 +36,9 @@ import {
   TEST_ID_TEMPLATE_FORM_DELETE,
   TEST_ID_TEMPLATE_FORM_ERROR,
   TEST_ID_TEMPLATE_FORM_AUTO_DISMISS,
+  TEST_ID_TEMPLATE_FORM_AUTO_DISMISS_TOGGLE,
+  TEST_ID_TEMPLATE_FORM_TYPE,
+  TEST_ID_TEMPLATE_FORM_SUBTITLE,
   TEST_ID_TEMPLATE_VALIDATION_BLOCKERS,
   TEST_ID_TEMPLATE_VALIDATION_WARNINGS,
   TEST_ID_CONFIRMATION_CONFIRM_BUTTON,
@@ -619,6 +622,48 @@ describe("Lower Third — create and type variations", () => {
     await waitFor(() => expect(screen.getByTestId(`${TEST_ID_TEMPLATE_ITEM}-lt2`)).toBeInTheDocument());
     fireEvent.click(screen.getByTestId(`${TEST_ID_TEMPLATE_ITEM}-lt2`));
     expect(screen.getByText("Edit With Subtitle")).toBeInTheDocument();
+  });
+
+  it("switching between untouched lower-third templates does not prompt about unsaved changes", async () => {
+    mockListTemplates(TEMPLATES_WITH_LT);
+    renderPage();
+    await waitFor(() => expect(screen.getByTestId(`${TEST_ID_TEMPLATE_ITEM}-lt1`)).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId(`${TEST_ID_TEMPLATE_ITEM}-lt1`));
+    fireEvent.click(screen.getByTestId(`${TEST_ID_TEMPLATE_ITEM}-lt2`));
+
+    expect(screen.queryByText("Unsaved Changes")).not.toBeInTheDocument();
+    expect(screen.getByText("Edit With Subtitle")).toBeInTheDocument();
+  });
+
+  describe("unsaved changes detection covers every editable field", () => {
+    async function openTemplate(id: string): Promise<void> {
+      mockListTemplates(TEMPLATES_WITH_LT);
+      renderPage();
+      await waitFor(() => expect(screen.getByTestId(`${TEST_ID_TEMPLATE_ITEM}-${id}`)).toBeInTheDocument());
+      fireEvent.click(screen.getByTestId(`${TEST_ID_TEMPLATE_ITEM}-${id}`));
+    }
+
+    it.each`
+      field                  | templateId | change
+      ${"auto-dismiss on"}   | ${"lt2"}   | ${() => fireEvent.click(screen.getByTestId(TEST_ID_TEMPLATE_FORM_AUTO_DISMISS_TOGGLE))}
+      ${"auto-dismiss off"}  | ${"lt1"}   | ${() => fireEvent.click(screen.getByTestId(TEST_ID_TEMPLATE_FORM_AUTO_DISMISS_TOGGLE))}
+      ${"auto-dismiss time"} | ${"lt1"}   | ${() => fireEvent(screen.getByTestId(TEST_ID_TEMPLATE_FORM_AUTO_DISMISS), new CustomEvent("ionInput", { detail: { value: "30" } }))}
+      ${"subtitle"}          | ${"lt2"}   | ${() => fireEvent(screen.getByTestId(TEST_ID_TEMPLATE_FORM_SUBTITLE), new CustomEvent("ionInput", { detail: { value: "{Date}" } }))}
+      ${"lower-third type"}  | ${"lt1"}   | ${() => fireEvent.change(screen.getByTestId(TEST_ID_TEMPLATE_FORM_TYPE).querySelector("select") as HTMLSelectElement, { target: { value: "Scripture" } })}
+    `("prompts after changing $field", async ({ templateId, change }: { templateId: string; change: () => void }) => {
+      await openTemplate(templateId);
+      change();
+      fireEvent.click(screen.getByTestId(`${TEST_ID_TEMPLATE_ITEM}-lt3`));
+      expect(screen.getByText("Unsaved Changes")).toBeInTheDocument();
+    });
+
+    it("does not prompt when a change is reverted to the original value", async () => {
+      await openTemplate("lt2");
+      fireEvent.click(screen.getByTestId(TEST_ID_TEMPLATE_FORM_AUTO_DISMISS_TOGGLE));
+      fireEvent.click(screen.getByTestId(TEST_ID_TEMPLATE_FORM_AUTO_DISMISS_TOGGLE));
+      fireEvent.click(screen.getByTestId(`${TEST_ID_TEMPLATE_ITEM}-lt3`));
+      expect(screen.queryByText("Unsaved Changes")).not.toBeInTheDocument();
+    });
   });
 
   it("editing Scripture template shows fixed format message", async () => {
