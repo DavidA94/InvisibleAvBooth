@@ -646,6 +646,13 @@ function applyAdaptiveSpeed(requestedSpeed: number, zoomLevel: number): number {
 }
 ```
 
+**Reset PTZ and the live-activity guard (Req 5.15–5.17):**
+
+- `ViscaCameraDriver.reinitializePanTilt()` power-cycles the camera over VISCA (Standby `81 01 04 00 03 FF` → poll `81 09 04 00 FF` until `y0 50 03 FF` → On `81 01 04 00 02 FF` → poll until `y0 50 02 FF` → poll pan/tilt until three identical reads, no sooner than 5s after power-on). This reproduces the boot self-check sweep. It reconnects the TCP session if the camera drops it across the power transition. Pan-tiltDrive Reset (`81 01 06 05 FF`) was tried first and is a no-op on the Tenveo cameras in use (Completion in ~40ms, no sweep), so it is not used.
+- `CameraService.resetPtz(cameraId)` checks `_getResetRejection` (unknown camera, live activity, VISCA not connected, reset already running), ends any joystick session, pauses position polling for the duration, refuses `startMove`/`activatePreset`/`tapToCenter` for that camera while running, then clears `activePresetId` and rebroadcasts.
+- `CameraService` does not import OBS or streaming. `app.ts` injects the guard with `setLiveActivityGuard(() => ...)`: true if OBS `recording`/`streaming`/`commandedState.*` is set, or any platform status is not `idle`/`error`. The frontend (`CameraWidget`) computes the same condition from the store to disable the button; the backend check is the authority.
+- Framing grid: `.camera-grid-overlay::after` in `shared.css` draws four 1px gradient lines at 33.333% / 66.667% using `--camera-grid-line-color` (white, 0.25 alpha), `pointer-events: none`.
+
 **Tap-to-center:**
 
 ```typescript
@@ -990,14 +997,15 @@ Follows the established `SocketModule` pattern.
 
 **Client → Server (CTS):**
 
-| Event                           | Payload                                                                  | Description                                           |
-| ------------------------------- | ------------------------------------------------------------------------ | ----------------------------------------------------- |
-| `cts:camera:ptz:move:start`     | `{ cameraId, pan, tilt }`                                                | Begin continuous movement                             |
-| `cts:camera:ptz:move:keepalive` | `{ cameraId, pan, tilt }`                                                | Continue movement (every 200ms)                       |
-| `cts:camera:ptz:move:stop`      | `{ cameraId }`                                                           | End movement                                          |
-| `cts:camera:set`                | `{ cameraId, zoom?, focus?, autoFocus?, aiTracking?, aiTilt?, aiZoom? }` | Set one or more camera values (undefined = no change) |
-| `cts:camera:preset:activate`    | `{ cameraId, presetId }`                                                 | Activate a preset                                     |
-| `cts:camera:ptz:tap-to-center`  | `{ cameraId, offsetX, offsetY }`                                         | Tap-to-center (-1.0 to 1.0)                           |
+| Event                           | Payload                                                                  | Description                                             |
+| ------------------------------- | ------------------------------------------------------------------------ | ------------------------------------------------------- |
+| `cts:camera:ptz:move:start`     | `{ cameraId, pan, tilt }`                                                | Begin continuous movement                               |
+| `cts:camera:ptz:move:keepalive` | `{ cameraId, pan, tilt }`                                                | Continue movement (every 200ms)                         |
+| `cts:camera:ptz:move:stop`      | `{ cameraId }`                                                           | End movement                                            |
+| `cts:camera:set`                | `{ cameraId, zoom?, focus?, autoFocus?, aiTracking?, aiTilt?, aiZoom? }` | Set one or more camera values (undefined = no change)   |
+| `cts:camera:preset:activate`    | `{ cameraId, presetId }`                                                 | Activate a preset                                       |
+| `cts:camera:ptz:tap-to-center`  | `{ cameraId, offsetX, offsetY }`                                         | Tap-to-center (-1.0 to 1.0)                             |
+| `cts:camera:ptz:reset`          | `{ cameraId }` (ack: `{ success, error? }`)                              | Re-home pan/tilt (power-cycle self-check); refused live |
 
 **Event constants** (in `packages/shared/src/constants/socketEvents.ts`):
 

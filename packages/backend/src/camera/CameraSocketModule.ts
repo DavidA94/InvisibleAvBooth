@@ -12,6 +12,7 @@ import {
   CTS_CAMERA_SET,
   CTS_CAMERA_PRESET_ACTIVATE,
   CTS_CAMERA_PTZ_TAP_TO_CENTER,
+  CTS_CAMERA_PTZ_RESET,
 } from "@invisible-av-booth/shared";
 import { logger } from "../logger.js";
 
@@ -82,6 +83,15 @@ export class CameraSocketModule implements SocketModule {
         return;
       }
       this.cameraService.tapToCenter(payload.cameraId, payload.offsetX, payload.offsetY, meta);
+    });
+
+    socket.on(CTS_CAMERA_PTZ_RESET, async (payload: { cameraId: string }, ack?: (result: { success: boolean; error?: string }) => void) => {
+      logger.info("Camera PTZ reset requested", { userId: jwtPayload.sub, context: { cameraId: payload.cameraId } });
+      const result = await this.cameraService.resetPtz(payload.cameraId);
+      if (!result.success) {
+        logger.warn("Camera PTZ reset refused or failed", { userId: jwtPayload.sub, context: { cameraId: payload.cameraId, error: result.error } });
+      }
+      ack?.(result);
     });
   }
 

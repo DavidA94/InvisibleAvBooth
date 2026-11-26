@@ -31,6 +31,7 @@ const mockViscaDriver = {
   presetRecall: vi.fn().mockResolvedValue(undefined),
   presetStore: vi.fn().mockResolvedValue(undefined),
   stop: vi.fn().mockResolvedValue(undefined),
+  reinitializePanTilt: vi.fn().mockResolvedValue(undefined),
   onDisconnect: null as (() => void) | null,
 };
 
@@ -183,6 +184,90 @@ describe("CameraService", () => {
   it("returns null for unknown camera", async () => {
     await initService();
     expect(service.getCameraState("nonexistent")).toBeNull();
+  });
+
+  describe("resetPtz", () => {
+    it("sends the reset to the driver and clears the active preset", async () => {
+      await initService({ viscaEnabled: true });
+      const result = await service.resetPtz("cam1");
+      expect(result).toEqual({ success: true });
+      expect(mockViscaDriver.reinitializePanTilt).toHaveBeenCalledTimes(1);
+      expect(service.getCameraState("cam1")?.activePresetId).toBeNull();
+    });
+
+    it("stops any joystick movement before resetting", async () => {
+      await initService({ viscaEnabled: true });
+      service.startMove("cam1", 0.5, 0.3);
+      mockViscaDriver.stop.mockClear();
+      await service.resetPtz("cam1");
+      expect(mockViscaDriver.stop).toHaveBeenCalled();
+    });
+
+    it("refuses without touching the camera when a recording or stream is active", async () => {
+      await initService({ viscaEnabled: true });
+      service.setLiveActivityGuard(() => true);
+      const result = await service.resetPtz("cam1");
+      expect(result.success).toBe(false);
+      expect(result.error).toMatch(/recording or streaming/);
+      expect(mockViscaDriver.reinitializePanTilt).not.toHaveBeenCalled();
+    });
+
+    it("allows reset again once nothing is live", async () => {
+      await initService({ viscaEnabled: true });
+      let live = true;
+      service.setLiveActivityGuard(() => live);
+      expect((await service.resetPtz("cam1")).success).toBe(false);
+      live = false;
+      expect((await service.resetPtz("cam1")).success).toBe(true);
+    });
+
+    it("fails for an unknown camera", async () => {
+      await initService({ viscaEnabled: true });
+      expect(await service.resetPtz("nope")).toEqual({ success: false, error: "Camera not found" });
+    });
+
+    it("fails when VISCA is not configured", async () => {
+      await initService({ viscaEnabled: false });
+      const result = await service.resetPtz("cam1");
+      expect(result.success).toBe(false);
+      expect(result.error).toMatch(/VISCA not configured/);
+    });
+
+    it("rejects a second reset while one is in progress", async () => {
+      await initService({ viscaEnabled: true });
+      let finish: () => void = () => undefined;
+      mockViscaDriver.reinitializePanTilt.mockImplementationOnce(() => new Promise<void>((resolve) => (finish = resolve)));
+      const first = service.resetPtz("cam1");
+      const second = await service.resetPtz("cam1");
+      expect(second).toEqual({ success: false, error: "PTZ reset already in progress" });
+      finish();
+      expect((await first).success).toBe(true);
+    });
+
+    it("reports driver failure and allows a retry", async () => {
+      await initService({ viscaEnabled: true });
+      mockViscaDriver.reinitializePanTilt.mockRejectedValueOnce(new Error("VISCA timeout"));
+      expect(await service.resetPtz("cam1")).toEqual({ success: false, error: "VISCA timeout" });
+      expect((await service.resetPtz("cam1")).success).toBe(true);
+    });
+  });
+
+  it("ignores joystick, preset and tap-to-center while a reset is running", async () => {
+    await initService({ viscaEnabled: true });
+    seedPreset(database);
+    let finish: () => void = () => undefined;
+    mockViscaDriver.reinitializePanTilt.mockImplementationOnce(() => new Promise<void>((resolve) => (finish = resolve)));
+    const reset = service.resetPtz("cam1");
+    mockViscaDriver.panTiltSpeed.mockClear();
+
+    service.startMove("cam1", 0.5, 0.5);
+    expect(mockViscaDriver.panTiltSpeed).not.toHaveBeenCalled();
+    expect(await service.activatePreset("cam1", "p1")).toEqual(expect.objectContaining({ success: false }));
+    const meta = service.getCameraMetadata("cam1")!;
+    expect(await service.tapToCenter("cam1", 0.1, 0.1, meta)).toEqual({ success: false, error: "PTZ reset in progress" });
+
+    finish();
+    await reset;
   });
 
   describe("startMove / keepAliveMove / stopMove", () => {

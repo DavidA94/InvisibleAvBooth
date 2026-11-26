@@ -1,5 +1,5 @@
 import type { ReactNode, RefObject } from "react";
-import { IonToggle, IonIcon } from "@ionic/react";
+import { IonToggle, IonIcon, IonButton, IonSpinner } from "@ionic/react";
 import { searchOutline } from "ionicons/icons";
 import { PtzJoystick } from "./PtzJoystick";
 import type { CameraFeature, CameraPreset } from "@invisible-av-booth/shared";
@@ -12,6 +12,9 @@ import {
   TEST_ID_CAMERA_ZOOM_SLIDER,
   TEST_ID_CAMERA_FOCUS_SLIDER,
   TEST_ID_CAMERA_TOGGLE_ROW,
+  TEST_ID_CAMERA_GRID_OVERLAY,
+  TEST_ID_CAMERA_RESET_PTZ_BUTTON,
+  TEST_ID_CAMERA_RESET_PTZ_HINT,
 } from "../../constants/testIds";
 
 export interface CameraControlsProps {
@@ -54,6 +57,16 @@ export interface CameraControlsProps {
   onPresetActivate: (presetId: string) => void;
   /** Double-tap-to-center handler for the video preview */
   onVideoTap?: (e: { clientX: number; clientY: number; currentTarget: Element }) => void;
+  /**
+   * Re-home the head after it is bumped. Omit when the camera has no VISCA control (button is not rendered).
+   * Disabled state is decided by the parent: it must stay disabled while recording/streaming (the reset sweeps the
+   * head on air).
+   */
+  onResetPtz?: () => void;
+  resetPtzDisabled?: boolean;
+  resetPtzPending?: boolean;
+  /** Short explanation shown next to the button when it is disabled because something is live. */
+  resetPtzDisabledReason?: string;
   /** Optional camera selector dropdown rendered at the top of the right column */
   cameraSelector?: ReactNode;
 }
@@ -92,6 +105,10 @@ export function CameraControls({
   onJoystickStop,
   onPresetActivate,
   onVideoTap,
+  onResetPtz,
+  resetPtzDisabled = false,
+  resetPtzPending = false,
+  resetPtzDisabledReason,
   cameraSelector,
 }: CameraControlsProps): ReactNode {
   const hasPan = hasFeature(features, "pan");
@@ -108,7 +125,7 @@ export function CameraControls({
         {/* Video Preview */}
         <div className="camera-controls-video">
           <div className="preview-video-container" data-testid={TEST_ID_CAMERA_PREVIEW}>
-            <picture className="cross-hairs">
+            <picture className="camera-grid-overlay" data-testid={TEST_ID_CAMERA_GRID_OVERLAY}>
               <img
                 ref={imgRef}
                 className="preview-video"
@@ -128,6 +145,27 @@ export function CameraControls({
               </div>
             )}
           </div>
+          {/* Reset PTZ sits directly under the video, in the video column, so it never takes height from the presets. */}
+          {onResetPtz && (
+            <div className="camera-reset-ptz-row">
+              <IonButton
+                data-testid={TEST_ID_CAMERA_RESET_PTZ_BUTTON}
+                data-state={resetPtzPending ? "pending" : resetPtzDisabled ? "disabled" : "ready"}
+                size="small"
+                color="medium"
+                disabled={resetPtzDisabled || resetPtzPending}
+                onClick={onResetPtz}
+              >
+                {resetPtzPending ? <IonSpinner name="crescent" /> : "Reset PTZ"}
+              </IonButton>
+              {/* The re-home takes tens of seconds; say so, or a volunteer will assume it hung and tap again. */}
+              {(resetPtzPending || resetPtzDisabledReason) && (
+                <span className="camera-reset-ptz-hint" data-testid={TEST_ID_CAMERA_RESET_PTZ_HINT}>
+                  {resetPtzPending ? "Camera is re-homing (up to a minute)…" : resetPtzDisabledReason}
+                </span>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Joystick + Presets column */}

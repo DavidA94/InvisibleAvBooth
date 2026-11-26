@@ -68,6 +68,13 @@ export class CameraService {
   private viscaFailureCounts = new Map<string, number>();
   private viscaReconnectAttempts = new Map<string, number>();
   private static readonly MAX_RECONNECT_ATTEMPTS = 5;
+  private resetsInProgress = new Set<string>();
+  /**
+   * Reports whether a recording or stream is active. Injected (rather than imported from ObsService) so the camera
+   * domain stays decoupled from OBS/streaming; app.ts wires it. Defaults to "not live" so unit tests and
+   * deployments without the wiring are not silently blocked.
+   */
+  private isLiveActivity: () => boolean = () => false;
 
   constructor(database: Database, previewManager?: VideoPreviewManager) {
     this.database = database;
@@ -204,6 +211,8 @@ export class CameraService {
   startMove(cameraId: string, panSpeed: number, tiltSpeed: number): void {
     const instance = this.cameras.get(cameraId);
     if (!instance) return;
+    // Movement during re-initialization would interrupt the self-check sweep (or be sent to a camera in standby).
+    if (this.resetsInProgress.has(cameraId)) return;
 
     // Clear active preset on manual joystick movement (Req 6.6)
     if (instance.state.activePresetId !== null) {
@@ -282,6 +291,65 @@ export class CameraService {
     }
   }
 
+  // ── PTZ reset ────────────────────────────────────────────────────────────
+
+  setLiveActivityGuard(guard: () => boolean): void {
+    this.isLiveActivity = guard;
+  }
+
+  /**
+   * Re-home the camera's pan/tilt (power-on self-check, see ViscaCameraDriver.reinitializePanTilt) so tap-to-center
+   * is accurate again after the head is bumped. Takes tens of seconds; the ack is sent only when the sweep is done.
+   *
+   * The guard is enforced here, not just in the UI: the reset physically sweeps the head on air, so a stale or
+   * second client must not be able to trigger it during a recording or stream.
+   */
+  async resetPtz(cameraId: string): Promise<{ success: boolean; error?: string }> {
+    const rejection = this._getResetRejection(cameraId);
+    if (rejection) return { success: false, error: rejection };
+
+    const instance = this.cameras.get(cameraId)!;
+    const driver = instance.viscaDriver!;
+
+    // A joystick session would keep sending speed commands into the reset; end it first.
+    this.stopMove(cameraId);
+    // Position polls would interleave with the re-initialization's own inquiries; pause until it completes.
+    if (instance.pollTimer) {
+      clearInterval(instance.pollTimer);
+      instance.pollTimer = null;
+    }
+    this.resetsInProgress.add(cameraId);
+    logger.info("Camera PTZ reset started", { context: { cameraId } });
+
+    try {
+      await driver.reinitializePanTilt();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      logger.error("Camera PTZ reset failed", { context: { cameraId, error: message } });
+      return { success: false, error: message };
+    } finally {
+      this.resetsInProgress.delete(cameraId);
+      if (!this.destroyed && !instance.pollTimer) {
+        instance.pollTimer = setInterval(() => this.pollPosition(instance), VISCA_POLL_INTERVAL_MS);
+      }
+    }
+
+    // The head is at home now, so any previously recalled preset no longer describes where it points.
+    instance.state.activePresetId = null;
+    this.broadcastState(instance);
+    logger.info("Camera PTZ reset completed", { context: { cameraId } });
+    return { success: true };
+  }
+
+  _getResetRejection(cameraId: string): string | null {
+    const instance = this.cameras.get(cameraId);
+    if (!instance) return "Camera not found";
+    if (this.isLiveActivity()) return "Cannot reset PTZ while recording or streaming";
+    if (!instance.viscaDriver || !instance.viscaDriver.isConnected()) return "VISCA not configured — PTZ reset unavailable";
+    if (this.resetsInProgress.has(cameraId)) return "PTZ reset already in progress";
+    return null;
+  }
+
   // ── Camera set (partial state) ───────────────────────────────────────────
 
   async applySet(
@@ -331,6 +399,7 @@ export class CameraService {
   async tapToCenter(cameraId: string, offsetX: number, offsetY: number, meta: CameraMetadata): Promise<{ success: boolean; error?: string }> {
     const instance = this.cameras.get(cameraId);
     if (!instance) return { success: false, error: "Camera not found" };
+    if (this.resetsInProgress.has(cameraId)) return { success: false, error: "PTZ reset in progress" };
     if (!instance.viscaDriver || !instance.viscaDriver.isConnected()) {
       return { success: false, error: "VISCA not configured — tap-to-center unavailable" };
     }
@@ -421,6 +490,7 @@ export class CameraService {
 
     const preset = instance.state.presets.find((p) => p.id === presetId);
     if (!preset) return { success: false, error: "Preset not found" };
+    if (this.resetsInProgress.has(cameraId)) return { success: false, error: "PTZ reset in progress" };
 
     // Set active immediately (optimistic)
     instance.state.activePresetId = presetId;

@@ -12,10 +12,34 @@ const CAM_FOCUS_POS_INQ = Buffer.from([VISCA_HEADER, 0x09, 0x04, 0x48, VISCA_TER
 const CAM_FOCUS_AF_MODE_INQ = Buffer.from([VISCA_HEADER, 0x09, 0x04, 0x38, VISCA_TERMINATOR]);
 const CAM_POWER_INQ = Buffer.from([VISCA_HEADER, 0x09, 0x04, 0x00, VISCA_TERMINATOR]);
 
+// Power commands (CAM_Power). Used by reinitializePanTilt to reproduce the power-on self-check.
+const CAM_POWER_STANDBY = Buffer.from([VISCA_HEADER, 0x01, 0x04, 0x00, 0x03, VISCA_TERMINATOR]);
+const CAM_POWER_ON = Buffer.from([VISCA_HEADER, 0x01, 0x04, 0x00, 0x02, VISCA_TERMINATOR]);
+
 // Normalization constants — REMOVED. All positions are now raw VISCA integers.
 // Pan/tilt: unsigned 16-bit (0–65535)
 // Zoom: unsigned 14-bit (0–16384)
 // Focus: unsigned 14-bit (0–16384)
+
+const VISCA_COMMAND_TIMEOUT_MS = 2000;
+
+// Re-initialization timing. The head parks before standby completes, then sweeps on power-on; both are slow and
+// vary by model, so these are generous ceilings rather than expected durations.
+export const REINIT_POWER_COMMAND_TIMEOUT_MS = 15_000;
+export const REINIT_STANDBY_WAIT_MS = 20_000;
+export const REINIT_POWER_ON_WAIT_MS = 30_000;
+export const REINIT_SWEEP_WAIT_MS = 60_000;
+/** Ignore "settled" readings this soon after power-on: the sweep may not have started moving yet. */
+export const REINIT_MIN_SWEEP_MS = 5_000;
+export const REINIT_POLL_INTERVAL_MS = 500;
+/** Identical consecutive pan/tilt reads required to call the sweep finished. */
+const REINIT_STABLE_READS = 3;
+
+const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+
+function isErrorPacket(packet: Buffer): boolean {
+  return packet.length >= 3 && (packet[1]! & 0xf0) === 0x60;
+}
 
 export function buildViscaPositionFromResponse(data: Buffer): number {
   // VISCA position response: y0 50 0p 0q 0r 0s FF → value = pqrs
@@ -30,7 +54,7 @@ export class ViscaCameraDriver {
   private connected = false;
   private responseBuffer = Buffer.alloc(0);
   private pendingResolve: ((data: Buffer) => void) | null = null;
-  private commandQueue: Array<{ cmd: Buffer; resolve: (data: Buffer) => void; reject: (err: Error) => void; tag?: string }> = [];
+  private commandQueue: Array<{ cmd: Buffer; resolve: (data: Buffer) => void; reject: (err: Error) => void; tag?: string; timeoutMs: number }> = [];
 
   /** Callback invoked when the VISCA TCP socket disconnects unexpectedly.
    *  Registered by CameraService for sub-second disconnect detection. */
@@ -332,7 +356,85 @@ export class ViscaCameraDriver {
     }
   }
 
-  private sendCommand(cmd: Buffer, tag?: string): Promise<Buffer> {
+  /**
+   * Re-run the camera's power-on pan/tilt self-check so it re-finds its mechanical zero.
+   *
+   * Why: if the head is bumped or forced by hand, the camera's internal pan/tilt count drifts and absolute moves
+   * (including tap-to-center) land in the wrong place. The camera only re-homes during its power-on self-check.
+   *
+   * Why not Pan-tiltDrive Reset (81 01 06 05 FF): on the Tenveo cameras in use it returns Completion in ~40ms and
+   * the head does not sweep, so it cannot be relied on. A VISCA standby → power-on cycle runs the same self-check
+   * the camera does at boot, while the network stack (and this TCP connection) stays up.
+   *
+   * Completion packets are not trusted to mean "done": this resolves only once the camera reports power on and the
+   * pan/tilt position has stopped changing. The head moves visibly, so callers must refuse while live (see
+   * CameraService.resetPtz).
+   */
+  async reinitializePanTilt(): Promise<void> {
+    await this.ensureConnected();
+    logger.info("VISCA re-initialize: entering standby");
+    await this.sendPowerCommand(CAM_POWER_STANDBY, "standby");
+    await this.waitForPowerState(0x03, REINIT_STANDBY_WAIT_MS, "Camera did not enter standby");
+
+    logger.info("VISCA re-initialize: powering on (self-check sweep)");
+    const poweredOnAt = Date.now();
+    await this.sendPowerCommand(CAM_POWER_ON, "power on");
+    await this.waitForPowerState(0x02, REINIT_POWER_ON_WAIT_MS, "Camera did not power back on");
+    await this.waitForPanTiltSettled(poweredOnAt);
+    logger.info("VISCA re-initialize: complete", { context: { durationMs: Date.now() - poweredOnAt } });
+  }
+
+  private async sendPowerCommand(cmd: Buffer, label: string): Promise<void> {
+    const resp = await this.sendCommand(cmd, undefined, REINIT_POWER_COMMAND_TIMEOUT_MS);
+    if (isErrorPacket(resp)) {
+      throw new Error(`Camera rejected ${label} (${resp.toString("hex")})`);
+    }
+  }
+
+  /** Poll CAM_Power inquiry (y0 50 0p FF; p=2 on, p=3 standby). Inquiry failures are expected while the camera transitions. */
+  private async waitForPowerState(expected: 0x02 | 0x03, timeoutMs: number, failureMessage: string): Promise<void> {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      try {
+        // Some cameras drop the TCP session across a power transition; reconnect if so.
+        await this.ensureConnected();
+        const resp = await this.sendCommand(CAM_POWER_INQ);
+        if (resp.length >= 4 && resp[1] === 0x50 && resp[2] === expected) return;
+      } catch {
+        // camera busy or not answering yet
+      }
+      await sleep(REINIT_POLL_INTERVAL_MS);
+    }
+    throw new Error(failureMessage);
+  }
+
+  /** The sweep is finished when pan/tilt reads are identical several times in a row (after a minimum sweep time). */
+  private async waitForPanTiltSettled(poweredOnAt: number): Promise<void> {
+    const deadline = poweredOnAt + REINIT_SWEEP_WAIT_MS;
+    let lastReading: string | null = null;
+    let stableCount = 0;
+    while (Date.now() < deadline) {
+      let reading: string | null = null;
+      try {
+        await this.ensureConnected();
+        const resp = await this.sendCommand(CAM_PANTILT_POS_INQ);
+        if (resp.length >= 11 && !isErrorPacket(resp)) reading = resp.toString("hex");
+      } catch {
+        // not answering mid-sweep
+      }
+      if (reading !== null && reading === lastReading) {
+        stableCount += 1;
+      } else {
+        stableCount = reading === null ? 0 : 1;
+      }
+      lastReading = reading;
+      if (stableCount >= REINIT_STABLE_READS && Date.now() - poweredOnAt >= REINIT_MIN_SWEEP_MS) return;
+      await sleep(REINIT_POLL_INTERVAL_MS);
+    }
+    throw new Error("Camera did not finish re-initializing");
+  }
+
+  private sendCommand(cmd: Buffer, tag?: string, timeoutMs: number = VISCA_COMMAND_TIMEOUT_MS): Promise<Buffer> {
     return new Promise((resolve, reject) => {
       if (!this.socket || !this.connected) {
         reject(new Error("Not connected"));
@@ -345,11 +447,11 @@ export class ViscaCameraDriver {
           const idx = this.commandQueue.findIndex((e) => e.tag === tag);
           if (idx >= 0) {
             this.commandQueue[idx]!.reject(new Error("Superseded"));
-            this.commandQueue[idx] = { cmd, resolve, reject, tag };
+            this.commandQueue[idx] = { cmd, resolve, reject, tag, timeoutMs };
             return;
           }
         }
-        this.commandQueue.push({ cmd, resolve, reject, ...(tag ? { tag } : {}) });
+        this.commandQueue.push({ cmd, resolve, reject, timeoutMs, ...(tag ? { tag } : {}) });
         return;
       }
       this.pendingResolve = resolve;
@@ -364,7 +466,7 @@ export class ViscaCameraDriver {
           this.pendingResolve = null;
           reject(new Error("VISCA timeout"));
         }
-      }, 2000);
+      }, timeoutMs);
     });
   }
 
@@ -412,6 +514,6 @@ export class ViscaCameraDriver {
         next.reject(new Error("VISCA timeout"));
         this.drainQueue();
       }
-    }, 2000);
+    }, next.timeoutMs);
   }
 }

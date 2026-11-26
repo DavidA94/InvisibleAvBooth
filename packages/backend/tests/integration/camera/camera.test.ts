@@ -2,7 +2,14 @@ import { describe, it, expect, beforeAll, beforeEach, afterAll } from "vitest";
 import { io as ioClient, type Socket as ClientSocket } from "socket.io-client";
 import { buildTestServer, destroyServer, resetServer, loginAs, loginAsAdmin } from "../harness.js";
 import type { TestServer } from "../harness.js";
-import { STC_CAMERA_STATE, CTS_CAMERA_SET, CTS_CAMERA_PTZ_MOVE_START, CTS_CAMERA_PTZ_MOVE_STOP } from "@invisible-av-booth/shared";
+import {
+  STC_CAMERA_STATE,
+  CTS_CAMERA_SET,
+  CTS_CAMERA_PTZ_MOVE_START,
+  CTS_CAMERA_PTZ_MOVE_STOP,
+  CTS_CAMERA_PTZ_RESET,
+  CTS_OBS_COMMAND,
+} from "@invisible-av-booth/shared";
 
 describe("Camera Socket Events", () => {
   let server: TestServer;
@@ -117,6 +124,54 @@ describe("Camera Socket Events", () => {
     const state = server.ctx.cameraService.getCameraState("cam-role");
     // AI should NOT have been set (stripped by role enforcement)
     expect(state?.aiTracking).toBe(false);
+
+    socket.disconnect();
+  });
+
+  it("PTZ reset is refused while recording and otherwise reaches the VISCA check (full wiring of the live guard)", async () => {
+    server.ctx.database
+      .prepare("INSERT INTO device_connections (id, deviceType, label, host, port, metadata, features, createdAt) VALUES (?,?,?,?,?,?,?,?)")
+      .run(
+        "cam-reset",
+        "camera-ptz",
+        "ResetCam",
+        "127.0.0.1",
+        5500,
+        JSON.stringify({
+          ndiSourceName: "R",
+          viscaEnabled: false,
+          cameraModel: "generic",
+          cameraFeatures: ["pan", "tilt", "zoom"],
+          fovWideAngle: 60,
+          opticalZoomRatio: 20,
+        }),
+        "{}",
+        new Date().toISOString(),
+      );
+    await server.ctx.cameraService.initialize();
+
+    const cookie = await loginAs(server.agent, server.ctx.authService, "volunteer2", "pass123", "AvVolunteer");
+    const socket = await connectSocket(cookie);
+    const reset = (): Promise<{ success: boolean; error?: string }> =>
+      new Promise((resolve) => socket.emit(CTS_CAMERA_PTZ_RESET, { cameraId: "cam-reset" }, resolve));
+
+    // Idle: the guard passes, so the request gets as far as the (unconfigured) VISCA check.
+    const idle = await reset();
+    expect(idle.success).toBe(false);
+    expect(idle.error).toMatch(/VISCA not configured/);
+
+    // Recording: refused by the live-activity guard before anything else.
+    server.ctx.database
+      .prepare(
+        "INSERT INTO device_connections (id, deviceType, label, host, port, encryptedPassword, metadata, features, enabled, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      )
+      .run("obs-1", "obs", "Main OBS", "localhost", 4455, null, "{}", "{}", 1, new Date().toISOString());
+    await server.ctx.obsService.connect();
+    const started = await new Promise<{ success: boolean }>((resolve) => socket.emit(CTS_OBS_COMMAND, { type: "startRecording" }, resolve));
+    expect(started.success).toBe(true);
+    const whileRecording = await reset();
+    expect(whileRecording.success).toBe(false);
+    expect(whileRecording.error).toMatch(/recording or streaming/);
 
     socket.disconnect();
   });

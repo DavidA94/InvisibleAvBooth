@@ -937,6 +937,21 @@
   transition: border-color 0.15s;
 }
 
+/* Text block in a device-list row. min-width: 0 lets a long name shrink and
+   truncate (text-ellipsis on the child) instead of pushing the row's action
+   button out of view. A flex item otherwise cannot shrink below its content
+   width. Kept separate from .fill-remaining so other layouts are unaffected. */
+.device-list-item-text {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Row action (e.g. Disconnect) never shrinks or gets pushed off; the text
+   block gives up space first. */
+.device-list-item-action {
+  flex-shrink: 0;
+}
+
 .device-list-item:hover {
   border-color: var(--color-border);
 }
@@ -1054,28 +1069,37 @@
   display: block;
 }
 
-.cross-hairs {
+/*
+ * Rule-of-thirds (3x3) framing grid over the camera preview. Replaces the old centre crosshair: thirds help the
+ * operator frame a speaker without a bright centre mark competing with the picture. The lines are deliberately
+ * faint (alpha 0.25) so they guide without obscuring the image; tune via --camera-grid-line-color.
+ * pointer-events: none keeps double-tap-to-center working on the video underneath.
+ */
+.camera-grid-overlay {
+  --camera-grid-line-color: rgba(255, 255, 255, 0.25);
   position: relative;
 }
 
-.cross-hairs::after {
+.camera-grid-overlay::after {
   content: "";
-  display: block;
-  width: 100%;
-  height: 1px;
   position: absolute;
-  top: 50%;
-  background: rgba(255, 255, 255, 0.5);
-}
-
-.cross-hairs::before {
-  content: "";
-  display: block;
-  width: 1px;
-  height: 100%;
-  position: absolute;
-  left: 50%;
-  background: rgba(255, 0, 0, 0.5);
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(var(--camera-grid-line-color), var(--camera-grid-line-color)),
+    linear-gradient(var(--camera-grid-line-color), var(--camera-grid-line-color)),
+    linear-gradient(var(--camera-grid-line-color), var(--camera-grid-line-color)), linear-gradient(var(--camera-grid-line-color), var(--camera-grid-line-color));
+  background-repeat: no-repeat;
+  background-size:
+    1px 100%,
+    1px 100%,
+    100% 1px,
+    100% 1px;
+  background-position:
+    33.333% 0,
+    66.667% 0,
+    0 33.333%,
+    0 66.667%;
 }
 
 .preview-overlay {
@@ -1116,13 +1140,19 @@
   min-height: 0;
 }
 
+/* Column: preview fills remaining height; the Reset PTZ row (if present) takes only its own height below it. */
 .camera-controls-video {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
 }
 
 .camera-controls-video .preview-video-container {
-  height: 100%;
+  flex: 1;
+  min-height: 0;
+  height: auto;
 }
 
 .camera-controls-zoom {
@@ -1242,6 +1272,18 @@
   --bar-height: 4px;
   --knob-size: 18px;
   min-height: 2rem;
+}
+
+.camera-reset-ptz-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-control-gap);
+  flex: none;
+}
+
+.camera-reset-ptz-hint {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
 }
 
 .camera-controls-toggles {

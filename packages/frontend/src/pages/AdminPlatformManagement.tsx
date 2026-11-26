@@ -237,11 +237,14 @@ export function AdminPlatformManagement(): ReactNode {
                   role="button"
                   tabIndex={0}
                 >
-                  <div className="fill-remaining">
+                  <div className="device-list-item-text">
                     <div className="text-bold">{PRETTY_NAMES[platform.platformType] ?? platform.platformType}</div>
-                    <div className="text-muted text-caption text-ellipsis">{getSubtitle(platform)}</div>
+                    <div className="text-muted text-caption text-ellipsis" title={getSubtitle(platform)}>
+                      {getSubtitle(platform)}
+                    </div>
                   </div>
                   <IonButton
+                    className="device-list-item-action"
                     size="small"
                     fill="clear"
                     color="danger"

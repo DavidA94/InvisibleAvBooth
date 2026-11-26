@@ -266,3 +266,19 @@ Tests are part of each task's definition of done. Unit tests follow the unit or 
 
 - [x] 74. Implement NDI-only startup WARNING log — when CameraService initializes a camera without VISCA configured, emit WARNING: "Camera '{label}' uses NDI-only — position state is based on commanded values and may drift if the camera is controlled externally."
   - _Requirements: 3_
+
+---
+
+## Phase 9: Camera Framing Grid and Reset PTZ
+
+- [x] 75. Replace the preview centre crosshair with a 3×3 framing grid (`.camera-grid-overlay`, 10% opacity white lines, `pointer-events: none`; _opacity later raised to 25% in task 78_). Frontend tests for the overlay (Vitest + Playwright).
+  - _Requirements: 5.15_
+
+- [x] 76. Add Reset PTZ: `CTS_CAMERA_PTZ_RESET` event, `ViscaCameraDriver.panTiltReset()` (30s timeout, error-packet detection; _replaced by `reinitializePanTilt()` in task 78_), `CameraService.resetPtz()` with injected live-activity guard (wired in `app.ts`), `CameraSocketModule` handler with ack. Unit tests for driver, service (guard, concurrency, failure/retry, preset clear) and socket module; backend integration test through the real `buildApp` wiring (refused while recording, passes guard when idle).
+  - _Requirements: 5.16, 5.17_
+
+- [x] 77. Reset PTZ button in `CameraControls` (bottom-left footer; _moved under the video in task 78_), disabled with hint while recording/streaming/pending/platform active or VISCA disconnected, pending state, toast on result. Vitest component tests (all live-state scenarios via `it.each`) and Playwright spec `camera-reset-ptz.spec.ts`.
+  - _Requirements: 5.16, 5.17_
+
+- [x] 78. Rework Reset PTZ after hardware test: Pan-tiltDrive Reset was a no-op on the Tenveo (instant Completion, no sweep). Replace with `ViscaCameraDriver.reinitializePanTilt()` (VISCA standby → power on, wait for power state and for pan/tilt to settle), block joystick/preset/tap-to-center during reset, move the button under the video, add a "re-homing" pending hint, raise framing-grid opacity to 25%.
+  - _Requirements: 5.15, 5.16_

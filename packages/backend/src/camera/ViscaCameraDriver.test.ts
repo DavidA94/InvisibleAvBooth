@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { buildViscaPositionFromResponse, ViscaCameraDriver } from "./ViscaCameraDriver.js";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { buildViscaPositionFromResponse, ViscaCameraDriver, REINIT_SWEEP_WAIT_MS, REINIT_STANDBY_WAIT_MS } from "./ViscaCameraDriver.js";
 
 // Mock the net.Socket
 interface MockSocketInstance {
@@ -834,5 +834,111 @@ describe("ViscaCameraDriver — command queue", () => {
     vi.advanceTimersByTime(2000);
     await p2; // focusAuto catches the error
     vi.useRealTimers();
+  });
+});
+
+describe("ViscaCameraDriver — reinitializePanTilt (power-cycle self-check)", () => {
+  const STANDBY = "8101040003ff";
+  const POWER_ON = "8101040002ff";
+  const POWER_INQ = "81090400ff";
+  const PANTILT_INQ = "81090612ff";
+
+  let driver: ViscaCameraDriver;
+  let written: string[];
+  let power: 0x02 | 0x03;
+  /** Pan/tilt readings returned in order after power-on; the last one repeats. */
+  let panTiltSequence: number[];
+  let rejectStandby: boolean;
+  let neverPowersOn: boolean;
+
+  function panTiltPacket(pan: number): Buffer {
+    return Buffer.from([0x90, 0x50, (pan >> 12) & 0xf, (pan >> 8) & 0xf, (pan >> 4) & 0xf, pan & 0xf, 0, 0, 0, 0, 0xff]);
+  }
+
+  beforeEach(async () => {
+    vi.useFakeTimers();
+    driver = new ViscaCameraDriver("192.168.1.100", 5678);
+    const connectPromise = driver.connect();
+    mockSocketInstance.emit("connect");
+    await connectPromise;
+    written = [];
+    power = 0x02;
+    panTiltSequence = [100, 900, 4000, 0, 0, 0];
+    rejectStandby = false;
+    neverPowersOn = false;
+
+    // Simulated camera: replies asynchronously like a real socket.
+    mockSocketInstance.write = (data: Buffer, cb?: (err?: Error) => void) => {
+      const hex = Buffer.from(data).toString("hex");
+      written.push(hex);
+      cb?.();
+      queueMicrotask(() => {
+        if (hex === STANDBY) {
+          if (rejectStandby) return mockSocketInstance.emit("data", Buffer.from([0x90, 0x61, 0x41, 0xff]));
+          power = 0x03;
+        }
+        if (hex === POWER_ON && !neverPowersOn) power = 0x02;
+        if (hex === STANDBY || hex === POWER_ON) {
+          mockSocketInstance.emit("data", Buffer.from([0x90, 0x41, 0xff]));
+          return mockSocketInstance.emit("data", Buffer.from([0x90, 0x51, 0xff]));
+        }
+        if (hex === POWER_INQ) return mockSocketInstance.emit("data", Buffer.from([0x90, 0x50, power, 0xff]));
+        if (hex === PANTILT_INQ) {
+          const pan = panTiltSequence.length > 1 ? panTiltSequence.shift()! : panTiltSequence[0]!;
+          return mockSocketInstance.emit("data", panTiltPacket(pan));
+        }
+      });
+      return true;
+    };
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("enters standby, powers back on, and resolves only after the head stops moving", async () => {
+    let done = false;
+    const p = driver.reinitializePanTilt().then(() => (done = true));
+    await vi.advanceTimersByTimeAsync(1_000);
+    expect(done).toBe(false);
+    await vi.advanceTimersByTimeAsync(10_000);
+    await p;
+    expect(done).toBe(true);
+
+    const standbyAt = written.indexOf(STANDBY);
+    const onAt = written.indexOf(POWER_ON);
+    expect(standbyAt).toBeGreaterThanOrEqual(0);
+    expect(onAt).toBeGreaterThan(standbyAt);
+    // Position was polled after power-on until stable
+    expect(written.slice(onAt).filter((h) => h === PANTILT_INQ).length).toBeGreaterThanOrEqual(3);
+  });
+
+  it("does not use Pan-tiltDrive Reset (no-op on the cameras in use)", async () => {
+    const p = driver.reinitializePanTilt();
+    await vi.advanceTimersByTimeAsync(15_000);
+    await p;
+    expect(written).not.toContain("81010605ff");
+  });
+
+  it("rejects when the camera refuses standby", async () => {
+    rejectStandby = true;
+    await expect(driver.reinitializePanTilt()).rejects.toThrow(/rejected standby/);
+    expect(written).not.toContain(POWER_ON);
+  });
+
+  it("rejects when the camera never reports power on", async () => {
+    neverPowersOn = true;
+    const p = driver.reinitializePanTilt();
+    const assertion = expect(p).rejects.toThrow(/did not power back on/);
+    await vi.advanceTimersByTimeAsync(REINIT_STANDBY_WAIT_MS + REINIT_SWEEP_WAIT_MS);
+    await assertion;
+  });
+
+  it("rejects when the head never settles", async () => {
+    panTiltSequence = Array.from({ length: 1000 }, (_, i) => i);
+    const p = driver.reinitializePanTilt();
+    const assertion = expect(p).rejects.toThrow(/did not finish re-initializing/);
+    await vi.advanceTimersByTimeAsync(REINIT_SWEEP_WAIT_MS + 5_000);
+    await assertion;
   });
 });

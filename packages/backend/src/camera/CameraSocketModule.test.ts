@@ -16,6 +16,7 @@ function makeMockCameraService() {
     applySet: vi.fn(),
     activatePreset: vi.fn().mockResolvedValue({ success: true }),
     tapToCenter: vi.fn().mockResolvedValue({ success: true }),
+    resetPtz: vi.fn().mockResolvedValue({ success: true }),
     getCameraMetadata: vi.fn().mockReturnValue({
       ndiSourceName: "CAM1",
       fovWideAngle: 60,
@@ -107,6 +108,24 @@ describe("CameraSocketModule", () => {
       module.registerSocket(ADMIN_AUTH as unknown as Parameters<typeof module.registerSocket>[0]);
       ADMIN_AUTH.socket._trigger("cts:camera:ptz:move:stop", { cameraId: "cam1" });
       expect(service.stopMove).toHaveBeenCalledWith("cam1");
+    });
+  });
+
+  describe("registerSocket — PTZ reset", () => {
+    it("forwards reset to the service and acks the result", async () => {
+      const ack = vi.fn();
+      module.registerSocket(ADMIN_AUTH as unknown as Parameters<typeof module.registerSocket>[0]);
+      await ADMIN_AUTH.socket._trigger("cts:camera:ptz:reset", { cameraId: "cam1" }, ack);
+      expect(service.resetPtz).toHaveBeenCalledWith("cam1");
+      expect(ack).toHaveBeenCalledWith({ success: true });
+    });
+
+    it("acks the refusal when the service rejects the reset", async () => {
+      const ack = vi.fn();
+      service.resetPtz.mockResolvedValue({ success: false, error: "Cannot reset PTZ while recording or streaming" });
+      module.registerSocket(VOLUNTEER_AUTH as unknown as Parameters<typeof module.registerSocket>[0]);
+      await VOLUNTEER_AUTH.socket._trigger("cts:camera:ptz:reset", { cameraId: "cam1" }, ack);
+      expect(ack).toHaveBeenCalledWith({ success: false, error: "Cannot reset PTZ while recording or streaming" });
     });
   });
 

@@ -44,6 +44,7 @@ export const CTS_CAMERA_PTZ_MOVE_STOP = "cts:camera:ptz:move:stop" as const;
 export const CTS_CAMERA_SET = "cts:camera:set" as const;
 export const CTS_CAMERA_PRESET_ACTIVATE = "cts:camera:preset:activate" as const;
 export const CTS_CAMERA_PTZ_TAP_TO_CENTER = "cts:camera:ptz:tap-to-center" as const;
+export const CTS_CAMERA_PTZ_RESET = "cts:camera:ptz:reset" as const;
 
 // ── Mixer (Sound Board): Server → Client ──────────────────────────────────────
 

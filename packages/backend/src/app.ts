@@ -145,6 +145,14 @@ export function buildApp(deps: AppDependencies): AppContext {
   const previewUpgradeRouter = new PreviewUpgradeRouter(authService, videoPreviewManager);
   const obsNdiPreviewSource = new ObsNdiPreviewSource(database, videoPreviewManager);
   const cameraService = new CameraService(database, videoPreviewManager);
+  // Camera PTZ reset sweeps the head on air, so CameraService refuses it while anything is live. Wired here so
+  // the camera domain does not import OBS/streaming. "Live" covers actual and commanded OBS state plus any platform
+  // that is not idle/errored (a pending start/stop is still a live window).
+  cameraService.setLiveActivityGuard(() => {
+    const obs = obsService.getState();
+    if (obs.recording || obs.streaming || obs.commandedState.recording || obs.commandedState.streaming) return true;
+    return [...platformService.getPlatformStates().values()].some((p) => p.status !== "idle" && p.status !== "error");
+  });
   const mixerService = new MixerService(database, mixerDriverFactory);
 
   // Preset routes need cameraService for position capture

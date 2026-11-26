@@ -307,6 +307,9 @@ export const TEST_ID_CAMERA_CONNECTING_OVERLAY = "camera-connecting-overlay";
 export const TEST_ID_CAMERA_ZOOM_SLIDER = "camera-zoom-slider";
 export const TEST_ID_CAMERA_FOCUS_SLIDER = "camera-focus-slider";
 export const TEST_ID_CAMERA_TOGGLE_ROW = "camera-toggle-row";
+export const TEST_ID_CAMERA_GRID_OVERLAY = "camera-grid-overlay";
+export const TEST_ID_CAMERA_RESET_PTZ_BUTTON = "camera-reset-ptz-button";
+export const TEST_ID_CAMERA_RESET_PTZ_HINT = "camera-reset-ptz-hint";
 export const TEST_ID_PTZ_JOYSTICK = "ptz-joystick";
 export const TEST_ID_PTZ_JOYSTICK_DOT = "ptz-joystick-dot";
 

@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { INITIAL_OBS_STATE } from "../../store/obsSlice";
 import type { ReactNode } from "react";
 import "../../test/ionicMocks";
 import { CameraWidget } from "./CameraWidget";
@@ -15,6 +17,9 @@ import {
   TEST_ID_CAMERA_FOCUS_SLIDER,
   TEST_ID_CAMERA_TOGGLE_ROW,
   TEST_ID_PTZ_JOYSTICK,
+  TEST_ID_CAMERA_GRID_OVERLAY,
+  TEST_ID_CAMERA_RESET_PTZ_BUTTON,
+  TEST_ID_CAMERA_RESET_PTZ_HINT,
 } from "../../constants/testIds";
 
 vi.mock("react-select", () => ({
@@ -103,6 +108,9 @@ beforeEach(() => {
   useStore.setState({
     cameraStates: { cam1: CAMERA_STATE },
     user: { id: "u1", username: "admin", role: "ADMIN" },
+    obsState: INITIAL_OBS_STATE,
+    platformStates: new Map(),
+    notifications: [],
   });
   localStorage.clear();
 });
@@ -453,6 +461,108 @@ describe("CameraWidget", () => {
       });
       render(<CameraWidget />);
       expect(screen.queryByText("Controls")).not.toBeInTheDocument();
+    });
+  });
+
+  describe("framing grid overlay", () => {
+    it("renders the 3x3 grid overlay over the preview", () => {
+      render(<CameraWidget />);
+      expect(screen.getByTestId(TEST_ID_CAMERA_GRID_OVERLAY)).toBeInTheDocument();
+    });
+  });
+
+  describe("Reset PTZ button", () => {
+    const VISCA_STATE: CameraState = { ...CAMERA_STATE, capabilities: { tapToCenter: true } };
+
+    beforeEach(() => {
+      useStore.setState({ cameraStates: { cam1: VISCA_STATE } });
+    });
+
+    it("is enabled when nothing is recording or streaming", () => {
+      render(<CameraWidget />);
+      const button = screen.getByTestId(TEST_ID_CAMERA_RESET_PTZ_BUTTON);
+      expect(button).toBeEnabled();
+      expect(button).toHaveTextContent("Reset PTZ");
+      expect(screen.queryByTestId(TEST_ID_CAMERA_RESET_PTZ_HINT)).not.toBeInTheDocument();
+    });
+
+    it("is hidden when the camera has no VISCA control", () => {
+      useStore.setState({ cameraStates: { cam1: CAMERA_STATE } });
+      render(<CameraWidget />);
+      expect(screen.queryByTestId(TEST_ID_CAMERA_RESET_PTZ_BUTTON)).not.toBeInTheDocument();
+    });
+
+    it("is hidden when the camera cannot pan or tilt", () => {
+      useStore.setState({ cameraStates: { cam1: { ...VISCA_STATE, features: ["zoom"] } } });
+      render(<CameraWidget />);
+      expect(screen.queryByTestId(TEST_ID_CAMERA_RESET_PTZ_BUTTON)).not.toBeInTheDocument();
+    });
+
+    it("is disabled when VISCA is disconnected", () => {
+      useStore.setState({ cameraStates: { cam1: { ...VISCA_STATE, viscaConnected: false } } });
+      render(<CameraWidget />);
+      expect(screen.getByTestId(TEST_ID_CAMERA_RESET_PTZ_BUTTON)).toBeDisabled();
+    });
+
+    it.each`
+      scenario                            | obsOverrides                                                 | platformState
+      ${"recording"}                      | ${{ recording: true }}                                       | ${undefined}
+      ${"streaming"}                      | ${{ streaming: true }}                                       | ${undefined}
+      ${"a recording start is pending"}   | ${{ commandedState: { recording: true, streaming: false } }} | ${undefined}
+      ${"a stream start is pending"}      | ${{ commandedState: { recording: false, streaming: true } }} | ${undefined}
+      ${"a platform is streaming"}        | ${{}}                                                        | ${"streaming"}
+      ${"a platform is starting"}         | ${{}}                                                        | ${"starting"}
+      ${"a platform lost its OBS source"} | ${{}}                                                        | ${"no_source"}
+    `("is disabled with an explanation while $scenario", async ({ obsOverrides, platformState }) => {
+      useStore.setState({
+        obsState: { ...INITIAL_OBS_STATE, connected: true, ...obsOverrides },
+        platformStates: platformState ? new Map([["yt-1", { state: platformState }]]) : new Map(),
+      });
+      render(<CameraWidget />);
+      const button = screen.getByTestId(TEST_ID_CAMERA_RESET_PTZ_BUTTON);
+      expect(button).toBeDisabled();
+      expect(screen.getByTestId(TEST_ID_CAMERA_RESET_PTZ_HINT)).toHaveTextContent("Unavailable while recording or streaming");
+
+      await userEvent.click(button);
+      expect(mockEmit).not.toHaveBeenCalled();
+    });
+
+    it("re-enables once the recording stops", () => {
+      useStore.setState({ obsState: { ...INITIAL_OBS_STATE, recording: true } });
+      render(<CameraWidget />);
+      expect(screen.getByTestId(TEST_ID_CAMERA_RESET_PTZ_BUTTON)).toBeDisabled();
+      act(() => useStore.setState({ obsState: INITIAL_OBS_STATE }));
+      expect(screen.getByTestId(TEST_ID_CAMERA_RESET_PTZ_BUTTON)).toBeEnabled();
+    });
+
+    it("emits the reset for the selected camera and shows a success toast", async () => {
+      mockEmit.mockImplementation((_event: string, _payload: unknown, ack: (r: { success: boolean }) => void) => ack({ success: true }));
+      render(<CameraWidget />);
+      await userEvent.click(screen.getByTestId(TEST_ID_CAMERA_RESET_PTZ_BUTTON));
+      expect(mockEmit).toHaveBeenCalledWith("cts:camera:ptz:reset", { cameraId: "cam1" }, expect.any(Function));
+      await waitFor(() => expect(useStore.getState().notifications[0]?.message).toBe("Camera PTZ reset complete"));
+    });
+
+    it("shows the backend error as a toast when the reset fails", async () => {
+      mockEmit.mockImplementation((_event: string, _payload: unknown, ack: (r: { success: boolean; error: string }) => void) =>
+        ack({ success: false, error: "VISCA timeout" }),
+      );
+      render(<CameraWidget />);
+      await userEvent.click(screen.getByTestId(TEST_ID_CAMERA_RESET_PTZ_BUTTON));
+      await waitFor(() => {
+        const note = useStore.getState().notifications[0];
+        expect(note?.message).toBe("VISCA timeout");
+        expect(note?.severity).toBe("error");
+      });
+    });
+
+    it("stays disabled while the reset is in progress", async () => {
+      mockEmit.mockImplementation(() => undefined); // never acks
+      render(<CameraWidget />);
+      await userEvent.click(screen.getByTestId(TEST_ID_CAMERA_RESET_PTZ_BUTTON));
+      expect(screen.getByTestId(TEST_ID_CAMERA_RESET_PTZ_BUTTON)).toBeDisabled();
+      expect(screen.getByTestId(TEST_ID_CAMERA_RESET_PTZ_BUTTON)).toHaveAttribute("data-state", "pending");
+      expect(screen.getByTestId(TEST_ID_CAMERA_RESET_PTZ_HINT)).toHaveTextContent("re-homing");
     });
   });
 });

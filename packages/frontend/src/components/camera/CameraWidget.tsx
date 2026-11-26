@@ -11,7 +11,7 @@ import { useDoubleTapToCenter } from "../../hooks/useDoubleTapToCenter";
 import { useStore } from "../../store";
 import { useSocket } from "../../providers/SocketProvider";
 import { useResizeObserver } from "../../hooks/useResizeObserver";
-import { CTS_CAMERA_SET, CTS_CAMERA_PRESET_ACTIVATE } from "@invisible-av-booth/shared";
+import { CTS_CAMERA_SET, CTS_CAMERA_PRESET_ACTIVATE, CTS_CAMERA_PTZ_RESET } from "@invisible-av-booth/shared";
 import type { CameraState, CameraFeature } from "@invisible-av-booth/shared";
 import { Modal } from "../Modal";
 import {
@@ -94,6 +94,33 @@ export function CameraWidget({ enabled = true, forceSelectedId }: CameraWidgetPr
   const aiConfigured = currentState?.features.includes("ai-tracking") ?? false;
 
   const [modalOpen, setModalOpen] = useState(false);
+  const [resetPending, setResetPending] = useState(false);
+
+  // Reset sweeps the head on air, so it is blocked while anything is live. Mirrors the backend guard in app.ts
+  // (which is the real enforcement); keep the two definitions of "live" in step.
+  const obsState = useStore((s) => s.obsState);
+  const platformStates = useStore((s) => s.platformStates);
+  const isLive =
+    obsState.recording ||
+    obsState.streaming ||
+    obsState.commandedState.recording ||
+    obsState.commandedState.streaming ||
+    [...platformStates.values()].some((p) => p.state !== "idle" && p.state !== "error");
+  const canResetPtz = (currentState?.capabilities.tapToCenter ?? false) && features.some((f) => f === "pan" || f === "tilt");
+
+  const handleResetPtz = useCallback((): void => {
+    if (!socket || !selectedId || isLive) return;
+    setResetPending(true);
+    socket.emit(CTS_CAMERA_PTZ_RESET, { cameraId: selectedId }, (result: { success: boolean; error?: string }) => {
+      setResetPending(false);
+      useStore.getState().addNotification({
+        id: `camera-reset-${Date.now()}`,
+        level: "toast",
+        severity: result.success ? "info" : "error",
+        message: result.success ? "Camera PTZ reset complete" : (result.error ?? "Camera PTZ reset failed"),
+      });
+    });
+  }, [socket, selectedId, isLive]);
 
   const handleDoubleTap = useDoubleTapToCenter({
     cameraId: selectedId,
@@ -175,6 +202,14 @@ export function CameraWidget({ enabled = true, forceSelectedId }: CameraWidgetPr
     onJoystickStop: handleJoystickStop,
     onPresetActivate: handlePresetActivate,
     onVideoTap: handleDoubleTap,
+    ...(canResetPtz
+      ? {
+          onResetPtz: handleResetPtz,
+          resetPtzDisabled: isLive || !(currentState?.viscaConnected ?? false),
+          resetPtzPending: resetPending,
+          ...(isLive ? { resetPtzDisabledReason: "Unavailable while recording or streaming" } : {}),
+        }
+      : {}),
     cameraSelector: (
       <div className="camera-select-wrapper">
         <Select
