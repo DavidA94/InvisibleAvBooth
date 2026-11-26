@@ -115,7 +115,11 @@ export class AuthService {
   }
 
   async login(username: string, password: string, rememberMe = false): Promise<Result<{ token: string; user: AuthResult }, AuthError>> {
-    const row = this.database.prepare("SELECT * FROM users WHERE username = ?").get(username) as UserRow | undefined;
+    // Case-insensitive username match: tablet keyboards auto-capitalize the first letter, which made
+    // correct credentials fail. Password comparison (bcrypt) stays case-sensitive. NOCASE folds ASCII
+    // only. Uniqueness ignoring case is enforced in createUser/updateUser so this can match at most one
+    // row (livestream-control-system Req 6.9, 13.12).
+    const row = this.database.prepare("SELECT * FROM users WHERE username = ? COLLATE NOCASE").get(username) as UserRow | undefined;
 
     if (!row) {
       return { success: false, error: new AuthError("INVALID_CREDENTIALS", "Invalid username or password") };
@@ -172,7 +176,8 @@ export class AuthService {
     const roleCheck = this.requireRole(actor, "ADMIN");
     if (!roleCheck.success) return roleCheck;
 
-    const existing = this.database.prepare("SELECT id FROM users WHERE username = ?").get(data.username);
+    // Unique ignoring case, so case-insensitive login can never match two accounts (Req 13.12).
+    const existing = this.database.prepare("SELECT id FROM users WHERE username = ? COLLATE NOCASE").get(data.username);
     if (existing) {
       return { success: false, error: new AuthError("USERNAME_TAKEN", "Username already exists") };
     }
@@ -205,7 +210,8 @@ export class AuthService {
     }
 
     if (data.username && data.username !== row.username) {
-      const existing = this.database.prepare("SELECT id FROM users WHERE username = ?").get(data.username);
+      // Ignore case, but exclude this user so a case-only rename of your own name (brenden → Brenden) is allowed.
+      const existing = this.database.prepare("SELECT id FROM users WHERE username = ? COLLATE NOCASE AND id != ?").get(data.username, id);
       if (existing) {
         return { success: false, error: new AuthError("USERNAME_TAKEN", "Username already exists") };
       }

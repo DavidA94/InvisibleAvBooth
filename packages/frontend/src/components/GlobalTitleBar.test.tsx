@@ -45,6 +45,12 @@ function renderBar(path = "/dashboard/default"): ReturnType<typeof render> {
 }
 
 describe("GlobalTitleBar", () => {
+  it("capitalizes the first letter of a lowercase username", () => {
+    useStore.setState({ user: { id: "u1", username: "brenden", role: "AvVolunteer" } });
+    renderBar("/dashboards");
+    expect(screen.getByTestId(TEST_ID_TITLE_BAR_USERNAME)).toHaveTextContent(/^Brenden$/);
+  });
+
   it("displays username and role", () => {
     renderBar();
     expect(screen.getByTestId(TEST_ID_TITLE_BAR_USERNAME)).toHaveTextContent("John");

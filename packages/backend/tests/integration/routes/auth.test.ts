@@ -40,6 +40,19 @@ describe("POST /api/auth/login", () => {
     expect(res.status).toBe(401);
   });
 
+  it("accepts the username in any case and returns the stored username", async () => {
+    await s.ctx.authService.createUser({ username: "brenden", password: "Pass", role: "AvVolunteer" }, seedActor);
+    const res = await s.agent.post("/api/auth/login").send({ username: "Brenden", password: "Pass" });
+    expect(res.status).toBe(200);
+    expect(res.body.user.user.username).toBe("brenden");
+  });
+
+  it("still rejects a password in the wrong case", async () => {
+    await s.ctx.authService.createUser({ username: "brenden", password: "Pass", role: "AvVolunteer" }, seedActor);
+    const res = await s.agent.post("/api/auth/login").send({ username: "Brenden", password: "pass" });
+    expect(res.status).toBe(401);
+  });
+
   it("returns 400 when username is missing", async () => {
     const res = await s.agent.post("/api/auth/login").send({ password: "pass" });
     expect(res.status).toBe(400);

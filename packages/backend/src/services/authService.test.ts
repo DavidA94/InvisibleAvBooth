@@ -81,6 +81,34 @@ describe("AuthService.login", () => {
     if (!result.success) expect(result.error.code).toBe("INVALID_CREDENTIALS");
   });
 
+  it.each(["brenden", "Brenden", "BRENDEN", "bReNdEn"])("matches the username case-insensitively (%s)", async (typed) => {
+    const database = makeDatabase();
+    const service = makeService(database);
+    await service.createUser({ username: "brenden", password: "pass123", role: "AvVolunteer" }, adminActor);
+    const result = await service.login(typed, "pass123");
+    expect(result.success).toBe(true);
+    // The account's stored username is what goes into the token, not what was typed.
+    if (result.success) expect((jwt.decode(result.value.token) as JwtPayload).username).toBe("brenden");
+  });
+
+  it("matches a mixed-case stored username when typed in lowercase", async () => {
+    const database = makeDatabase();
+    const service = makeService(database);
+    await service.createUser({ username: "Clyde", password: "pass123", role: "AvVolunteer" }, adminActor);
+    const result = await service.login("clyde", "pass123");
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.value.user.user.username).toBe("Clyde");
+  });
+
+  it("keeps the password case-sensitive", async () => {
+    const database = makeDatabase();
+    const service = makeService(database);
+    await service.createUser({ username: "brenden", password: "Pass123", role: "AvVolunteer" }, adminActor);
+    const result = await service.login("Brenden", "pass123");
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error.code).toBe("INVALID_CREDENTIALS");
+  });
+
   it("fails on unknown username", async () => {
     const database = makeDatabase();
     const service = makeService(database);
@@ -205,6 +233,25 @@ describe("AuthService.createUser", () => {
   });
 });
 
+describe("AuthService.createUser — usernames unique ignoring case", () => {
+  it.each(["Bob", "BOB", "bOb"])("rejects %s when bob exists", async (username) => {
+    const database = makeDatabase();
+    const service = makeService(database);
+    await service.createUser({ username: "bob", password: "p", role: "AvVolunteer" }, adminActor);
+    const result = await service.createUser({ username, password: "p", role: "AvVolunteer" }, adminActor);
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error.code).toBe("USERNAME_TAKEN");
+  });
+
+  it("stores the username exactly as entered", async () => {
+    const database = makeDatabase();
+    const service = makeService(database);
+    await service.createUser({ username: "Brenden", password: "p", role: "AvVolunteer" }, adminActor);
+    const row = database.prepare("SELECT username FROM users").get() as { username: string };
+    expect(row.username).toBe("Brenden");
+  });
+});
+
 describe("AuthService.updateUser", () => {
   it("updates username", async () => {
     const database = makeDatabase();
@@ -234,6 +281,27 @@ describe("AuthService.updateUser", () => {
     const result = await service.updateUser(bob.value.id, { username: "alice" }, adminActor);
     expect(result.success).toBe(false);
     if (!result.success) expect(result.error.code).toBe("USERNAME_TAKEN");
+  });
+
+  it("rejects a rename that matches another user ignoring case", async () => {
+    const database = makeDatabase();
+    const service = makeService(database);
+    await service.createUser({ username: "alice", password: "p", role: "AvVolunteer" }, adminActor);
+    const bob = await service.createUser({ username: "bob", password: "p", role: "AvVolunteer" }, adminActor);
+    if (!bob.success) throw new Error("create failed");
+    const result = await service.updateUser(bob.value.id, { username: "ALICE" }, adminActor);
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error.code).toBe("USERNAME_TAKEN");
+  });
+
+  it("allows a case-only rename of the user's own name", async () => {
+    const database = makeDatabase();
+    const service = makeService(database);
+    const brenden = await service.createUser({ username: "brenden", password: "p", role: "AvVolunteer" }, adminActor);
+    if (!brenden.success) throw new Error("create failed");
+    const result = await service.updateUser(brenden.value.id, { username: "Brenden" }, adminActor);
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.value.username).toBe("Brenden");
   });
 
   it("rejects self-role-change", async () => {

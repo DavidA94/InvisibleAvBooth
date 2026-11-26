@@ -66,6 +66,15 @@ describe("POST /api/admin/users", () => {
   });
 });
 
+describe("POST /api/admin/users — unique ignoring case", () => {
+  it("returns 409 when the username differs only by case", async () => {
+    const cookie = await loginAsAdmin(s.agent, s.ctx.authService);
+    await s.agent.post("/api/admin/users").set("Cookie", cookie).send({ username: "brenden", password: "p", role: "AvVolunteer" });
+    const res = await s.agent.post("/api/admin/users").set("Cookie", cookie).send({ username: "Brenden", password: "p", role: "AvVolunteer" });
+    expect(res.status).toBe(409);
+  });
+});
+
 describe("PUT /api/admin/users/:id", () => {
   it("updates a user", async () => {
     const cookie = await loginAsAdmin(s.agent, s.ctx.authService);

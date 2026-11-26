@@ -3,6 +3,7 @@ import { IonButton } from "@ionic/react";
 import { useLocation, useNavigate } from "react-router";
 import { useStore } from "../store";
 import { FullscreenButton } from "./FullscreenButton";
+import { capitalizeFirst } from "../utils/displayName";
 import {
   TEST_ID_GLOBAL_TITLE_BAR,
   TEST_ID_TITLE_BAR_DASHBOARD_NAV,
@@ -63,7 +64,7 @@ export function GlobalTitleBar(): ReactNode {
       <span className="fill-remaining" />
       <FullscreenButton />
       <span data-testid={TEST_ID_TITLE_BAR_USERNAME} className="margin-right-tight">
-        {user.username}
+        {capitalizeFirst(user.username)}
       </span>
       {!isChangePassword && (
         <span data-testid={TEST_ID_TITLE_BAR_ROLE} className="text-muted margin-right-standard">

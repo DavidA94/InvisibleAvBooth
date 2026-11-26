@@ -337,3 +337,18 @@ _Rationale: scrolling long chapter/verse lists on a tablet mid-service is slow a
 
 - [x] 90. Auto-advance tests — helper table (empty/filled next field, clears, cascade resets, End is last), component focus tests, Playwright flow entering a full reference by typing only.
   - _Requirements: 19.11_
+
+---
+
+## Enhancement — Case-Insensitive Login and Capitalized Title-Bar Name
+
+_Rationale: tablet keyboards auto-capitalize the username, so correct passwords were rejected. See Req 6.9, 13.12, 5c.6._
+
+- [x] 91. Spec update — Req 6.9, 13.12, 5c.6; design notes on `COLLATE NOCASE` and `capitalizeFirst`.
+  - _Requirements: 5c, 6, 13_
+
+- [x] 92. Backend — `COLLATE NOCASE` on the username lookups in `AuthService.login`, `createUser`, `updateUser` (rename excludes self). Unit + integration tests.
+  - _Requirements: 6.9, 13.12_
+
+- [x] 93. Frontend — `capitalizeFirst` in `src/utils/displayName.ts`, used by `GlobalTitleBar`. Unit tests.
+  - _Requirements: 5c.6_

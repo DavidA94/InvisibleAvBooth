@@ -136,6 +136,7 @@ Responsible for user authentication, JWT issuance, and RBAC enforcement. Authent
 
 ```typescript
 interface AuthService {
+  // username matched case-insensitively (SQLite COLLATE NOCASE, ASCII only); password case-sensitive (Req 6.9)
   login(username: string, password: string, rememberMe?: boolean): Promise<Result<AuthResult, AuthError>>;
   logout(): Promise<Result<void, AuthError>>;
   verifyToken(token: string): Result<JwtPayload, AuthError>;
@@ -182,6 +183,8 @@ interface JwtPayload {
   requiresPasswordChange?: boolean; // set to true on first login after bootstrap; cleared after password change
 }
 ```
+
+**Case-insensitive usernames** (Req 6.9, 13.12): usernames are stored as entered; every lookup by username uses `COLLATE NOCASE` — `login`, and the duplicate checks in `createUser` / `updateUser`. The rename check excludes the user being renamed (`AND id != ?`) so a case-only rename of your own name is allowed. Considered alternatives: lowercasing on write (changes how existing names were typed, and still needs the same lookup change at login), and a `COLLATE NOCASE` column constraint (needs a table-rebuild migration in SQLite; the application-level check is sufficient because `better-sqlite3` runs check-then-insert synchronously in one process). The column's existing case-sensitive `UNIQUE` stays as a backstop for exact duplicates.
 
 Role hierarchy for `requireRole`: `ADMIN > AvPowerUser > AvVolunteer`. All user management endpoints require `ADMIN` role. Users are persisted in the SQLite database (`data/app.db`) so they survive backend restarts.
 
@@ -473,6 +476,8 @@ A persistent bar rendered at the top of all fully-authenticated screens. It is n
 On `/change-password`: shows only username and Logout (role and dashboard navigation label omitted — the user has not completed setup).
 
 On all other authenticated routes: shows username, role, a dashboard navigation label, and Logout button.
+
+The username is shown with its first letter capitalized via `capitalizeFirst()` (`src/utils/displayName.ts`), display only (Req 5c.6). JavaScript rather than CSS `text-transform: capitalize`, because CSS capitalizes every word and its treatment of hyphens varies by browser.
 
 **Dashboard navigation label**: When a dashboard is currently loaded, the label shows the active dashboard's name (e.g., "Main Dashboard"). When no dashboard is loaded — including on the Dashboard Selection Screen itself, admin pages, or any other authenticated route without an active dashboard — the label shows "Choose Dashboard". In both cases the label is tappable.
 

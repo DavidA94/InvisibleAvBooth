@@ -135,6 +135,7 @@ Invisible A/V Booth is a web-based, touch-first control interface for managing c
 3. ON the password change screen (`/change-password`), THE `GlobalTitleBar` SHALL display only the username and a Logout button — role and dashboard navigation label are omitted since the user has not yet completed setup.
 4. WHEN the user taps the dashboard navigation label in the `GlobalTitleBar`, THE Frontend SHALL always navigate to the Dashboard Selection Screen — regardless of any cached dashboard ID or how many dashboards are accessible. The Socket.io connection SHALL remain open but all widget event listeners SHALL be removed as their components unmount.
 5. THE Logout button in the `GlobalTitleBar` SHALL call `POST /auth/logout`, clear the JWT cookie, clear the cached dashboard ID and layout from localStorage, and redirect to `/login`.
+6. **Display capitalization** _(added)_: THE `GlobalTitleBar` SHALL display the username with its first letter capitalized (`brenden` → `Brenden`, `test-volunteer` → `Test-volunteer`); the rest of the name is shown as stored. This is display only — the stored username, the JWT, and the `user_info` cookie are unchanged, and the Admin User Management page shows the stored value. _Why:_ the title bar reads as a greeting/identity label for volunteers; usernames are typically lowercase.
 
 ---
 
@@ -166,6 +167,7 @@ Invisible A/V Booth is a web-based, touch-first control interface for managing c
 6. THE System SHALL support local hosting with self-signed HTTPS or HTTP fallback. In development (non-production environments), the JWT cookie SHALL be issued without the Secure flag so that HTTP localhost works without a self-signed certificate.
 7. THE AuthService SHALL store passwords using a cryptographic hashing algorithm (bcrypt or equivalent).
 8. THE Backend SHALL provide a `POST /auth/logout` endpoint that clears the JWT cookie; upon logout, THE Frontend SHALL redirect to `/login`.
+9. **Case-insensitive username** _(added)_: THE login endpoint SHALL match the username case-insensitively (`Brenden`, `BRENDEN`, and `brenden` all log in the `brenden` account). The password remains case-sensitive. The username is stored as the admin entered it; only the comparison ignores case. _Why:_ tablet keyboards auto-capitalize the first letter of a field, so volunteers were typing `Brenden` and getting "Invalid username or password" for a correct password. Matching uses SQLite `COLLATE NOCASE`, which folds ASCII letters only; usernames with non-ASCII letters still match case-sensitively for those letters.
 
 ---
 
@@ -282,6 +284,7 @@ Invisible A/V Booth is a web-based, touch-first control interface for managing c
 9. `data/bootstrap.txt` SHALL be gitignored and SHALL be deleted automatically as the final step of `AuthService.changePassword()` after the password is successfully updated and a new JWT is issued; IF the file deletion fails, THE Backend SHALL log a warning but SHALL NOT fail the password change operation. The credentials in `bootstrap.txt` are the original bootstrap password and are invalid once the password has been changed, so a deletion failure is a low-severity security concern.
 10. WHEN a user with `requiresPasswordChange: true` logs in, THE Backend SHALL include `requiresPasswordChange: true` in the JWT; THE Frontend SHALL redirect the user to a mandatory password change screen at `/change-password` before allowing access to the dashboard.
 11. AFTER the admin changes their password on first login, THE Backend SHALL clear the `requiresPasswordChange` flag and issue a new JWT without it.
+12. **Usernames are unique ignoring case** _(added, follows from Req 6.9)_: creating a user, or renaming one, SHALL be rejected with `USERNAME_TAKEN` IF another user already has the same username ignoring case (e.g. `Brenden` when `brenden` exists). Without this, a case-insensitive login could match two accounts. Renaming a user to a different-case form of their OWN username (e.g. `brenden` → `Brenden`) SHALL be allowed.
 
 ---
 
