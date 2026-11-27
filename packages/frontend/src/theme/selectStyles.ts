@@ -76,12 +76,16 @@ export function darkSelectStyles<Option, IsMulti extends boolean = false, Group 
     dropdownIndicator: (base, state) => ({
       ...base,
       padding: "0.5rem", // was 8px
+      // react-select's indicator SVG is a fixed 20px; below ~13px root it outgrew the 2.5rem control.
+      "& svg": { width: "1.25rem", height: "1.25rem" },
       color: state.isDisabled ? "var(--color-text-muted)" : "var(--color-text-muted)",
       "&:hover": { color: "var(--color-text)" },
     }),
     clearIndicator: (base) => ({
       ...base,
       padding: "0.5rem", // was 8px
+      // react-select's indicator SVG is a fixed 20px; below ~13px root it outgrew the 2.5rem control.
+      "& svg": { width: "1.25rem", height: "1.25rem" },
       color: "var(--color-text-muted)",
       "&:hover": { color: "var(--color-danger)" },
     }),

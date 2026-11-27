@@ -193,3 +193,23 @@ for (const [width, height] of [
     expect(fullSnapshot.layout.cameraPresetsVisible).toBeGreaterThanOrEqual(1);
   });
 }
+
+// The production layout uses all 7 default rows, so it must fit one screen without scrolling at any
+// scale (Req 2.5). Before the fix the grid alone was fitted to the viewport and the title bar plus
+// margins pushed the bottom ~65px off a 1280x800 tablet.
+for (const [width, height] of [
+  [1920, 1080],
+  [1280, 800],
+  [1366, 768],
+] as const) {
+  test(`a full default-rows layout fits ${width}x${height} without scrolling`, async ({ page }) => {
+    await openDashboard(page, width, height);
+    const fit = await page.evaluate(() => {
+      const scroller = document.querySelector("ion-content")?.shadowRoot?.querySelector(".inner-scroll") as HTMLElement | null;
+      const grid = document.querySelector("[data-testid='dashboard-grid']")!.getBoundingClientRect();
+      return { overflow: scroller ? scroller.scrollHeight - scroller.clientHeight : -1, gridBottom: grid.bottom, viewport: window.innerHeight };
+    });
+    expect(fit.overflow, "dashboard scrolls vertically").toBeLessThanOrEqual(0);
+    expect(fit.gridBottom).toBeLessThanOrEqual(fit.viewport);
+  });
+}

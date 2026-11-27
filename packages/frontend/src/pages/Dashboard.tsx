@@ -10,7 +10,7 @@ import {
   GRID_DIMENSIONS,
   GRID_CELL_SIZE_REM,
   GRID_GAP_SIZE_REM,
-  computeGridHeightRem,
+  computeDashboardFitHeightRem,
   BREAKPOINT_LARGE_LANDSCAPE,
   BREAKPOINT_LARGE_PORTRAIT,
   MIN_SCALE_FLOOR,
@@ -62,7 +62,8 @@ function useGridScale(gridType: GridType): void {
   useEffect(() => {
     const gridDimensions = GRID_DIMENSIONS[gridType];
     const nativeWidth = gridDimensions.totalWidthRem * BASE_FONT_SIZE;
-    const nativeHeight = computeGridHeightRem(gridDimensions.defaultRows) * BASE_FONT_SIZE;
+    // Fit the grid AND the title bar and margins around it; fitting the grid alone left the bottom off-screen.
+    const nativeHeight = computeDashboardFitHeightRem(gridDimensions.defaultRows) * BASE_FONT_SIZE;
 
     const computeScale = (): void => {
       const factor = Math.min(window.innerWidth / nativeWidth, window.innerHeight / nativeHeight, 1.0);

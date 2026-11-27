@@ -35,6 +35,24 @@ export function computeGridHeightRem(rows: number): number {
   return rows * GRID_CELL_SIZE_REM + (rows - 1) * GRID_GAP_SIZE_REM;
 }
 
+/** GlobalTitleBar height in rem. Must match `.title-bar { height }` in frontend shared.css. */
+export const DASHBOARD_TITLE_BAR_HEIGHT_REM = 2.5;
+
+/** Grid margin above and below, each, in rem. Must match `.dashboard-grid { margin }` (--space-screen-edge). */
+export const DASHBOARD_GRID_VERTICAL_MARGIN_REM = 1;
+
+/**
+ * Height in rem the dashboard needs to show `rows` rows without scrolling: the grid plus everything above
+ * and below it that also scales with the root font size (title bar, top and bottom margin).
+ *
+ * Viewport scaling must fit THIS, not the grid alone (dashboard-management Req 2.5). Fitting only the grid
+ * made it fill the viewport exactly, so the title bar and margins pushed the bottom row ~65px off a
+ * 1280x800 tablet, even in fullscreen.
+ */
+export function computeDashboardFitHeightRem(rows: number): number {
+  return computeGridHeightRem(rows) + DASHBOARD_TITLE_BAR_HEIGHT_REM + 2 * DASHBOARD_GRID_VERTICAL_MARGIN_REM;
+}
+
 /**
  * Breakpoints for grid type selection (pixels — viewport width thresholds).
  *

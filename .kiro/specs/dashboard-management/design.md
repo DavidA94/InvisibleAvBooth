@@ -621,7 +621,7 @@ function useGridScale(gridType: GridType): void {
     const gridDimensions = GRID_DIMENSIONS[gridType];
     // Native pixel dimensions at 16px root
     const nativeWidth = gridDimensions.totalWidthRem * BASE_FONT_SIZE;
-    const nativeHeight = computeGridHeightRem(gridDimensions.defaultRows) * BASE_FONT_SIZE;
+    const nativeHeight = computeDashboardFitHeightRem(gridDimensions.defaultRows) * BASE_FONT_SIZE; // grid + title bar + margins (Req 2.5);
 
     const computeScale = () => {
       const factor = Math.min(
@@ -680,11 +680,14 @@ const actualRows = Math.max(...cells.map(cell => cell.row + cell.rowSpan), 1);
 </div>
 ```
 
+**Fit height includes the title bar and margins (Req 2.5).** `useGridScale` fits `computeDashboardFitHeightRem(defaultRows)` = grid height + 2.5rem title bar + 1rem top + 1rem bottom margin, not the grid alone. Fitting the grid alone made it fill the viewport exactly, and the title bar and margins (which also scale) pushed the bottom ~65px off a 1280×800 tablet. The constants `DASHBOARD_TITLE_BAR_HEIGHT_REM` and `DASHBOARD_GRID_VERTICAL_MARGIN_REM` in shared `gridTypes.ts` must match `.title-bar` and `.dashboard-grid` in `shared.css` (comments in both places). The grid editor's screen-edge line at `defaultRows` is unchanged: it now matches reality.
+
 **Scale invariance (Req 2.10).** Scaling only works if nothing inside a widget is fixed in px. Two rules follow:
 
 - CSS: rem for every layout size. The Camera preset column (`.camera-controls-presets`) was `250px`; it is `15.625rem` (250px at 16px root).
 - JS width thresholds: define the threshold in rem and convert with `remToPx(rem)` from `src/utils/rem.ts`, which reads `getComputedStyle(document.documentElement).fontSize` at call time. A changed root font size resizes every rem-sized element, so the ResizeObserver fires and the comparison reruns at the new scale. Applies to `WidgetContainer` (indicator collapse, 12.5rem), `CameraWidget` (compact layout, 30rem), `computePaginationLayout` (Sound Board, takes the root font size as a parameter instead of a fixed 16), and `SwipeableRow` (action width, 3rem; gesture start distance and flick velocity stay px).
 
+- react-select: indicator SVGs are a fixed 20px; below a ~13.3px root, 20px + 1rem padding exceeded the 2.5rem control and grew it. Sized as 1.25rem in `darkSelectStyles`.
 - react-select: it sizes paddings from a px `baseUnit` (4px), so dropdowns grew relative to content on smaller screens (the Camera selector was 2.73rem tall at 13.9px root vs 2.5rem at 16px, taking height from the presets). `darkSelectStyles` restates the value-container, input, indicator, and separator spacing in rem with identical values at 16px.
 
 Regression test: `playwright/e2e/widget-scale-invariance.spec.ts` renders the dashboard at full scale and at 1280×800 and 1366×768 and asserts the measured sizes in rem match.

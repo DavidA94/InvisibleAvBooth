@@ -202,3 +202,10 @@ Tests are part of each task's definition of done. Unit tests follow the unit or 
 
 - [x] 44. Req 2.10: Camera preset column `250px` → rem; `remToPx` helper; rem thresholds in `WidgetContainer`, `CameraWidget`, Sound Board pagination, `SwipeableRow`; react-select paddings restated in rem in `darkSelectStyles` (px `baseUnit` made every dropdown grow relative to content on small screens); `data-state` hooks for camera compact / title-bar collapsed; Playwright `widget-scale-invariance.spec.ts` at 1280×800 and 1366×768.
   - _Requirements: 2.10_
+
+---
+
+## Fix — Scaled Dashboard Fits Without Scrolling
+
+- [x] 45. Req 2.5 revision: `computeDashboardFitHeightRem` in shared `gridTypes.ts` (grid + title bar + top/bottom margin); `useGridScale` fits that height. Unit tests; Playwright check that a full default-rows layout does not scroll at 1280×800 and 1366×768.
+  - _Requirements: 2.5_
