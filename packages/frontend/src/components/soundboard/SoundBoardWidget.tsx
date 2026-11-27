@@ -20,6 +20,7 @@ interface StripHandlers {
 import { ChannelStrip } from "./ChannelStrip";
 import { PresetsArea } from "./PresetsArea";
 import { computePaginationLayout, channelsForPage, rangeLabel } from "./pagination";
+import { rootFontSizePx } from "../../utils/rem";
 import {
   TEST_ID_SOUNDBOARD_WIDGET,
   TEST_ID_SOUNDBOARD_MIXER_SELECT,
@@ -100,7 +101,7 @@ export function SoundBoardWidget({ enabled = true, forceSelectedId }: SoundBoard
 
   // Pagination.
   const channelCount = state?.channelCount ?? 0;
-  const layout = computePaginationLayout(width, channelCount);
+  const layout = computePaginationLayout(width, channelCount, rootFontSizePx());
   const [page, setPage] = useState(0);
   useEffect(() => setPage(0), [mixerId, layout.perPage]);
   const visibleChannels = layout.paginated ? channelsForPage(page, layout.perPage, channelCount) : channelsForPage(0, channelCount || 1, channelCount);

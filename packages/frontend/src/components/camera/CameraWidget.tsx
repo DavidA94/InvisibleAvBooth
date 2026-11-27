@@ -11,6 +11,7 @@ import { useDoubleTapToCenter } from "../../hooks/useDoubleTapToCenter";
 import { useStore } from "../../store";
 import { useSocket } from "../../providers/SocketProvider";
 import { useResizeObserver } from "../../hooks/useResizeObserver";
+import { remToPx } from "../../utils/rem";
 import { CTS_CAMERA_SET, CTS_CAMERA_PRESET_ACTIVATE, CTS_CAMERA_PTZ_RESET } from "@invisible-av-booth/shared";
 import type { CameraState, CameraFeature } from "@invisible-av-booth/shared";
 import { Modal } from "../Modal";
@@ -22,7 +23,8 @@ import {
   TEST_ID_CAMERA_CONNECTING_OVERLAY,
 } from "../../constants/testIds";
 
-const COMPACT_WIDTH_THRESHOLD = 480;
+/** Narrower than this, the widget shows only the preview (tap opens the full controls). rem so it is scale-invariant (Req 2.10). */
+const COMPACT_WIDTH_THRESHOLD_REM = 30;
 const VISCA_FEATURES: CameraFeature[] = ["pan", "tilt", "zoom", "focus"];
 
 interface CameraWidgetProps {
@@ -88,7 +90,7 @@ export function CameraWidget({ enabled = true, forceSelectedId }: CameraWidgetPr
   const { imgRef, status } = useMjpegStream(selectedId ? `/preview/camera/${selectedId}` : "", enabled && !!selectedId);
   const { startMove, updateMove, stopMove } = usePtzMove();
 
-  const isCompact = width > 0 && width < COMPACT_WIDTH_THRESHOLD;
+  const isCompact = width > 0 && width < remToPx(COMPACT_WIDTH_THRESHOLD_REM);
   const isAdmin = user?.role === "ADMIN" || user?.role === "AvPowerUser";
   const features = currentState?.features ?? [];
   const aiConfigured = currentState?.features.includes("ai-tracking") ?? false;
@@ -228,7 +230,7 @@ export function CameraWidget({ enabled = true, forceSelectedId }: CameraWidgetPr
   };
 
   return (
-    <div data-testid={TEST_ID_CAMERA_WIDGET} ref={containerRef} className="full-height">
+    <div data-testid={TEST_ID_CAMERA_WIDGET} data-state={isCompact ? "compact" : "full"} ref={containerRef} className="full-height">
       <WidgetContainer title="Camera" connections={connections}>
         {isCompact ? (
           <div className="preview-video-container" data-testid={TEST_ID_CAMERA_PREVIEW} onClick={() => setModalOpen(true)}>

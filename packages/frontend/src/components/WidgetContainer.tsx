@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { IonPopover } from "@ionic/react";
 import { useResizeObserver } from "../hooks/useResizeObserver";
+import { remToPx } from "../utils/rem";
 import type { ConnectionStatus } from "../types";
 import { TEST_ID_WIDGET_CONTAINER, TEST_ID_WIDGET_TITLE_BAR, TEST_ID_CONNECTION_INDICATORS, TEST_ID_CONNECTION_POPOVER } from "../constants/testIds";
 
@@ -13,7 +14,8 @@ interface WidgetContainerProps {
   children: ReactNode;
 }
 
-const COLLAPSE_THRESHOLD = 200;
+/** Title bar narrower than this collapses its indicators to dots. rem so it is scale-invariant (Req 2.10). */
+const COLLAPSE_THRESHOLD_REM = 12.5;
 
 const DOT_CLASS: Record<ConnectionStatus["status"], string> = {
   healthy: "widget-dot-healthy",
@@ -34,13 +36,13 @@ let instanceCounter = 0;
 export function WidgetContainer({ title, connections, children }: WidgetContainerProps): ReactNode {
   const titleBarRef = useRef<HTMLDivElement>(null);
   const width = useResizeObserver(titleBarRef);
-  const collapsed = width > 0 && width < COLLAPSE_THRESHOLD;
+  const collapsed = width > 0 && width < remToPx(COLLAPSE_THRESHOLD_REM);
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [triggerId] = useState(() => `wc-indicators-${++instanceCounter}`);
 
   return (
     <div data-testid={TEST_ID_WIDGET_CONTAINER} className="widget-wrapper">
-      <div ref={titleBarRef} data-testid={TEST_ID_WIDGET_TITLE_BAR} className="widget-title-bar">
+      <div ref={titleBarRef} data-testid={TEST_ID_WIDGET_TITLE_BAR} data-state={collapsed ? "collapsed" : "expanded"} className="widget-title-bar">
         <span className="text-bold">{title}</span>
         <span className="fill-remaining" />
         <span

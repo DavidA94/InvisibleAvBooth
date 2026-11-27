@@ -1,6 +1,7 @@
 import { TEST_ID_SWIPEABLE_ROW } from "../../constants/testIds";
 import { useState, useRef, useCallback, useEffect } from "react";
 import type { ReactNode, PointerEvent as ReactPointerEvent } from "react";
+import { remToPx } from "../../utils/rem";
 
 interface SwipeableRowProps {
   children: ReactNode;
@@ -12,7 +13,12 @@ interface SwipeableRowProps {
   forceClose?: boolean | undefined;
 }
 
-const ACTION_WIDTH_PX = 48;
+/**
+ * Width of one revealed action button. rem (3rem = 48px at full scale) so the revealed panel matches the
+ * rem-sized buttons at every dashboard scale (Req 2.10). The gesture constants below stay px on purpose:
+ * they describe how far and how fast a finger moves, which is physical and should not shrink with scale.
+ */
+const ACTION_WIDTH_REM = 3;
 const VELOCITY_THRESHOLD = 0.3; // px/ms — a fast flick opens regardless of distance
 const MIN_DISTANCE_PX = 10; // minimum movement to consider it a swipe at all
 
@@ -25,8 +31,9 @@ export function SwipeableRow({ children, leftActions, rightActions, leftCount = 
   const startTime = useRef(0);
   const currentOffset = useRef(0);
 
-  const leftWidth = leftActions ? leftCount * ACTION_WIDTH_PX : 0;
-  const rightWidth = rightActions ? rightCount * ACTION_WIDTH_PX : 0;
+  const actionWidthPx = remToPx(ACTION_WIDTH_REM);
+  const leftWidth = leftActions ? leftCount * actionWidthPx : 0;
+  const rightWidth = rightActions ? rightCount * actionWidthPx : 0;
 
   const leftThreshold = leftWidth * 0.3;
   const rightThreshold = rightWidth * 0.3;

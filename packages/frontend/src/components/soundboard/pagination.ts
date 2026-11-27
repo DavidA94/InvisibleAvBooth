@@ -5,7 +5,7 @@
 
 /** Minimum width (rem) a channel strip needs to remain usable. */
 export const STRIP_MIN_WIDTH_REM = 6;
-/** Root font size (px) used to convert the observed pixel width to rem. */
+/** Root font size (px) at full scale. Only the default; callers pass the current root size (Req 2.10). */
 export const BASE_FONT_SIZE = 16;
 
 export interface PaginationLayout {
@@ -25,8 +25,10 @@ export interface PaginationLayout {
  * Boundary (Req 5.6/13.2): at exactly-3-fit-with-overflow we show 2 + the pager
  * (this falls out of perPage = fit − 1 naturally).
  */
-export function computePaginationLayout(availableWidthPx: number, channelCount: number): PaginationLayout {
-  const availableRem = availableWidthPx / BASE_FONT_SIZE;
+export function computePaginationLayout(availableWidthPx: number, channelCount: number, rootFontSizePx: number = BASE_FONT_SIZE): PaginationLayout {
+  // Convert with the CURRENT root font size. Dividing by a fixed 16 on a scaled dashboard undercounted
+  // the strips that fit, so smaller screens showed fewer channels per page (Req 2.10).
+  const availableRem = availableWidthPx / rootFontSizePx;
   const stripsThatFit = Math.max(1, Math.floor(availableRem / STRIP_MIN_WIDTH_REM));
 
   if (channelCount <= stripsThatFit) {

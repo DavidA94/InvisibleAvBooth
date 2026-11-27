@@ -65,3 +65,17 @@ describe("rangeLabel", () => {
     expect(rangeLabel(0, 3, 9)).toBe("See channels 1–3 of 9");
   });
 });
+
+describe("computePaginationLayout at a scaled root font size (Req 2.10)", () => {
+  it("fits the same number of strips when the widget is the same size in rem", () => {
+    // A widget 30rem wide: 480px at a 16px root, 434.4px at a 14.48px root. Both fit 5 strips (6rem each).
+    const full = computePaginationLayout(480, 16, 16);
+    const scaled = computePaginationLayout(30 * 14.48, 16, 14.48);
+    expect(scaled).toEqual(full);
+    expect(full.perPage).toBe(4); // 5 fit, last slot is the pager
+  });
+
+  it("would undercount if the scaled width were divided by a fixed 16", () => {
+    expect(computePaginationLayout(30 * 14.48, 16, 16).perPage).toBeLessThan(computePaginationLayout(30 * 14.48, 16, 14.48).perPage);
+  });
+});

@@ -1204,7 +1204,7 @@
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
-  width: 250px;
+  width: 15.625rem; /* rem, not px: a px width here made the joystick a constant size while the widget scaled (Req 2.10) */
   max-height: 10rem;
   overflow-y: auto;
 }
@@ -1265,7 +1265,7 @@
 }
 
 .camera-controls-focus {
-  max-width: calc(100% - 3rem - 250px - 1rem);
+  max-width: calc(100% - 3rem - 15.625rem - 1rem);
 }
 
 .camera-focus-range {

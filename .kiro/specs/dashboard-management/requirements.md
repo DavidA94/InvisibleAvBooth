@@ -78,6 +78,9 @@ This spec depends on the existing dashboard rendering infrastructure (`Dashboard
 
 9. THE dashboard renderer SHALL only render rows that contain widgets. If a grid has widgets occupying rows 0–4 but the grid type has a default of 7 rows, only rows 0–4 are rendered (height = 5 rows). If widgets extend beyond the default row count (e.g., row 8 on a grid with default 7), the grid scrolls vertically — the viewport-fit scaling is based on default rows, so extra rows naturally overflow into scrollable area.
 
+10. **Scale invariance inside widgets** _(added)_: AT any scale factor, a widget SHALL lay out identically in rem — the same elements visible, the same number of presets/channels/rows, the same layout mode. Concretely: (a) component sizes SHALL be in `rem` (no fixed `px` widths/heights/gaps; 1–2px hairlines and borders are exempt); (b) any width threshold compared against a measured element (ResizeObserver) SHALL be defined in rem and converted with the CURRENT root font size at comparison time (`remToPx()` in `src/utils/rem.ts`), never a fixed px number and never a hard-coded 16; (c) distances that describe on-screen layout (e.g. how far a swiped row opens) are rem; distances that describe finger movement (swipe start distance, flick velocity) stay px because they are physical.
+    - _Why:_ in the Camera widget a fixed `250px` preset column made the square joystick a constant 250px while the widget around it scaled, so the visible preset count depended on screen size and fullscreen (0 visible on one tablet, 1.5 in fullscreen; ½ vs 2 on another). The same audit found px thresholds that switched layouts at different sizes per device: the title-bar indicator collapse (200px), the Camera compact layout (480px), and Sound Board pagination (converted with a fixed 16, so fewer channels per page on smaller screens).
+
 ---
 
 ### Requirement 3: Database Schema Changes

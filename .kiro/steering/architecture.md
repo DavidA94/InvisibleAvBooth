@@ -330,7 +330,7 @@ useEffect(() => {
 }, []);
 ```
 
-The threshold is defined in rem and converted to pixels at runtime using the current computed root font size, so it scales correctly with the viewport.
+The threshold is defined in rem and converted to pixels at runtime using the current computed root font size, so it scales correctly with the viewport. Use `remToPx()` from `src/utils/rem.ts`; never compare a measured width against a fixed px number or divide by a hard-coded 16 — on a scaled dashboard either one makes a widget change layout at different sizes on different devices (see `dashboard-management` Req 2.10).
 
 ### Widget Grid Sizing
 

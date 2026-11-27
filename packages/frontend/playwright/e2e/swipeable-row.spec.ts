@@ -142,6 +142,22 @@ async function loginAndNavigate(page: Page): Promise<void> {
   await expect(page.getByTestId(TEST_ID_LOWER_THIRD_WIDGET)).toBeVisible({ timeout: 15000 });
 }
 
+/**
+ * Revealed-panel offset in px for `actions` action buttons. Each action is 3rem wide, so the px value
+ * depends on the dashboard's current scale (dashboard-management Req 2.10); never hard-code 48px.
+ */
+async function actionOffsetPx(page: Page, actions: number): Promise<number> {
+  const rootPx = await page.evaluate(() => parseFloat(getComputedStyle(document.documentElement).fontSize));
+  return actions * 3 * rootPx;
+}
+
+/** Parse "translateX(-78.19px)" → -78.19. */
+function translateXPx(transform: string): number {
+  const match = transform.match(/translateX\((-?[0-9.]+)px\)/);
+  if (!match) throw new Error(`unexpected transform: ${transform}`);
+  return parseFloat(match[1]!);
+}
+
 test.describe("SwipeableRow — mouse swipe", () => {
   test("swipe left reveals left actions on library volunteer item", async ({ page }) => {
     await routeAuthLogin(page, volunteerLogin);
@@ -168,7 +184,7 @@ test.describe("SwipeableRow — mouse swipe", () => {
 
     await page.waitForTimeout(50);
     const transform = await swipeableContent.evaluate((el) => el.style.transform);
-    expect(transform).toBe("translateX(-96px)"); // 2 actions × 48px for volunteer item
+    expect(translateXPx(transform)).toBeCloseTo(-(await actionOffsetPx(page, 2)), 1); // 2 actions × 3rem for volunteer item
   });
 
   test("swipe right reveals right actions (Go Live) on library item", async ({ page }) => {
@@ -193,7 +209,7 @@ test.describe("SwipeableRow — mouse swipe", () => {
 
     await page.waitForTimeout(50);
     const transform = await swipeableContent.evaluate((el) => el.style.transform);
-    expect(transform).toBe("translateX(48px)"); // 1 action × 48px
+    expect(translateXPx(transform)).toBeCloseTo(await actionOffsetPx(page, 1), 1); // 1 action × 3rem
   });
 
   test("clicking revealed action button sends correct command", async ({ page }) => {
@@ -221,7 +237,7 @@ test.describe("SwipeableRow — mouse swipe", () => {
 
     // Verify swipe worked
     const transform = await swipeableContent.evaluate((el) => el.style.transform);
-    expect(transform).toBe("translateX(-48px)"); // 1 action (Force Clear) × 48px
+    expect(translateXPx(transform)).toBeCloseTo(-(await actionOffsetPx(page, 1)), 1); // 1 action (Force Clear) × 3rem
 
     // Click Force Clear button
     const forceClearBtn = page.getByLabel("Force Clear");
@@ -254,7 +270,7 @@ test.describe("SwipeableRow — mouse swipe", () => {
 
     await page.waitForTimeout(50);
     let transform = await swipeableContent.evaluate((el) => el.style.transform);
-    expect(transform).toBe("translateX(-96px)");
+    expect(translateXPx(transform)).toBeCloseTo(-(await actionOffsetPx(page, 2)), 1);
 
     // Tap content to close (pointerdown + pointerup with no move)
     await swipeableContent.dispatchEvent("pointerdown", { clientX: centerX, clientY: centerY, pointerId: 1, pointerType: "mouse" });
@@ -327,7 +343,7 @@ test.describe("SwipeableRow — touch swipe", () => {
 
     await page.waitForTimeout(50);
     const transform = await swipeableContent.evaluate((el) => el.style.transform);
-    expect(transform).toBe("translateX(-96px)");
+    expect(translateXPx(transform)).toBeCloseTo(-(await actionOffsetPx(page, 2)), 1);
   });
 
   test("touch swipe right reveals Go Live action", async ({ page }) => {
@@ -366,7 +382,7 @@ test.describe("SwipeableRow — touch swipe", () => {
 
     await page.waitForTimeout(50);
     const transform = await swipeableContent.evaluate((el) => el.style.transform);
-    expect(transform).toBe("translateX(48px)");
+    expect(translateXPx(transform)).toBeCloseTo(await actionOffsetPx(page, 1), 1);
   });
 
   // This test involves precise touch event timing that can be flaky under CI load
@@ -408,7 +424,7 @@ test.describe("SwipeableRow — touch swipe", () => {
     // Wait for swipe animation to settle and verify it worked
     await page.waitForTimeout(200);
     const transform = await swipeableContent.evaluate((el) => el.style.transform);
-    expect(transform).toBe("translateX(48px)");
+    expect(translateXPx(transform)).toBeCloseTo(await actionOffsetPx(page, 1), 1);
 
     // Click the Go Live button — use a more specific locator to get the revealed one
     // The right-side actions container is revealed by right swipe
@@ -441,7 +457,7 @@ test.describe("SwipeableRow — only one open at a time", () => {
 
     await page.waitForTimeout(100);
     let transform1 = await content1.evaluate((el) => el.style.transform);
-    expect(transform1).toBe("translateX(-96px)");
+    expect(translateXPx(transform1)).toBeCloseTo(-(await actionOffsetPx(page, 2)), 1);
 
     // Tap content to close (pointerdown + pointerup with no move)
     await content1.dispatchEvent("pointerdown", { clientX: box1!.x + 50, clientY: box1!.y + 10, pointerId: 1, pointerType: "mouse" });

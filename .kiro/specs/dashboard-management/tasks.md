@@ -195,3 +195,10 @@ Tests are part of each task's definition of done. Unit tests follow the unit or 
 
 - [ ] 43. Run `npm run ci` from repo root — all lint, format, build, and test checks must pass across all packages. Fix any type errors from the shared package changes propagating to frontend/backend.
   - _Requirements: all_
+
+---
+
+## Fix — Scale Invariance Inside Widgets
+
+- [x] 44. Req 2.10: Camera preset column `250px` → rem; `remToPx` helper; rem thresholds in `WidgetContainer`, `CameraWidget`, Sound Board pagination, `SwipeableRow`; react-select paddings restated in rem in `darkSelectStyles` (px `baseUnit` made every dropdown grow relative to content on small screens); `data-state` hooks for camera compact / title-bar collapsed; Playwright `widget-scale-invariance.spec.ts` at 1280×800 and 1366×768.
+  - _Requirements: 2.10_
