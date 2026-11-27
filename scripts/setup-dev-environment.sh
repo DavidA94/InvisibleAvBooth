@@ -117,6 +117,8 @@ sudo ufw allow 3080/tcp
 
 info "Installing NPM packages"
 npm install
+npx playwright install
+npx playwright install-deps
 
 while true; do
     read -p "${GREEN}Do you want to seed the dashboard? (Y/N): ${NC}" response
