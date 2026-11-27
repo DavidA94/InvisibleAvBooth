@@ -13,8 +13,13 @@ import type { ConnectionStatus } from "../../types";
 import type { LowerThirdItem, LowerThirdType, AddLowerThirdInput, EditLowerThirdInput } from "@invisible-av-booth/shared";
 import "./LowerThirdWidget.css";
 
-function deriveOverlayStatus(overlayConnected: boolean, overlayResolutionCorrect: boolean, hasTemplates: boolean): ConnectionStatus {
-  if (!hasTemplates) return { label: "Overlay", status: "inactive" };
+/**
+ * Overlay indicator answers one question: will a graphic reach the stream? It deliberately ignores
+ * whether template items exist. An earlier "inactive" state keyed off template items in the library,
+ * which only appear once session details are filled in, so a working overlay looked inactive
+ * (lower-thirds spec Req 5.1).
+ */
+function deriveOverlayStatus(overlayConnected: boolean, overlayResolutionCorrect: boolean): ConnectionStatus {
   if (!overlayConnected) return { label: "Overlay", status: "unhealthy" };
   if (!overlayResolutionCorrect) return { label: "Overlay", status: "degraded" };
   return { label: "Overlay", status: "healthy" };
@@ -24,8 +29,7 @@ export function LowerThirdWidget(): ReactNode {
   const { state, sendCommand } = useLowerThirdState();
   const { active, library, phase, autoDismissAt, overlayConnected, overlayResolutionCorrect, transitionLocked } = state;
 
-  const hasTemplates = library.some((item) => item.source === "template");
-  const connections = [deriveOverlayStatus(overlayConnected, overlayResolutionCorrect, hasTemplates)];
+  const connections = [deriveOverlayStatus(overlayConnected, overlayResolutionCorrect)];
 
   const templateItems = library.filter((item) => item.source === "template").sort((a, b) => (a.templateName ?? "").localeCompare(b.templateName ?? ""));
   const volunteerItems = library.filter((item) => item.source === "volunteer").sort((a, b) => a.createdAt.localeCompare(b.createdAt));

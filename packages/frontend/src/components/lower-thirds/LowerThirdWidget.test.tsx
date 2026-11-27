@@ -519,12 +519,23 @@ describe("LowerThirdWidget — Pagination controls", () => {
 });
 
 describe("LowerThirdWidget — deriveOverlayStatus branches", () => {
-  it("shows overlay status as inactive when no templates in library", () => {
-    setState({ library: [titleItem], overlayConnected: true, overlayResolutionCorrect: true });
+  it.each`
+    library
+    ${[]}
+    ${[titleItem]}
+  `("shows healthy when the overlay works, even with no template items (library: $library.length)", ({ library }) => {
+    setState({ library, overlayConnected: true, overlayResolutionCorrect: true });
     render(<LowerThirdWidget />);
-    // No template items → inactive
     const indicators = screen.getByTestId("connection-indicators");
-    expect(indicators.querySelector("[data-status='inactive']")).toBeInTheDocument();
+    expect(indicators.querySelector("[data-status='healthy']")).toBeInTheDocument();
+    expect(indicators.querySelector("[data-status='inactive']")).not.toBeInTheDocument();
+  });
+
+  it("shows unhealthy when the overlay is disconnected and there are no template items", () => {
+    setState({ library: [], overlayConnected: false, overlayResolutionCorrect: false });
+    render(<LowerThirdWidget />);
+    const indicators = screen.getByTestId("connection-indicators");
+    expect(indicators.querySelector("[data-status='unhealthy']")).toBeInTheDocument();
   });
 
   it("shows overlay status as unhealthy when overlay disconnected with templates present", () => {

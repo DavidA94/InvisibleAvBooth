@@ -239,3 +239,10 @@ _Frontend only. Rationale: volunteers could not easily see which words were on s
 
 - [x] 66. Playwright flow `lower-third-expanded-view.spec.ts` — open, paginate sends commands, Dismiss and close, Force Clear, Close, auto-close on server state change, footer layout (Force Clear left and apart from the right group).
   - _Requirements: 5.23–5.27_
+
+---
+
+## Fix — Overlay Indicator Ignores Template Presence
+
+- [x] 67. Remove the `inactive` overlay status: `deriveOverlayStatus` uses only `overlayConnected` / `overlayResolutionCorrect`. Spec Req 5.1 and design updated; unit and Playwright tests updated (healthy with no template items).
+  - _Requirements: 5.1_

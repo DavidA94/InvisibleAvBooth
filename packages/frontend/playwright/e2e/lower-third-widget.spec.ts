@@ -264,11 +264,20 @@ test.describe("Lower-third widget — Overlay connection indicator", () => {
     await routeAuthLogin(page, volunteerLogin);
     await routeAuthCheck(page, volunteerLogin);
     await setupDashboardWithLowerThirds(page);
-    // Must include a template item so hasTemplates=true (otherwise status is always "inactive")
     await setupSocketWithLowerThirds(page, lowerThirdState({ overlayConnected: false, library: [templateItem] }));
     await loginAndNavigate(page);
 
     await expect(page.locator(".widget-dot-unhealthy")).toBeVisible({ timeout: 3000 });
+  });
+
+  test("shows healthy indicator with no template items when the overlay is connected", async ({ page }) => {
+    await routeAuthLogin(page, volunteerLogin);
+    await routeAuthCheck(page, volunteerLogin);
+    await setupDashboardWithLowerThirds(page);
+    await setupSocketWithLowerThirds(page, lowerThirdState({ overlayConnected: true, library: [] }));
+    await loginAndNavigate(page);
+
+    await expect(page.locator(".widget-dot-healthy")).toBeVisible({ timeout: 3000 });
   });
 
   test("shows healthy indicator when overlay is connected", async ({ page }) => {

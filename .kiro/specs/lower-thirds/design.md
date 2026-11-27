@@ -507,7 +507,8 @@ The widget is registered with `widgetId: "lower-thirds"`, configurable per-dashb
 - `healthy`: `overlayConnected === true && overlayResolutionCorrect === true`
 - `degraded`: `overlayConnected === true && overlayResolutionCorrect === false`
 - `unhealthy`: `overlayConnected === false`
-- `inactive`: no lower-third templates exist in the database (checked via DAO on initial load)
+
+The indicator reflects only the overlay's connection and resolution. An earlier `inactive` state ("no lower-third templates") was removed: the design said it came from the database, but the code derived it from template items currently in the library, which exist only once their tokens are filled from the session manifest. A connected, working overlay therefore showed `inactive` before session details were entered, and the indicator stopped telling the volunteer anything useful (Req 5.1).
 
 ---
 
