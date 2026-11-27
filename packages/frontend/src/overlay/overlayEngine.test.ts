@@ -32,6 +32,7 @@ const mockSocket = {
   }),
   emit: vi.fn(),
   disconnect: vi.fn(),
+  connected: true,
 };
 
 vi.mock("socket.io-client", () => ({ io: vi.fn(() => mockSocket) }));
@@ -178,6 +179,54 @@ describe("overlayEngine", () => {
     it("emits resolution on connect", () => {
       socketEmit("connect");
       expect(mockSocket.emit).toHaveBeenCalledWith(OTS_LOWER_THIRD_RESOLUTION, expect.objectContaining({ width: expect.any(Number) }));
+    });
+
+    it("sends the actual size and whether it is 1920x1080", () => {
+      socketEmit("connect");
+      expect(mockSocket.emit).toHaveBeenCalledWith(OTS_LOWER_THIRD_RESOLUTION, {
+        width: window.innerWidth,
+        height: window.innerHeight,
+        isCorrect: window.innerWidth === 1920 && window.innerHeight === 1080,
+      });
+    });
+
+    it("re-reports size once after the viewport settles at a new size (debounced)", () => {
+      vi.useFakeTimers();
+      socketEmit("connect");
+      mockSocket.emit.mockClear();
+      const original = { width: window.innerWidth, height: window.innerHeight };
+      Object.defineProperty(window, "innerWidth", { value: 1920, configurable: true });
+      Object.defineProperty(window, "innerHeight", { value: 1080, configurable: true });
+      window.dispatchEvent(new Event("resize"));
+      window.dispatchEvent(new Event("resize"));
+      vi.advanceTimersByTime(499);
+      expect(mockSocket.emit).not.toHaveBeenCalledWith(OTS_LOWER_THIRD_RESOLUTION, expect.anything());
+      vi.advanceTimersByTime(1);
+      const reports = mockSocket.emit.mock.calls.filter((call) => call[0] === OTS_LOWER_THIRD_RESOLUTION);
+      expect(reports).toEqual([[OTS_LOWER_THIRD_RESOLUTION, { width: 1920, height: 1080, isCorrect: true }]]);
+      Object.defineProperty(window, "innerWidth", { value: original.width, configurable: true });
+      Object.defineProperty(window, "innerHeight", { value: original.height, configurable: true });
+      vi.useRealTimers();
+    });
+
+    it("does not report on resize while disconnected", () => {
+      vi.useFakeTimers();
+      mockSocket.connected = false;
+      window.dispatchEvent(new Event("resize"));
+      vi.advanceTimersByTime(600);
+      expect(mockSocket.emit).not.toHaveBeenCalledWith(OTS_LOWER_THIRD_RESOLUTION, expect.anything());
+      mockSocket.connected = true;
+      vi.useRealTimers();
+    });
+
+    it("stops listening for resize after destroyOverlay", () => {
+      vi.useFakeTimers();
+      destroyOverlay();
+      mockSocket.emit.mockClear();
+      window.dispatchEvent(new Event("resize"));
+      vi.advanceTimersByTime(600);
+      expect(mockSocket.emit).not.toHaveBeenCalled();
+      vi.useRealTimers();
     });
 
     it("posts overlay-ready to parent on connect", () => {

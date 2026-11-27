@@ -49,6 +49,7 @@ describe("LowerThirdModule", () => {
         phase: "hidden",
         autoDismissAt: null,
         overlayConnected: false,
+        overlayResolution: null,
         overlayResolutionCorrect: false,
         transitionLocked: false,
         overlayStale: false,

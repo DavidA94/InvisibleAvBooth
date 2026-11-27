@@ -7,6 +7,7 @@ export const INITIAL_LOWER_THIRD_STATE: LowerThirdState = {
   phase: "hidden",
   autoDismissAt: null,
   overlayConnected: false,
+  overlayResolution: null,
   overlayResolutionCorrect: false,
   transitionLocked: false,
   overlayStale: false,

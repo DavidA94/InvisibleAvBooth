@@ -11,13 +11,18 @@ export function registerLowerThirdSocketHandlers(socket: Socket): void {
     const previousState = useStore.getState().lowerThirdState;
     useStore.getState().setLowerThirdState(state);
 
-    // Req 2.5: Emit resolution mismatch banner
-    if (state.overlayConnected && !state.overlayResolutionCorrect && previousState.overlayResolutionCorrect !== false) {
+    // Req 2.5 / 2.8: resolution mismatch banner, naming the size the overlay actually reported. Shown
+    // (or replaced) whenever the reported size is wrong and differs from what the banner last said.
+    const size = state.overlayResolution;
+    const previousSize = previousState.overlayResolution;
+    const sizeChanged = size?.width !== previousSize?.width || size?.height !== previousSize?.height;
+    if (state.overlayConnected && !state.overlayResolutionCorrect && size && (sizeChanged || previousState.overlayResolutionCorrect !== false)) {
+      useStore.getState().removeNotification(RESOLUTION_MISMATCH_ID);
       useStore.getState().addNotification({
         id: RESOLUTION_MISMATCH_ID,
         level: "banner",
         severity: "warning",
-        message: "OBS browser source is misconfigured. Expected 1920×1080 at 16:9. Check OBS browser source settings.",
+        message: `OBS browser source is misconfigured (${size.width}×${size.height}). Expected 1920×1080 at 16:9. Check OBS browser source settings.`,
       });
     }
 

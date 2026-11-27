@@ -46,11 +46,48 @@ describe("registerLowerThirdSocketHandlers", () => {
     useStore.setState({ lowerThirdState: baseState({ overlayConnected: false, overlayResolutionCorrect: true }) });
     const fake = makeFakeSocket();
     registerLowerThirdSocketHandlers(fake as never);
-    fake.handlers[STC_LOWER_THIRD_STATE]!(baseState({ overlayConnected: true, overlayResolutionCorrect: false }));
+    fake.handlers[STC_LOWER_THIRD_STATE]!(
+      baseState({ overlayConnected: true, overlayResolutionCorrect: false, overlayResolution: { width: 1280, height: 720 } }),
+    );
     const notifications = useStore.getState().notifications;
     expect(notifications).toHaveLength(1);
     expect(notifications[0]!.id).toBe("lt-resolution-mismatch");
     expect(notifications[0]!.severity).toBe("warning");
+    expect(notifications[0]!.message).toContain("1280×720");
+  });
+
+  it("waits for the overlay's size report before showing the banner", () => {
+    useStore.setState({ lowerThirdState: baseState({ overlayConnected: false, overlayResolutionCorrect: true }) });
+    const fake = makeFakeSocket();
+    registerLowerThirdSocketHandlers(fake as never);
+    fake.handlers[STC_LOWER_THIRD_STATE]!(baseState({ overlayConnected: true, overlayResolutionCorrect: false, overlayResolution: null }));
+    expect(useStore.getState().notifications).toHaveLength(0);
+  });
+
+  it("replaces the banner (one, not two) when a wrong size changes to another wrong size", () => {
+    useStore.setState({ lowerThirdState: baseState({ overlayConnected: false, overlayResolutionCorrect: true }) });
+    const fake = makeFakeSocket();
+    registerLowerThirdSocketHandlers(fake as never);
+    fake.handlers[STC_LOWER_THIRD_STATE]!(
+      baseState({ overlayConnected: true, overlayResolutionCorrect: false, overlayResolution: { width: 1280, height: 720 } }),
+    );
+    fake.handlers[STC_LOWER_THIRD_STATE]!(
+      baseState({ overlayConnected: true, overlayResolutionCorrect: false, overlayResolution: { width: 1600, height: 900 } }),
+    );
+    const notifications = useStore.getState().notifications;
+    expect(notifications).toHaveLength(1);
+    expect(notifications[0]!.message).toContain("1600×900");
+  });
+
+  it("does not re-add the banner when the same wrong size is re-sent", () => {
+    useStore.setState({ lowerThirdState: baseState({ overlayConnected: false, overlayResolutionCorrect: true }) });
+    const fake = makeFakeSocket();
+    registerLowerThirdSocketHandlers(fake as never);
+    const wrong = baseState({ overlayConnected: true, overlayResolutionCorrect: false, overlayResolution: { width: 1280, height: 720 } });
+    fake.handlers[STC_LOWER_THIRD_STATE]!(wrong);
+    useStore.getState().removeNotification("lt-resolution-mismatch"); // volunteer dismissed it
+    fake.handlers[STC_LOWER_THIRD_STATE]!({ ...wrong, phase: "visible" });
+    expect(useStore.getState().notifications).toHaveLength(0);
   });
 
   it("clears resolution mismatch banner when resolution becomes correct", () => {

@@ -5,7 +5,9 @@ import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const LOGS_DIR = join(__dirname, "..", "..", "logs");
+// LOG_DIR overrides the location. Test configs set it to a temp dir so test runs never write into the
+// real production log (steering testing.md).
+const LOGS_DIR = process.env["LOG_DIR"] ?? join(__dirname, "..", "..", "logs");
 
 // Create logs/ directory on startup if it does not exist.
 // This must happen before the file transport is initialised.

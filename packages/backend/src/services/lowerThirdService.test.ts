@@ -4,6 +4,7 @@ import { LowerThirdService } from "./lowerThirdService.js";
 import { MetadataTemplateDao } from "../dao/metadataTemplateDao.js";
 import { SessionManifestService } from "./sessionManifestService.js";
 import { eventBus } from "../eventBus/eventBus.js";
+import { logger } from "../logger.js";
 import { BUS_LOWER_THIRD_STATE_CHANGED } from "../eventBus/types.js";
 import { applySchema } from "../database/schema.js";
 import type { Database } from "better-sqlite3";
@@ -1048,6 +1049,45 @@ describe("handleResolutionReport", () => {
   it("reflects incorrect resolution", () => {
     service.handleResolutionReport({ width: 800, height: 600, isCorrect: false });
     expect(service.getFullState().overlayResolutionCorrect).toBe(false);
+  });
+
+  it("keeps the reported size in state", () => {
+    service.handleResolutionReport({ width: 1280, height: 720, isCorrect: false });
+    expect(service.getFullState().overlayResolution).toEqual({ width: 1280, height: 720 });
+  });
+
+  it("logs a warning with the size when incorrect, and info when correct", () => {
+    const warn = vi.spyOn(logger, "warn");
+    const info = vi.spyOn(logger, "info");
+    service.handleResolutionReport({ width: 1280, height: 720, isCorrect: false });
+    expect(warn).toHaveBeenCalledWith("Overlay resolution incorrect", { context: { width: 1280, height: 720, expected: "1920x1080" } });
+    service.handleResolutionReport({ width: 1920, height: 1080, isCorrect: true });
+    expect(info).toHaveBeenCalledWith("Overlay resolution correct", { context: { width: 1920, height: 1080 } });
+  });
+
+  it("logs once per change, not for repeated identical reports", () => {
+    const warn = vi.spyOn(logger, "warn");
+    service.handleResolutionReport({ width: 1280, height: 720, isCorrect: false });
+    service.handleResolutionReport({ width: 1280, height: 720, isCorrect: false });
+    service.handleResolutionReport({ width: 1600, height: 900, isCorrect: false });
+    expect(warn.mock.calls.filter((call) => (call as unknown[])[0] === "Overlay resolution incorrect")).toHaveLength(2);
+  });
+
+  it("clears the reported size when the overlay disconnects or a new one connects", () => {
+    service.handleResolutionReport({ width: 1280, height: 720, isCorrect: false });
+    service.setOverlayConnected(false);
+    expect(service.getFullState().overlayResolution).toBeNull();
+    service.handleResolutionReport({ width: 1280, height: 720, isCorrect: false });
+    service.setOverlayConnected(true);
+    expect(service.getFullState().overlayResolution).toBeNull();
+  });
+
+  it("logs again after a reconnect even when the size is the same", () => {
+    const warn = vi.spyOn(logger, "warn");
+    service.handleResolutionReport({ width: 1280, height: 720, isCorrect: false });
+    service.setOverlayConnected(true);
+    service.handleResolutionReport({ width: 1280, height: 720, isCorrect: false });
+    expect(warn.mock.calls.filter((call) => (call as unknown[])[0] === "Overlay resolution incorrect")).toHaveLength(2);
   });
 });
 

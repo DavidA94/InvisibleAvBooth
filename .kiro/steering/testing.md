@@ -136,6 +136,7 @@ packages/backend/
 - Streaming lifecycle tests use `afterEach` cleanup to ensure the platform state machine returns to idle, preventing cross-test contamination
 - Socket tests extract the raw JWT from the auth cookie for `socket.io-client` auth; cookie-based socket auth is also tested separately
 - `BCRYPT_ROUNDS=1` in test env keeps password hashing fast (~1ms vs ~200ms)
+- `LOG_DIR` points the backend logger at a temp directory in both Vitest configs. Without it, unit and integration tests write into the real `packages/logs/app.log`, mixing test noise (e.g. overlay-log route tests) into production logs.
 
 ---
 

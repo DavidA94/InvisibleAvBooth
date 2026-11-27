@@ -85,6 +85,19 @@ describe("/overlay namespace", () => {
     socket.disconnect();
   });
 
+  it("keeps the reported size so a wrong resolution can be diagnosed", async () => {
+    const socket = connectOverlay();
+    await new Promise<void>((resolve) => socket.on("connect", resolve));
+
+    socket.emit(OTS_LOWER_THIRD_RESOLUTION, { width: 1280, height: 720, isCorrect: false });
+
+    await new Promise((r) => setTimeout(r, 50));
+    const state = s.ctx.lowerThirdService.getFullState();
+    expect(state.overlayResolutionCorrect).toBe(false);
+    expect(state.overlayResolution).toEqual({ width: 1280, height: 720 });
+    socket.disconnect();
+  });
+
   it("updates overlayConnected state on connect/disconnect", async () => {
     const socket = connectOverlay();
     await new Promise<void>((resolve) => socket.on("connect", resolve));

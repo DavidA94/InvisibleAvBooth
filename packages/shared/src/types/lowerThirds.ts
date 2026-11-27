@@ -68,6 +68,8 @@ export interface LowerThirdState {
   autoDismissAt: string | null;
   overlayConnected: boolean;
   overlayResolutionCorrect: boolean;
+  /** Last size the overlay reported (Req 2.8); null when no overlay is connected or it has not reported yet. */
+  overlayResolution: { width: number; height: number } | null;
   transitionLocked: boolean;
   overlayStale: boolean;
 }

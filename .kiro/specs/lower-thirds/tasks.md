@@ -246,3 +246,10 @@ _Frontend only. Rationale: volunteers could not easily see which words were on s
 
 - [x] 67. Remove the `inactive` overlay status: `deriveOverlayStatus` uses only `overlayConnected` / `overlayResolutionCorrect`. Spec Req 5.1 and design updated; unit and Playwright tests updated (healthy with no template items).
   - _Requirements: 5.1_
+
+---
+
+## Enhancement — Overlay Resolution Diagnostics
+
+- [x] 68. Req 2.8: overlay re-reports size on viewport resize (debounced); backend stores `overlayResolution`, logs each change (warn when incorrect), clears on disconnect; dashboard banner shows the detected size. Unit + integration tests.
+  - _Requirements: 2.5, 2.8_

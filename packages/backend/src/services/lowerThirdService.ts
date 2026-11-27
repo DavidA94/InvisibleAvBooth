@@ -40,6 +40,7 @@ export class LowerThirdService {
   private measurementTimers = new Map<string, ReturnType<typeof setTimeout>>();
   private overlayConnected = false;
   private overlayResolutionCorrect = false;
+  private overlayResolution: { width: number; height: number } | null = null;
   private overlayStale = false;
   private staleTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -63,6 +64,8 @@ export class LowerThirdService {
 
   setOverlayConnected(connected: boolean): void {
     this.overlayConnected = connected;
+    // A new connection reports its own size; never keep showing the previous client's.
+    this.overlayResolution = null;
     if (connected) {
       this.overlayStale = false;
       if (this.staleTimer) {
@@ -86,8 +89,24 @@ export class LowerThirdService {
     return this.overlayConnected;
   }
 
+  /**
+   * Overlay size telemetry (Req 2.5, 2.8). Logs the reported size once per change so a "degraded"
+   * indicator can be explained from app.log (wrong source size, display scaling, or a second page
+   * connected as the overlay). Repeated identical reports (e.g. resize events that end at the same
+   * size) are not logged again.
+   */
   handleResolutionReport(data: { width: number; height: number; isCorrect: boolean }): void {
+    const previous = this.overlayResolution;
+    const changed = !previous || previous.width !== data.width || previous.height !== data.height || this.overlayResolutionCorrect !== data.isCorrect;
     this.overlayResolutionCorrect = data.isCorrect;
+    this.overlayResolution = { width: data.width, height: data.height };
+    if (changed) {
+      if (data.isCorrect) {
+        logger.info("Overlay resolution correct", { context: { width: data.width, height: data.height } });
+      } else {
+        logger.warn("Overlay resolution incorrect", { context: { width: data.width, height: data.height, expected: "1920x1080" } });
+      }
+    }
     this.emitState();
   }
 
@@ -321,6 +340,7 @@ export class LowerThirdService {
       autoDismissAt: this.autoDismissAt,
       overlayConnected: this.overlayConnected,
       overlayResolutionCorrect: this.overlayResolutionCorrect,
+      overlayResolution: this.overlayResolution,
       transitionLocked: this.isTransitionLocked(),
       overlayStale: this.overlayStale,
     };

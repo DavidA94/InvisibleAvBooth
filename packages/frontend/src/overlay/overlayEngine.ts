@@ -34,6 +34,29 @@ let currentPhase: AnimationPhase = "hidden";
 // DOM references
 let wrapper: HTMLDivElement | null = null;
 let jail: HTMLElement | null = null;
+let resizeTimer: ReturnType<typeof setTimeout> | null = null;
+
+/** Debounce for re-reporting size: OBS fires many resize events while a source is being resized. */
+const RESIZE_REPORT_DEBOUNCE_MS = 500;
+
+/**
+ * Send the overlay's actual size to the backend (Req 2.4, 2.8). Sent on connect and again after the
+ * viewport settles at a new size, so changing the browser source in OBS updates the dashboard status
+ * and app.log without a reconnect.
+ */
+function reportResolution(): void {
+  const width = window.innerWidth;
+  const height = window.innerHeight;
+  socket?.emit(OTS_LOWER_THIRD_RESOLUTION, { width, height, isCorrect: width === 1920 && height === 1080 });
+}
+
+function handleResize(): void {
+  if (resizeTimer) clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => {
+    resizeTimer = null;
+    if (socket?.connected) reportResolution();
+  }, RESIZE_REPORT_DEBOUNCE_MS);
+}
 
 export function initOverlay(root: HTMLElement): void {
   document.documentElement.classList.add("overlay-active");
@@ -56,6 +79,7 @@ export function initOverlay(root: HTMLElement): void {
 
   // Listen for animation end
   wrapper.addEventListener("animationend", handleAnimationEnd);
+  window.addEventListener("resize", handleResize);
 
   document.fonts.ready.then(() => {
     connectSocket();
@@ -64,6 +88,11 @@ export function initOverlay(root: HTMLElement): void {
 
 export function destroyOverlay(): void {
   document.documentElement.classList.remove("overlay-active");
+  window.removeEventListener("resize", handleResize);
+  if (resizeTimer) {
+    clearTimeout(resizeTimer);
+    resizeTimer = null;
+  }
   if (socket) {
     socket.disconnect();
     socket = null;
@@ -90,9 +119,7 @@ function connectSocket(): void {
       clearTimeout(disconnectTimer);
       disconnectTimer = null;
     }
-    const width = window.innerWidth;
-    const height = window.innerHeight;
-    socket!.emit(OTS_LOWER_THIRD_RESOLUTION, { width, height, isCorrect: width === 1920 && height === 1080 });
+    reportResolution();
     window.parent.postMessage({ type: "overlay-ready" }, "*");
     if (heartbeatInterval) clearInterval(heartbeatInterval);
     heartbeatInterval = setInterval(() => window.parent.postMessage({ type: "overlay-heartbeat" }, "*"), HEARTBEAT_INTERVAL_MS);
