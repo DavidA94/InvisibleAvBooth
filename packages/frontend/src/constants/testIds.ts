@@ -239,6 +239,10 @@ export const TEST_ID_LOWER_THIRD_TEMPLATE_VALUE = "lower-third-template-value";
 export const TEST_ID_LOWER_THIRD_PREVIEW_DIALOG = "lower-third-preview-dialog";
 export const TEST_ID_LOWER_THIRD_PREVIEW_GO_LIVE = "lower-third-preview-go-live";
 export const TEST_ID_LOWER_THIRD_PREVIEW_CANCEL = "lower-third-preview-cancel";
+export const TEST_ID_LOWER_THIRD_ADD_BUTTON = "lower-third-add-button";
+export const TEST_ID_LOWER_THIRD_ADD_MENU = "lower-third-add-menu";
+/** Suffix with `-<LowerThirdType>`, e.g. `lower-third-add-option-Scripture`. */
+export const TEST_ID_LOWER_THIRD_ADD_OPTION = "lower-third-add-option";
 export const TEST_ID_LOWER_THIRD_ADD_DIALOG = "lower-third-add-dialog";
 export const TEST_ID_LOWER_THIRD_ADD_TITLE_INPUT = "lower-third-add-title-input";
 export const TEST_ID_LOWER_THIRD_ADD_SUBTITLE_INPUT = "lower-third-add-subtitle-input";

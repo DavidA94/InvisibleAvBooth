@@ -12,6 +12,8 @@ import {
   TEST_ID_LOWER_THIRD_ADD_DIALOG,
   TEST_ID_LOWER_THIRD_ADD_TITLE_INPUT,
   TEST_ID_LOWER_THIRD_ADD_SAVE,
+  TEST_ID_LOWER_THIRD_ADD_BUTTON,
+  TEST_ID_LOWER_THIRD_ADD_MENU,
 } from "../../src/constants/testIds";
 
 const volunteerLogin = authLoginSuccess({ role: "AvVolunteer" });
@@ -288,5 +290,51 @@ test.describe("Lower-third widget — Overlay connection indicator", () => {
     await loginAndNavigate(page);
 
     await expect(page.locator(".widget-dot-healthy")).toBeVisible({ timeout: 3000 });
+  });
+});
+
+// ── Add menu accessibility (Req 5.10) ────────────────────────────────────────
+
+test.describe("Lower-third widget — Add menu accessibility", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 }); // scaled-down tablet dashboard
+    await routeAuthLogin(page, volunteerLogin);
+    await routeAuthCheck(page, volunteerLogin);
+    await setupDashboardWithLowerThirds(page);
+    await setupSocketWithLowerThirds(page);
+    await loginAndNavigate(page);
+  });
+
+  test("Add and every option are at least 2.75rem tall, with a gap between options", async ({ page }) => {
+    const rem = await page.evaluate(() => parseFloat(getComputedStyle(document.documentElement).fontSize));
+    const addBox = await page.getByTestId(TEST_ID_LOWER_THIRD_ADD_BUTTON).boundingBox();
+    expect(addBox!.height).toBeGreaterThanOrEqual(2.75 * rem - 0.5);
+
+    await page.getByTestId(TEST_ID_LOWER_THIRD_ADD_BUTTON).click();
+    const options = page.getByRole("menuitem");
+    await expect(options).toHaveCount(3);
+    const boxes = await options.evaluateAll((elements) => elements.map((element) => element.getBoundingClientRect().toJSON() as DOMRect));
+    for (const box of boxes) expect(box.height).toBeGreaterThanOrEqual(2.75 * rem - 0.5);
+    for (let index = 1; index < boxes.length; index++) expect(boxes[index]!.top - boxes[index - 1]!.bottom).toBeGreaterThanOrEqual(0.25 * rem - 0.5);
+  });
+
+  test("keyboard: focus ring is visible, arrows move, Escape closes and returns focus", async ({ page }) => {
+    await page.getByTestId(TEST_ID_LOWER_THIRD_ADD_BUTTON).click();
+    await page.keyboard.press("ArrowDown");
+    const focused = page.getByRole("menuitem", { name: "Title + Subtitle" });
+    await expect(focused).toBeFocused();
+    expect(await focused.evaluate((element) => getComputedStyle(element).outlineStyle)).not.toBe("none");
+
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId(TEST_ID_LOWER_THIRD_ADD_MENU)).toHaveCount(0);
+    await expect(page.getByTestId(TEST_ID_LOWER_THIRD_ADD_BUTTON)).toHaveAttribute("aria-expanded", "false");
+  });
+
+  test("tapping outside closes the menu without opening a dialog", async ({ page }) => {
+    await page.getByTestId(TEST_ID_LOWER_THIRD_ADD_BUTTON).click();
+    await expect(page.getByTestId(TEST_ID_LOWER_THIRD_ADD_MENU)).toBeVisible();
+    await page.mouse.click(5, 5);
+    await expect(page.getByTestId(TEST_ID_LOWER_THIRD_ADD_MENU)).toHaveCount(0);
+    await expect(page.getByTestId(TEST_ID_LOWER_THIRD_ADD_DIALOG)).toHaveCount(0);
   });
 });

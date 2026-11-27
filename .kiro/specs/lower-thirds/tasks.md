@@ -253,3 +253,10 @@ _Frontend only. Rationale: volunteers could not easily see which words were on s
 
 - [x] 68. Req 2.8: overlay re-reports size on viewport resize (debounced); backend stores `overlayResolution`, logs each change (warn when incorrect), clears on disconnect; dashboard banner shows the detected size. Unit + integration tests.
   - _Requirements: 2.5, 2.8_
+
+---
+
+## Fix — Add Menu Accessibility
+
+- [x] 69. Req 5.10 revision: extract `AddLowerThirdMenu`; 2.75rem targets and 0.25rem gap; `:focus-visible` ring; close on Escape (focus back to Add) and outside tap; `aria-haspopup`/`aria-expanded`, `role="menu"`/`menuitem`, arrow-key navigation. Unit + Playwright tests (including measured target height at a scaled viewport).
+  - _Requirements: 5.10_

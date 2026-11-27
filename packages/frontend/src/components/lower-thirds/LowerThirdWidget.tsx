@@ -1,11 +1,11 @@
 import { TEST_ID_LOWER_THIRD_WIDGET, TEST_ID_LOWER_THIRD_ACTIVE_SECTION, TEST_ID_LOWER_THIRD_LIBRARY_SECTION } from "../../constants/testIds";
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
-import { IonButton } from "@ionic/react";
 import { WidgetContainer } from "../WidgetContainer";
 import { useLowerThirdState } from "../../hooks/useLowerThirdState";
 import { LowerThirdRow } from "./LowerThirdRow";
 import { AddLowerThirdDialog } from "./AddLowerThirdDialog";
+import { AddLowerThirdMenu } from "./AddLowerThirdMenu";
 import { EditLowerThirdDialog } from "./EditLowerThirdDialog";
 import { PaginationControls } from "./PaginationControls";
 import { ExpandedScriptureModal } from "./ExpandedScriptureModal";
@@ -67,7 +67,6 @@ export function LowerThirdWidget(): ReactNode {
   };
 
   const [addType, setAddType] = useState<LowerThirdType | null>(null);
-  const [showAddDropdown, setShowAddDropdown] = useState(false);
   const [editItem, setEditItem] = useState<LowerThirdItem | null>(null);
   const [openRowId, setOpenRowId] = useState<string | null>(null);
 
@@ -190,42 +189,7 @@ export function LowerThirdWidget(): ReactNode {
         </section>
 
         {/* Add Button */}
-        <div className="lt-add-area">
-          <IonButton expand="block" fill="outline" size="small" onClick={() => setShowAddDropdown(!showAddDropdown)}>
-            Add
-          </IonButton>
-          {showAddDropdown && (
-            <div className="lt-add-dropdown">
-              <button
-                className="lt-add-option"
-                onClick={() => {
-                  setAddType("Title");
-                  setShowAddDropdown(false);
-                }}
-              >
-                Title
-              </button>
-              <button
-                className="lt-add-option"
-                onClick={() => {
-                  setAddType("TitleSubtitle");
-                  setShowAddDropdown(false);
-                }}
-              >
-                Title + Subtitle
-              </button>
-              <button
-                className="lt-add-option"
-                onClick={() => {
-                  setAddType("Scripture");
-                  setShowAddDropdown(false);
-                }}
-              >
-                Scripture
-              </button>
-            </div>
-          )}
-        </div>
+        <AddLowerThirdMenu onSelect={setAddType} />
 
         {active && active.type === "Scripture" && expandedItemId === active.id && (
           <ExpandedScriptureModal
